@@ -242,6 +242,7 @@ func CreateToolUseData(toolCallID, toolName string, arguments string, chatOpts u
 		ToolCallId: toolCallID,
 		ToolName:   toolName,
 		Status:     uctypes.ToolUseStatusPending,
+		ToolSource: "wave",
 	}
 
 	toolDef := chatOpts.GetToolDefinition(toolName)
@@ -265,6 +266,7 @@ func CreateToolUseData(toolCallID, toolName string, arguments string, chatOpts u
 	if toolDef.ToolApproval != nil {
 		toolUseData.Approval = toolDef.ToolApproval(parsedArgs)
 	}
+	toolUseData.ActsOnWidgets = toolDef.ActsOnWidgets
 
 	if chatOpts.TabId != "" {
 		if argsMap, ok := parsedArgs.(map[string]any); ok {

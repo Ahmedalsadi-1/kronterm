@@ -91,12 +91,12 @@ const AIWelcomeMessage = memo(() => {
     return (
         <div className="text-secondary py-8">
             <div className="text-center">
-                <i className="fa fa-sparkles text-4xl text-accent mb-2 block"></i>
-                <p className="text-lg font-bold text-primary">Welcome to Wave AI</p>
+                <i className="fa fa-circle-nodes text-4xl mb-2 block" style={{ color: "#e8c47c" }}></i>
+                <p className="text-lg font-bold text-primary">Welcome to Saturn</p>
             </div>
             <div className="mt-4 text-left max-w-md mx-auto">
                 <p className="text-sm mb-6">
-                    Wave AI is your terminal assistant with context. I can read your terminal output, analyze widgets,
+                    Saturn is your terminal assistant with context. I can read your terminal output, analyze widgets,
                     access files, and help you solve problems faster.
                 </p>
                 <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
@@ -230,6 +230,82 @@ const AIErrorMessage = memo(() => {
 });
 
 AIErrorMessage.displayName = "AIErrorMessage";
+
+function formatGatewayLabel(endpoint?: string): string | null {
+    if (!endpoint) {
+        return null;
+    }
+    try {
+        const parsed = new URL(endpoint);
+        return parsed.host || endpoint;
+    } catch {
+        return endpoint.replace(/^https?:\/\//, "");
+    }
+}
+
+const AIPrivacyStrip = memo(() => {
+    const model = WaveAIModel.getInstance();
+    const currentMode = jotai.useAtomValue(model.currentAIMode);
+    const widgetContextEnabled = jotai.useAtomValue(model.widgetAccessAtom);
+    const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
+    const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
+    const modeConfig = aiModeConfigs[currentMode];
+    const modeName = modeConfig?.["display:name"] || currentMode;
+    const endpoint = modeConfig?.["ai:endpoint"] ?? "";
+    const provider = modeConfig?.["ai:provider"];
+    const apiType = modeConfig?.["ai:apitype"];
+    const toolsEnabled = modeConfig?.["ai:capabilities"]?.includes("tools") ?? false;
+    const isKronosMode = provider === "kronos" || apiType === "kronos-session";
+    const gatewayLabel = formatGatewayLabel(endpoint);
+
+    let privacyLabel = "Custom provider";
+    if (currentMode.startsWith("waveai@") || modeConfig?.["waveai:cloud"]) {
+        privacyLabel = telemetryEnabled ? "Wave cloud" : "Wave cloud locked";
+    } else if (isKronosMode) {
+        privacyLabel = "Local Kronos server";
+    } else if (
+        endpoint.includes("localhost") ||
+        endpoint.includes("127.0.0.1") ||
+        modeConfig?.["ai:apitoken"] === "ollama"
+    ) {
+        privacyLabel = "Local only";
+    } else if (provider === "openai" || provider === "google" || provider === "openrouter" || provider === "azure") {
+        privacyLabel = "Your cloud account";
+    }
+
+    return (
+        <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-900/70">
+            <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Current AI path</div>
+                    <div className="flex items-center gap-2 mt-1 min-w-0">
+                        <span className="text-xs rounded-full px-2 py-1 bg-zinc-800 text-zinc-200 shrink-0">
+                            {privacyLabel}
+                        </span>
+                        <span className="text-sm text-zinc-200 truncate">{modeName}</span>
+                    </div>
+                </div>
+                <button
+                    onClick={() => model.openWaveAIConfig()}
+                    className="text-xs text-accent hover:text-accent/80 cursor-pointer shrink-0"
+                >
+                    Configure
+                </button>
+            </div>
+            <div className="flex items-center gap-4 mt-2 text-xs text-zinc-400">
+                <span>Widget context: {widgetContextEnabled ? "On" : "Off"}</span>
+                <span>Tools: {toolsEnabled ? "Enabled" : "Unavailable"}</span>
+                {isKronosMode && gatewayLabel && <span>Gateway: {gatewayLabel}</span>}
+                {isKronosMode && modeConfig?.["ai:agent"] && <span>Agent: {modeConfig["ai:agent"]}</span>}
+                {isKronosMode && modeConfig?.["ai:kronostoolrouting"] && (
+                    <span>Routing: {modeConfig["ai:kronostoolrouting"]}</span>
+                )}
+            </div>
+        </div>
+    );
+});
+
+AIPrivacyStrip.displayName = "AIPrivacyStrip";
 
 const ConfigChangeModeFixer = memo(() => {
     const model = WaveAIModel.getInstance();
@@ -576,6 +652,7 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
             {(isDragOver || isReactDndDragOver) && allowAccess && <AIDragOverlay />}
             {showBlockMask && <AIBlockMask />}
             <AIPanelHeader />
+            <AIPrivacyStrip />
             <AIRateLimitStrip />
 
             <div key="main-content" className="flex-1 flex flex-col min-h-0">

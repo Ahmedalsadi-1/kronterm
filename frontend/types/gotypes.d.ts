@@ -22,6 +22,7 @@ declare global {
         "ai:provider"?: string;
         "ai:apitype"?: string;
         "ai:model"?: string;
+        "ai:agent"?: string;
         "ai:thinkinglevel"?: string;
         "ai:verbosity"?: string;
         "ai:endpoint"?: string;
@@ -32,6 +33,8 @@ declare global {
         "ai:azureresourcename"?: string;
         "ai:azuredeployment"?: string;
         "ai:capabilities"?: string[];
+        "ai:kronostoolrouting"?: string;
+        "ai:kronospermissionmode"?: string;
         "ai:switchcompat"?: string[];
         "waveai:cloud"?: boolean;
         "waveai:premium"?: boolean;

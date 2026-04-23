@@ -26,6 +26,9 @@
             "openai",
             "azure",
             "azure-legacy",
+            "ollama",
+            "opencode",
+            "kronos",
             "custom"
           ]
         },
@@ -34,10 +37,14 @@
           "enum": [
             "google-gemini",
             "openai-responses",
-            "openai-chat"
+            "openai-chat",
+            "kronos-session"
           ]
         },
         "ai:model": {
+          "type": "string"
+        },
+        "ai:agent": {
           "type": "string"
         },
         "ai:thinkinglevel": {
@@ -88,6 +95,22 @@
             ]
           },
           "type": "array"
+        },
+        "ai:kronostoolrouting": {
+          "type": "string",
+          "enum": [
+            "hybrid",
+            "wave-only",
+            "kronos-only"
+          ]
+        },
+        "ai:kronospermissionmode": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "once",
+            "always"
+          ]
         },
         "ai:switchcompat": {
           "items": {

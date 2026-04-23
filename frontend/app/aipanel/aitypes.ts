@@ -23,6 +23,8 @@ type WaveUIDataTypes = {
         blockid?: string;
         writebackupfilename?: string;
         inputfilename?: string;
+        toolsource?: string;
+        actsonwidgets?: boolean;
     };
 
     toolprogress: {

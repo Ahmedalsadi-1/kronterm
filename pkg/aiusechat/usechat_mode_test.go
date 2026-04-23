@@ -37,3 +37,28 @@ func TestApplyProviderDefaultsKeepsProxyURL(t *testing.T) {
 		t.Fatalf("expected proxy URL to be preserved, got %q", config.ProxyURL)
 	}
 }
+
+func TestApplyProviderDefaultsKronos(t *testing.T) {
+	config := wconfig.AIModeConfigType{
+		Provider: uctypes.AIProvider_Kronos,
+	}
+	applyProviderDefaults(&config)
+	if config.APIType != uctypes.APIType_KronosSession {
+		t.Fatalf("expected API type %q, got %q", uctypes.APIType_KronosSession, config.APIType)
+	}
+	if config.Endpoint != KronosSessionEndpoint {
+		t.Fatalf("expected endpoint %q, got %q", KronosSessionEndpoint, config.Endpoint)
+	}
+	if config.APITokenSecretName != KronosServerPasswordSecretName {
+		t.Fatalf("expected API token secret name %q, got %q", KronosServerPasswordSecretName, config.APITokenSecretName)
+	}
+	if config.Agent != "coder" {
+		t.Fatalf("expected default agent %q, got %q", "coder", config.Agent)
+	}
+	if config.KronosToolRouting != "hybrid" {
+		t.Fatalf("expected default tool routing %q, got %q", "hybrid", config.KronosToolRouting)
+	}
+	if config.KronosPermissionMode != "always" {
+		t.Fatalf("expected default permission mode %q, got %q", "always", config.KronosPermissionMode)
+	}
+}

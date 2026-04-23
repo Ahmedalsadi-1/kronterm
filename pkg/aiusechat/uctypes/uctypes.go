@@ -21,6 +21,7 @@ const (
 	APIType_OpenAIResponses   = "openai-responses"
 	APIType_OpenAIChat        = "openai-chat"
 	APIType_GoogleGemini      = "google-gemini"
+	APIType_KronosSession     = "kronos-session"
 )
 
 const (
@@ -32,6 +33,9 @@ const (
 	AIProvider_OpenAI      = "openai"
 	AIProvider_Azure       = "azure"
 	AIProvider_AzureLegacy = "azure-legacy"
+	AIProvider_Ollama      = "ollama"
+	AIProvider_OpenCode    = "opencode"
+	AIProvider_Kronos      = "kronos"
 	AIProvider_Custom      = "custom"
 )
 
@@ -103,7 +107,9 @@ type ToolDefinition struct {
 	DisplayName          string         `json:"displayname,omitempty"` // internal field (cannot marshal to API, must be stripped)
 	Description          string         `json:"description"`
 	ShortDescription     string         `json:"shortdescription,omitempty"` // internal field (cannot marshal to API, must be stripped)
-	ToolLogName          string         `json:"-"`                          // short name for telemetry (e.g., "term:getscrollback")
+	Source               string         `json:"source,omitempty"`
+	ActsOnWidgets        bool           `json:"actsonwidgets,omitempty"`
+	ToolLogName          string         `json:"-"` // short name for telemetry (e.g., "term:getscrollback")
 	InputSchema          map[string]any `json:"input_schema"`
 	Strict               bool           `json:"strict,omitempty"`
 	RequiredCapabilities []string       `json:"requiredcapabilities,omitempty"`
@@ -201,6 +207,8 @@ type UIMessageDataToolUse struct {
 	BlockId             string `json:"blockid,omitempty"`
 	WriteBackupFileName string `json:"writebackupfilename,omitempty"`
 	InputFileName       string `json:"inputfilename,omitempty"`
+	ToolSource          string `json:"toolsource,omitempty"`
+	ActsOnWidgets       bool   `json:"actsonwidgets,omitempty"`
 }
 
 func (d *UIMessageDataToolUse) IsApproved() bool {
@@ -251,20 +259,23 @@ type WaveContinueResponse struct {
 
 // Wave Specific AI opts for configuration
 type AIOptsType struct {
-	Provider      string   `json:"provider,omitempty"`
-	APIType       string   `json:"apitype,omitempty"`
-	Model         string   `json:"model"`
-	APIToken      string   `json:"apitoken"`
-	APIVersion    string   `json:"apiversion,omitempty"`
-	Endpoint      string   `json:"endpoint,omitempty"`
-	ProxyURL      string   `json:"proxyurl,omitempty"`
-	MaxTokens     int      `json:"maxtokens,omitempty"`
-	TimeoutMs     int      `json:"timeoutms,omitempty"`
-	ThinkingLevel string   `json:"thinkinglevel,omitempty"` // ThinkingLevelLow, ThinkingLevelMedium, or ThinkingLevelHigh
-	Verbosity     string   `json:"verbosity,omitempty"`     // Text verbosity level (OpenAI Responses API only, ignored by other backends)
-	AIMode        string   `json:"aimode,omitempty"`
-	Capabilities  []string `json:"capabilities,omitempty"`
-	WaveAIPremium bool     `json:"waveaipremium,omitempty"`
+	Provider       string   `json:"provider,omitempty"`
+	APIType        string   `json:"apitype,omitempty"`
+	Model          string   `json:"model"`
+	Agent          string   `json:"agent,omitempty"`
+	APIToken       string   `json:"apitoken"`
+	APIVersion     string   `json:"apiversion,omitempty"`
+	Endpoint       string   `json:"endpoint,omitempty"`
+	ProxyURL       string   `json:"proxyurl,omitempty"`
+	MaxTokens      int      `json:"maxtokens,omitempty"`
+	TimeoutMs      int      `json:"timeoutms,omitempty"`
+	ThinkingLevel  string   `json:"thinkinglevel,omitempty"` // ThinkingLevelLow, ThinkingLevelMedium, or ThinkingLevelHigh
+	Verbosity      string   `json:"verbosity,omitempty"`     // Text verbosity level (OpenAI Responses API only, ignored by other backends)
+	AIMode         string   `json:"aimode,omitempty"`
+	Capabilities   []string `json:"capabilities,omitempty"`
+	ToolRouting    string   `json:"toolrouting,omitempty"`
+	PermissionMode string   `json:"permissionmode,omitempty"`
+	WaveAIPremium  bool     `json:"waveaipremium,omitempty"`
 }
 
 func (opts AIOptsType) IsWaveProxy() bool {
@@ -280,11 +291,12 @@ func (opts AIOptsType) HasCapability(cap string) bool {
 }
 
 type AIChat struct {
-	ChatId         string         `json:"chatid"`
-	APIType        string         `json:"apitype"`
-	Model          string         `json:"model"`
-	APIVersion     string         `json:"apiversion"`
-	NativeMessages []GenAIMessage `json:"nativemessages"`
+	ChatId           string         `json:"chatid"`
+	APIType          string         `json:"apitype"`
+	Model            string         `json:"model"`
+	APIVersion       string         `json:"apiversion"`
+	BackendSessionId string         `json:"backendsessionid,omitempty"`
+	NativeMessages   []GenAIMessage `json:"nativemessages"`
 }
 
 type AIUsage struct {

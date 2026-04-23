@@ -31,11 +31,12 @@ func (cs *ChatStore) Get(chatId string) *uctypes.AIChat {
 
 	// Copy the chat to prevent concurrent access issues
 	copyChat := &uctypes.AIChat{
-		ChatId:         chat.ChatId,
-		APIType:        chat.APIType,
-		Model:          chat.Model,
-		APIVersion:     chat.APIVersion,
-		NativeMessages: make([]uctypes.GenAIMessage, len(chat.NativeMessages)),
+		ChatId:           chat.ChatId,
+		APIType:          chat.APIType,
+		Model:            chat.Model,
+		APIVersion:       chat.APIVersion,
+		BackendSessionId: chat.BackendSessionId,
+		NativeMessages:   make([]uctypes.GenAIMessage, len(chat.NativeMessages)),
 	}
 	copy(copyChat.NativeMessages, chat.NativeMessages)
 
@@ -109,6 +110,18 @@ func (cs *ChatStore) PostMessage(chatId string, aiOpts *uctypes.AIOptsType, mess
 	chat.NativeMessages = append(chat.NativeMessages, message)
 
 	return nil
+}
+
+func (cs *ChatStore) MutateChat(chatId string, mutateFn func(chat *uctypes.AIChat) error) error {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+
+	chat := cs.chats[chatId]
+	if chat == nil {
+		return fmt.Errorf("chat not found: %s", chatId)
+	}
+
+	return mutateFn(chat)
 }
 
 func (cs *ChatStore) RemoveMessage(chatId string, messageId string) bool {

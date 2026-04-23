@@ -39,5 +39,42 @@
         "ai:capabilities": ["tools", "images", "pdfs"],
         "waveai:premium": true,
         "ai:switchcompat": ["wavecloud"]
+    },
+    "waveai@ollama": {
+        "display:name": "Ollama (Local)",
+        "display:order": 10,
+        "display:icon": "server",
+        "display:description": "Run AI models locally via Ollama\n(no API key needed)",
+        "ai:provider": "ollama",
+        "ai:apitype": "openai-chat",
+        "ai:model": "llama3.2",
+        "ai:endpoint": "http://localhost:11434/v1/chat/completions",
+        "ai:capabilities": ["tools", "images"]
+    },
+    "waveai@opencode": {
+        "display:name": "OpenCode Zen",
+        "display:order": 11,
+        "display:icon": "zap",
+        "display:description": "Coding-optimized gateway via OpenCode Zen\n(get API key at opencode.ai/auth)",
+        "ai:provider": "opencode",
+        "ai:apitype": "openai-chat",
+        "ai:model": "opencode/gpt-5.4",
+        "ai:endpoint": "https://opencode.ai/zen/v1/chat/completions",
+        "ai:capabilities": ["tools", "images", "pdfs"]
+    },
+    "waveai@kronos": {
+        "display:name": "Kronos Local",
+        "display:order": 12,
+        "display:icon": "server",
+        "display:description": "Saturn UI powered by a local KronosCode session engine",
+        "ai:provider": "kronos",
+        "ai:apitype": "kronos-session",
+        "ai:model": "anthropic/claude-sonnet-4-5",
+        "ai:agent": "coder",
+        "ai:endpoint": "http://127.0.0.1:3001",
+        "ai:apitokensecretname": "KRONOSCODE_SERVER_PASSWORD",
+        "ai:kronostoolrouting": "hybrid",
+        "ai:kronospermissionmode": "always",
+        "ai:capabilities": ["tools"]
     }
 }

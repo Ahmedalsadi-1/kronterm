@@ -60,6 +60,7 @@ var _ UseChatBackend = (*openaiResponsesBackend)(nil)
 var _ UseChatBackend = (*openaiCompletionsBackend)(nil)
 var _ UseChatBackend = (*anthropicBackend)(nil)
 var _ UseChatBackend = (*geminiBackend)(nil)
+var _ UseChatBackend = (*kronosSessionBackend)(nil)
 
 // GetBackendByAPIType returns the appropriate UseChatBackend implementation for the given API type
 func GetBackendByAPIType(apiType string) (UseChatBackend, error) {
@@ -72,6 +73,8 @@ func GetBackendByAPIType(apiType string) (UseChatBackend, error) {
 		return &anthropicBackend{}, nil
 	case uctypes.APIType_GoogleGemini:
 		return &geminiBackend{}, nil
+	case uctypes.APIType_KronosSession:
+		return &kronosSessionBackend{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported API type: %s", apiType)
 	}

@@ -77,6 +77,28 @@ const ToolDesc = memo(({ text, className }: ToolDescProps) => {
 
 ToolDesc.displayName = "ToolDesc";
 
+function getToolSourceBadge(toolSource?: string): { label: string; className: string } | null {
+    if (toolSource === "kronos") {
+        return {
+            label: "Kronos native",
+            className: "border-cyan-700/60 bg-cyan-500/10 text-cyan-200",
+        };
+    }
+    if (toolSource === "wave") {
+        return {
+            label: "Wave bridge",
+            className: "border-amber-700/60 bg-amber-500/10 text-amber-200",
+        };
+    }
+    return null;
+}
+
+const ToolBadge = memo(({ label, className }: { label: string; className: string }) => {
+    return <span className={cn("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide", className)}>{label}</span>;
+});
+
+ToolBadge.displayName = "ToolBadge";
+
 function getEffectiveApprovalStatus(baseApproval: string, isStreaming: boolean): string {
     return !isStreaming && baseApproval === "needs-approval" ? "timeout" : baseApproval;
 }
@@ -150,6 +172,7 @@ const AIToolUseBatch = memo(({ parts, isStreaming }: AIToolUseBatchProps) => {
     const firstTool = parts[0].data;
     const baseApproval = userApprovalOverride || firstTool.approval;
     const effectiveApproval = getEffectiveApprovalStatus(baseApproval, isStreaming);
+    const sourceBadge = getToolSourceBadge(firstTool.toolsource);
 
     const handleApprove = () => {
         setUserApprovalOverride("user-approved");
@@ -168,7 +191,10 @@ const AIToolUseBatch = memo(({ parts, isStreaming }: AIToolUseBatchProps) => {
     return (
         <div className="flex items-start gap-2 p-2 rounded bg-zinc-800/60 border border-zinc-700">
             <div className="flex-1">
-                <div className="font-semibold">Reading Files</div>
+                <div className="flex items-center gap-2">
+                    <div className="font-semibold">Reading Files</div>
+                    {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
+                </div>
                 <div className="mt-1 space-y-0.5">
                     {parts.map((part, idx) => (
                         <AIToolUseBatchItem key={idx} part={part} effectiveApproval={effectiveApproval} />
@@ -201,6 +227,7 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
     const statusIcon = toolData.status === "completed" ? "✓" : toolData.status === "error" ? "✗" : "•";
     const statusColor =
         toolData.status === "completed" ? "text-success" : toolData.status === "error" ? "text-error" : "text-gray-400";
+    const sourceBadge = getToolSourceBadge(toolData.toolsource);
 
     const baseApproval = userApprovalOverride || toolData.approval;
     const effectiveApproval = getEffectiveApprovalStatus(baseApproval, isStreaming);
@@ -274,6 +301,13 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
             <div className="flex items-center gap-2">
                 <span className="font-bold">{statusIcon}</span>
                 <div className="font-semibold">{toolData.toolname}</div>
+                {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
+                {toolData.actsonwidgets && (
+                    <ToolBadge
+                        label="Live widget"
+                        className="border-emerald-700/60 bg-emerald-500/10 text-emerald-200"
+                    />
+                )}
                 <div className="flex-1" />
                 {isFileWriteTool &&
                     toolData.inputfilename &&

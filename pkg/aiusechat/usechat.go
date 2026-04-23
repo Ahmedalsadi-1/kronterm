@@ -30,6 +30,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/waveappstore"
 	"github.com/wavetermdev/waveterm/pkg/wavebase"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
+	"github.com/wavetermdev/waveterm/pkg/wconfig"
 	"github.com/wavetermdev/waveterm/pkg/web/sse"
 	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wstore"
@@ -71,6 +72,28 @@ func isLocalEndpoint(endpoint string) bool {
 	return strings.Contains(endpointLower, "localhost") || strings.Contains(endpointLower, "127.0.0.1")
 }
 
+func resolveConfiguredAPIToken(config wconfig.AIModeConfigType, requireSecretIfNamed bool) (string, bool, error) {
+	apiToken := strings.TrimSpace(config.APIToken)
+	if apiToken != "" {
+		return apiToken, true, nil
+	}
+	if config.APITokenSecretName == "" {
+		return "", false, nil
+	}
+	secret, exists, err := secretstore.GetSecret(config.APITokenSecretName)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to retrieve secret %s: %w", config.APITokenSecretName, err)
+	}
+	secret = strings.TrimSpace(secret)
+	if !exists || secret == "" {
+		if requireSecretIfNamed {
+			return "", false, fmt.Errorf("secret %s not found or empty", config.APITokenSecretName)
+		}
+		return "", false, nil
+	}
+	return secret, true, nil
+}
+
 func getWaveAISettings(premium bool, builderMode bool, rtInfo waveobj.ObjRTInfo, aiModeName string) (*uctypes.AIOptsType, error) {
 	maxTokens := DefaultMaxTokens
 	if builderMode {
@@ -86,17 +109,9 @@ func getWaveAISettings(premium bool, builderMode bool, rtInfo waveobj.ObjRTInfo,
 	if config.WaveAICloud && !telemetry.IsTelemetryEnabled() {
 		return nil, fmt.Errorf("Wave AI cloud modes require telemetry to be enabled")
 	}
-	apiToken := config.APIToken
-	if apiToken == "" && config.APITokenSecretName != "" {
-		secret, exists, err := secretstore.GetSecret(config.APITokenSecretName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve secret %s: %w", config.APITokenSecretName, err)
-		}
-		secret = strings.TrimSpace(secret)
-		if !exists || secret == "" {
-			return nil, fmt.Errorf("secret %s not found or empty", config.APITokenSecretName)
-		}
-		apiToken = secret
+	apiToken, _, err := resolveConfiguredAPIToken(*config, true)
+	if err != nil {
+		return nil, err
 	}
 
 	var baseUrl string
@@ -115,17 +130,20 @@ func getWaveAISettings(premium bool, builderMode bool, rtInfo waveobj.ObjRTInfo,
 		verbosity = uctypes.VerbosityLevelMedium // default to medium
 	}
 	opts := &uctypes.AIOptsType{
-		Provider:      config.Provider,
-		APIType:       config.APIType,
-		Model:         config.Model,
-		MaxTokens:     maxTokens,
-		ThinkingLevel: thinkingLevel,
-		Verbosity:     verbosity,
-		AIMode:        aiMode,
-		Endpoint:      baseUrl,
-		ProxyURL:      config.ProxyURL,
-		Capabilities:  config.Capabilities,
-		WaveAIPremium: config.WaveAIPremium,
+		Provider:       config.Provider,
+		APIType:        config.APIType,
+		Model:          config.Model,
+		Agent:          config.Agent,
+		MaxTokens:      maxTokens,
+		ThinkingLevel:  thinkingLevel,
+		Verbosity:      verbosity,
+		AIMode:         aiMode,
+		Endpoint:       baseUrl,
+		ProxyURL:       config.ProxyURL,
+		Capabilities:   config.Capabilities,
+		ToolRouting:    config.KronosToolRouting,
+		PermissionMode: config.KronosPermissionMode,
+		WaveAIPremium:  config.WaveAIPremium,
 	}
 	if apiToken != "" {
 		opts.APIToken = apiToken
