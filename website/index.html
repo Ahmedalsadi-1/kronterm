@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KronTerm — The AI-native terminal workspace</title>
+  <link rel="icon" type="image/png" href="../assets/kronterm-pet-logo.png" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    /* ─── Warp-Inspired Design System ─── */
+    :root {
+      --bg-primary: #0c0c0f;
+      --bg-secondary: #111114;
+      --bg-card: #18181b;
+      --bg-card-hover: #202023;
+      --bg-surface: #1c1c1f;
+      --text-primary: #f0f0f0;
+      --text-secondary: #9a9a9e;
+      --text-tertiary: #6a6a6e;
+      --border: rgba(255,255,255,0.06);
+      --border-hover: rgba(255,255,255,0.12);
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-subtle: rgba(108,92,231,0.08);
+      --accent-glow: rgba(108,92,231,0.3);
+      --gradient-text: linear-gradient(135deg,#f0f0f0 0%,#a29bfe 100%);
+      --section-spacing: 100px;
+      --nav-height: 84px;
+    }
+    [data-theme="light"] {
+      --bg-primary: #f7f7f8;
+      --bg-secondary: #f0f0f2;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f5f5f7;
+      --bg-surface: #ffffff;
+      --text-primary: #1c1c1e;
+      --text-secondary: #6a6a6e;
+      --text-tertiary: #9a9a9e;
+      --border: rgba(0,0,0,0.08);
+      --border-hover: rgba(0,0,0,0.15);
+      --accent-subtle: rgba(108,92,231,0.06);
+    }
+
+    /* ═══════════════════════════════════════════
+       THEME VARIABLES
+       ═══════════════════════════════════════════ */
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #0e0e14;
+      --bg-card: #18181b;
+      --bg-card-hover: #1f1f23;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text-primary: #e4e4e7;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --text-dim: #52525b;
+      --accent: #7c3aed;
+      --accent-light: #a78bfa;
+      --accent-glow: rgba(124,58,237,0.35);
+      --accent-subtle: rgba(124,58,237,0.12);
+      --gradient-text: linear-gradient(135deg, #fff, #a1a1aa);
+      --gradient-btn: linear-gradient(135deg, #7c3aed, #a855f7);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3);
+      --shadow-img: 0 12px 40px rgba(0,0,0,0.3);
+      --nav-bg: rgba(10,10,15,0.85);
+      --card-suit: #e4e4e7;
+      --card-suit-alt: #52525b;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #fafafa;
+      --bg-secondary: #f5f5f5;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f0f0f0;
+      --border: #e4e4e7;
+      --border-hover: #d4d4d8;
+      --text-primary: #18181b;
+      --text-secondary: #52525b;
+      --text-muted: #71717a;
+      --text-dim: #a1a1aa;
+      --accent: #7c3aed;
+      --accent-light: #7c3aed;
+      --accent-glow: rgba(124,58,237,0.25);
+      --accent-subtle: rgba(124,58,237,0.08);
+      --gradient-text: linear-gradient(135deg, #18181b, #52525b);
+      --gradient-btn: linear-gradient(135deg, #7c3aed, #9333ea);
+      --shadow-card: 0 2px 12px rgba(0,0,0,0.08);
+      --shadow-img: 0 8px 30px rgba(0,0,0,0.08);
+      --nav-bg: rgba(250,250,250,0.85);
+      --card-suit: #18181b;
+      --card-suit-alt: #d4d4d8;
+    }
+
+    /* ═══════════════════════════════════════════
+       SECTIONS (Warp-inspired spacing)
+       ═══════════════════════════════════════════ */
+    .section { padding: 120px 0; position: relative; }
+    .section-alt { background: var(--bg-secondary); }
+    .section-title {
+      font-weight: 450;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════════
+       NAV (Warp-inspired — 84px glass)
+       ═══════════════════════════════════════════ */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-height);
+      background: rgba(12,12,15,0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    [data-theme="light"] nav {
+      background: rgba(247,247,248,0.7);
+    }
+    nav .container {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 100%;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text-primary);
+      font-weight: 500; font-size: 15px;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 6px; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px; list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none; font-size: 14px; font-weight: 450;
+      transition: color 0.2s; padding: 4px 10px; border-radius: 3px;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links .btn {
+      padding: 4px 16px; font-size: 14px; font-weight: 500;
+      margin-left: 8px;
+    }
+
+    /* ═══ Theme Toggle Button ═══ */
+    .theme-toggle {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      font-size: 16px;
+      padding: 0;
+      line-height: 1;
+    }
+    .theme-toggle:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+    .theme-toggle svg { width: 18px; height: 18px; }
+
+    /* ═══════════════════════════════════════════
+       HERO (Warp-inspired)
+       ═══════════════════════════════════════════ */
+    .hero {
+      padding: 140px 0 80px;
+      min-height: 80vh;
+      display: flex; align-items: center;
+      text-align: left;
+    }
+    .hero .container {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 20px;
+      max-width: 780px;
+    }
+    .hero-content h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 450;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      text-wrap: balance;
+      background: none;
+      -webkit-background-clip: unset;
+      -webkit-text-fill-color: unset;
+      margin-bottom: 0;
+    }
+    .hero-content p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.7;
+      margin: 0;
+    }
+    .hero-cta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .hero-cta .btn {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 4px 16px;
+      border-radius: 3px;
+      height: 36px;
+      line-height: 1;
+    }
+    .hero-cta .btn-primary {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+    }
+    .hero-cta .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+    }
+    .hero-cta .download-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-surface);
+      border-radius: 3px;
+      padding: 2px 12px 2px 2px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .hero-cta .download-cmd .btn {
+      border-radius: 2px;
+    }
+    .hero-img {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.4);
+    }
+    .hero-img img { width: 100%; height: auto; display: block; }
+
+    /* ═══════════════════════════════════════════
+       TERMINAL DEMO (Magic UI)
+       ═══════════════════════════════════════════ */
+    .terminal-demo-wrapper {
+      margin: 60px auto 0;
+      max-width: 640px;
+      display: flex;
+      justify-content: center;
+    }
+    .terminal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .terminal-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.red { background: #ef4444; }
+    .terminal-dot.yellow { background: #eab308; }
+    .terminal-dot.green { background: #22c55e; }
+    .terminal-title {
+      margin-left: auto;
+      font-size: 12px; color: var(--text-dim);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .terminal-body {
+      padding: 20px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      min-height: 280px;
+    }
+    .terminal-line {
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .terminal-line.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .terminal-line .prompt { color: #22c55e; }
+    .terminal-line .cmd { color: var(--text-primary); }
+    .terminal-line .output { color: var(--text-secondary); }
+    .terminal-line .highlight { color: var(--accent-light); }
+    .terminal-line .string { color: #f59e0b; }
+    .terminal-line .comment { color: var(--text-dim); font-style: italic; }
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px; height: 16px;
+      background: var(--accent-light);
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .terminal-typing {
+      display: inline;
+    }
+    .terminal-typing .char {
+      opacity: 0;
+    }
+    .terminal-typing .char.revealed {
+      opacity: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       FEATURE ROW (Warp-inspired)
+       ═══════════════════════════════════════════ */
+    .feature-row {
+      display: flex; align-items: center; gap: 80px;
+      margin-bottom: 120px;
+    }
+    .feature-row:last-child { margin-bottom: 0; }
+    .feature-row.reverse { flex-direction: row-reverse; }
+    .feature-text { flex: 1; }
+    .feature-number {
+      font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+      color: var(--text-tertiary); margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .feature-text h2 {
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      font-weight: 450;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+    .feature-text p {
+      color: var(--text-secondary);
+      font-size: 16px;
+      margin-bottom: 20px;
+      line-height: 1.7;
+    }
+    .feature-text ul { list-style: none; margin-top: 16px; }
+    .feature-text ul li {
+      padding: 8px 0; padding-left: 24px; position: relative;
+      font-size: 15px; color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .feature-text ul li::before {
+      content: ''; position: absolute; left: 0; top: 14px;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+    }
+    .feature-img { flex: 1; }
+    .feature-img img {
+      width: 100%; height: auto; border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .premium-tag {
+      display: inline-block; padding: 3px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+      background: linear-gradient(135deg, #f59e0b, #eab308); color: #000;
+      margin-left: 8px; vertical-align: middle;
+    }
+
+    /* ═══════════════════════════════════════════
+       PLAYING CARD STYLES
+       ═══════════════════════════════════════════ */
+    .playing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .playing-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      border-color: var(--accent);
+    }
+    .playing-card .card-corner {
+      position: absolute;
+      top: 8px; right: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--card-suit-alt);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .playing-card .card-corner-bot {
+      position: absolute;
+      bottom: 8px; left: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--card-suit-alt);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      transform: rotate(180deg);
+    }
+    .playing-card .card-suit-icon {
+      position: absolute;
+      top: 8px; left: 12px;
+      font-size: 16px;
+      opacity: 0.15;
+    }
+    .playing-card .card-suit-icon-bot {
+      position: absolute;
+      bottom: 8px; right: 12px;
+      font-size: 16px;
+      opacity: 0.15;
+      transform: rotate(180deg);
+    }
+
+    /* ═══════════════════════════════════════════
+       AGENT GRID (Playing Cards)
+       ═══════════════════════════════════════════ */
+    .agent-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      margin-top: 20px;
+    }
+    .agent-card {
+      background: var(--bg-card); border-radius: 10px; padding: 24px;
+      border: 1px solid var(--border);
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .agent-card:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+    }
+    .agent-card .agent-icon {
+      font-size: 20px; margin-bottom: 12px; display: block;
+    }
+    .agent-card h4 {
+      font-size: 15px; font-weight: 500; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+      letter-spacing: -0.01em;
+    }
+    .agent-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ═══════════════════════════════════════════
+       DOWNLOAD CARDS (Playing Cards)
+       ═══════════════════════════════════════════ */
+    .download-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      margin-top: 32px; max-width: 800px; margin-left: auto; margin-right: auto;
+    }
+    .download-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 28px 24px 24px; text-align: center;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .download-card:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+    }
+    .download-card .platform-icon {
+      font-size: 24px; margin-bottom: 12px; display: block;
+    }
+    .download-card h3 { font-size: 16px; font-weight: 500; margin-bottom: 4px; letter-spacing: -0.01em; }
+    .download-card .arch { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
+    .download-card .btn {
+      width: 100%; justify-content: center;
+      font-size: 13px; padding: 4px 12px; height: 32px;
+    }
+    .download-note { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-tertiary); }
+    .download-note a { color: var(--text-secondary); transition: color 0.2s; }
+    .download-note a:hover { color: var(--text-primary); }
+
+    /* ═══════════════════════════════════════════
+       UIVERSE: 3D SPINNER CUBE
+       ═══════════════════════════════════════════ */
+    .spinner-wrapper {
+      display: flex; justify-content: center; align-items: center;
+      margin-bottom: 20px;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      animation: spinner-y0fdc1 2s infinite ease;
+      transform-style: preserve-3d;
+    }
+    .spinner > div {
+      background-color: rgba(124,58,237,0.2);
+      height: 100%;
+      position: absolute;
+      width: 100%;
+      border: 2px solid var(--accent);
+    }
+    .spinner div:nth-of-type(1) { transform: translateZ(-22px) rotateY(180deg); }
+    .spinner div:nth-of-type(2) { transform: rotateY(-270deg) translateX(50%); transform-origin: top right; }
+    .spinner div:nth-of-type(3) { transform: rotateY(270deg) translateX(-50%); transform-origin: center left; }
+    .spinner div:nth-of-type(4) { transform: rotateX(90deg) translateY(-50%); transform-origin: top center; }
+    .spinner div:nth-of-type(5) { transform: rotateX(-90deg) translateY(50%); transform-origin: bottom center; }
+    .spinner div:nth-of-type(6) { transform: translateZ(22px); }
+
+    @keyframes spinner-y0fdc1 {
+      0% { transform: rotate(45deg) rotateX(-25deg) rotateY(25deg); }
+      50% { transform: rotate(45deg) rotateX(-385deg) rotateY(25deg); }
+      100% { transform: rotate(45deg) rotateX(-385deg) rotateY(385deg); }
+    }
+
+    /* ═══════════════════════════════════════════
+       UIVERSE: 3D SEARCH INPUT
+       ═══════════════════════════════════════════ */
+    .search-card-wrapper {
+      max-width: 380px;
+      margin: 20px auto 0;
+    }
+    .input__container {
+      position: relative;
+      background: var(--bg-card);
+      padding: 20px;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      border: 4px solid var(--accent);
+      max-width: 100%;
+      transition: all 400ms cubic-bezier(0.23, 1, 0.32, 1);
+      transform-style: preserve-3d;
+      transform: rotateX(10deg) rotateY(-10deg);
+      perspective: 1000px;
+      box-shadow: 10px 10px 0 rgba(124,58,237,0.3);
+      border-radius: 4px;
+    }
+    .input__container:hover {
+      transform: rotateX(5deg) rotateY(1deg) scale(1.02);
+      box-shadow: 18px 18px 0 -5px var(--accent), 18px 18px 0 0 rgba(124,58,237,0.3);
+    }
+    .shadow__input {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      bottom: 0;
+      z-index: -1;
+      transform: translateZ(-50px);
+      background: linear-gradient(45deg, rgba(124,58,237,0.4) 0%, rgba(124,58,237,0.1) 100%);
+      filter: blur(20px);
+    }
+    .input__button__shadow {
+      cursor: pointer;
+      border: 3px solid var(--accent);
+      background: var(--accent);
+      transition: all 400ms cubic-bezier(0.23, 1, 0.32, 1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+      transform: translateZ(20px);
+      position: relative;
+      z-index: 3;
+      font-weight: bold;
+      text-transform: uppercase;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .input__button__shadow:hover {
+      background: #9333ea;
+      transform: translateZ(10px) translateX(-5px) translateY(-5px);
+      box-shadow: 5px 5px 0 0 rgba(0,0,0,0.3);
+    }
+    .input__button__shadow svg {
+      fill: #fff;
+      width: 22px;
+      height: 22px;
+    }
+    .input__search {
+      width: 100%;
+      outline: none;
+      border: 3px solid var(--border);
+      padding: 12px 14px;
+      font-size: 16px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      transform: translateZ(10px);
+      transition: all 400ms cubic-bezier(0.23, 1, 0.32, 1);
+      position: relative;
+      z-index: 3;
+      font-family: inherit;
+      letter-spacing: -0.3px;
+      border-radius: 4px;
+    }
+    .input__search::placeholder {
+      color: var(--text-dim);
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .input__search:hover,
+    .input__search:focus {
+      background: var(--bg-secondary);
+      transform: translateZ(20px) translateX(-3px) translateY(-3px);
+      box-shadow: 3px 3px 0 0 var(--accent);
+    }
+    .input__container::before {
+      content: "NEWSLETTER";
+      position: absolute;
+      top: -15px;
+      left: 20px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: bold;
+      padding: 4px 10px;
+      font-size: 12px;
+      transform: translateZ(50px);
+      z-index: 4;
+      border: 2px solid var(--accent);
+      border-radius: 3px;
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════
+       UIVERSE: SOCIAL MEDIA PLAYING CARDS
+       ═══════════════════════════════════════════ */
+    .social-playing-cards {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      justify-content: center;
+      margin: 24px 0;
+    }
+    .social-card {
+      width: 100px; height: 100px;
+      outline: none; border: 2px solid var(--border);
+      background: var(--bg-card);
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .social-card:hover {
+      transform: translateY(-6px) scale(1.05);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .social-card svg {
+      width: 36px; height: 36px;
+      fill: var(--text-secondary);
+      transition: fill 0.3s;
+    }
+    .social-card .card-label {
+      position: absolute;
+      bottom: 6px;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--card-suit-alt);
+      font-family: 'SF Mono', monospace;
+    }
+    .social-card .card-corner-sm {
+      position: absolute;
+      top: 4px; right: 6px;
+      font-size: 8px;
+      color: var(--card-suit-alt);
+    }
+    .social-card:hover .instagram-fill { fill: #cc39a4; }
+    .social-card:hover .twitter-fill { fill: #1da1f2; }
+    .social-card:hover .github-fill { fill: var(--text-primary); }
+    .social-card:hover .discord-fill { fill: #5865f2; }
+
+    /* ═══════════════════════════════════════════
+       MAGIC UI: GLOBE SECTION
+       ═══════════════════════════════════════════ */
+    .globe-section {
+      position: relative;
+      overflow: hidden;
+      padding: 80px 0;
+    }
+    .globe-container {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      aspect-ratio: 1;
+    }
+    .globe-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+      opacity: 1 !important;
+      transition: opacity 0.5s;
+    }
+    .globe-overlay-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(60px, 12vw, 100px);
+      font-weight: 800;
+      letter-spacing: -3px;
+      text-align: center;
+      pointer-events: none;
+      background: linear-gradient(to bottom, transparent 10%, rgba(10,10,15,0.6) 60%, rgba(10,10,15,0.9) 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      z-index: 2;
+      line-height: 1;
+    }
+    [data-theme="light"] .globe-overlay-text {
+      background: linear-gradient(to bottom, transparent 10%, rgba(250,250,250,0.6) 60%, rgba(250,250,250,0.9) 90%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .globe-gradient {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      height: 100%;
+      background: radial-gradient(circle at 50% 200%, rgba(0,0,0,0.2), rgba(255,255,255,0));
+      z-index: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       SPINNER FEATURE CARD
+       ═══════════════════════════════════════════ */
+    .spinner-feature-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 24px;
+    }
+    .spinner-feature-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════ */
+    footer { border-top: 1px solid var(--border); padding: 48px 0 32px; }
+    footer .container { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 32px; }
+    .footer-col h4 {
+      font-size: 13px; font-weight: 600; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+    }
+    .footer-col a {
+      display: block; color: var(--text-muted); text-decoration: none;
+      font-size: 14px; padding: 4px 0; transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--text-primary); }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      margin-top: 32px; padding-top: 20px;
+      text-align: center; font-size: 13px; color: var(--text-dim);
+    }
+    .footer-social {
+      margin-top: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       FAQ
+       ═══════════════════════════════════════════ */
+    .faq-list { max-width: 720px; margin: 0 auto; }
+    .faq-item { border-bottom: 1px solid var(--border); }
+    .faq-q {
+      width: 100%; text-align: left; padding: 20px 0;
+      background: none; border: none; color: var(--text-primary);
+      font-size: 16px; font-weight: 500; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .faq-q:hover { color: var(--text-primary); }
+    .faq-q svg { width: 20px; height: 20px; transition: transform 0.2s; color: var(--text-dim); flex-shrink: 0; margin-left: 12px; }
+    .faq-q.open svg { transform: rotate(180deg); }
+    .faq-a {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      color: var(--text-secondary); font-size: 15px; line-height: 1.7;
+    }
+    .faq-a-inner { padding-bottom: 20px; }
+    .faq-q.open + .faq-a { max-height: 300px; }
+
+    /* ═══════════════════════════════════════════
+       INTERACTIVE GRID PATTERN (Magic UI)
+       ═══════════════════════════════════════════ */
+    .grid-pattern-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .grid-pattern-container svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.15;
+    }
+    .grid-pattern-container svg rect {
+      stroke: var(--accent);
+      stroke-width: 0.5;
+      fill: transparent;
+      transition: fill 0.15s ease-in-out;
+    }
+    .grid-pattern-container svg rect.hovered {
+      fill: var(--accent);
+      fill-opacity: 0.08;
+    }
+
+    /* ═══════════════════════════════════════════
+       BACKLIGHT GLOW EFFECT (Magic UI)
+       ═══════════════════════════════════════════ */
+    .backlight {
+      position: relative;
+    }
+    .backlight img,
+    .backlight svg {
+      position: relative;
+      z-index: 1;
+      border-radius: inherit;
+    }
+    .backlight-glow {
+      position: absolute;
+      inset: -30%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+      transition: opacity 0.4s;
+      filter: blur(20px) saturate(4);
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+    }
+    .backlight:hover .backlight-glow {
+      opacity: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       PET SPRITE ANIMATIONS
+       ═══════════════════════════════════════════ */
+    .pet-sprite {
+      position: fixed;
+      pointer-events: auto;
+      z-index: 90;
+      opacity: 0.25;
+      transition: opacity 0.3s, transform 0.3s;
+      cursor: pointer;
+      filter: drop-shadow(0 4px 12px rgba(108,92,231,0.2));
+    }
+    .pet-sprite:hover {
+      opacity: 0.9;
+      transform: scale(1.2);
+      z-index: 95;
+    }
+    .pet-sprite img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s;
+    }
+    .pet-sprite:hover img {
+      transform: scale(1.1);
+    }
+    .pet-sprite.float {
+      animation: petFloat 6s ease-in-out infinite;
+    }
+    .pet-sprite.bounce {
+      animation: petBounce 3s ease-in-out infinite;
+    }
+    .pet-sprite.walk {
+      animation: petWalk 20s linear infinite;
+    }
+    .pet-sprite.spin {
+      animation: petSpin 10s linear infinite;
+    }
+    .pet-sprite.wander {
+      animation: petWander 15s ease-in-out infinite;
+    }
+    .pet-sprite.pulse {
+      animation: petPulse 4s ease-in-out infinite;
+    }
+
+    @keyframes petFloat {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      25% { transform: translateY(-12px) rotate(2deg); }
+      50% { transform: translateY(-6px) rotate(-1deg); }
+      75% { transform: translateY(-18px) rotate(1deg); }
+    }
+    @keyframes petBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      15% { transform: translateY(-20px) scale(1.05); }
+      30% { transform: translateY(0) scale(0.95); }
+      45% { transform: translateY(-10px) scale(1.02); }
+      60% { transform: translateY(0) scale(1); }
+    }
+    @keyframes petWalk {
+      0% { transform: translateX(-120px) rotate(0deg); }
+      25% { transform: translateX(calc(25vw)) rotate(3deg); }
+      50% { transform: translateX(calc(50vw)) rotate(-2deg); }
+      75% { transform: translateX(calc(75vw)) rotate(3deg); }
+      100% { transform: translateX(calc(100vw + 120px)) rotate(0deg); }
+    }
+    @keyframes petSpin {
+      0% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(90deg) scale(1.1); }
+      50% { transform: rotate(180deg) scale(1); }
+      75% { transform: rotate(270deg) scale(1.1); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+    @keyframes petWander {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      20% { transform: translate(30px, -20px) rotate(5deg); }
+      40% { transform: translate(-20px, 30px) rotate(-3deg); }
+      60% { transform: translate(40px, 20px) rotate(8deg); }
+      80% { transform: translate(-30px, -30px) rotate(-5deg); }
+    }
+    @keyframes petPulse {
+      0%, 100% { transform: scale(1); opacity: 0.25; }
+      50% { transform: scale(1.15); opacity: 0.45; }
+    }
+
+    /* Pet sprite positions */
+    .pet-tl { top: 8%; left: 5%; width: 48px; height: 48px; }
+    .pet-tr { top: 12%; right: 6%; width: 42px; height: 42px; }
+    .pet-bl { bottom: 10%; left: 7%; width: 52px; height: 52px; }
+    .pet-br { bottom: 12%; right: 8%; width: 44px; height: 44px; }
+    .pet-mid { top: 45%; left: 52%; width: 56px; height: 56px; }
+    .pet-side-l { top: 35%; left: 4%; width: 38px; height: 38px; }
+    .pet-side-r { top: 60%; right: 5%; width: 40px; height: 40px; }
+    .pet-hero { top: 18%; left: 85%; width: 60px; height: 60px; }
+    .pet-footer { bottom: 15%; left: 45%; width: 50px; height: 50px; }
+
+    /* Pet tooltip */
+    .pet-sprite[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .section-with-grid {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 34px; }
+      .feature-row, .feature-row.reverse { flex-direction: column; gap: 32px; }
+      .download-grid { grid-template-columns: 1fr; }
+      .agent-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .globe-container { max-width: 350px; }
+      .social-playing-cards { gap: 12px; }
+      .social-card { width: 80px; height: 80px; }
+      .footer-social .social-playing-cards { gap: 8px; }
+      .footer-social .social-card { width: 60px; height: 60px; }
+      .footer-social .social-card svg { width: 24px; height: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Backlight SVG Filter Definitions ═══ -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;">
+  <defs>
+    <filter id="backlightGlow" y="-50%" x="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="blurred"></feGaussianBlur>
+      <feColorMatrix type="saturate" in="blurred" values="4"></feColorMatrix>
+      <feComposite in="SourceGraphic" operator="over"></feComposite>
+    </filter>
+    <filter id="backlightGlowSubtle" y="-50%" x="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blurred"></feGaussianBlur>
+      <feColorMatrix type="saturate" in="blurred" values="3"></feColorMatrix>
+      <feComposite in="SourceGraphic" operator="over"></feComposite>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ═══ Pet Sprites (interactive mascots) ═══ -->
+<div class="pet-sprite float pet-tl" data-tooltip="KronPet! Click me!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose1.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite bounce pet-tr" data-tooltip="I'm KronPet!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose2.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite wander pet-bl" data-tooltip="KronPet follows your cursor!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose3.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite spin pet-br" data-tooltip="Wheee!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose1.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite pulse pet-side-l" data-tooltip="KronPet says hi!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose2.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite float pet-side-r" data-tooltip="Click me!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose3.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite wander pet-hero" data-tooltip="KronPet is your companion!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose1.png" alt="KronPet mascot" />
+</div>
+<div class="pet-sprite bounce pet-footer" data-tooltip="Thanks for visiting!" aria-hidden="true">
+  <img src="../assets/kronterm-pet-pose2.png" alt="KronPet mascot" />
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NAV
+     ═══════════════════════════════════════════ -->
+<nav>
+  <div class="container">
+    <a href="#" class="nav-logo backlight">
+      <div class="backlight-glow" style="inset:-20%;opacity:0.4;"></div>
+      <img src="../assets/kronterm-pet-logo.png" alt="KronTerm" />
+      KronTerm
+    </a>
+    <ul class="nav-links">
+      <li><a href="features.html">Features</a></li>
+      <li><a href="agents.html">Agents</a></li>
+      <li><a href="index.html#features">Product</a></li>
+      <li><a href="index.html#download">Download</a></li>
+      <li><a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank">GitHub</a></li>
+      <li>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </li>
+      <li><a href="index.html#download" class="btn btn-primary">Download</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     HERO (Warp-inspired)
+     ═══════════════════════════════════════════ -->
+<section class="hero section-with-grid">
+  <div class="grid-pattern-container" id="heroGridPattern"></div>
+  <div class="container">
+    <div class="hero-content">
+      <h1>The AI-native terminal that replaces your sandboxes, browser tabs, and tile managers.</h1>
+      <p>
+        KronTerm fuses terminal, editor, browser, and AI into a single workspace.
+        Stop juggling 5+ apps and start shipping.
+      </p>
+      <div class="hero-cta">
+        <div class="download-cmd">
+          <a href="#download" class="btn btn-primary">Download</a>
+          <span>$ brew install kronterm</span>
+        </div>
+        <a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank" class="btn btn-secondary">View on GitHub</a>
+      </div>
+    </div>
+
+    <div class="hero-img backlight">
+      <div class="backlight-glow"></div>
+      <img src="../assets/kronterm-homepage.png" alt="KronTerm workspace" />
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     FEATURES
+     ═══════════════════════════════════════════ -->
+<section id="features" class="section section-with-grid">
+     <!-- Interactive Grid Pattern Background -->
+  <div class="grid-pattern-container" id="featuresGridPattern"></div>
+  <div class="container">
+    <div style="margin-bottom:64px;">
+      <span class="section-label">WHY KRONTERM</span>
+      <h2 class="section-title" style="max-width:600px;">Your terminal, your AI, your workspace.</h2>
+      <p class="section-sub">Everything you need to build, debug, and ship — without leaving the terminal.</p>
+    </div>
+
+    <!-- 01 — Blocks Workspace -->
+    <div class="feature-row">
+      <div class="feature-text">
+        <div class="feature-number">01</div>
+        <h2>A workspace, not a window manager.</h2>
+        <p>Drag, drop, resize, and arrange terminals, editors, web views, AI chats, and sandboxes into any layout. Every block can full-screen with one click.</p>
+        <ul>
+          <li>Replace your tile manager — i3/bspwm flexibility without the config</li>
+          <li>Inline web views for docs and previews — no more alt-tabbing</li>
+          <li>Command blocks to isolate and monitor individual commands</li>
+          <li>One-click full-screen toggle for any block</li>
+        </ul>
+      </div>
+      <div class="feature-img">
+        <img src="../assets/kronterm-homepage.png" alt="KronTerm workspace layout" />
+      </div>
+    </div>
+
+    <!-- 02 — AI-Native + KronosCode -->
+    <div class="feature-row reverse">
+      <div class="feature-text">
+        <div class="feature-number">02</div>
+        <h2>AI-native, not AI-bolted-on.</h2>
+        <p>KronosCode is the AI engine built into the terminal itself. It reads your output, understands your workspace, and controls every block — all through native MCP tools.</p>
+        <ul>
+          <li>Create, close, and arrange blocks on the fly</li>
+          <li>Run terminal commands and read scrollback</li>
+          <li>Browse the web, fill forms, take screenshots — inside a block</li>
+          <li>Edit files with intelligent diff previews and rollback</li>
+          <li>Bring your own keys — OpenAI, Claude, Gemini, or local via Ollama</li>
+        </ul>
+      </div>
+      <div class="feature-img">
+        <img src="../assets/kronterm-sidepanel.png" alt="KronTerm AI side panel" />
+      </div>
+    </div>
+
+    <!-- 03 — Browser inside KronTerm -->
+    <div class="feature-row">
+      <div class="feature-text">
+        <div class="feature-number">03</div>
+        <h2>A browser in every workspace.</h2>
+        <p>Open web views as first-class blocks alongside your terminals. Browse documentation, preview your app, check dashboards, or scrape data — all without leaving KronTerm.</p>
+        <ul>
+          <li>Full browser blocks with navigation, search, and interaction</li>
+          <li>AI can control the browser — click, type, scrape, screenshot</li>
+          <li>Live preview for dev servers (Vite, Next.js, and more)</li>
+          <li>Multiple browser blocks side by side</li>
+        </ul>
+      </div>
+      <div class="feature-img">
+        <img src="../assets/kronterm-homepage.png" alt="KronTerm browser integration" />
+      </div>
+    </div>
+
+    <!-- 04 — Durable SSH -->
+    <div class="feature-row reverse">
+      <div class="feature-text">
+        <div class="feature-number">04</div>
+        <h2>SSH sessions that survive anything.</h2>
+        <p>Your remote connections survive network drops, sleep cycles, and even KronTerm restarts. Automatic reconnection means you never lose your session mid-work.</p>
+        <ul>
+          <li>Sessions persist through network interruptions and restarts</li>
+          <li>Built-in graphical editor for remote files</li>
+          <li>Inline previews for markdown, images, CSVs, PDFs</li>
+          <li>Seamless file sync across local and remote hosts via <code>wsh file</code></li>
+        </ul>
+      </div>
+      <div class="feature-img">
+        <img src="../assets/kronterm-sandbox-screenshot.png" alt="KronTerm SSH sessions" />
+      </div>
+    </div>
+
+    <!-- 05 — Sandbox -->
+    <div class="feature-row">
+      <div class="feature-text">
+        <div class="feature-number">05</div>
+        <h2>Sandboxes, right next to your code.</h2>
+        <p>Spin up isolated environments alongside your code — not in a separate tab. Run commands, test scripts, and iterate without leaving your flow.</p>
+        <ul>
+          <li>Isolated sandbox blocks with full terminal access</li>
+          <li>Test scripts and commands without polluting your main shell</li>
+          <li>Ideal for prototyping, debugging, and experimentation</li>
+        </ul>
+      </div>
+      <div class="feature-img">
+        <img src="../assets/kronterm-sandbox-screenshot.png" alt="KronTerm sandbox" />
+      </div>
+    </div>
+
+    <!-- ═══ 3D Spinner Feature Card (Uiverse) ═══ -->
+    <div class="playing-card spinner-feature-card" style="margin-top:60px;">
+      <span class="card-corner">TECH</span>
+      <span class="card-suit-icon">✦</span>
+      <span class="card-suit-icon-bot">✦</span>
+      <span class="card-corner-bot">TECH</span>
+      <div class="spinner-wrapper">
+        <div class="spinner">
+          <div></div><div></div><div></div>
+          <div></div><div></div><div></div>
+        </div>
+      </div>
+      <p>
+        <strong>Always running.</strong> KronTerm's engine never sleeps — like this cube, it spins on every axis, always ready.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     KRONOSCODE SECTION
+     ═══════════════════════════════════════════ -->
+<section class="section section-alt" style="padding: 100px 0;">
+  <div class="container">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;">
+      <div>
+        <span class="section-label">AI ENGINE</span>
+        <h2 style="font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 450; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 20px;">KronosCode: The Brain Behind the Terminal</h2>
+        <p style="font-size: 16px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px;">
+          KronosCode is not just another AI chatbot. It's a first-class citizen of your terminal workspace with the ability to read, write, and control every aspect of your development environment through native MCP tools.
+        </p>
+        <p style="font-size: 16px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 20px;">
+          Unlike traditional AI assistants that live in a separate window, KronosCode is embedded into the terminal itself. It sees your output, understands your context, and can manipulate your workspace in real-time.
+        </p>
+        <ul style="list-style: none; margin-top: 20px;">
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Reads terminal scrollback and understands command output
+          </li>
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Creates, resizes, and arranges blocks via native tools
+          </li>
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Browses the web and interacts with pages inside blocks
+          </li>
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Edits files with intelligent diff previews and rollback
+          </li>
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Brings your own keys — OpenAI, Claude, Gemini, Ollama
+          </li>
+          <li style="padding: 10px 0; padding-left: 28px; position: relative; font-size: 15px; color: var(--text-secondary); line-height: 1.6;">
+            <span style="position: absolute; left: 0; top: 10px; color: var(--accent-light); font-weight: 600;">→</span>
+            Multi-agent orchestration with the Agent Control Protocol
+          </li>
+        </ul>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 32px; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-light));"></div>
+        <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 16px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; color: var(--text-secondary); overflow-x: auto;">
+<span style="color: #6a6a6e;"># KronosCode interacting with your workspace</span>
+<span style="color: var(--accent-light);">agent</span>.<span style="color: #fbbf24;">create_block</span>({
+  <span style="color: #34d399;">"type"</span>: <span style="color: #34d399;">"terminal"</span>,
+  <span style="color: #34d399;">"command"</span>: <span style="color: #34d399;">"npm test"</span>,
+  <span style="color: #34d399;">"layout"</span>: <span style="color: #34d399;">"split-right"</span>
+})
+
+<span style="color: #6a6a6e;"># Read output and suggest fixes</span>
+<span style="color: var(--accent-light);">const</span> output = <span style="color: var(--accent-light);">await</span> <span style="color: #fbbf24;">agent.read_scrollback</span>({ lines: 50 })
+<span style="color: var(--accent-light);">const</span> analysis = <span style="color: var(--accent-light);">await</span> <span style="color: #fbbf24;">agent.analyze_error</span>(output)
+<span style="color: var(--accent-light);">await</span> <span style="color: #fbbf24;">agent.apply_fix</span>(analysis.patch)
+
+<span style="color: #6a6a6e;"># Navigate the web inside a block</span>
+<span style="color: var(--accent-light);">await</span> <span style="color: #fbbf24;">agent.browser_navigate</span>(<span style="color: #34d399;">"https://docs.example.com"</span>)
+<span style="color: var(--accent-light);">await</span> <span style="color: #fbbf24;">agent.browser_screenshot</span>()
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SCREENSHOTS GUIDE (for documentation)
+     ═══════════════════════════════════════════ -->
+<section class="section" style="padding: 80px 0;">
+  <div class="container">
+    <span class="section-label">SCREENSHOTS</span>
+    <h2 class="section-title" style="margin-bottom: 24px;">What to screenshot for the docs</h2>
+    <p class="section-sub" style="margin-bottom: 32px;">
+      Capture these key views to showcase KronTerm's capabilities in documentation and marketing.
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">1. Block Workspace</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">Full workspace with multiple blocks (terminal, browser, AI chat) arranged in a split layout.</p>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">2. AI Side Panel</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">KronosCode side panel showing AI conversation and tool execution results.</p>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">3. Browser Block</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">Inline browser block showing a web page alongside terminal blocks.</p>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">4. Agent Orchestration</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">Multiple agents running in parallel with the Agent Control Protocol dashboard.</p>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">5. Sandbox Environment</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">Isolated sandbox block running tests or experiments.</p>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 24px;">
+        <h4 style="font-size: 15px; font-weight: 500; margin-bottom: 8px;">6. Theme Toggle</h4>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">Dark/light mode transition showing the adaptive UI.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     GLOBE SECTION (Magic UI)
+     ═══════════════════════════════════════════ -->
+<section class="section section-alt globe-section section-with-grid" id="global">
+  <!-- Interactive Grid Pattern Background -->
+  <div class="grid-pattern-container" id="globeGridPattern"></div>
+  <div class="container" style="text-align:center;">
+    <span class="section-label">GLOBAL</span>
+    <h2 class="section-title" style="margin-top:0;">Built for the global dev community</h2>
+    <p class="section-sub" style="margin:12px auto 40px;">
+      Open source. Zero accounts. Zero telemetry. Used by developers everywhere.
+    </p>
+    <div class="globe-container" id="globeContainer">
+      <canvas id="globeCanvas"></canvas>
+      <div class="globe-gradient"></div>
+      <div class="globe-overlay-text">KronTerm</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     ACP AGENTS (Playing Cards)
+     ═══════════════════════════════════════════ -->
+<section id="agents" class="section section-alt section-with-grid" style="padding-top:0;">
+  <div class="grid-pattern-container" id="agentsGridPattern"></div>
+  <div class="container">
+    <div style="text-align:center;">
+      <span class="section-label">AGENTS</span>
+      <h2 class="section-title" style="margin-top:0;">ACP Agents — TUI Intelligence<span class="premium-tag">Coming Soon</span></h2>
+      <p class="section-sub" style="margin:12px auto 32px;">
+        Autonomous TUI agents that live in your workspace. Orchestrate, navigate, and generate — all through the Agent Control Protocol.
+      </p>
+    </div>
+    <div class="agent-grid">
+      <div class="agent-card">
+        <span class="agent-icon">⚡</span>
+        <h4>Hermes</h4>
+        <p>Personal automation agent — orchestrates your workspace, runs workflows, manages your dev loop.</p>
+      </div>
+      <div class="agent-card">
+        <span class="agent-icon">🔍</span>
+        <h4>OpenClaw</h4>
+        <p>File system intelligence — navigates, understands, and operates on your codebase.</p>
+      </div>
+      <div class="agent-card">
+        <span class="agent-icon">🧠</span>
+        <h4>Codex</h4>
+        <p>Code generation &amp; analysis — powered by advanced AI for deep engineering work.</p>
+      </div>
+      <div class="agent-card">
+        <span class="agent-icon">🛡️</span>
+        <h4>Guardian</h4>
+        <p>Security &amp; compliance agent — scans for vulnerabilities and enforces coding standards.</p>
+      </div>
+      <div class="agent-card">
+        <span class="agent-icon">📊</span>
+        <h4>Oracle</h4>
+        <p>Analytics &amp; insights agent — tracks performance metrics and provides actionable insights.</p>
+      </div>
+      <div class="agent-card" style="border-color: rgba(168,85,247,0.3); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(168,85,247,0.05) 100%);">
+        <span class="agent-icon">🌐</span>
+        <div style="position: absolute; top: 12px; right: 12px; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(168, 85, 247, 0.1); color: #a855f7; text-transform: uppercase; letter-spacing: 0.05em;">Premium</div>
+        <h4>Navigator</h4>
+        <p>Web automation agent — browses, fills forms, takes screenshots, and extracts data from the web.</p>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="agents.html" style="display: inline-flex; align-items: center; gap: 8px; color: var(--accent-light); font-size: 14px; font-weight: 500; text-decoration: none;">
+        View all 9 agents →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     TESTIMONIALS (Warp-inspired)
+     ═══════════════════════════════════════════ -->
+<section class="section" style="background: var(--bg-secondary); position: relative; overflow: hidden;">
+  <div class="container" style="text-align: center; position: relative; z-index: 1;">
+    <span class="section-label">TESTIMONIALS</span>
+    <div class="testimonial-quote" style="max-width: 800px; margin: 32px auto 48px;">
+      <p style="font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 450; line-height: 1.4; letter-spacing: -0.02em; color: var(--text-primary); text-wrap: balance; margin-bottom: 24px;">
+        "KronTerm replaced my entire dev setup. Terminal, editor, browser, and AI — all in one window. I can't imagine going back."
+      </p>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-subtle); display: flex; align-items: center; justify-content: center; font-size: 16px;">👤</div>
+        <div style="text-align: left;">
+          <div style="font-size: 15px; font-weight: 500; color: var(--text-primary);">Alex Chen</div>
+          <div style="font-size: 13px; color: var(--text-secondary);">Senior Engineer at TechCorp</div>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; text-align: left; flex: 1; min-width: 260px; max-width: 400px;">
+        <p style="font-size: 15px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">"The AI integration is seamless. I can ask KronosCode to refactor code, run tests, and even browse docs — all without leaving my terminal."</p>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-subtle); display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>
+          <div>
+            <div style="font-size: 14px; font-weight: 500; color: var(--text-primary);">Sarah Kim</div>
+            <div style="font-size: 12px; color: var(--text-tertiary);">Full-Stack Developer</div>
+          </div>
+        </div>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; text-align: left; flex: 1; min-width: 260px; max-width: 400px;">
+        <p style="font-size: 15px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">"Finally, a terminal that understands modern development. The block system is genius — I can arrange my workspace exactly how I want it."</p>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-subtle); display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>
+          <div>
+            <div style="font-size: 14px; font-weight: 500; color: var(--text-primary);">Marcus Johnson</div>
+            <div style="font-size: 12px; color: var(--text-tertiary);">DevOps Lead</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     DOWNLOAD + UIVERSE SEARCH
+     ═══════════════════════════════════════════ -->
+<section id="download" class="section">
+  <div class="container" style="text-align:center;">
+    <span class="section-label">GET STARTED</span>
+    <h2 class="section-title" style="margin-top:0;">Download KronTerm</h2>
+    <p class="section-sub" style="margin:12px auto 32px;">
+      Free and open source. macOS, Linux, Windows. No accounts, no telemetry.
+    </p>
+
+    <div class="download-grid">
+      <div class="download-card">
+        <span class="platform-icon">🍎</span>
+        <h3>macOS</h3>
+        <p class="arch">Apple Silicon &amp; Intel</p>
+        <a href="https://www.kronterm.dev/download" class="btn btn-primary">Download</a>
+      </div>
+      <div class="download-card">
+        <span class="platform-icon">🪟</span>
+        <h3>Windows</h3>
+        <p class="arch">x86_64</p>
+        <a href="https://www.kronterm.dev/download" class="btn btn-primary">Download</a>
+      </div>
+      <div class="download-card">
+        <span class="platform-icon">🐧</span>
+        <h3>Linux</h3>
+        <p class="arch">arm64 &amp; x86_64</p>
+        <a href="https://www.kronterm.dev/download" class="btn btn-primary">Download</a>
+      </div>
+    </div>
+    <p class="download-note">
+      <a href="https://docs.kronterm.dev/gettingstarted" target="_blank">Installation guide →</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/Ahmedalsadi-1/kronterm/releases" target="_blank">All releases &amp; checksums →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     FAQ
+     ═══════════════════════════════════════════ -->
+<section id="faq" class="section section-alt">
+  <div class="container" style="text-align:center;">
+    <span class="section-label">FAQ</span>
+    <h2 class="section-title" style="margin-top:0;">Questions, answered.</h2>
+    <p class="section-sub" style="margin:12px auto 40px;">Everything you need to know about KronTerm.</p>
+    <div class="faq-list" style="text-align:left;">
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          Is KronTerm really free?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Yes! KronTerm is fully open source under the Apache 2.0 license. No accounts required, no telemetry, no cloud dependency. Premium ACP agents will be available as a paid tier in the future.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          Do I need an account or API key?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">No account required. Bring your own API keys for OpenAI, Claude, Gemini, or run local models via Ollama and LM Studio. You can use KronTerm as a regular terminal without any AI setup.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          Which AI models are supported?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">OpenAI (GPT-4, GPT-5), Anthropic Claude, Google Gemini, Azure OpenAI, OpenRouter, and any OpenAI-compatible endpoint. Local models through Ollama, LM Studio, and vLLM.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          Can KronTerm control my browser?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Yes! KronTerm has built-in browser blocks with full web interaction. The AI can navigate pages, fill forms, take screenshots, and scrape data — all within your workspace.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          What is KronosCode?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">KronosCode is the AI engine that powers KronTerm's intelligence. It's an agentic system with specialists like Sisyphus (orchestrator), Hephaestus (coding), Prometheus (planning), and others — all using KronTerm's native tools to control the workspace.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.classList.toggle('open')">
+          Which OSes are supported?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">macOS 11+, Windows 10 1809+, and Linux (glibc 2.28+ — Debian 10, Ubuntu 20.04, RHEL 8, etc.). Native performance on every platform.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     FOOTER + UIVERSE SOCIAL CARDS
+     ═══════════════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-col">
+      <h4>KronTerm</h4>
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://docs.kronterm.dev">Docs</a>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Security</a>
+      <a href="LICENSE">License</a>
+    </div>
+    <div class="footer-col">
+      <h4>Community</h4>
+      <a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank">GitHub</a>
+      <a href="https://discord.gg/XfvZ334gwU" target="_blank">Discord</a>
+      <a href="https://x.com/krontermdev" target="_blank">X / Twitter</a>
+      <a href="https://github.com/sponsors/krontermdev" target="_blank">Sponsor</a>
+
+      <!-- Social Media Playing Cards (Uiverse quick-fish-43 inspired) -->
+      <div class="footer-social">
+        <div class="social-playing-cards">
+          <a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank" class="social-card" aria-label="GitHub">
+            <span class="card-corner-sm">♣</span>
+            <svg viewBox="0 0 30 30" fill="currentColor">
+              <path class="github-fill" d="M15,3C8.373,3,3,8.373,3,15c0,5.623,3.872,10.328,9.092,11.63C12.036,26.468,12,26.28,12,26.047v-2.051 c-0.487,0-1.303,0-1.508,0c-0.821,0-1.551-0.353-1.905-1.009c-0.393-0.729-0.461-1.844-1.435-2.526 c-0.289-0.227-0.069-0.486,0.264-0.451c0.615,0.174,1.125,0.596,1.605,1.222c0.478,0.627,0.703,0.769,1.596,0.769 c0.433,0,1.081-0.025,1.691-0.121c0.328-0.833,0.895-1.6,1.588-1.962c-3.996-0.411-5.903-2.399-5.903-5.098 c0-1.162,0.495-2.286,1.336-3.233C9.053,10.647,8.706,8.73,9.435,8c1.798,0,2.885,1.166,3.146,1.481C13.477,9.174,14.461,9,15.495,9 c1.036,0,2.024,0.174,2.922,0.483C18.675,9.17,19.763,8,21.565,8c0.732,0.731,0.381,2.656,0.102,3.594 c0.836,0.945,1.328,2.066,1.328,3.226c0,2.697-1.904,4.684-5.894,5.097C18.199,20.49,19,22.1,19,23.313v2.734 c0,0.104-0.023,0.179-0.035,0.268C23.641,24.676,27,20.236,27,15C27,8.373,21.627,3,15,3z"/>
+            </svg>
+            <span class="card-label">Code</span>
+          </a>
+          <a href="https://discord.gg/XfvZ334gwU" target="_blank" class="social-card" aria-label="Discord">
+            <span class="card-corner-sm">♠</span>
+            <svg viewBox="0 0 48 48" fill="currentColor">
+              <path class="discord-fill" d="M40,12c0,0-4.585-3.588-10-4l-0.488,0.976C34.408,10.174,36.654,11.891,39,14c-4.045-2.065-8.039-4-15-4s-10.955,1.935-15,4c2.346-2.109,5.018-4.015,9.488-5.024L18,8c-5.681,0.537-10,4-10,4s-5.121,7.425-6,22c5.162,5.953,13,6,13,6l1.639-2.185C13.857,36.848,10.715,35.121,8,32c3.238,2.45,8.125,5,16,5s12.762-2.55,16-5c-2.715,3.121-5.857,4.848-8.639,5.815L33,40c0,0,7.838-0.047,13-6C45.121,19.425,40,12,40,12z M17.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C21,28.209,19.433,30,17.5,30z M30.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C34,28.209,32.433,30,30.5,30z"/>
+            </svg>
+            <span class="card-label">Chat</span>
+          </a>
+          <a href="https://x.com/krontermdev" target="_blank" class="social-card" aria-label="Twitter/X">
+            <span class="card-corner-sm">♥</span>
+            <svg viewBox="0 0 48 48" fill="currentColor">
+              <path class="twitter-fill" d="M42,12.429c-1.323,0.586-2.746,0.977-4.247,1.162c1.526-0.906,2.7-2.351,3.251-4.058c-1.428,0.837-3.01,1.452-4.693,1.776C34.967,9.884,33.05,9,30.926,9c-4.08,0-7.387,3.278-7.387,7.32c0,0.572,0.067,1.129,0.193,1.67c-6.138-0.308-11.582-3.226-15.224-7.654c-0.64,1.082-1,2.349-1,3.686c0,2.541,1.301,4.778,3.285,6.096c-1.211-0.037-2.351-0.374-3.349-0.914c0,0.022,0,0.055,0,0.086c0,3.551,2.547,6.508,5.923,7.181c-0.617,0.169-1.269,0.263-1.941,0.263c-0.477,0-0.942-0.054-1.392-0.135c0.94,2.902,3.667,5.023,6.898,5.086c-2.528,1.96-5.712,3.134-9.174,3.134c-0.598,0-1.183-0.034-1.761-0.104C9.268,36.786,13.152,38,17.321,38c13.585,0,21.017-11.156,21.017-20.834c0-0.317-0.01-0.633-0.025-0.945C39.763,15.197,41.013,13.905,42,12.429"/>
+            </svg>
+            <span class="card-label">Tweet</span>
+          </a>
+          <a href="#" class="social-card" aria-label="Instagram">
+            <span class="card-corner-sm">♦</span>
+            <svg viewBox="0 0 256 256" fill="currentColor">
+              <g><path class="instagram-fill" d="M11.46875,5c-3.55078,0-6.46875,2.91406-6.46875,6.46875v9.0625c0,3.55078 2.91406,6.46875 6.46875,6.46875h9.0625c3.55078,0 6.46875-2.91406 6.46875-6.46875v-9.0625c0-3.55078-2.91406-6.46875-6.46875-6.46875zM11.46875,7h9.0625c2.47266,0 4.46875,1.99609 4.46875,4.46875v9.0625c0,2.47266-1.99609,4.46875-4.46875,4.46875h-9.0625c-2.47266,0-4.46875-1.99609-4.46875-4.46875v-9.0625c0-2.47266 1.99609-4.46875 4.46875-4.46875zM21.90625,9.1875c-0.50391,0-0.90625,0.40234-0.90625,0.90625c0,0.50391 0.40234,0.90625 0.90625,0.90625c0.50391,0 0.90625-0.40234 0.90625-0.90625c0-0.50391-0.40234-0.90625-0.90625-0.90625zM16,10c-3.30078,0-6,2.69922-6,6c0,3.30078 2.69922,6 6,6c3.30078,0 6-2.69922 6-6c0-3.30078-2.69922-6-6-6zM16,12c2.22266,0 4,1.77734 4,4c0,2.22266-1.77734,4-4,4c-2.22266,0-4-1.77734-4-4c0-2.22266 1.77734-4 4-4z"/>
+            </g></svg>
+            <span class="card-label">Photo</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="container">
+      KronTerm is open source — Apache 2.0 License.
+      <br>Built with ❤️ by the KronTerm team.
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════ -->
+<script>
+// ─── Theme Toggle (Magic UI Animated Theme Toggler port) ───
+(function() {
+  const toggle = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+  const html = document.documentElement;
+
+  function getCurrentTheme() {
+    return html.getAttribute('data-theme') || 'dark';
+  }
+
+  function setThemeIcon(theme) {
+    if (theme === 'dark') {
+      icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    } else {
+      icon.innerHTML = '<circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+        '<line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>' +
+        '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>' +
+        '<line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>' +
+        '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g>';
+    }
+  }
+
+  function toggleTheme() {
+    const current = getCurrentTheme();
+    const newTheme = current === 'dark' ? 'light' : 'dark';
+
+    // View Transitions API
+    if (typeof document.startViewTransition === 'function') {
+      const button = toggle;
+      const rect = button.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const maxRadius = Math.hypot(
+        Math.max(cx, window.innerWidth - cx),
+        Math.max(cy, window.innerHeight - cy)
+      );
+
+      html.setAttribute('data-magicui-theme-toggle', 'active');
+      html.style.setProperty('--magicui-theme-toggle-vt-duration', '400ms');
+      html.style.setProperty('--magicui-theme-vt-clip-from', 'circle(0px at ' + cx + 'px ' + cy + 'px)');
+
+      const transition = document.startViewTransition(function() {
+        html.setAttribute('data-theme', newTheme);
+        setThemeIcon(newTheme);
+        try { localStorage.setItem('kronterm-theme', newTheme); } catch(e) {}
+      });
+
+      transition.finished.finally(function() {
+        html.removeAttribute('data-magicui-theme-toggle');
+        html.style.removeProperty('--magicui-theme-toggle-vt-duration');
+        html.style.removeProperty('--magicui-theme-vt-clip-from');
+      });
+
+      transition.ready.then(function() {
+        document.documentElement.animate(
+          { clipPath: [
+            'circle(0px at ' + cx + 'px ' + cy + 'px)',
+            'circle(' + maxRadius + 'px at ' + cx + 'px ' + cy + 'px)'
+          ]},
+          { duration: 400, easing: 'ease-in-out', fill: 'forwards',
+            pseudoElement: '::view-transition-new(root)' }
+        );
+      });
+    } else {
+      html.setAttribute('data-theme', newTheme);
+      setThemeIcon(newTheme);
+      try { localStorage.setItem('kronterm-theme', newTheme); } catch(e) {}
+    }
+  }
+
+  // Load saved theme
+  try {
+    const saved = localStorage.getItem('kronterm-theme');
+    if (saved) {
+      html.setAttribute('data-theme', saved);
+      setThemeIcon(saved);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      html.setAttribute('data-theme', 'light');
+      setThemeIcon('light');
+    }
+  } catch(e) {}
+
+  toggle.addEventListener('click', toggleTheme);
+})();
+
+
+// ─── Terminal Animation (Magic UI Terminal port) ───
+(function() {
+  const terminalBody = document.getElementById('terminalBody');
+  if (!terminalBody) return;
+
+  const lines = terminalBody.querySelectorAll('.terminal-line');
+
+  // Type out the typing line
+  function typeText(element, text, speed, callback) {
+    let i = 0;
+    function type() {
+      if (i < text.length) {
+        element.textContent = text.substring(0, i + 1);
+        i++;
+        setTimeout(type, speed);
+      } else if (callback) {
+        callback();
+      }
+    }
+    type();
+  }
+
+  // Reveal terminal lines sequentially
+  function revealLines() {
+    lines.forEach(function(line, index) {
+      var delay = parseInt(line.getAttribute('data-delay')) || (index * 600);
+      setTimeout(function() {
+        line.classList.add('visible');
+
+        // If this line has a typing element
+        var typingEl = line.querySelector('.typing');
+        if (typingEl) {
+          var text = typingEl.getAttribute('data-text') || '';
+          typingEl.textContent = '';
+          typeText(typingEl, text, 40);
+        }
+      }, delay);
+    });
+  }
+
+  // Start animation after a short delay
+  setTimeout(revealLines, 600);
+})();
+
+
+// ─── Globe (Magic UI Globe port using cobe) ───
+(function() {
+  var canvas = document.getElementById('globeCanvas');
+  if (!canvas) return;
+
+  // Load cobe from CDN
+  function loadScript(url, callback) {
+    var script = document.createElement('script');
+    script.src = url;
+    script.onload = callback;
+    script.onerror = function() { console.log('Globe CDN unavailable, skipping globe animation.'); };
+    document.head.appendChild(script);
+  }
+
+  loadScript('https://unpkg.com/cobe@0.4.1/dist/index.js', function() {
+    if (typeof createGlobe === 'undefined') {
+      console.log('createGlobe not available');
+      return;
+    }
+
+    var container = document.getElementById('globeContainer');
+    var width = container ? container.offsetWidth : 500;
+    var phi = 0;
+    var pointerInteracting = null;
+    var pointerMovement = 0;
+    var r = 0;
+
+    var globe = createGlobe(canvas, {
+      width: width * 2,
+      height: width * 2,
+      devicePixelRatio: 2,
+      phi: 0,
+      theta: 0.3,
+      dark: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim() === '#0a0a0f' ? 1 : 0,
+      diffuse: 0.4,
+      mapSamples: 16000,
+      mapBrightness: 1.2,
+      baseColor: [1, 1, 1],
+      markerColor: [124/255, 58/255, 237/255],
+      glowColor: [1, 1, 1],
+      markers: [
+        { location: [40.7128, -74.006], size: 0.08 },    // NYC
+        { location: [51.5074, -0.1278], size: 0.07 },     // London
+        { location: [35.6762, 139.6503], size: 0.07 },    // Tokyo
+        { location: [-33.8688, 151.2093], size: 0.06 },   // Sydney
+        { location: [55.7558, 37.6173], size: 0.06 },     // Moscow
+        { location: [39.9042, 116.4074], size: 0.08 },    // Beijing
+        { location: [28.6139, 77.209], size: 0.07 },      // New Delhi
+        { location: [-23.5505, -46.6333], size: 0.07 },   // Sao Paulo
+        { location: [30.0444, 31.2357], size: 0.06 },     // Cairo
+        { location: [1.3521, 103.8198], size: 0.06 },     // Singapore
+        { location: [37.7749, -122.4194], size: 0.07 },   // SF
+        { location: [52.5200, 13.4050], size: 0.07 },     // Berlin
+        { location: [48.8566, 2.3522], size: 0.07 },      // Paris
+        { location: [14.5995, 120.9842], size: 0.05 },    // Manila
+        { location: [19.076, 72.8777], size: 0.06 },      // Mumbai
+        { location: [23.8103, 90.4125], size: 0.05 },     // Dhaka
+        { location: [41.0082, 28.9784], size: 0.06 },     // Istanbul
+        { location: [19.4326, -99.1332], size: 0.07 },    // Mexico City
+      ],
+      onRender: function(state) {
+        if (!pointerInteracting) phi += 0.005;
+        state.phi = phi + r;
+        state.width = canvas.offsetWidth * 2;
+        state.height = canvas.offsetWidth * 2;
+      }
+    });
+
+    // Mouse interaction
+    canvas.addEventListener('pointerdown', function(e) {
+      pointerInteracting = e.clientX;
+      canvas.style.cursor = 'grabbing';
+    });
+    document.addEventListener('pointerup', function() {
+      pointerInteracting = null;
+      canvas.style.cursor = 'grab';
+    });
+    canvas.addEventListener('pointermove', function(e) {
+      if (pointerInteracting !== null) {
+        var delta = e.clientX - pointerInteracting;
+        pointerMovement = delta;
+        r = delta / 1400;
+      }
+    });
+
+    canvas.style.cursor = 'grab';
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() { globe.destroy(); });
+
+    // Redraw on theme change
+    var themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', function() {
+        setTimeout(function() {
+          globe.destroy();
+          // Recreate will happen on next render cycle if needed
+        }, 500);
+      });
+    }
+  });
+})();
+
+
+// ─── FAQ Accordion ───
+(function() {
+  document.querySelectorAll('.faq-q').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      this.classList.toggle('open');
+    });
+  });
+})();
+
+
+// ─── Uiverse 3D Search Input Enter Key ───
+(function() {
+  var searchInput = document.querySelector('.input__search');
+  if (searchInput) {
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        alert('Thanks for your interest! Downloads coming soon.');
+      }
+    });
+  }
+})();
+
+
+// ─── Interactive Grid Pattern (Magic UI) ───
+(function() {
+  var CELL_SIZE = 60;
+  var GRID_CONTAINERS = ['heroGridPattern', 'featuresGridPattern', 'agentsGridPattern', 'globeGridPattern'];
+
+  function createGrid(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.position = 'absolute';
+    svg.style.inset = '0';
+
+    function updateGrid() {
+      var rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      var cols = Math.ceil(rect.width / CELL_SIZE);
+      var rows = Math.ceil(rect.height / CELL_SIZE);
+
+      // Clear existing cells
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          var cell = document.createElementNS(ns, 'rect');
+          cell.setAttribute('x', c * CELL_SIZE);
+          cell.setAttribute('y', r * CELL_SIZE);
+          cell.setAttribute('width', CELL_SIZE);
+          cell.setAttribute('height', CELL_SIZE);
+          cell.setAttribute('data-row', r);
+          cell.setAttribute('data-col', c);
+          svg.appendChild(cell);
+        }
+      }
+    }
+
+    updateGrid();
+
+    // Debounced resize
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateGrid, 150);
+    });
+
+    // Hover effect - mouseenter on SVG delegating to rect
+    var activeCell = null;
+    svg.addEventListener('mouseover', function(e) {
+      var target = e.target;
+      if (target && target.tagName === 'rect' && target.parentNode === svg) {
+        if (activeCell) {
+          activeCell.classList.remove('hovered');
+          // Remove neighbors
+          var ar = parseInt(activeCell.getAttribute('data-row'));
+          var ac = parseInt(activeCell.getAttribute('data-col'));
+          svg.querySelectorAll('rect').forEach(function(r) {
+            var rr = parseInt(r.getAttribute('data-row'));
+            var cc = parseInt(r.getAttribute('data-col'));
+            if (Math.abs(rr - ar) + Math.abs(cc - ac) <= 1 && r !== activeCell) {
+              r.classList.remove('hovered');
+            }
+          });
+        }
+        target.classList.add('hovered');
+        var row = parseInt(target.getAttribute('data-row'));
+        var col = parseInt(target.getAttribute('data-col'));
+        // Light up neighbors
+        svg.querySelectorAll('rect').forEach(function(r) {
+          var rr = parseInt(r.getAttribute('data-row'));
+          var cc = parseInt(r.getAttribute('data-col'));
+          if (Math.abs(rr - row) + Math.abs(cc - col) === 1) {
+            r.classList.add('hovered');
+          }
+        });
+        activeCell = target;
+      }
+    });
+
+    container.appendChild(svg);
+  }
+
+  // Initialize all grid containers
+  GRID_CONTAINERS.forEach(createGrid);
+})();
+
+
+// ─── Pet Sprite Interactions ───
+(function() {
+  var sprites = document.querySelectorAll('.pet-sprite');
+  var messages = [
+    "KronPet says: Keep coding! ✨",
+    "KronPet: Did you try turning it off and on again? 🔄",
+    "KronPet: Ship it! 🚀",
+    "KronPet: You're doing great! 💪",
+    "KronPet: Time for a coffee break? ☕",
+    "KronPet: rm -rf /... just kidding! 😄",
+    "KronPet: The AI is your friend! 🤖",
+    "KronPet: Another bug squashed! 🐛",
+    "KronPet: KronosCode is watching... 👀",
+    "KronPet: Have you committed today? 💾"
+  ];
+
+  sprites.forEach(function(sprite) {
+    sprite.addEventListener('click', function(e) {
+      e.preventDefault();
+      var msg = messages[Math.floor(Math.random() * messages.length)];
+
+      // Create floating message
+      var bubble = document.createElement('div');
+      bubble.textContent = msg;
+      bubble.style.cssText = 'position:fixed;z-index:9999;background:var(--bg-card);color:var(--text-primary);padding:10px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:500;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.3);white-space:nowrap;opacity:0;transform:translateY(10px);transition:all 0.3s ease;';
+      document.body.appendChild(bubble);
+
+      var rect = sprite.getBoundingClientRect();
+      bubble.style.left = (rect.left + rect.width / 2 - bubble.offsetWidth / 2) + 'px';
+      bubble.style.top = (rect.top - 50) + 'px';
+
+      requestAnimationFrame(function() {
+        bubble.style.opacity = '1';
+        bubble.style.transform = 'translateY(0)';
+      });
+
+      setTimeout(function() {
+        bubble.style.opacity = '0';
+        bubble.style.transform = 'translateY(-10px)';
+        setTimeout(function() { bubble.remove(); }, 300);
+      }, 2500);
+
+      // Spin animation on click
+      sprite.style.animation = 'none';
+      sprite.style.transform = 'scale(1.4) rotate(360deg)';
+      setTimeout(function() {
+        sprite.style.transform = '';
+        sprite.style.animation = '';
+      }, 600);
+    });
+  });
+
+  // One pet follows cursor loosely
+  var follower = document.querySelector('.pet-sprite.pet-hero');
+  if (follower) {
+    var targetX = 0, targetY = 0, currentX = 0, currentY = 0;
+    document.addEventListener('mousemove', function(e) {
+      targetX = e.clientX + 30;
+      targetY = e.clientY - 30;
+    });
+    function animateFollower() {
+      currentX += (targetX - currentX) * 0.03;
+      currentY += (targetY - currentY) * 0.03;
+      if (follower) {
+        follower.style.left = currentX + 'px';
+        follower.style.top = currentY + 'px';
+      }
+      requestAnimationFrame(animateFollower);
+    }
+    animateFollower();
+  }
+})();
+</script>
+
+</body>
+</html>

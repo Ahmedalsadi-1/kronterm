@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Features — KronTerm</title>
+  <link rel="icon" type="image/png" href="../assets/kronterm-pet-logo.png" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0c0c0f;
+      --bg-secondary: #111114;
+      --bg-card: #18181b;
+      --bg-card-hover: #202023;
+      --bg-surface: #1c1c1f;
+      --text-primary: #f0f0f0;
+      --text-secondary: #9a9a9e;
+      --text-tertiary: #6a6a6e;
+      --border: rgba(255,255,255,0.06);
+      --border-hover: rgba(255,255,255,0.12);
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-subtle: rgba(108,92,231,0.08);
+      --nav-height: 84px;
+    }
+    [data-theme="light"] {
+      --bg-primary: #f7f7f8;
+      --bg-secondary: #f0f0f2;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f5f5f7;
+      --bg-surface: #ffffff;
+      --text-primary: #1c1c1e;
+      --text-secondary: #6a6a6e;
+      --text-tertiary: #9a9a9e;
+      --border: rgba(0,0,0,0.08);
+      --border-hover: rgba(0,0,0,0.15);
+      --accent-subtle: rgba(108,92,231,0.06);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-height);
+      background: rgba(12,12,15,0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    [data-theme="light"] nav {
+      background: rgba(247,247,248,0.7);
+    }
+    nav .container {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 100%;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text-primary);
+      font-weight: 500; font-size: 15px;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 6px; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px; list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none; font-size: 14px; font-weight: 450;
+      transition: color 0.2s; padding: 4px 10px; border-radius: 3px;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 16px; border-radius: 3px;
+      font-size: 14px; font-weight: 500; text-decoration: none;
+      transition: opacity 0.2s; cursor: pointer; border: none;
+      line-height: 1; background: var(--text-primary);
+      color: var(--bg-primary); margin-left: 8px;
+    }
+    .nav-links .btn:hover { opacity: 0.85; }
+
+    /* HERO */
+    .hero {
+      padding: 140px 0 60px;
+      min-height: 50vh;
+      display: flex; align-items: center;
+      text-align: center;
+    }
+    .hero .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 450;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      max-width: 800px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.7;
+    }
+
+    /* SECTIONS */
+    .section { padding: 100px 0; position: relative; }
+    .section-alt { background: var(--bg-secondary); }
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-weight: 450;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 12px;
+      font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* FEATURE SHOWCASE (Warp-style tabs + screenshot) */
+    .feature-showcase {
+      margin-bottom: 80px;
+    }
+    .feature-showcase:last-child {
+      margin-bottom: 0;
+    }
+    .feature-showcase-header {
+      margin-bottom: 40px;
+    }
+    .feature-showcase-header h3 {
+      font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+      font-weight: 450;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+    .feature-showcase-header p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.7;
+    }
+    .feature-showcase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    .feature-showcase-grid.reverse {
+      direction: rtl;
+    }
+    .feature-showcase-grid.reverse > * {
+      direction: ltr;
+    }
+    .feature-showcase-text h4 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+    .feature-showcase-text p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .feature-showcase-text ul {
+      list-style: none;
+    }
+    .feature-showcase-text ul li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .feature-showcase-text ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .feature-screenshot {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    .feature-screenshot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .feature-screenshot-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .feature-screenshot-badge.premium {
+      background: rgba(168, 85, 247, 0.15);
+      color: #a855f7;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .feature-screenshot-badge.new {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    /* PREMIUM BANNER */
+    .premium-banner {
+      background: linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(108,92,231,0.08) 100%);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 12px;
+      padding: 24px 32px;
+      margin-bottom: 48px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .premium-banner-icon {
+      font-size: 32px;
+    }
+    .premium-banner-text h4 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .premium-banner-text p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 48px 0 32px; }
+    footer .container { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 32px; }
+    .footer-col h4 {
+      font-size: 13px; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+    }
+    .footer-col a {
+      display: block; color: var(--text-secondary); text-decoration: none;
+      font-size: 14px; padding: 4px 0; transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--text-primary); }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      margin-top: 32px; padding-top: 20px;
+      text-align: center; font-size: 13px; color: var(--text-tertiary);
+    }
+
+    @media (max-width: 768px) {
+      .feature-showcase-grid {
+        grid-template-columns: 1fr;
+      }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="index.html" class="nav-logo">
+      <img src="../assets/kronterm-pet-logo.png" alt="KronTerm" />
+      KronTerm
+    </a>
+    <ul class="nav-links">
+      <li><a href="features.html">Features</a></li>
+      <li><a href="agents.html">Agents</a></li>
+      <li><a href="index.html#features">Product</a></li>
+      <li><a href="index.html#download">Download</a></li>
+      <li><a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank">GitHub</a></li>
+      <li><a href="index.html#download" class="btn">Download</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <span class="section-label">FEATURES</span>
+    <h1>Everything you need to build, debug, and ship.</h1>
+    <p>
+      KronTerm combines terminal, editor, browser, and AI into a single workspace.
+      Here's how each feature works.
+    </p>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="container">
+    <span class="section-label">WORKSPACE</span>
+    <h2 class="section-title">A workspace, not a window manager.</h2>
+    <p class="section-sub">
+      Drag, drop, resize, and arrange terminals, editors, web views, AI chats, and sandboxes into any layout.
+    </p>
+
+    <div class="feature-showcase">
+      <div class="feature-showcase-header">
+        <h3>Block System</h3>
+        <p>Replace your tile manager with a flexible block-based workspace that adapts to your flow.</p>
+      </div>
+      <div class="feature-showcase-grid">
+        <div class="feature-showcase-text">
+          <h4>Flexible Layouts</h4>
+          <p>Every block can be dragged, resized, and arranged into any configuration. Split horizontally, vertically, or create complex nested layouts.</p>
+          <ul>
+            <li>Replace your tile manager — i3/bspwm flexibility without the config</li>
+            <li>Inline web views for docs and previews — no more alt-tabbing</li>
+            <li>Command blocks to isolate and monitor individual commands</li>
+            <li>One-click full-screen toggle for any block</li>
+          </ul>
+        </div>
+        <div class="feature-screenshot">
+          <img src="../assets/kronterm-homepage.png" alt="KronTerm block workspace" />
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-showcase">
+      <div class="feature-showcase-header">
+        <h3>AI-Native Workspace</h3>
+        <p>KronosCode is built into the terminal itself, not bolted on as an afterthought.</p>
+      </div>
+      <div class="feature-showcase-grid reverse">
+        <div class="feature-showcase-text">
+          <h4>KronosCode AI Engine</h4>
+          <p>The AI reads your output, understands your workspace, and controls every block — all through native MCP tools.</p>
+          <ul>
+            <li>Create, close, and arrange blocks on the fly</li>
+            <li>Run terminal commands and read scrollback</li>
+            <li>Browse the web, fill forms, take screenshots — inside a block</li>
+            <li>Edit files with intelligent diff previews and rollback</li>
+            <li>Bring your own keys — OpenAI, Claude, Gemini, or local via Ollama</li>
+          </ul>
+        </div>
+        <div class="feature-screenshot">
+          <img src="../assets/kronterm-sidepanel.png" alt="KronTerm AI side panel" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <span class="section-label">BROWSER</span>
+    <h2 class="section-title">A browser in every workspace.</h2>
+    <p class="section-sub">
+      Open web views as first-class blocks alongside your terminals.
+    </p>
+
+    <div class="feature-showcase">
+      <div class="feature-showcase-header">
+        <h3>Inline Browser Blocks</h3>
+        <p>Browse documentation, preview your app, check dashboards — all without leaving KronTerm.</p>
+      </div>
+      <div class="feature-showcase-grid">
+        <div class="feature-showcase-text">
+          <h4>Full Browser Capability</h4>
+          <p>Web views are not iframes — they're full browser blocks with complete interaction capabilities.</p>
+          <ul>
+            <li>Full browser blocks with navigation, search, and interaction</li>
+            <li>AI can control the browser — click, type, scrape, screenshot</li>
+            <li>Live preview for dev servers (Vite, Next.js, and more)</li>
+            <li>Multiple browser blocks side by side</li>
+          </ul>
+        </div>
+        <div class="feature-screenshot">
+          <img src="../assets/kronterm-homepage.png" alt="KronTerm browser blocks" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="container">
+    <span class="section-label">PREMIUM</span>
+    <h2 class="section-title">Advanced features for power users.</h2>
+    <p class="section-sub">
+      Unlock the full potential of KronTerm with premium capabilities.
+    </p>
+
+    <div class="premium-banner">
+      <span class="premium-banner-icon">👑</span>
+      <div class="premium-banner-text">
+        <h4>Premium Features</h4>
+        <p>Advanced agent orchestration, cloud sync, team collaboration, and priority support. Coming soon.</p>
+      </div>
+    </div>
+
+    <div class="feature-showcase">
+      <div class="feature-showcase-header">
+        <h3>Agent Control Protocol</h3>
+        <p>Orchestrate multiple AI agents simultaneously with the Agent Control Protocol.</p>
+      </div>
+      <div class="feature-showcase-grid reverse">
+        <div class="feature-showcase-text">
+          <h4>Multi-Agent Orchestration</h4>
+          <p>Run multiple agents in parallel, each handling specific tasks. Agents communicate and collaborate through the protocol.</p>
+          <ul>
+            <li>Parallel agent execution for complex workflows</li>
+            <li>Agent-to-agent communication and task delegation</li>
+            <li>Shared context and memory across agents</li>
+            <li>Granular permission controls per agent</li>
+            <li>Cost tracking and budget management</li>
+          </ul>
+        </div>
+        <div class="feature-screenshot">
+          <span class="feature-screenshot-badge premium">Premium</span>
+          <img src="../assets/kronterm-homepage.png" alt="KronTerm Agent Control Protocol" />
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-showcase">
+      <div class="feature-showcase-header">
+        <h3>Cloud Sync & Team Workspaces</h3>
+        <p>Sync your workspace across devices and collaborate with your team in real-time.</p>
+      </div>
+      <div class="feature-showcase-grid">
+        <div class="feature-showcase-text">
+          <h4>Team Collaboration</h4>
+          <p>Share blocks, layouts, and terminal sessions with your team. Real-time collaboration inside the terminal.</p>
+          <ul>
+            <li>Real-time workspace sharing and collaboration</li>
+            <li>Shared terminal sessions with read/write permissions</li>
+            <li>Team-wide agent configurations and policies</li>
+            <li>Secure end-to-end encryption for all data</li>
+            <li>Role-based access control for team members</li>
+          </ul>
+        </div>
+        <div class="feature-screenshot">
+          <span class="feature-screenshot-badge premium">Premium</span>
+          <img src="../assets/kronterm-homepage.png" alt="KronTerm Team Collaboration" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="features.html">Features</a>
+      <a href="agents.html">Agents</a>
+      <a href="index.html#download">Download</a>
+      <a href="index.html#faq">FAQ</a>
+    </div>
+    <div class="footer-col">
+      <h4>Developers</h4>
+      <a href="https://github.com/Ahmedalsadi-1/kronterm" target="_blank">GitHub</a>
+      <a href="https://docs.kronterm.dev" target="_blank">Documentation</a>
+      <a href="https://github.com/Ahmedalsadi-1/kronterm/issues" target="_blank">Issues</a>
+    </div>
+    <div class="footer-col">
+      <h4>Community</h4>
+      <a href="https://discord.gg/kronterm" target="_blank">Discord</a>
+      <a href="https://twitter.com/kronterm" target="_blank">Twitter</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="container">
+      KronTerm is open source — Apache 2.0 License.
+      <br>Built with ❤️ by the KronTerm team.
+    </div>
+  </div>
+</footer>
+
+<script>
+lucide.createIcons();
+</script>
+
+</body>
+</html>

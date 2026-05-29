@@ -48,3 +48,4 @@ kronoscode/dist/
 kronoscode/tmp/
 kronoscode/.tmp/
 kronoscode/*.bun-build
+.sisyphus/
