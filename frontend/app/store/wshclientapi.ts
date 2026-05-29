@@ -96,12 +96,6 @@ export class RpcApiType {
         return client.wshRpcCall("captureblockscreenshot", data, opts);
     }
 
-    // command "checkgoversion" [call]
-    CheckGoVersionCommand(client: WshClient, opts?: RpcOpts): Promise<CommandCheckGoVersionRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "checkgoversion", null, opts);
-        return client.wshRpcCall("checkgoversion", null, opts);
-    }
-
     // command "connconnect" [call]
     ConnConnectCommand(client: WshClient, data: ConnRequest, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "connconnect", data, opts);
@@ -192,28 +186,22 @@ export class RpcApiType {
         return client.wshRpcCall("createsubblock", data, opts);
     }
 
+    // command "createsurfacetoken" [call]
+    CreateSurfaceTokenCommand(client: WshClient, data: CommandCreateSurfaceTokenData, opts?: RpcOpts): Promise<CommandCreateSurfaceTokenRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "createsurfacetoken", data, opts);
+        return client.wshRpcCall("createsurfacetoken", data, opts);
+    }
+
     // command "debugterm" [call]
     DebugTermCommand(client: WshClient, data: CommandDebugTermData, opts?: RpcOpts): Promise<CommandDebugTermRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "debugterm", data, opts);
         return client.wshRpcCall("debugterm", data, opts);
     }
 
-    // command "deleteappfile" [call]
-    DeleteAppFileCommand(client: WshClient, data: CommandDeleteAppFileData, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "deleteappfile", data, opts);
-        return client.wshRpcCall("deleteappfile", data, opts);
-    }
-
     // command "deleteblock" [call]
     DeleteBlockCommand(client: WshClient, data: CommandDeleteBlockData, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "deleteblock", data, opts);
         return client.wshRpcCall("deleteblock", data, opts);
-    }
-
-    // command "deletebuilder" [call]
-    DeleteBuilderCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "deletebuilder", data, opts);
-        return client.wshRpcCall("deletebuilder", data, opts);
     }
 
     // command "deletesubblock" [call]
@@ -414,18 +402,6 @@ export class RpcApiType {
         return client.wshRpcCall("getallvars", data, opts);
     }
 
-    // command "getbuilderoutput" [call]
-    GetBuilderOutputCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<string[]> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getbuilderoutput", data, opts);
-        return client.wshRpcCall("getbuilderoutput", data, opts);
-    }
-
-    // command "getbuilderstatus" [call]
-    GetBuilderStatusCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BuilderStatusData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getbuilderstatus", data, opts);
-        return client.wshRpcCall("getbuilderstatus", data, opts);
-    }
-
     // command "getfocusedblockdata" [call]
     GetFocusedBlockDataCommand(client: WshClient, opts?: RpcOpts): Promise<FocusedBlockData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getfocusedblockdata", null, opts);
@@ -606,22 +582,16 @@ export class RpcApiType {
         return client.wshRpcCall("jobstartstream", data, opts);
     }
 
-    // command "listallappfiles" [call]
-    ListAllAppFilesCommand(client: WshClient, data: CommandListAllAppFilesData, opts?: RpcOpts): Promise<CommandListAllAppFilesRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "listallappfiles", data, opts);
-        return client.wshRpcCall("listallappfiles", data, opts);
+    // command "launchinstalledapp" [call]
+    LaunchInstalledAppCommand(client: WshClient, data: CommandLaunchInstalledAppData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "launchinstalledapp", data, opts);
+        return client.wshRpcCall("launchinstalledapp", data, opts);
     }
 
-    // command "listallapps" [call]
-    ListAllAppsCommand(client: WshClient, opts?: RpcOpts): Promise<AppInfo[]> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "listallapps", null, opts);
-        return client.wshRpcCall("listallapps", null, opts);
-    }
-
-    // command "listalleditableapps" [call]
-    ListAllEditableAppsCommand(client: WshClient, opts?: RpcOpts): Promise<AppInfo[]> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "listalleditableapps", null, opts);
-        return client.wshRpcCall("listalleditableapps", null, opts);
+    // command "listinstalledapps" [call]
+    ListInstalledAppsCommand(client: WshClient, opts?: RpcOpts): Promise<InstalledAppInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "listinstalledapps", null, opts);
+        return client.wshRpcCall("listinstalledapps", null, opts);
     }
 
     // command "macosversion" [call]
@@ -630,10 +600,40 @@ export class RpcApiType {
         return client.wshRpcCall("macosversion", null, opts);
     }
 
-    // command "makedraftfromlocal" [call]
-    MakeDraftFromLocalCommand(client: WshClient, data: CommandMakeDraftFromLocalData, opts?: RpcOpts): Promise<CommandMakeDraftFromLocalRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "makedraftfromlocal", data, opts);
-        return client.wshRpcCall("makedraftfromlocal", data, opts);
+    // command "mcpcalltool" [call]
+    McpCallToolCommand(client: WshClient, data: McpCallToolData, opts?: RpcOpts): Promise<McpCallToolResult> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcpcalltool", data, opts);
+        return client.wshRpcCall("mcpcalltool", data, opts);
+    }
+
+    // command "mcpconnect" [call]
+    McpConnectCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcpconnect", data, opts);
+        return client.wshRpcCall("mcpconnect", data, opts);
+    }
+
+    // command "mcpdisconnect" [call]
+    McpDisconnectCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcpdisconnect", data, opts);
+        return client.wshRpcCall("mcpdisconnect", data, opts);
+    }
+
+    // command "mcpgetstatus" [call]
+    McpGetStatusCommand(client: WshClient, opts?: RpcOpts): Promise<{[key: string]: McpStatus}> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcpgetstatus", null, opts);
+        return client.wshRpcCall("mcpgetstatus", null, opts);
+    }
+
+    // command "mcplistservers" [call]
+    McpListServersCommand(client: WshClient, opts?: RpcOpts): Promise<McpServerInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcplistservers", null, opts);
+        return client.wshRpcCall("mcplistservers", null, opts);
+    }
+
+    // command "mcplisttools" [call]
+    McpListToolsCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<McpToolInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "mcplisttools", data, opts);
+        return client.wshRpcCall("mcplisttools", data, opts);
     }
 
     // command "message" [call]
@@ -664,18 +664,6 @@ export class RpcApiType {
     PathCommand(client: WshClient, data: PathCommandData, opts?: RpcOpts): Promise<string> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "path", data, opts);
         return client.wshRpcCall("path", data, opts);
-    }
-
-    // command "publishapp" [call]
-    PublishAppCommand(client: WshClient, data: CommandPublishAppData, opts?: RpcOpts): Promise<CommandPublishAppRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "publishapp", data, opts);
-        return client.wshRpcCall("publishapp", data, opts);
-    }
-
-    // command "readappfile" [call]
-    ReadAppFileCommand(client: WshClient, data: CommandReadAppFileData, opts?: RpcOpts): Promise<CommandReadAppFileRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "readappfile", data, opts);
-        return client.wshRpcCall("readappfile", data, opts);
     }
 
     // command "recordtevent" [call]
@@ -798,22 +786,10 @@ export class RpcApiType {
         return client.wshRpcCall("remotewritefile", data, opts);
     }
 
-    // command "renameappfile" [call]
-    RenameAppFileCommand(client: WshClient, data: CommandRenameAppFileData, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "renameappfile", data, opts);
-        return client.wshRpcCall("renameappfile", data, opts);
-    }
-
     // command "resolveids" [call]
     ResolveIdsCommand(client: WshClient, data: CommandResolveIdsData, opts?: RpcOpts): Promise<CommandResolveIdsRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "resolveids", data, opts);
         return client.wshRpcCall("resolveids", data, opts);
-    }
-
-    // command "restartbuilderandwait" [call]
-    RestartBuilderAndWaitCommand(client: WshClient, data: CommandRestartBuilderAndWaitData, opts?: RpcOpts): Promise<RestartBuilderAndWaitResult> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "restartbuilderandwait", data, opts);
-        return client.wshRpcCall("restartbuilderandwait", data, opts);
     }
 
     // command "routeannounce" [call]
@@ -826,6 +802,24 @@ export class RpcApiType {
     RouteUnannounceCommand(client: WshClient, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "routeunannounce", null, opts);
         return client.wshRpcCall("routeunannounce", null, opts);
+    }
+
+    // command "sandboxstart" [call]
+    SandboxStartCommand(client: WshClient, data: SandboxStartRequest, opts?: RpcOpts): Promise<SandboxStartResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "sandboxstart", data, opts);
+        return client.wshRpcCall("sandboxstart", data, opts);
+    }
+
+    // command "sandboxstatus" [call]
+    SandboxStatusCommand(client: WshClient, data: SandboxStatusRequest, opts?: RpcOpts): Promise<SandboxStatusResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "sandboxstatus", data, opts);
+        return client.wshRpcCall("sandboxstatus", data, opts);
+    }
+
+    // command "sandboxstop" [call]
+    SandboxStopCommand(client: WshClient, data: SandboxStopRequest, opts?: RpcOpts): Promise<SandboxStopResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "sandboxstop", data, opts);
+        return client.wshRpcCall("sandboxstop", data, opts);
     }
 
     // command "sendtelemetry" [call]
@@ -882,22 +876,10 @@ export class RpcApiType {
         return client.wshRpcCall("setvar", data, opts);
     }
 
-    // command "startbuilder" [call]
-    StartBuilderCommand(client: WshClient, data: CommandStartBuilderData, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "startbuilder", data, opts);
-        return client.wshRpcCall("startbuilder", data, opts);
-    }
-
     // command "startjob" [call]
     StartJobCommand(client: WshClient, data: CommandStartJobData, opts?: RpcOpts): Promise<CommandStartJobRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "startjob", data, opts);
         return client.wshRpcCall("startjob", data, opts);
-    }
-
-    // command "stopbuilder" [call]
-    StopBuilderCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "stopbuilder", data, opts);
-        return client.wshRpcCall("stopbuilder", data, opts);
     }
 
     // command "streamcpudata" [responsestream]
@@ -1032,28 +1014,166 @@ export class RpcApiType {
         return client.wshRpcCall("webselector", data, opts);
     }
 
+    // command "widgetclear" [call]
+    WidgetClearCommand(client: WshClient, data: CommandWidgetClearData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetclear", data, opts);
+        return client.wshRpcCall("widgetclear", data, opts);
+    }
+
+    // command "widgetclick" [call]
+    WidgetClickCommand(client: WshClient, data: CommandWidgetClickData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetclick", data, opts);
+        return client.wshRpcCall("widgetclick", data, opts);
+    }
+
+    // command "widgetclipboardget" [call]
+    WidgetClipboardGetCommand(client: WshClient, data: CommandWidgetClipboardGetData, opts?: RpcOpts): Promise<WidgetClipboardGetRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetclipboardget", data, opts);
+        return client.wshRpcCall("widgetclipboardget", data, opts);
+    }
+
+    // command "widgetclipboardset" [call]
+    WidgetClipboardSetCommand(client: WshClient, data: CommandWidgetClipboardSetData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetclipboardset", data, opts);
+        return client.wshRpcCall("widgetclipboardset", data, opts);
+    }
+
+    // command "widgetdrag" [call]
+    WidgetDragCommand(client: WshClient, data: CommandWidgetDragData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetdrag", data, opts);
+        return client.wshRpcCall("widgetdrag", data, opts);
+    }
+
+    // command "widgetelementat" [call]
+    WidgetElementAtCommand(client: WshClient, data: CommandWidgetElementAtData, opts?: RpcOpts): Promise<WidgetElementAtRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetelementat", data, opts);
+        return client.wshRpcCall("widgetelementat", data, opts);
+    }
+
+    // command "widgetfind" [call]
+    WidgetFindCommand(client: WshClient, data: CommandWidgetFindData, opts?: RpcOpts): Promise<WidgetFindRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetfind", data, opts);
+        return client.wshRpcCall("widgetfind", data, opts);
+    }
+
+    // command "widgetgetelements" [call]
+    WidgetGetElementsCommand(client: WshClient, data: CommandWidgetGetElementsData, opts?: RpcOpts): Promise<WidgetGetElementsRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetgetelements", data, opts);
+        return client.wshRpcCall("widgetgetelements", data, opts);
+    }
+
+    // command "widgetgetstate" [call]
+    WidgetGetStateCommand(client: WshClient, data: CommandWidgetGetStateData, opts?: RpcOpts): Promise<WidgetGetStateRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetgetstate", data, opts);
+        return client.wshRpcCall("widgetgetstate", data, opts);
+    }
+
+    // command "widgetgetvalue" [call]
+    WidgetGetValueCommand(client: WshClient, data: CommandWidgetGetValueData, opts?: RpcOpts): Promise<WidgetGetValueRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetgetvalue", data, opts);
+        return client.wshRpcCall("widgetgetvalue", data, opts);
+    }
+
+    // command "widgethover" [call]
+    WidgetHoverCommand(client: WshClient, data: CommandWidgetHoverData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgethover", data, opts);
+        return client.wshRpcCall("widgethover", data, opts);
+    }
+
+    // command "widgetinspect" [call]
+    WidgetInspectCommand(client: WshClient, data: CommandWidgetInspectData, opts?: RpcOpts): Promise<WidgetInspectRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetinspect", data, opts);
+        return client.wshRpcCall("widgetinspect", data, opts);
+    }
+
+    // command "widgetkeyboardpress" [call]
+    WidgetKeyboardPressCommand(client: WshClient, data: CommandWidgetKeyboardPressData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetkeyboardpress", data, opts);
+        return client.wshRpcCall("widgetkeyboardpress", data, opts);
+    }
+
+    // command "widgetkeyboardtype" [call]
+    WidgetKeyboardTypeCommand(client: WshClient, data: CommandWidgetKeyboardTypeData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetkeyboardtype", data, opts);
+        return client.wshRpcCall("widgetkeyboardtype", data, opts);
+    }
+
+    // command "widgetlongpress" [call]
+    WidgetLongPressCommand(client: WshClient, data: CommandWidgetLongPressData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetlongpress", data, opts);
+        return client.wshRpcCall("widgetlongpress", data, opts);
+    }
+
+    // command "widgetmouseclick" [call]
+    WidgetMouseClickCommand(client: WshClient, data: CommandWidgetMouseClickData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetmouseclick", data, opts);
+        return client.wshRpcCall("widgetmouseclick", data, opts);
+    }
+
+    // command "widgetmousedrag" [call]
+    WidgetMouseDragCommand(client: WshClient, data: CommandWidgetMouseDragData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetmousedrag", data, opts);
+        return client.wshRpcCall("widgetmousedrag", data, opts);
+    }
+
+    // command "widgetmousescroll" [call]
+    WidgetMouseScrollCommand(client: WshClient, data: CommandWidgetMouseScrollData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetmousescroll", data, opts);
+        return client.wshRpcCall("widgetmousescroll", data, opts);
+    }
+
+    // command "widgetscreenshotannotated" [call]
+    WidgetScreenshotAnnotatedCommand(client: WshClient, data: CommandWidgetScreenshotAnnotatedData, opts?: RpcOpts): Promise<WidgetScreenshotAnnotatedRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetscreenshotannotated", data, opts);
+        return client.wshRpcCall("widgetscreenshotannotated", data, opts);
+    }
+
+    // command "widgetscrollto" [call]
+    WidgetScrollToCommand(client: WshClient, data: CommandWidgetScrollToData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetscrollto", data, opts);
+        return client.wshRpcCall("widgetscrollto", data, opts);
+    }
+
+    // command "widgetselect" [call]
+    WidgetSelectCommand(client: WshClient, data: CommandWidgetSelectData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetselect", data, opts);
+        return client.wshRpcCall("widgetselect", data, opts);
+    }
+
+    // command "widgetsetvalue" [call]
+    WidgetSetValueCommand(client: WshClient, data: CommandWidgetSetValueData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetsetvalue", data, opts);
+        return client.wshRpcCall("widgetsetvalue", data, opts);
+    }
+
+    // command "widgetsnapshot" [call]
+    WidgetSnapshotCommand(client: WshClient, data: CommandWidgetSnapshotData, opts?: RpcOpts): Promise<WidgetSnapshotRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetsnapshot", data, opts);
+        return client.wshRpcCall("widgetsnapshot", data, opts);
+    }
+
+    // command "widgettoggle" [call]
+    WidgetToggleCommand(client: WshClient, data: CommandWidgetToggleData, opts?: RpcOpts): Promise<WidgetMouseActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgettoggle", data, opts);
+        return client.wshRpcCall("widgettoggle", data, opts);
+    }
+
+    // command "widgetwaitcondition" [call]
+    WidgetWaitConditionCommand(client: WshClient, data: CommandWidgetWaitConditionData, opts?: RpcOpts): Promise<WidgetWaitConditionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetwaitcondition", data, opts);
+        return client.wshRpcCall("widgetwaitcondition", data, opts);
+    }
+
+    // command "widgetwaitforelement" [call]
+    WidgetWaitForElementCommand(client: WshClient, data: CommandWidgetWaitForElementData, opts?: RpcOpts): Promise<WidgetWaitForElementRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetwaitforelement", data, opts);
+        return client.wshRpcCall("widgetwaitforelement", data, opts);
+    }
+
     // command "workspacelist" [call]
     WorkspaceListCommand(client: WshClient, opts?: RpcOpts): Promise<WorkspaceInfoData[]> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "workspacelist", null, opts);
         return client.wshRpcCall("workspacelist", null, opts);
-    }
-
-    // command "writeappfile" [call]
-    WriteAppFileCommand(client: WshClient, data: CommandWriteAppFileData, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "writeappfile", data, opts);
-        return client.wshRpcCall("writeappfile", data, opts);
-    }
-
-    // command "writeappgofile" [call]
-    WriteAppGoFileCommand(client: WshClient, data: CommandWriteAppGoFileData, opts?: RpcOpts): Promise<CommandWriteAppGoFileRtnData> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "writeappgofile", data, opts);
-        return client.wshRpcCall("writeappgofile", data, opts);
-    }
-
-    // command "writeappsecretbindings" [call]
-    WriteAppSecretBindingsCommand(client: WshClient, data: CommandWriteAppSecretBindingsData, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "writeappsecretbindings", data, opts);
-        return client.wshRpcCall("writeappsecretbindings", data, opts);
     }
 
     // command "writetempfile" [call]

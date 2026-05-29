@@ -61,15 +61,15 @@ const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement
 
     return (
         <Tooltip
-            content="Toggle Wave AI Panel"
+            content="Toggle KronosCode Panel"
             placement="bottom"
             hideOnClick
-            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-accent" : "text-secondary"}`}
+            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-saturn" : "text-secondary"}`}
             divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             divOnClick={onClick}
             divRef={divRef}
         >
-            <i className="fa fa-sparkles" />
+            <i className={`fa fa-circle-nodes ${aiPanelOpen ? "text-saturn" : ""}`} />
         </Tooltip>
     );
 });
@@ -282,16 +282,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 prevAllLoadedRef.current = true;
             }
         }
-    }, [
-        tabIds,
-        tabsLoaded,
-        newTabId,
-        saveTabsPosition,
-        hideAiButton,
-        appUpdateStatus,
-        zoomFactor,
-        showMenuBar,
-    ]);
+    }, [tabIds, tabsLoaded, newTabId, saveTabsPosition, hideAiButton, appUpdateStatus, zoomFactor, showMenuBar]);
 
     const getDragDirection = (currentX: number) => {
         let dragDirection: string;
@@ -575,9 +566,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     // Calculate window drag left width based on platform and state
     let windowDragLeftWidth = 10;
     if (env.isMacOS() && !isFullScreen) {
-        const trafficLightsWidth = isMacOSTahoeOrLater()
-            ? MacOSTahoeTrafficLightsWidth
-            : MacOSTrafficLightsWidth;
+        const trafficLightsWidth = isMacOSTahoeOrLater() ? MacOSTahoeTrafficLightsWidth : MacOSTrafficLightsWidth;
         if (zoomFactor > 0) {
             windowDragLeftWidth = trafficLightsWidth / zoomFactor;
         } else {

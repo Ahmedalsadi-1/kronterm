@@ -79,6 +79,12 @@ const Mermaid = ({ chart }: { chart: string }) => {
                 setIsLoading(true);
                 setError(null);
 
+                if (!chart || !chart.trim()) {
+                    setError("Empty diagram");
+                    setIsLoading(false);
+                    return;
+                }
+
                 await initializeMermaid();
                 if (!ref.current || !mermaidInstance) {
                     return;
@@ -91,12 +97,12 @@ const Mermaid = ({ chart }: { chart: string }) => {
                     .replace(/\n+$/, ""); // Remove final newline
 
                 ref.current.removeAttribute("data-processed");
+                ref.current.textContent = "";
                 ref.current.textContent = normalizedChart;
-                // console.log("mermaid", normalizedChart);
                 await mermaidInstance.run({ nodes: [ref.current] });
                 setIsLoading(false);
             } catch (err) {
-                console.error("Error rendering mermaid diagram:", err);
+                console.error("Error rendering mermaid diagram:", err.message || err);
                 setError(`Failed to render diagram: ${err.message || err}`);
                 setIsLoading(false);
             }

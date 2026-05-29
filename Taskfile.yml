@@ -587,7 +587,7 @@ tasks:
               ignore_error: true
             - mkdir -p scaffold
             - cp ../templates/package.json.tmpl scaffold/package.json
-            - cd scaffold && npm install
+            - cd scaffold && npm install --cache /tmp/npm-cache-alt
             - mv scaffold/node_modules scaffold/nm
             - cp -r dist scaffold/
             - mkdir -p scaffold/dist/tw

@@ -13,6 +13,39 @@ function callBackendService(waveEnv: WaveEnv, service: string, method: string, a
     return WOS.callBackendService(service, method, args, noUIContext);
 }
 
+// acpservice.AcpService (acp)
+export class AcpServiceType {
+    waveEnv: WaveEnv;
+
+    constructor(waveEnv?: WaveEnv) {
+        this.waveEnv = waveEnv;
+    }
+
+    ArchiveSession(conversationId: string): Promise<void> {
+        return callBackendService(this?.waveEnv, "acp", "ArchiveSession", Array.from(arguments))
+    }
+    DeleteSession(conversationId: string): Promise<void> {
+        return callBackendService(this?.waveEnv, "acp", "DeleteSession", Array.from(arguments))
+    }
+
+    // @returns session
+    GetSession(conversationId: string): Promise<AcpSession> {
+        return callBackendService(this?.waveEnv, "acp", "GetSession", Array.from(arguments))
+    }
+
+    // @returns sessions
+    ListSessions(): Promise<AcpSession[]> {
+        return callBackendService(this?.waveEnv, "acp", "ListSessions", Array.from(arguments))
+    }
+
+    // @returns session
+    SaveSession(session: AcpSession): Promise<AcpSession> {
+        return callBackendService(this?.waveEnv, "acp", "SaveSession", Array.from(arguments))
+    }
+}
+
+export const AcpService = new AcpServiceType();
+
 // blockservice.BlockService (block)
 export class BlockServiceType {
     waveEnv: WaveEnv;
@@ -218,6 +251,7 @@ export class WorkspaceServiceType {
 export const WorkspaceService = new WorkspaceServiceType();
 
 export const AllServiceTypes = {
+    "acp": AcpServiceType,
     "block": BlockServiceType,
     "client": ClientServiceType,
     "object": ObjectServiceType,
@@ -227,6 +261,7 @@ export const AllServiceTypes = {
 };
 
 export const AllServiceImpls = {
+    "acp": AcpService,
     "block": BlockService,
     "client": ClientService,
     "object": ObjectService,

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KronosCode Pet</title>
+    <script type="module" src="/frontend/pet/pet.ts"></script>
+  </head>
+  <body>
+    <main id="pet-root" class="context-idle">
+      <div id="drag-handle" class="drag-handle pet-drag" title="Drag to move">
+        <span class="drag-handle-dots"></span>
+      </div>
+
+      <div id="pet-cursor" class="pet-cursor" hidden>
+        <div id="pet-cursor-pointer" class="pet-cursor-pointer">
+          <span id="pet-cursor-icon" class="pet-cursor-icon">👆</span>
+        </div>
+      </div>
+
+      <div id="thought" class="thought" hidden></div>
+      <div id="action" class="action" hidden></div>
+
+      <div id="reasoning-feed" class="reasoning-feed no-drag" hidden>
+        <div class="reasoning-feed-header">
+          <span>Reasoning Log</span>
+          <button id="reasoning-feed-close" class="reasoning-feed-close" type="button">&times;</button>
+        </div>
+        <div id="reasoning-feed-body" class="reasoning-feed-body"></div>
+      </div>
+
+      <button id="pet-menu-toggle" class="pet-menu-toggle no-drag" title="Pet settings" aria-label="Pet settings">
+        &#9881;
+      </button>
+
+      <div class="sprite-shell pet-drag">
+        <img id="pet-sprite" alt="" draggable="false" />
+      </div>
+
+      <div class="activity">
+        <span id="context" class="context">IDLE</span>
+        <span id="detail" class="detail">KronosCode ready</span>
+      </div>
+
+      <section id="pet-menu" class="pet-menu no-drag" hidden>
+        <label><input id="toggle-glow" type="checkbox" checked /> Activity glow</label>
+        <label><input id="toggle-thoughts" type="checkbox" checked /> Thought bubbles</label>
+        <label><input id="toggle-actions" type="checkbox" checked /> Action bubbles</label>
+        <label><input id="toggle-roam" type="checkbox" checked /> Roam while idle</label>
+        <label><input id="toggle-follow-cursor" type="checkbox" checked /> Follow user cursor while idle</label>
+        <button id="reasoning-toggle" class="reasoning-toggle" type="button">Reasoning log</button>
+        <button id="chat-toggle" class="chat-toggle" type="button">Mini chat</button>
+      </section>
+
+      <figure id="capture-preview" class="capture-preview no-drag" hidden>
+        <figcaption>Computer use view</figcaption>
+        <img id="capture-preview-image" alt="Latest agent screenshot" />
+      </figure>
+
+      <form id="pet-chat" class="pet-chat no-drag" hidden>
+        <input id="pet-chat-input" aria-label="Message KronosCode" placeholder="Ask KronosCode..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+
+      <div id="resize-handle" class="resize-handle no-drag" title="Resize">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M12 0v12H0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5" />
+          <path d="M12 4v8H4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.3" />
+        </svg>
+      </div>
+    </main>
+  </body>
+</html>

@@ -36,6 +36,16 @@ const config = {
             from: "dist/tsunamiscaffold",
             to: "tsunamiscaffold",
         },
+        {
+            from: "mcp-kron-term",
+            to: "mcp-kron-term",
+            filter: ["dist/**/*", "package.json", "node_modules/**/*"],
+        },
+        {
+            from: "agents/kronoscode",
+            to: "agents/kronoscode",
+            filter: ["bin/kronoscode*", "LICENSE", "README.md"],
+        },
     ],
     directories: {
         output: "make",

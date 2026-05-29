@@ -27,6 +27,68 @@ const SettingsFile = "settings.json"
 const ConnectionsFile = "connections.json"
 const ProfilesFile = "profiles.json"
 
+type MCPConfig struct {
+	Enabled *bool             `json:"enabled,omitempty"`
+	Type    string            `json:"type,omitempty"`
+	Command []string          `json:"command,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Timeout int64             `json:"timeout,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+}
+
+type ACPAgentProfile struct {
+	Model         string            `json:"model,omitempty"`
+	Mode          string            `json:"mode,omitempty"`
+	Workspace     string            `json:"workspace,omitempty"`
+	Executable    string            `json:"executable,omitempty"`
+	ConfigOptions map[string]string `json:"configoptions,omitempty"`
+	MCPServerIds  []string          `json:"mcpserverids,omitempty"`
+	SkillsDirs    []string          `json:"skillsdirs,omitempty"`
+}
+
+type ACPAgentDefinition struct {
+	Name         string   `json:"name,omitempty"`
+	Backend      string   `json:"backend,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Scope        string   `json:"scope,omitempty"`
+	Mode         string   `json:"mode,omitempty"`
+	Model        string   `json:"model,omitempty"`
+	Temperature  *float64 `json:"temperature,omitempty"`
+	TopP         *float64 `json:"topp,omitempty"`
+	SystemPrompt string   `json:"systemprompt,omitempty"`
+}
+
+type ACPCommandDefinition struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	Agent       string `json:"agent,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Template    string `json:"template,omitempty"`
+	Subtask     bool   `json:"subtask,omitempty"`
+}
+
+type ACPSkillDefinition struct {
+	Name         string `json:"name,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Scope        string `json:"scope,omitempty"`
+	Backend      string `json:"backend,omitempty"`
+	Instructions string `json:"instructions,omitempty"`
+}
+
+type ACPGitIdentity struct {
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	UserName  string `json:"username,omitempty"`
+	UserEmail string `json:"useremail,omitempty"`
+	AuthType  string `json:"authtype,omitempty"`
+	SSHKey    string `json:"sshkey,omitempty"`
+	Host      string `json:"host,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Icon      string `json:"icon,omitempty"`
+}
+
 var configWriteLock sync.Mutex
 
 const AnySchema = `
@@ -71,6 +133,25 @@ type SettingsType struct {
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
+
+	MCPClear   bool                 `json:"mcp:*,omitempty"`
+	MCPEnabled bool                 `json:"mcp:enabled,omitempty"`
+	MCPClients map[string]MCPConfig `json:"mcp:servers,omitempty"`
+
+	ACPClear          bool                            `json:"acp:*,omitempty"`
+	ACPDefaultBackend string                          `json:"acp:defaultbackend,omitempty"`
+	ACPProfiles       map[string]ACPAgentProfile      `json:"acp:profiles,omitempty"`
+	ACPAgents         map[string]ACPAgentDefinition   `json:"acp:agents,omitempty"`
+	ACPCommands       map[string]ACPCommandDefinition `json:"acp:commands,omitempty"`
+	ACPSkills         map[string]ACPSkillDefinition   `json:"acp:skills,omitempty"`
+	ACPGitIdentities  map[string]ACPGitIdentity       `json:"acp:gitidentities,omitempty"`
+
+	SandboxEnabled   bool   `json:"sandbox:enabled,omitempty"`
+	SandboxCPUCores  int    `json:"sandbox:cpu,omitempty"`
+	SandboxMemoryMB  int    `json:"sandbox:memory,omitempty"`
+	SandboxVNCPort   int    `json:"sandbox:vncport,omitempty"`
+	SandboxSSHPort   int    `json:"sandbox:sshport,omitempty"`
+	SandboxDiskImage string `json:"sandbox:diskimage,omitempty"`
 
 	AiClear         bool    `json:"ai:*,omitempty"`
 	AiPreset        string  `json:"ai:preset,omitempty"`
@@ -282,29 +363,29 @@ type WebBookmark struct {
 
 // Wave AI panel mode configuration (NEW)
 type AIModeConfigType struct {
-	DisplayName        string   `json:"display:name"`
-	DisplayOrder       float64  `json:"display:order,omitempty"`
-	DisplayIcon        string   `json:"display:icon,omitempty"`
-	DisplayDescription string   `json:"display:description,omitempty"`
-	Provider           string   `json:"ai:provider,omitempty" jsonschema:"enum=wave,enum=google,enum=groq,enum=openrouter,enum=nanogpt,enum=openai,enum=azure,enum=azure-legacy,enum=ollama,enum=opencode,enum=kronos,enum=custom"`
-	APIType            string   `json:"ai:apitype,omitempty" jsonschema:"enum=google-gemini,enum=openai-responses,enum=openai-chat,enum=kronos-session"`
-	Model              string   `json:"ai:model,omitempty"`
-	Agent              string   `json:"ai:agent,omitempty"`
-	ThinkingLevel      string   `json:"ai:thinkinglevel,omitempty" jsonschema:"enum=low,enum=medium,enum=high"`
-	Verbosity          string   `json:"ai:verbosity,omitempty" jsonschema:"enum=low,enum=medium,enum=high,description=Text verbosity level (OpenAI Responses API only)"`
-	Endpoint           string   `json:"ai:endpoint,omitempty"`
-	ProxyURL           string   `json:"ai:proxyurl,omitempty"`
-	AzureAPIVersion    string   `json:"ai:azureapiversion,omitempty"`
-	APIToken           string   `json:"ai:apitoken,omitempty"`
-	APITokenSecretName string   `json:"ai:apitokensecretname,omitempty"`
-	AzureResourceName  string   `json:"ai:azureresourcename,omitempty"`
-	AzureDeployment    string   `json:"ai:azuredeployment,omitempty"`
-	Capabilities       []string `json:"ai:capabilities,omitempty" jsonschema:"enum=pdfs,enum=images,enum=tools"`
+	DisplayName          string   `json:"display:name"`
+	DisplayOrder         float64  `json:"display:order,omitempty"`
+	DisplayIcon          string   `json:"display:icon,omitempty"`
+	DisplayDescription   string   `json:"display:description,omitempty"`
+	Provider             string   `json:"ai:provider,omitempty" jsonschema:"enum=wave,enum=google,enum=groq,enum=openrouter,enum=nanogpt,enum=openai,enum=azure,enum=azure-legacy,enum=ollama,enum=opencode,enum=kronos,enum=custom"`
+	APIType              string   `json:"ai:apitype,omitempty" jsonschema:"enum=google-gemini,enum=openai-responses,enum=openai-chat,enum=kronos-session"`
+	Model                string   `json:"ai:model,omitempty"`
+	Agent                string   `json:"ai:agent,omitempty"`
+	ThinkingLevel        string   `json:"ai:thinkinglevel,omitempty" jsonschema:"enum=low,enum=medium,enum=high"`
+	Verbosity            string   `json:"ai:verbosity,omitempty" jsonschema:"enum=low,enum=medium,enum=high,description=Text verbosity level (OpenAI Responses API only)"`
+	Endpoint             string   `json:"ai:endpoint,omitempty"`
+	ProxyURL             string   `json:"ai:proxyurl,omitempty"`
+	AzureAPIVersion      string   `json:"ai:azureapiversion,omitempty"`
+	APIToken             string   `json:"ai:apitoken,omitempty"`
+	APITokenSecretName   string   `json:"ai:apitokensecretname,omitempty"`
+	AzureResourceName    string   `json:"ai:azureresourcename,omitempty"`
+	AzureDeployment      string   `json:"ai:azuredeployment,omitempty"`
+	Capabilities         []string `json:"ai:capabilities,omitempty" jsonschema:"enum=pdfs,enum=images,enum=tools"`
 	KronosToolRouting    string   `json:"ai:kronostoolrouting,omitempty" jsonschema:"enum=hybrid,enum=wave-only,enum=kronos-only"`
 	KronosPermissionMode string   `json:"ai:kronospermissionmode,omitempty" jsonschema:"enum=ask,enum=once,enum=always"`
-	SwitchCompat       []string `json:"ai:switchcompat,omitempty"`
-	WaveAICloud        bool     `json:"waveai:cloud,omitempty"`
-	WaveAIPremium      bool     `json:"waveai:premium,omitempty"`
+	SwitchCompat         []string `json:"ai:switchcompat,omitempty"`
+	WaveAICloud          bool     `json:"waveai:cloud,omitempty"`
+	WaveAIPremium        bool     `json:"waveai:premium,omitempty"`
 }
 
 type AIModeConfigUpdate struct {

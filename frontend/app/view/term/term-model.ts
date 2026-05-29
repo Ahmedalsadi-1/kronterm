@@ -44,6 +44,7 @@ import { computeTheme, DefaultTermTheme } from "./termutil";
 import { TermWrap, WebGLSupported } from "./termwrap";
 
 export class TermViewModel implements ViewModel {
+    private static fallbackExitCodeAtom = jotai.atom(null) as jotai.PrimitiveAtom<number | null>;
     viewType: string;
     nodeModel: BlockNodeModel;
     tabModel: TabModel;
@@ -193,6 +194,16 @@ export class TermViewModel implements ViewModel {
                                 title: "Exit Code: " + fullShellProcStatus?.shellprocexitcode,
                                 noAction: true,
                             });
+                            rtn.push({
+                                elemtype: "textbutton",
+                                text: "Ask KronosCode",
+                                className:
+                                    "border !py-[2px] !px-[8px] text-[11px] font-[500] text-amber-300 border-amber-700/50 hover:border-amber-500/70",
+                                title: "Send error to KronosCode for help",
+                                onClick: () => {
+                                    this.sendToKronosCode(fullShellProcStatus.shellprocexitcode);
+                                },
+                            });
                         }
                     }
                 }
@@ -290,6 +301,24 @@ export class TermViewModel implements ViewModel {
                 const shellIntegrationButton = this.getShellIntegrationIconButton(get);
                 if (shellIntegrationButton) {
                     rtn.push(shellIntegrationButton);
+                }
+            }
+
+            // Show the AI help icon when a regular shell command fails (non-zero exit code)
+            // Always read the atom (even via fallback) to ensure jotai dependency is established
+            if (!isCmd) {
+                const exitCodeAtom = this.termRef.current?.lastExitCodeAtom ?? TermViewModel.fallbackExitCodeAtom;
+                const lastExitCode = get(exitCodeAtom);
+                if (lastExitCode != null && lastExitCode !== 0) {
+                    rtn.push({
+                        elemtype: "iconbutton",
+                        icon: "sparkles",
+                        iconColor: "#e8c47c",
+                        title: `Ask KronosCode: command failed (exit ${lastExitCode})`,
+                        click: () => {
+                            this.sendToKronosCode(lastExitCode);
+                        },
+                    });
                 }
             }
 
@@ -399,6 +428,21 @@ export class TermViewModel implements ViewModel {
         });
     }
 
+    private sendToKronosCode(exitCode: number): void {
+        const lastCommand = this.termRef.current ? globalStore.get(this.termRef.current.lastCommandAtom) : null;
+        const scrollback = this.termRef.current?.getScrollbackContent();
+        const lastLines = scrollback ? scrollback.split("\n").slice(-30).join("\n") : "";
+        const prompt = lastCommand
+            ? `The command \`${lastCommand}\` failed with exit code ${exitCode}. Here is the terminal output:\n\n${lastLines}`
+            : `A command failed with exit code ${exitCode}. Here is the terminal output:\n\n${lastLines}`;
+        const aiModel = WaveAIModel.getInstance();
+        const layoutModel = WorkspaceLayoutModel.getInstance();
+        if (!layoutModel.getAIPanelVisible()) {
+            layoutModel.setAIPanelVisible(true);
+        }
+        aiModel.sendMessage(prompt);
+    }
+
     getShellIntegrationIconButton(get: jotai.Getter): IconButtonDecl | null {
         if (!this.termRef.current?.shellIntegrationStatusAtom) {
             return null;
@@ -409,7 +453,7 @@ export class TermViewModel implements ViewModel {
                 elemtype: "iconbutton",
                 icon: "sparkles",
                 className: "text-muted",
-                title: "No shell integration — Wave AI unable to run commands.",
+                title: "No shell integration — KronosCode unable to run commands.",
                 noAction: true,
             };
         }
@@ -418,19 +462,19 @@ export class TermViewModel implements ViewModel {
                 elemtype: "iconbutton",
                 icon: "sparkles",
                 className: "text-accent",
-                title: "Shell ready — Wave AI can run commands in this terminal.",
+                title: "Shell ready — KronosCode can run commands in this terminal.",
                 noAction: true,
             };
         }
         if (shellIntegrationStatus === "running-command") {
-            let title = "Shell busy — Wave AI unable to run commands while another command is running.";
+            let title = "Shell busy — KronosCode unable to run commands while another command is running.";
 
             if (this.termRef.current) {
                 const inAltBuffer = this.termRef.current.terminal?.buffer?.active?.type === "alternate";
                 const lastCommand = get(this.termRef.current.lastCommandAtom);
                 const blockingCmd = getBlockingCommand(lastCommand, inAltBuffer);
                 if (blockingCmd) {
-                    title = `Wave AI integration disabled while you're inside ${blockingCmd}.`;
+                    title = `KronosCode integration disabled while you're inside ${blockingCmd}.`;
                 }
             }
 
@@ -839,7 +883,7 @@ export class TermViewModel implements ViewModel {
             });
             menu.push({ type: "separator" });
             menu.push({
-                label: "Send to Wave AI",
+                label: "Send to KronosCode",
                 click: () => {
                     if (selection) {
                         const aiModel = WaveAIModel.getInstance();
@@ -849,6 +893,32 @@ export class TermViewModel implements ViewModel {
                             layoutModel.setAIPanelVisible(true);
                         }
                         aiModel.focusInput();
+                    }
+                },
+            });
+            menu.push({
+                label: "Explain with AI",
+                click: () => {
+                    if (selection) {
+                        const aiModel = WaveAIModel.getInstance();
+                        const layoutModel = WorkspaceLayoutModel.getInstance();
+                        if (!layoutModel.getAIPanelVisible()) {
+                            layoutModel.setAIPanelVisible(true);
+                        }
+                        aiModel.sendMessage("Please explain this terminal selection:\n\n" + selection);
+                    }
+                },
+            });
+            menu.push({
+                label: "Fix with AI",
+                click: () => {
+                    if (selection) {
+                        const aiModel = WaveAIModel.getInstance();
+                        const layoutModel = WorkspaceLayoutModel.getInstance();
+                        if (!layoutModel.getAIPanelVisible()) {
+                            layoutModel.setAIPanelVisible(true);
+                        }
+                        aiModel.sendMessage("Please help me fix this terminal error/output:\n\n" + selection);
                     }
                 },
             });

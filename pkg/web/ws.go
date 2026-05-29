@@ -6,6 +6,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/baseds"
 	"github.com/wavetermdev/waveterm/pkg/eventbus"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
+	sandboxmanager "github.com/wavetermdev/waveterm/pkg/sandbox/manager"
 	"github.com/wavetermdev/waveterm/pkg/web/webcmd"
 	"github.com/wavetermdev/waveterm/pkg/wshutil"
 )
@@ -43,6 +45,7 @@ var RouteToConnMap = map[string]*StableConnInfo{} // stableid => StableConnInfo
 func RunWebSocketServer(listener net.Listener) {
 	gr := mux.NewRouter()
 	gr.HandleFunc("/ws", HandleWs)
+	gr.HandleFunc("/sandbox/vnc", HandleSandboxVNC)
 	server := &http.Server{
 		ReadTimeout:    HttpReadTimeout,
 		WriteTimeout:   HttpWriteTimeout,
@@ -55,6 +58,71 @@ func RunWebSocketServer(listener net.Listener) {
 	if err != nil {
 		log.Printf("[websocket] error trying to run websocket server: %v\n", err)
 	}
+}
+
+func HandleSandboxVNC(w http.ResponseWriter, r *http.Request) {
+	err := authkey.ValidateIncomingRequest(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(fmt.Sprintf("error validating authkey: %v", err)))
+		return
+	}
+	sessionID := r.URL.Query().Get("sessionid")
+	vncConn, _, err := sandboxmanager.GetSandboxManager().DialVNC(sessionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer vncConn.Close()
+
+	wsConn, err := WebSocketUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("websocket upgrade failed: %v", err), http.StatusBadRequest)
+		return
+	}
+	defer wsConn.Close()
+
+	closeCh := make(chan struct{})
+	var once sync.Once
+	closeBoth := func() {
+		once.Do(func() {
+			close(closeCh)
+			vncConn.Close()
+			wsConn.Close()
+		})
+	}
+
+	go func() {
+		defer closeBoth()
+		for {
+			_, message, err := wsConn.ReadMessage()
+			if err != nil {
+				return
+			}
+			if _, err := vncConn.Write(message); err != nil {
+				return
+			}
+		}
+	}()
+
+	go func() {
+		defer closeBoth()
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := vncConn.Read(buf)
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("[sandbox] vnc proxy read error: %v\n", err)
+				}
+				return
+			}
+			if err := wsConn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+				return
+			}
+		}
+	}()
+
+	<-closeCh
 }
 
 var WebSocketUpgrader = websocket.Upgrader{

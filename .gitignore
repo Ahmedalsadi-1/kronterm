@@ -39,3 +39,12 @@ test-results.xml
 docsite/
 
 .kilo-format-temp-*
+
+# KronosCode
+kronoscode/node_modules/
+kronoscode/.turbo/
+kronoscode/.bun-build
+kronoscode/dist/
+kronoscode/tmp/
+kronoscode/.tmp/
+kronoscode/*.bun-build

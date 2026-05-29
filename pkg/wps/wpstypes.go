@@ -15,25 +15,25 @@ import (
 //     - Use reflect.TypeOf((*YourType)(nil)) for pointer types
 //     - Use nil if no data is sent for the event
 const (
-	Event_BlockClose          = "blockclose"           // type: string
-	Event_ConnChange          = "connchange"           // type: wshrpc.ConnStatus
-	Event_SysInfo             = "sysinfo"              // type: wshrpc.TimeSeriesData
-	Event_ControllerStatus    = "controllerstatus"     // type: *blockcontroller.BlockControllerRuntimeStatus
-	Event_BuilderStatus       = "builderstatus"        // type: wshrpc.BuilderStatusData
-	Event_BuilderOutput       = "builderoutput"        // type: map[string]any
-	Event_WaveObjUpdate       = "waveobj:update"       // type: waveobj.WaveObjUpdate
-	Event_BlockFile           = "blockfile"            // type: *WSFileEventData
-	Event_Config              = "config"               // type: wconfig.WatcherUpdate
-	Event_UserInput           = "userinput"            // type: *userinput.UserInputRequest
-	Event_RouteDown           = "route:down"           // type: none
-	Event_RouteUp             = "route:up"             // type: none
-	Event_WorkspaceUpdate     = "workspace:update"     // type: none
-	Event_WaveAIRateLimit     = "waveai:ratelimit"     // type: *uctypes.RateLimitInfo
-	Event_WaveAppAppGoUpdated = "waveapp:appgoupdated" // type: none
-	Event_TsunamiUpdateMeta   = "tsunami:updatemeta"   // type: wshrpc.AppMeta
-	Event_AIModeConfig        = "waveai:modeconfig"    // type: wconfig.AIModeConfigUpdate
-	Event_BlockJobStatus      = "block:jobstatus"      // type: wshrpc.BlockJobStatusData
-	Event_Badge               = "badge"                // type: baseds.BadgeEvent
+	Event_BlockClose           = "blockclose"            // type: string
+	Event_ConnChange           = "connchange"            // type: wshrpc.ConnStatus
+	Event_SysInfo              = "sysinfo"               // type: wshrpc.TimeSeriesData
+	Event_ControllerStatus     = "controllerstatus"      // type: *blockcontroller.BlockControllerRuntimeStatus
+	Event_BuilderOutput        = "builderoutput"         // type: map[string]any
+	Event_WaveObjUpdate        = "waveobj:update"        // type: waveobj.WaveObjUpdate
+	Event_BlockFile            = "blockfile"             // type: *WSFileEventData
+	Event_Config               = "config"                // type: wconfig.WatcherUpdate
+	Event_UserInput            = "userinput"             // type: *userinput.UserInputRequest
+	Event_RouteDown            = "route:down"            // type: none
+	Event_RouteUp              = "route:up"              // type: none
+	Event_WorkspaceUpdate      = "workspace:update"      // type: none
+	Event_WaveAIRateLimit      = "waveai:ratelimit"      // type: *uctypes.RateLimitInfo
+	Event_WaveAppAppGoUpdated  = "waveapp:appgoupdated"  // type: none
+	Event_TsunamiUpdateMeta    = "tsunami:updatemeta"    // type: wshrpc.AppMeta
+	Event_AIModeConfig         = "waveai:modeconfig"     // type: wconfig.AIModeConfigUpdate
+	Event_BlockJobStatus       = "block:jobstatus"       // type: wshrpc.BlockJobStatusData
+	Event_Badge                = "badge"                 // type: baseds.BadgeEvent
+	Event_AgentSurfaceActivity = "agent:surfaceactivity" // type: AgentSurfaceActivityData
 )
 
 var AllEvents []string = []string{
@@ -41,7 +41,6 @@ var AllEvents []string = []string{
 	Event_ConnChange,
 	Event_SysInfo,
 	Event_ControllerStatus,
-	Event_BuilderStatus,
 	Event_BuilderOutput,
 	Event_WaveObjUpdate,
 	Event_BlockFile,
@@ -56,6 +55,7 @@ var AllEvents []string = []string{
 	Event_AIModeConfig,
 	Event_BlockJobStatus,
 	Event_Badge,
+	Event_AgentSurfaceActivity,
 }
 
 type WaveEvent struct {
@@ -74,6 +74,33 @@ type SubscriptionRequest struct {
 	Event     string   `json:"event"`
 	Scopes    []string `json:"scopes,omitempty"`
 	AllScopes bool     `json:"allscopes,omitempty"`
+}
+
+type AgentSurfacePoint struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type AgentSurfaceTarget struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+type AgentSurfaceActivityData struct {
+	SessionId       string              `json:"sessionid,omitempty"`
+	Source          string              `json:"source"`
+	Phase           string              `json:"phase"`
+	BlockId         string              `json:"blockid,omitempty"`
+	Surface         string              `json:"surface"`
+	Action          string              `json:"action"`
+	Detail          string              `json:"detail,omitempty"`
+	Thought         string              `json:"thought,omitempty"`
+	Point           *AgentSurfacePoint  `json:"point,omitempty"`
+	Target          *AgentSurfaceTarget `json:"target,omitempty"`
+	PreviewImageUrl string              `json:"previewimageurl,omitempty"`
+	PetActivityUrl  string              `json:"petactivityurl,omitempty"`
 }
 
 const (

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #pet-container {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #pet {
+            width: 100px;
+            height: 100px;
+            image-rendering: pixelated;
+        }
+        #thought-bubble {
+            position: absolute;
+            top: -60px;
+            left: 50px;
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            min-width: 100px;
+            max-width: 200px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: none;
+            font-size: 12px;
+            z-index: 10;
+        }
+        #thought-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 20px;
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: white transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="pet-container">
+        <div id="thought-bubble">Thinking...</div>
+        <img id="pet" src="../assets/idle/idle-1.png">
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const pet = document.getElementById('pet');
+        const thoughtBubble = document.getElementById('thought-bubble');
+        
+        let currentState = 'idle';
+        let currentFrame = 1;
+        const maxFrames = 25;
+        let animationInterval;
+
+        function updateAnimation() {
+            currentFrame = (currentFrame % maxFrames) + 1;
+            const path = `../assets/${currentState}/${currentState}-${currentFrame}.png`;
+            pet.src = path;
+        }
+
+        function setPetState(state) {
+            if (currentState !== state) {
+                currentState = state;
+                currentFrame = 1;
+                clearInterval(animationInterval);
+                animationInterval = setInterval(updateAnimation, 100);
+            }
+        }
+
+        animationInterval = setInterval(updateAnimation, 100);
+
+        ipcRenderer.on('mouse-move', (event, data) => {
+            // Logic to follow mouse or react
+            if (currentState === 'idle') {
+                // Maybe look towards mouse
+            }
+        });
+
+        ipcRenderer.on('key-down', (event, data) => {
+            setPetState('walk');
+            clearTimeout(window.idleTimeout);
+            window.idleTimeout = setTimeout(() => setPetState('idle'), 2000);
+        });
+
+        ipcRenderer.on('scroll', (event, data) => {
+            // React to scroll
+        });
+
+        // Placeholder for AI reasoning updates
+        window.updateReasoning = (text) => {
+            if (text) {
+                thoughtBubble.innerText = text;
+                thoughtBubble.style.display = 'block';
+            } else {
+                thoughtBubble.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>

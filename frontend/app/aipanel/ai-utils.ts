@@ -532,7 +532,6 @@ export const createImagePreview = async (file: File): Promise<string | null> => 
     });
 };
 
-
 /**
  * Filter and organize AI mode configs into Wave and custom provider groups
  * Returns organized configs that should be displayed based on settings and premium status
@@ -541,6 +540,15 @@ export interface FilteredAIModeConfigs {
     waveProviderConfigs: Array<{ mode: string } & AIModeConfigType>;
     otherProviderConfigs: Array<{ mode: string } & AIModeConfigType>;
     shouldShowCloudModes: boolean;
+}
+
+export function isKronosAIModeConfig(config?: AIModeConfigType | null): boolean {
+    return (
+        config?.["ai:provider"] === "kronos" ||
+        config?.["ai:provider"] === "kronoscode" ||
+        config?.["ai:apitype"] === "kronos-session" ||
+        config?.["ai:apitype"] === "kronoscode"
+    );
 }
 
 export const getFilteredAIModeConfigs = (
@@ -552,9 +560,13 @@ export const getFilteredAIModeConfigs = (
 ): FilteredAIModeConfigs => {
     const hideQuick = inBuilder && hasPremium;
 
-    const allConfigs = Object.entries(aiModeConfigs)
+    let allConfigs = Object.entries(aiModeConfigs)
         .map(([mode, config]) => ({ mode, ...config }))
         .filter((config) => !(hideQuick && config.mode === "waveai@quick"));
+    const kronosConfigs = allConfigs.filter((config) => isKronosAIModeConfig(config));
+    if (kronosConfigs.length > 0) {
+        allConfigs = kronosConfigs;
+    }
 
     const otherProviderConfigs = allConfigs
         .filter((config) => config["ai:provider"] !== "wave")

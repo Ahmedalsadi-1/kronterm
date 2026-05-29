@@ -27,7 +27,6 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/baseds"
 	"github.com/wavetermdev/waveterm/pkg/blockcontroller"
 	"github.com/wavetermdev/waveterm/pkg/blocklogger"
-	"github.com/wavetermdev/waveterm/pkg/buildercontroller"
 	"github.com/wavetermdev/waveterm/pkg/filebackup"
 	"github.com/wavetermdev/waveterm/pkg/filestore"
 	"github.com/wavetermdev/waveterm/pkg/genconn"
@@ -36,6 +35,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
 	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/wshfs"
+	sandboxmanager "github.com/wavetermdev/waveterm/pkg/sandbox/manager"
 	"github.com/wavetermdev/waveterm/pkg/secretstore"
 	"github.com/wavetermdev/waveterm/pkg/suggestion"
 	"github.com/wavetermdev/waveterm/pkg/telemetry"
@@ -71,6 +71,46 @@ var WshServerImpl = WshServer{}
 
 func (ws *WshServer) GetJwtPublicKeyCommand(ctx context.Context) (string, error) {
 	return wavejwt.GetPublicKeyBase64(), nil
+}
+
+func (ws *WshServer) CreateSurfaceTokenCommand(ctx context.Context, data wshrpc.CommandCreateSurfaceTokenData) (*wshrpc.CommandCreateSurfaceTokenRtnData, error) {
+	if wshutil.GetRpcSourceFromContext(ctx) != wshutil.ElectronRoute {
+		return nil, fmt.Errorf("surface tokens may only be issued for Electron sessions")
+	}
+	if data.TabId == "" {
+		return nil, fmt.Errorf("tabid is required")
+	}
+	tab, err := wstore.DBGet[*waveobj.Tab](ctx, data.TabId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting surface tab: %w", err)
+	}
+	if tab == nil {
+		return nil, fmt.Errorf("surface tab not found: %s", data.TabId)
+	}
+	if data.BlockId != "" {
+		tabId, err := wstore.DBFindTabForBlockId(ctx, data.BlockId)
+		if err != nil {
+			return nil, fmt.Errorf("error finding surface block tab: %w", err)
+		}
+		if tabId != data.TabId {
+			return nil, fmt.Errorf("surface block does not belong to the requested tab")
+		}
+	}
+	expiresAt := time.Now().Add(time.Hour)
+	token, err := wshutil.MakeClientJWTTokenWithExpiration(wshrpc.RpcContext{
+		ProcRoute: true,
+		SockName:  wavebase.GetDomainSocketName(),
+		BlockId:   data.BlockId,
+	}, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("error creating surface token: %w", err)
+	}
+	return &wshrpc.CommandCreateSurfaceTokenRtnData{
+		Token:     token,
+		TabId:     data.TabId,
+		BlockId:   data.BlockId,
+		ExpiresAt: expiresAt.UnixMilli(),
+	}, nil
 }
 
 func (ws *WshServer) TestCommand(ctx context.Context, data string) error {
@@ -1135,86 +1175,6 @@ func (ws *WshServer) WriteAppSecretBindingsCommand(ctx context.Context, data wsh
 	return waveappstore.WriteAppSecretBindings(data.AppId, data.Bindings)
 }
 
-func (ws *WshServer) DeleteBuilderCommand(ctx context.Context, builderId string) error {
-	if builderId == "" {
-		return fmt.Errorf("must provide a builderId to DeleteBuilderCommand")
-	}
-	buildercontroller.DeleteController(builderId)
-	return nil
-}
-
-func (ws *WshServer) StartBuilderCommand(ctx context.Context, data wshrpc.CommandStartBuilderData) error {
-	if data.BuilderId == "" {
-		return fmt.Errorf("must provide a builderId to StartBuilderCommand")
-	}
-	bc := buildercontroller.GetOrCreateController(data.BuilderId)
-	rtInfo := wstore.GetRTInfo(waveobj.MakeORef("builder", data.BuilderId))
-	if rtInfo == nil {
-		return fmt.Errorf("builder rtinfo not found for builderid: %s", data.BuilderId)
-	}
-	appId := rtInfo.BuilderAppId
-	if appId == "" {
-		return fmt.Errorf("builder appid not set for builderid: %s", data.BuilderId)
-	}
-	return bc.Start(ctx, appId, rtInfo.BuilderEnv)
-}
-
-func (ws *WshServer) StopBuilderCommand(ctx context.Context, builderId string) error {
-	if builderId == "" {
-		return fmt.Errorf("must provide a builderId to StopBuilderCommand")
-	}
-	bc := buildercontroller.GetController(builderId)
-	if bc == nil {
-		return nil
-	}
-	return bc.Stop()
-}
-
-func (ws *WshServer) RestartBuilderAndWaitCommand(ctx context.Context, data wshrpc.CommandRestartBuilderAndWaitData) (*wshrpc.RestartBuilderAndWaitResult, error) {
-	if data.BuilderId == "" {
-		return nil, fmt.Errorf("must provide a builderId to RestartBuilderAndWaitCommand")
-	}
-
-	bc := buildercontroller.GetOrCreateController(data.BuilderId)
-	rtInfo := wstore.GetRTInfo(waveobj.MakeORef("builder", data.BuilderId))
-	if rtInfo == nil {
-		return nil, fmt.Errorf("builder rtinfo not found for builderid: %s", data.BuilderId)
-	}
-
-	appId := rtInfo.BuilderAppId
-	if appId == "" {
-		return nil, fmt.Errorf("builder appid not set for builderid: %s", data.BuilderId)
-	}
-
-	result, err := bc.RestartAndWaitForBuild(ctx, appId, rtInfo.BuilderEnv)
-	if err != nil {
-		return nil, err
-	}
-
-	return &wshrpc.RestartBuilderAndWaitResult{
-		Success:      result.Success,
-		ErrorMessage: result.ErrorMessage,
-		BuildOutput:  result.BuildOutput,
-	}, nil
-}
-
-func (ws *WshServer) GetBuilderStatusCommand(ctx context.Context, builderId string) (*wshrpc.BuilderStatusData, error) {
-	if builderId == "" {
-		return nil, fmt.Errorf("must provide a builderId to GetBuilderStatusCommand")
-	}
-	bc := buildercontroller.GetOrCreateController(builderId)
-	status := bc.GetStatus()
-	return &status, nil
-}
-
-func (ws *WshServer) GetBuilderOutputCommand(ctx context.Context, builderId string) ([]string, error) {
-	if builderId == "" {
-		return nil, fmt.Errorf("must provide a builderId to GetBuilderOutputCommand")
-	}
-	bc := buildercontroller.GetOrCreateController(builderId)
-	return bc.GetOutput(), nil
-}
-
 func (ws *WshServer) CheckGoVersionCommand(ctx context.Context) (*wshrpc.CommandCheckGoVersionRtnData, error) {
 	watcher := wconfig.GetWatcher()
 	fullConfig := watcher.GetFullConfig()
@@ -1581,4 +1541,143 @@ func (ws *WshServer) JobControllerDetachJobCommand(ctx context.Context, jobId st
 
 func (ws *WshServer) BlockJobStatusCommand(ctx context.Context, blockId string) (*wshrpc.BlockJobStatusData, error) {
 	return jobcontroller.GetBlockJobStatus(ctx, blockId)
+}
+
+func (ws *WshServer) McpListServersCommand(ctx context.Context) ([]wshrpc.McpServerInfo, error) {
+	return []wshrpc.McpServerInfo{
+		{Name: "ghost-os", Status: "available", Version: "1.0"},
+		{Name: "automation-mcp", Status: "available", Version: "1.0"},
+	}, nil
+}
+
+func (ws *WshServer) McpConnectCommand(ctx context.Context, serverName string) error {
+	log.Printf("[mcp] connecting to server: %s\n", serverName)
+	return nil
+}
+
+func (ws *WshServer) McpDisconnectCommand(ctx context.Context, serverName string) error {
+	log.Printf("[mcp] disconnecting from server: %s\n", serverName)
+	return nil
+}
+
+func (ws *WshServer) McpListToolsCommand(ctx context.Context, serverName string) ([]wshrpc.McpToolInfo, error) {
+	return []wshrpc.McpToolInfo{}, nil
+}
+
+func (ws *WshServer) McpCallToolCommand(ctx context.Context, data wshrpc.McpCallToolData) (*wshrpc.McpCallToolResult, error) {
+	return &wshrpc.McpCallToolResult{
+		ServerName: data.ServerName,
+		ToolName:   data.ToolName,
+		Success:    false,
+		Error:      "not implemented",
+	}, nil
+}
+
+func (ws *WshServer) McpGetStatusCommand(ctx context.Context) (map[string]wshrpc.McpStatus, error) {
+	return map[string]wshrpc.McpStatus{
+		"ghost-os":       {Name: "ghost-os", Status: "disconnected"},
+		"automation-mcp": {Name: "automation-mcp", Status: "disconnected"},
+	}, nil
+}
+
+func (ws *WshServer) SandboxStartCommand(ctx context.Context, data wshrpc.SandboxStartRequest) (wshrpc.SandboxStartResponse, error) {
+	sm := sandboxmanager.GetSandboxManager()
+	session, err := sm.Start(ctx, sandboxmanager.StartOpts{
+		SessionID:  data.SessionId,
+		Mode:       data.Mode,
+		BrowserURL: data.BrowserUrl,
+	})
+	if err != nil {
+		return wshrpc.SandboxStartResponse{
+			SessionId: data.SessionId,
+			Status:    sandboxmanager.SandboxStatusError,
+			Mode:      data.Mode,
+			Error:     err.Error(),
+		}, nil
+	}
+
+	config := session.Config
+	sshPort := 0
+	vncPort := 0
+	sshConn := ""
+	if config != nil {
+		sshPort = config.SSHPort
+		vncPort = config.VNCPort
+		sshConn = fmt.Sprintf("ssh ubuntu@localhost -p %d", config.SSHPort)
+	}
+	vncWsURL := sandboxmanager.MakeVNCWsURL(session.SessionID)
+	if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
+		vncWsURL = ""
+	}
+	return wshrpc.SandboxStartResponse{
+		SessionId:  session.SessionID,
+		Status:     session.Status,
+		Mode:       session.Mode,
+		Runtime:    session.Runtime,
+		VncPort:    vncPort,
+		SshPort:    sshPort,
+		VncWsUrl:   vncWsURL,
+		DesktopUrl: sandboxmanager.MakeDesktopURL(session),
+		McpUrl:     session.MCPURL,
+		SshConn:    sshConn,
+		Password:   sandboxmanager.SandboxDefaultPassword,
+		Error:      session.LastError,
+	}, nil
+}
+
+func (ws *WshServer) SandboxStopCommand(ctx context.Context, data wshrpc.SandboxStopRequest) (wshrpc.SandboxStopResponse, error) {
+	sm := sandboxmanager.GetSandboxManager()
+	if err := sm.Stop(data.SessionId); err != nil {
+		return wshrpc.SandboxStopResponse{
+			Status: sandboxmanager.SandboxStatusError,
+			Error:  err.Error(),
+		}, nil
+	}
+
+	return wshrpc.SandboxStopResponse{
+		Status: sandboxmanager.SandboxStatusStopped,
+	}, nil
+}
+
+func (ws *WshServer) SandboxStatusCommand(ctx context.Context, data wshrpc.SandboxStatusRequest) (wshrpc.SandboxStatusResponse, error) {
+	sm := sandboxmanager.GetSandboxManager()
+	session, err := sm.GetStatus(data.SessionId)
+	if err != nil {
+		return wshrpc.SandboxStatusResponse{
+			SessionId: data.SessionId,
+			Status:    sandboxmanager.SandboxStatusError,
+			Error:     err.Error(),
+		}, nil
+	}
+
+	config := session.Config
+	vncWsURL := sandboxmanager.MakeVNCWsURL(session.SessionID)
+	if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
+		vncWsURL = ""
+	}
+	if config == nil {
+		return wshrpc.SandboxStatusResponse{
+			SessionId:  session.SessionID,
+			Status:     session.Status,
+			Mode:       session.Mode,
+			Runtime:    session.Runtime,
+			VncWsUrl:   vncWsURL,
+			DesktopUrl: sandboxmanager.MakeDesktopURL(session),
+			McpUrl:     session.MCPURL,
+			Error:      session.LastError,
+		}, nil
+	}
+	return wshrpc.SandboxStatusResponse{
+		SessionId:  session.SessionID,
+		Status:     session.Status,
+		Mode:       session.Mode,
+		Runtime:    session.Runtime,
+		VncPort:    config.VNCPort,
+		SshPort:    config.SSHPort,
+		VncWsUrl:   vncWsURL,
+		DesktopUrl: sandboxmanager.MakeDesktopURL(session),
+		McpUrl:     session.MCPURL,
+		SshConn:    fmt.Sprintf("ssh ubuntu@localhost -p %d", config.SSHPort),
+		Error:      session.LastError,
+	}, nil
 }

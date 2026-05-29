@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wavetermdev/waveterm/pkg/aiusechat/permissionrules"
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/uctypes"
 	"github.com/wavetermdev/waveterm/pkg/util/utilfn"
 	"github.com/wavetermdev/waveterm/pkg/wcore"
@@ -266,6 +267,7 @@ func CreateToolUseData(toolCallID, toolName string, arguments string, chatOpts u
 	if toolDef.ToolApproval != nil {
 		toolUseData.Approval = toolDef.ToolApproval(parsedArgs)
 	}
+	toolUseData.Approval = applyPermissionRules(toolName, parsedArgs, toolUseData.Approval, chatOpts.PermissionRules)
 	toolUseData.ActsOnWidgets = toolDef.ActsOnWidgets
 
 	if chatOpts.TabId != "" {
@@ -282,6 +284,49 @@ func CreateToolUseData(toolCallID, toolName string, arguments string, chatOpts u
 	}
 
 	return toolUseData
+}
+
+func applyPermissionRules(toolName string, parsedArgs any, defaultApproval string, rules []uctypes.PermissionRuleConfig) string {
+	if len(rules) == 0 {
+		return defaultApproval
+	}
+
+	policyRules := make(permissionrules.Ruleset, 0, len(rules))
+	for _, rule := range rules {
+		policyRules = append(policyRules, permissionrules.Rule{
+			Tool:     rule.Tool,
+			Resource: rule.Resource,
+			Action:   permissionrules.Action(rule.Action),
+		})
+	}
+
+	decision := permissionrules.Evaluate(toolName, inferPermissionResource(parsedArgs), policyRules)
+	switch decision.Action {
+	case permissionrules.ActionAllow:
+		return uctypes.ApprovalAutoApproved
+	case permissionrules.ActionDeny:
+		return uctypes.ApprovalUserDenied
+	case permissionrules.ActionAsk:
+		if defaultApproval != "" {
+			return uctypes.ApprovalNeedsApproval
+		}
+		return defaultApproval
+	default:
+		return defaultApproval
+	}
+}
+
+func inferPermissionResource(parsedArgs any) string {
+	args, ok := parsedArgs.(map[string]any)
+	if !ok {
+		return ""
+	}
+	for _, key := range []string{"filename", "path", "widget_id", "url", "command"} {
+		if value, ok := args[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // SendToolProgress sends tool progress updates via SSE if the tool has a progress descriptor

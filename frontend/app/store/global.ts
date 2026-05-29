@@ -36,6 +36,7 @@ import { ClientService, ObjectService } from "./services";
 import { isPreviewWindow } from "./windowtype";
 import * as WOS from "./wos";
 import { getFileSubject, waveEventSubscribeSingle } from "./wps";
+import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 
 let globalPrimaryTabStartup: boolean = false;
 
@@ -95,6 +96,12 @@ function initGlobalWaveEventSubs(initOpts: WaveInitOpts) {
         eventType: "waveai:ratelimit",
         handler: (event) => {
             globalStore.set(atoms.waveAIRateLimitInfoAtom, event.data);
+        },
+    });
+    waveEventSubscribeSingle({
+        eventType: "agent:surfaceactivity",
+        handler: (event) => {
+            reportAgentSurfaceActivity(event.data as AgentSurfaceActivity);
         },
     });
     setupBadgesSubscription();

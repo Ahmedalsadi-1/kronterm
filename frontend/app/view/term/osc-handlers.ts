@@ -113,6 +113,7 @@ function handleShellIntegrationCommandStart(
         globalStore.set(termWrap.lastCommandAtom, null);
     }
     rtInfo["shell:lastcmdexitcode"] = null;
+    globalStore.set(termWrap.lastExitCodeAtom, null);
 }
 
 // for xterm OSC handlers, we return true always because we "own" the OSC number.
@@ -326,8 +327,10 @@ export function handleOsc16162Command(data: string, blockId: string, loaded: boo
         case "D":
             if (cmd.data.exitcode != null) {
                 rtInfo["shell:lastcmdexitcode"] = cmd.data.exitcode;
+                globalStore.set(termWrap.lastExitCodeAtom, cmd.data.exitcode);
             } else {
                 rtInfo["shell:lastcmdexitcode"] = null;
+                globalStore.set(termWrap.lastExitCodeAtom, null);
             }
             break;
         case "I":

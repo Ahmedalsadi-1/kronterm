@@ -133,6 +133,10 @@ const (
 	MetaKey_WebPartition                     = "web:partition"
 	MetaKey_WebUserAgentType                 = "web:useragenttype"
 
+	MetaKey_SandboxMode                      = "sandbox:mode"
+	MetaKey_SandboxBrowserURL                = "sandbox:browserurl"
+	MetaKey_SandboxBrowserBlockId            = "sandbox:browserblockid"
+
 	MetaKey_MarkdownFontSize                 = "markdown:fontsize"
 	MetaKey_MarkdownFixedFontSize            = "markdown:fixedfontsize"
 

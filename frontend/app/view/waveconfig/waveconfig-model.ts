@@ -5,8 +5,11 @@ import { BlockNodeModel } from "@/app/block/blocktypes";
 import { globalStore } from "@/app/store/jotaiStore";
 import type { TabModel } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
+import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { GeneralSettingsVisualContent } from "@/app/view/waveconfig/generalsettingsvisual";
 import { SecretsContent } from "@/app/view/waveconfig/secretscontent";
+import { WaveAIVisualContent } from "@/app/view/waveconfig/waveaivisual";
 import { WaveConfigView } from "@/app/view/waveconfig/waveconfig";
 import type { WaveConfigEnv } from "@/app/view/waveconfig/waveconfigenv";
 import { base64ToString, stringToBase64 } from "@/util/util";
@@ -71,14 +74,15 @@ function makeConfigFiles(isWindows: boolean): ConfigFile[] {
             name: "General",
             path: "settings.json",
             language: "json",
-            docsUrl: "https://docs.waveterm.dev/config",
+            docsUrl: "https://docs.kronterm.dev/config",
             hasJsonView: true,
+            visualComponent: GeneralSettingsVisualContent,
         },
         {
             name: "Connections",
             path: "connections.json",
             language: "json",
-            docsUrl: "https://docs.waveterm.dev/connections",
+            docsUrl: "https://docs.kronterm.dev/connections",
             description: isWindows ? "SSH hosts and WSL distros" : "SSH hosts",
             hasJsonView: true,
         },
@@ -86,24 +90,24 @@ function makeConfigFiles(isWindows: boolean): ConfigFile[] {
             name: "Sidebar Widgets",
             path: "widgets.json",
             language: "json",
-            docsUrl: "https://docs.waveterm.dev/customwidgets",
+            docsUrl: "https://docs.kronterm.dev/customwidgets",
             hasJsonView: true,
         },
         {
-            name: "Wave AI Modes",
+            name: "KronosCode Modes",
             path: "waveai.json",
             language: "json",
             description: "Local models and BYOK",
-            docsUrl: "https://docs.waveterm.dev/waveai-modes",
+            docsUrl: "https://docs.kronterm.dev/kronai-modes",
             validator: validateWaveAiJson,
             hasJsonView: true,
-            // visualComponent: WaveAIVisualContent,
+            visualComponent: WaveAIVisualContent,
         },
         {
             name: "Tab Backgrounds",
             path: "presets/bg.json",
             language: "json",
-            docsUrl: "https://docs.waveterm.dev/presets#background-configurations",
+            docsUrl: "https://docs.kronterm.dev/presets#background-configurations",
             validator: validateBgJson,
             hasJsonView: true,
         },
@@ -130,7 +134,7 @@ const deprecatedConfigFiles: ConfigFile[] = [
         path: "presets/ai.json",
         language: "json",
         deprecated: true,
-        docsUrl: "https://docs.waveterm.dev/ai-presets",
+        docsUrl: "https://docs.kronterm.dev/ai-presets",
         validator: validateAiJson,
         hasJsonView: true,
     },
@@ -402,6 +406,65 @@ export class WaveConfigViewModel implements ViewModel {
 
     clearValidationError() {
         globalStore.set(this.validationErrorAtom, null);
+    }
+
+    getParsedFileContent(): any | null {
+        const fileContent = globalStore.get(this.fileContentAtom);
+        if (fileContent.trim() === "") {
+            return {};
+        }
+        try {
+            return JSON.parse(fileContent);
+        } catch (err) {
+            globalStore.set(this.validationErrorAtom, `Invalid JSON: ${err.message || String(err)}`);
+            return null;
+        }
+    }
+
+    async saveJsonObject(value: any) {
+        const selectedFile = globalStore.get(this.selectedFileAtom);
+        if (!selectedFile || selectedFile.isSecrets) return;
+
+        const formatted = JSON.stringify(value ?? {}, null, 2);
+
+        globalStore.set(this.isSavingAtom, true);
+        globalStore.set(this.errorMessageAtom, null);
+        globalStore.set(this.validationErrorAtom, null);
+
+        try {
+            const fullPath = `${this.configDir}/${selectedFile.path}`;
+            await this.env.rpc.FileWriteCommand(TabRpcClient, {
+                info: { path: fullPath },
+                data64: stringToBase64(formatted),
+            });
+            globalStore.set(this.fileContentAtom, formatted);
+            globalStore.set(this.originalContentAtom, formatted);
+            globalStore.set(this.hasEditedAtom, false);
+        } catch (err) {
+            globalStore.set(
+                this.errorMessageAtom,
+                `Failed to save ${selectedFile.name}: ${err.message || String(err)}`
+            );
+        } finally {
+            globalStore.set(this.isSavingAtom, false);
+        }
+    }
+
+    async setConfigValues(values: Partial<SettingsType>) {
+        globalStore.set(this.isSavingAtom, true);
+        globalStore.set(this.errorMessageAtom, null);
+        globalStore.set(this.validationErrorAtom, null);
+        try {
+            await RpcApi.SetConfigCommand(TabRpcClient, values as SettingsType);
+            const selectedFile = globalStore.get(this.selectedFileAtom);
+            if (selectedFile?.path === "settings.json") {
+                await this.loadFile(selectedFile);
+            }
+        } catch (err) {
+            globalStore.set(this.errorMessageAtom, `Failed to update settings: ${err.message || String(err)}`);
+        } finally {
+            globalStore.set(this.isSavingAtom, false);
+        }
     }
 
     async checkStorageBackend() {

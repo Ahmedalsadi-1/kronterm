@@ -11,7 +11,6 @@ declare global {
         | "connchange"
         | "sysinfo"
         | "controllerstatus"
-        | "builderstatus"
         | "builderoutput"
         | "waveobj:update"
         | "blockfile"
@@ -26,6 +25,7 @@ declare global {
         | "waveai:modeconfig"
         | "block:jobstatus"
         | "badge"
+        | "agent:surfaceactivity"
     ;
 
     type WaveEvent = {
@@ -35,25 +35,25 @@ declare global {
         persist?: number;
         data?: unknown;
     } & (
-        { event: "blockclose"; data?: string; } | 
-        { event: "connchange"; data?: ConnStatus; } | 
-        { event: "sysinfo"; data?: TimeSeriesData; } | 
-        { event: "controllerstatus"; data?: BlockControllerRuntimeStatus; } | 
-        { event: "builderstatus"; data?: BuilderStatusData; } | 
-        { event: "builderoutput"; data?: {[key: string]: any}; } | 
-        { event: "waveobj:update"; data?: WaveObjUpdate; } | 
-        { event: "blockfile"; data?: WSFileEventData; } | 
-        { event: "config"; data?: WatcherUpdate; } | 
-        { event: "userinput"; data?: UserInputRequest; } | 
-        { event: "route:down"; data?: null; } | 
-        { event: "route:up"; data?: null; } | 
-        { event: "workspace:update"; data?: null; } | 
-        { event: "waveai:ratelimit"; data?: RateLimitInfo; } | 
-        { event: "waveapp:appgoupdated"; data?: null; } | 
-        { event: "tsunami:updatemeta"; data?: AppMeta; } | 
-        { event: "waveai:modeconfig"; data?: AIModeConfigUpdate; } | 
-        { event: "block:jobstatus"; data?: BlockJobStatusData; } | 
-        { event: "badge"; data?: BadgeEvent; }
+        { event: "blockclose"; data?: string; } |
+        { event: "connchange"; data?: ConnStatus; } |
+        { event: "sysinfo"; data?: TimeSeriesData; } |
+        { event: "controllerstatus"; data?: BlockControllerRuntimeStatus; } |
+        { event: "builderoutput"; data?: {[key: string]: any}; } |
+        { event: "waveobj:update"; data?: WaveObjUpdate; } |
+        { event: "blockfile"; data?: WSFileEventData; } |
+        { event: "config"; data?: WatcherUpdate; } |
+        { event: "userinput"; data?: UserInputRequest; } |
+        { event: "route:down"; data?: null; } |
+        { event: "route:up"; data?: null; } |
+        { event: "workspace:update"; data?: null; } |
+        { event: "waveai:ratelimit"; data?: RateLimitInfo; } |
+        { event: "waveapp:appgoupdated"; data?: null; } |
+        { event: "tsunami:updatemeta"; data?: AppMeta; } |
+        { event: "waveai:modeconfig"; data?: AIModeConfigUpdate; } |
+        { event: "block:jobstatus"; data?: BlockJobStatusData; } |
+        { event: "badge"; data?: BadgeEvent; } |
+        { event: "agent:surfaceactivity"; data?: AgentSurfaceActivityData; }
     );
 
 }

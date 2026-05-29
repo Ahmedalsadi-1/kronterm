@@ -28,19 +28,25 @@
         height: 100%;
         white-space: nowrap;
         border-radius: 6px;
+        border: 1px solid transparent;
+        transition:
+            background-color 160ms ease,
+            border-color 160ms ease,
+            box-shadow 160ms ease;
     }
 
     &.animate {
         transition:
-            transform 0.3s ease,
-            background-color 0.3s ease-in-out;
+            transform 0.22s ease,
+            background-color 0.18s ease-in-out;
     }
 
     &.active {
         .tab-inner {
-            border-color: transparent;
+            border-color: rgb(from var(--accent-color) r g b / 0.36);
             border-radius: 6px;
-            background: rgb(from var(--main-text-color) r g b / 0.1);
+            background: var(--surface-selected-color);
+            box-shadow: inset 0 -1px 0 rgb(from var(--accent-color) r g b / 0.45);
         }
 
         .name {
@@ -86,6 +92,7 @@
         z-index: var(--zindex-tab-name);
         padding: 1px 2px;
         transition: none !important;
+        border-radius: 4px;
     }
 
     .close {
@@ -108,8 +115,8 @@ body:not(.nohover) .tab.dragging {
     }
 
     .tab-inner {
-        border-color: transparent;
-        background: rgb(from var(--main-text-color) r g b / 0.1);
+        border-color: rgb(from var(--main-text-color) r g b / 0.12);
+        background: var(--surface-hover-color);
     }
     .close {
         visibility: visible;
@@ -138,4 +145,3 @@ body.nohover .tab.active .close {
 .tab.new-tab {
     animation: expandWidthAndFadeIn 0.1s forwards;
 }
-

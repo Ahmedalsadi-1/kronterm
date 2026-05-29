@@ -137,6 +137,10 @@ type MetaTSType struct {
 	WebPartition     string  `json:"web:partition,omitempty"`
 	WebUserAgentType string  `json:"web:useragenttype,omitempty"`
 
+	SandboxMode           string `json:"sandbox:mode,omitempty"`
+	SandboxBrowserURL     string `json:"sandbox:browserurl,omitempty"`
+	SandboxBrowserBlockId string `json:"sandbox:browserblockid,omitempty"`
+
 	MarkdownFontSize      float64 `json:"markdown:fontsize,omitempty"`
 	MarkdownFixedFontSize float64 `json:"markdown:fixedfontsize,omitempty"`
 

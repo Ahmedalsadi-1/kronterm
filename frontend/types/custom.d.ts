@@ -8,8 +8,6 @@ import type * as rxjs from "rxjs";
 
 declare global {
     type GlobalAtomsType = {
-        builderId: jotai.Atom<string>; // readonly (for builder mode)
-        builderAppId: jotai.PrimitiveAtom<string>; // app being edited in builder mode
         uiContext: jotai.Atom<UIContext>; // driven from windowId, tabId
         workspaceId: jotai.Atom<string>; // derived from window WOS object
         workspace: jotai.Atom<Workspace>; // driven from workspaceId via WOS
@@ -61,21 +59,6 @@ declare global {
         primaryTabStartup?: boolean;
         builderId?: string;
         isPreview?: boolean;
-    };
-
-    type WaveInitOpts = {
-        tabId: string;
-        clientId: string;
-        windowId: string;
-        activate: boolean;
-        primaryTabStartup?: boolean;
-    };
-
-    type BuilderInitOpts = {
-        builderId: string;
-        clientId: string;
-        windowId: string;
-    };
 
     type ElectronApi = {
         getAuthKey(): string; // get-auth-key
@@ -92,7 +75,6 @@ declare global {
         getAboutModalDetails: () => AboutModalDetails; // get-about-modal-details
         getZoomFactor: () => number; // get-zoom-factor
         showWorkspaceAppMenu: (workspaceId: string) => void; // workspace-appmenu-show
-        showBuilderAppMenu: (builderId: string) => void; // builder-appmenu-show
         showContextMenu: (workspaceId: string, menu: ElectronContextMenuItem[]) => void; // contextmenu-show
         onContextMenuClick: (callback: (id: string | null) => void) => void; // contextmenu-click
         onNavigate: (callback: (url: string) => void) => void;
@@ -119,7 +101,6 @@ declare global {
         closeTab: (workspaceId: string, tabId: string, confirmClose: boolean) => Promise<boolean>; // close-tab
         setWindowInitStatus: (status: "ready" | "wave-ready") => void; // set-window-init-status
         onWaveInit: (callback: (initOpts: WaveInitOpts) => void) => void; // wave-init
-        onBuilderInit: (callback: (initOpts: BuilderInitOpts) => void) => void; // builder-init
         sendLog: (log: string) => void; // fe-log
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
@@ -127,14 +108,142 @@ declare global {
         setKeyboardChordMode: () => void; // set-keyboard-chord-mode
         clearWebviewStorage: (webContentsId: number) => Promise<void>; // clear-webview-storage
         setWaveAIOpen: (isOpen: boolean) => void; // set-waveai-open
-        closeBuilderWindow: () => void; // close-builder-window
         incrementTermCommands: (opts?: { isRemote?: boolean; isWsl?: boolean; isDurable?: boolean }) => void; // increment-term-commands
         nativePaste: () => void; // native-paste
-        openBuilder: (appId?: string) => void; // open-builder
-        setBuilderWindowAppId: (appId: string) => void; // set-builder-window-appid
         doRefresh: () => void; // do-refresh
         saveTextFile: (fileName: string, content: string) => Promise<boolean>; // save-text-file
+        selectDirectory: () => Promise<string | null>; // select-directory
+        selectFiles: () => Promise<string[]>; // select-files
+        acpApplyGitIdentity: (opts: {
+            workspace: string;
+            userName: string;
+            userEmail: string;
+        }) => Promise<{ success: boolean; error?: string }>; // acp-apply-git-identity
         setIsActive: () => Promise<void>; // set-is-active
+        setDesktopPetActivity: (notification: {
+            kind: "idle" | "thinking" | "tool";
+            detail?: string;
+            thought?: string;
+            target?: { x: number; y: number; width: number; height: number };
+            cursorAction?: "idle" | "click" | "type" | "scroll" | "hover" | null;
+            previewImageUrl?: string;
+            petActivityUrl?: string;
+            surfaceActivity?: {
+                sessionid?: string;
+                source: "acp" | "kronoscode-tui";
+                phase: "start" | "update" | "finish" | "error";
+                blockid?: string;
+                surface: "browser" | "sandbox" | "terminal" | "file" | "panel";
+                action: string;
+                detail?: string;
+                thought?: string;
+                point?: { x: number; y: number };
+                previewimageurl?: string;
+            };
+        }) => void; // desktop-pet-activity
+        onDesktopPetChat: (callback: (text: string) => void) => () => void; // desktop-pet-chat
+        acpDetectAgents: () => Promise<
+            Array<{
+                backend: string;
+                name: string;
+                cliPath: string;
+                available: boolean;
+                avatar?: string;
+                description?: string;
+                authRequired?: boolean;
+                supportsStreaming?: boolean;
+                acpArgs?: string[];
+                skillsDirs?: string[];
+            }>
+        >;
+        acpInitialize: (opts: {
+            conversationId: string;
+            backend: string;
+            workspace?: string;
+            cliPath?: string;
+            customArgs?: string[];
+            customEnv?: Record<string, string>;
+            resumeSessionId?: string;
+            mcpServers?: Array<{
+                name: string;
+                command: string;
+                args: string[];
+                env: Array<{ name: string; value: string }>;
+            }>;
+            surfaceContext?: {
+                tabId: string;
+                blockId?: string;
+            };
+        }) => Promise<{ success: boolean; error?: string }>;
+        acpSendMessage: (opts: {
+            conversationId: string;
+            content: string;
+        }) => Promise<{ success: boolean; error?: string }>;
+        acpConfirmTool: (opts: {
+            conversationId: string;
+            msgId: string;
+            callId: string;
+            optionId: string;
+        }) => Promise<{ success: boolean; error?: string }>;
+        acpStop: (opts: { conversationId: string }) => Promise<{ success: boolean; error?: string }>;
+        acpGetStatus: (opts: { conversationId: string }) => Promise<{
+            found: boolean;
+            status?: string;
+            sessionId?: string;
+            backend?: string;
+            error?: string;
+            confirmations?: any[];
+            modes?: any;
+            currentMode?: string;
+            configOptions?: any[];
+            modelInfo?: any;
+            capabilities?: any;
+        }>;
+        acpListRuntimes: () => Promise<
+            Array<{
+                conversationId: string;
+                sessionId?: string | null;
+                backend: string;
+                workspace?: string;
+                status: string;
+                error?: string | null;
+                confirmations?: any[];
+                modes?: any;
+                currentMode?: string | null;
+                configOptions?: any[];
+                modelInfo?: any;
+                capabilities?: any;
+            }>
+        >;
+        acpGetMode: (opts: { conversationId: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
+        acpSetMode: (opts: {
+            conversationId: string;
+            mode: string;
+        }) => Promise<{ success: boolean; data?: any; error?: string }>;
+        acpGetConfigOptions: (opts: {
+            conversationId: string;
+        }) => Promise<{ success: boolean; data?: { configOptions?: any[] }; error?: string }>;
+        acpSetConfigOption: (opts: {
+            conversationId: string;
+            configId: string;
+            value: string;
+        }) => Promise<{ success: boolean; data?: { configOptions?: any[] }; error?: string }>;
+        acpGetModelInfo: (opts: {
+            conversationId: string;
+        }) => Promise<{ success: boolean; data?: { modelInfo?: any }; error?: string }>;
+        acpSetModel: (opts: {
+            conversationId: string;
+            modelId: string;
+        }) => Promise<{ success: boolean; data?: { modelInfo?: any }; error?: string }>;
+        onAcpEvent: (
+            callback: (event: {
+                conversationId: string;
+                type: string;
+                msgId: string;
+                data?: any;
+                timestamp: number;
+            }) => void
+        ) => () => void;
     };
 
     type ElectronContextMenuItem = {

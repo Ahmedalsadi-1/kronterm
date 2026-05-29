@@ -19,7 +19,7 @@ type WaveUIDataTypes = {
         status: "pending" | "error" | "completed";
         runts?: number;
         errormessage?: string;
-        approval?: "needs-approval" | "user-approved" | "user-denied" | "auto-approved" | "timeout";
+        approval?: "needs-approval" | "user-approved" | "user-denied" | "auto-approved" | "timeout" | "canceled";
         blockid?: string;
         writebackupfilename?: string;
         inputfilename?: string;

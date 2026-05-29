@@ -66,15 +66,24 @@
         "display:name": "Kronos Local",
         "display:order": 12,
         "display:icon": "server",
-        "display:description": "Saturn UI powered by a local KronosCode session engine",
+        "display:description": "KronosCode AI engine with full agent capabilities",
         "ai:provider": "kronos",
         "ai:apitype": "kronos-session",
-        "ai:model": "anthropic/claude-sonnet-4-5",
-        "ai:agent": "coder",
+        "ai:model": "build",
         "ai:endpoint": "http://127.0.0.1:3001",
-        "ai:apitokensecretname": "KRONOSCODE_SERVER_PASSWORD",
-        "ai:kronostoolrouting": "hybrid",
-        "ai:kronospermissionmode": "always",
+        "ai:kronostoolrouting": "wave-only",
+        "ai:capabilities": ["tools"]
+    },
+    "waveai@kronos-computer-use": {
+        "display:name": "Kronos Computer Use",
+        "display:order": 13,
+        "display:icon": "monitor-cog",
+        "display:description": "KronosCode computer-use agent with Bytebot MCP desktop control",
+        "ai:provider": "kronos",
+        "ai:apitype": "kronos-session",
+        "ai:model": "computer-use",
+        "ai:endpoint": "http://127.0.0.1:3001",
+        "ai:kronostoolrouting": "wave-only",
         "ai:capabilities": ["tools"]
     }
 }

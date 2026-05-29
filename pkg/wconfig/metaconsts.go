@@ -21,6 +21,25 @@ const (
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 
+	ConfigKey_MCPClear                       = "mcp:*"
+	ConfigKey_MCPEnabled                     = "mcp:enabled"
+	ConfigKey_MCPClients                     = "mcp:servers"
+
+	ConfigKey_ACPClear                       = "acp:*"
+	ConfigKey_ACPDefaultBackend              = "acp:defaultbackend"
+	ConfigKey_ACPProfiles                    = "acp:profiles"
+	ConfigKey_ACPAgents                      = "acp:agents"
+	ConfigKey_ACPCommands                    = "acp:commands"
+	ConfigKey_ACPSkills                      = "acp:skills"
+	ConfigKey_ACPGitIdentities               = "acp:gitidentities"
+
+	ConfigKey_SandboxEnabled                 = "sandbox:enabled"
+	ConfigKey_SandboxCPUCores                = "sandbox:cpu"
+	ConfigKey_SandboxMemoryMB                = "sandbox:memory"
+	ConfigKey_SandboxVNCPort                 = "sandbox:vncport"
+	ConfigKey_SandboxSSHPort                 = "sandbox:sshport"
+	ConfigKey_SandboxDiskImage               = "sandbox:diskimage"
+
 	ConfigKey_AiClear                        = "ai:*"
 	ConfigKey_AiPreset                       = "ai:preset"
 	ConfigKey_AiApiType                      = "ai:apitype"

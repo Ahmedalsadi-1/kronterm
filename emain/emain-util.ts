@@ -180,6 +180,21 @@ export function shFrameNavHandler(event: Electron.Event<Electron.WebContentsWill
             // Invalid URL, fall through to prevent navigation
         }
     }
+    if (frameOrAncestorHasName(event.frame, "sandbox-desktop")) {
+        try {
+            const sandboxUrl = new URL(url);
+            if (
+                sandboxUrl.protocol === "http:" &&
+                (sandboxUrl.hostname === "localhost" || sandboxUrl.hostname === "127.0.0.1") &&
+                sandboxUrl.port === "9990" &&
+                sandboxUrl.pathname.startsWith("/novnc/")
+            ) {
+                return;
+            }
+        } catch (e) {
+            // Invalid URL, fall through to prevent navigation
+        }
+    }
     event.preventDefault();
     console.log("frame navigation canceled", event.frame.name, url);
 }

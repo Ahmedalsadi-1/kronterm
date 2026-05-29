@@ -15,7 +15,7 @@ import * as WOS from "@/app/store/wos";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { BuilderFocusManager } from "@/builder/store/builder-focusmanager";
+
 import { getWebServerEndpoint } from "@/util/endpoints";
 import { base64ToArrayBuffer } from "@/util/util";
 import { ChatStatus } from "ai";
@@ -26,6 +26,7 @@ import {
     createImagePreview,
     formatFileSizeError,
     isAcceptableFile,
+    isKronosAIModeConfig,
     normalizeMimeType,
     resizeImage,
     validateFileSizeFromInfo,
@@ -41,6 +42,24 @@ export interface DroppedFile {
     previewUrl?: string;
 }
 
+type AcpPanelBridge = {
+    focusInput: () => void;
+    appendText: (text: string, newLine?: boolean) => void;
+    clearChat: () => void;
+    sendMessage: (text: string) => Promise<void>;
+};
+
+function getHostedKronosMode(aiModeConfigs: Record<string, AIModeConfigType> | null | undefined): string | null {
+    if (aiModeConfigs == null) {
+        return null;
+    }
+    if (isKronosAIModeConfig(aiModeConfigs["waveai@kronos"])) {
+        return "waveai@kronos";
+    }
+    const kronosEntry = Object.entries(aiModeConfigs).find(([, config]) => isKronosAIModeConfig(config));
+    return kronosEntry?.[0] ?? null;
+}
+
 export class WaveAIModel {
     private static instance: WaveAIModel | null = null;
     inputRef: React.RefObject<AIPanelInputRef> | null = null;
@@ -49,6 +68,7 @@ export class WaveAIModel {
     useChatSetMessages: UseChatSetMessagesType | null = null;
     useChatStatus: ChatStatus = "ready";
     useChatStop: (() => void) | null = null;
+    acpPanelBridge: AcpPanelBridge | null = null;
     // Used for injecting Wave-specific message data into DefaultChatTransport's prepareSendMessagesRequest
     realMessage: AIMessage | null = null;
     orefContext: ORef;
@@ -59,6 +79,10 @@ export class WaveAIModel {
     droppedFiles: jotai.PrimitiveAtom<DroppedFile[]> = jotai.atom([]);
     chatId!: jotai.PrimitiveAtom<string>;
     currentAIMode!: jotai.PrimitiveAtom<string>;
+    selectedKronosAgentAtom: jotai.PrimitiveAtom<string> = jotai.atom("kronoscode");
+    selectedKronosProviderAtom: jotai.PrimitiveAtom<string> = jotai.atom("");
+    selectedKronosModelAtom: jotai.PrimitiveAtom<string> = jotai.atom("");
+    selectedKronosModeAtom: jotai.PrimitiveAtom<string> = jotai.atom("default");
     aiModeConfigs!: jotai.Atom<Record<string, AIModeConfigType>>;
     hasPremiumAtom!: jotai.Atom<boolean>;
     defaultModeAtom!: jotai.Atom<string>;
@@ -103,7 +127,7 @@ export class WaveAIModel {
 
         this.isWaveAIFocusedAtom = jotai.atom((get) => {
             if (this.inBuilder) {
-                return get(BuilderFocusManager.getInstance().focusType) === "waveai";
+                return false;
             }
             return get(FocusManager.getInstance().focusType) === "waveai";
         });
@@ -121,6 +145,10 @@ export class WaveAIModel {
                 return telemetryEnabled ? "waveai@balanced" : "invalid";
             }
             const aiModeConfigs = get(this.aiModeConfigs);
+            const hostedKronosMode = getHostedKronosMode(aiModeConfigs);
+            if (hostedKronosMode != null) {
+                return hostedKronosMode;
+            }
             if (!telemetryEnabled) {
                 let mode = get(getSettingsKeyAtom("waveai:defaultmode"));
                 if (mode == null || mode.startsWith("waveai@")) {
@@ -201,7 +229,7 @@ export class WaveAIModel {
 
     async addFileFromRemoteUri(draggedFile: DraggedFile): Promise<void> {
         if (draggedFile.isDir) {
-            this.setError("Cannot add directories to Wave AI. Please select a file.");
+            this.setError("Cannot add directories to KronosCode. Please select a file.");
             return;
         }
 
@@ -212,7 +240,7 @@ export class WaveAIModel {
                 return;
             }
             if (fileInfo.isdir) {
-                this.setError("Cannot add directories to Wave AI. Please select a file.");
+                this.setError("Cannot add directories to KronosCode. Please select a file.");
                 return;
             }
 
@@ -267,6 +295,10 @@ export class WaveAIModel {
     }
 
     clearChat() {
+        if (this.acpPanelBridge != null) {
+            this.acpPanelBridge.clearChat();
+            return;
+        }
         this.useChatStop?.();
         this.clearFiles();
         this.clearError();
@@ -294,6 +326,16 @@ export class WaveAIModel {
         this.inputRef = ref;
     }
 
+    registerAcpPanelBridge(bridge: AcpPanelBridge) {
+        this.acpPanelBridge = bridge;
+    }
+
+    unregisterAcpPanelBridge(bridge: AcpPanelBridge) {
+        if (this.acpPanelBridge === bridge) {
+            this.acpPanelBridge = null;
+        }
+    }
+
     registerScrollToBottom(callback: () => void) {
         this.scrollToBottomCallback = callback;
     }
@@ -317,6 +359,10 @@ export class WaveAIModel {
     focusInput() {
         if (!this.inBuilder && !WorkspaceLayoutModel.getInstance().getAIPanelVisible()) {
             WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
+        }
+        if (this.acpPanelBridge != null) {
+            this.acpPanelBridge.focusInput();
+            return;
         }
         if (this.inputRef?.current) {
             this.inputRef.current.focus();
@@ -358,6 +404,10 @@ export class WaveAIModel {
     }
 
     appendText(text: string, newLine?: boolean, opts?: { scrollToBottom?: boolean }) {
+        if (this.acpPanelBridge != null) {
+            this.acpPanelBridge.appendText(text, newLine);
+            return;
+        }
         const currentInput = globalStore.get(this.inputAtom);
         let newInput = currentInput;
 
@@ -394,13 +444,16 @@ export class WaveAIModel {
     }
 
     isValidMode(mode: string): boolean {
-        const telemetryEnabled = globalStore.get(getSettingsKeyAtom("telemetry:enabled")) ?? false;
-        if (mode.startsWith("waveai@") && !telemetryEnabled) {
-            return false;
-        }
-
         const aiModeConfigs = globalStore.get(this.aiModeConfigs);
         if (aiModeConfigs == null || !(mode in aiModeConfigs)) {
+            return false;
+        }
+        const hostedKronosMode = getHostedKronosMode(aiModeConfigs);
+        if (!this.inBuilder && hostedKronosMode != null) {
+            return isKronosAIModeConfig(aiModeConfigs[mode]);
+        }
+        const telemetryEnabled = globalStore.get(getSettingsKeyAtom("telemetry:enabled")) ?? false;
+        if (mode.startsWith("waveai@") && !telemetryEnabled) {
             return false;
         }
 
@@ -459,6 +512,27 @@ export class WaveAIModel {
         }
         globalStore.set(this.chatId, chatIdValue);
 
+        const aiModeConfigs = globalStore.get(this.aiModeConfigs);
+        const hostedKronosMode = getHostedKronosMode(aiModeConfigs);
+        if (!this.inBuilder && hostedKronosMode != null) {
+            const aiModeValue = rtInfo?.["waveai:mode"];
+            const nextMode = aiModeValue != null && this.isValidMode(aiModeValue) ? aiModeValue : hostedKronosMode;
+            globalStore.set(this.currentAIMode, nextMode);
+            RpcApi.SetRTInfoCommand(TabRpcClient, {
+                oref: this.orefContext,
+                data: { "waveai:mode": nextMode },
+            });
+            try {
+                return await this.reloadChatFromBackend(chatIdValue);
+            } catch (error) {
+                console.error("Failed to load chat:", error);
+                this.setError("Failed to load chat. Starting new chat...");
+
+                this.clearChat();
+                return [];
+            }
+        }
+
         const aiModeValue = rtInfo?.["waveai:mode"];
         if (aiModeValue == null) {
             const defaultMode = globalStore.get(this.defaultModeAtom);
@@ -482,16 +556,28 @@ export class WaveAIModel {
 
     async handleSubmit() {
         const input = globalStore.get(this.inputAtom);
+        await this.sendMessage(input);
+    }
+
+    async sendMessage(text: string) {
+        if (this.acpPanelBridge != null) {
+            if (text.trim() === "/clear" || text.trim() === "/new") {
+                this.acpPanelBridge.clearChat();
+                return;
+            }
+            await this.acpPanelBridge.sendMessage(text);
+            return;
+        }
         const droppedFiles = globalStore.get(this.droppedFiles);
 
-        if (input.trim() === "/clear" || input.trim() === "/new") {
+        if (text.trim() === "/clear" || text.trim() === "/new") {
             this.clearChat();
             globalStore.set(this.inputAtom, "");
             return;
         }
 
         if (
-            (!input.trim() && droppedFiles.length === 0) ||
+            (!text.trim() && droppedFiles.length === 0) ||
             (this.useChatStatus !== "ready" && this.useChatStatus !== "error") ||
             globalStore.get(this.isLoadingChatAtom)
         ) {
@@ -503,9 +589,9 @@ export class WaveAIModel {
         const aiMessageParts: AIMessagePart[] = [];
         const uiMessageParts: WaveUIMessagePart[] = [];
 
-        if (input.trim()) {
-            aiMessageParts.push({ type: "text", text: input.trim() });
-            uiMessageParts.push({ type: "text", text: input.trim() });
+        if (text.trim()) {
+            aiMessageParts.push({ type: "text", text: text.trim() });
+            uiMessageParts.push({ type: "text", text: text.trim() });
         }
 
         for (const droppedFile of droppedFiles) {
@@ -537,8 +623,6 @@ export class WaveAIModel {
             parts: aiMessageParts,
         };
         this.realMessage = realMessage;
-
-        // console.log("SUBMIT MESSAGE", realMessage);
 
         this.useChatSendMessage?.({ parts: uiMessageParts });
 
@@ -587,7 +671,6 @@ export class WaveAIModel {
 
     requestWaveAIFocus() {
         if (this.inBuilder) {
-            BuilderFocusManager.getInstance().setWaveAIFocused();
         } else {
             FocusManager.getInstance().requestWaveAIFocus();
         }
@@ -595,7 +678,6 @@ export class WaveAIModel {
 
     requestNodeFocus() {
         if (this.inBuilder) {
-            BuilderFocusManager.getInstance().setAppFocused();
         } else {
             FocusManager.getInstance().requestNodeFocus();
         }

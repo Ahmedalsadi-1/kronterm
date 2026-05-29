@@ -25,8 +25,8 @@ export const AIPanelHeader = memo(() => {
             onContextMenu={handleContextMenu}
         >
             <h2 className="text-white text-sm @xs:text-lg font-semibold flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
-                <i className="fa fa-sparkles text-accent"></i>
-                Wave AI
+                <i className="fa fa-circle-nodes" style={{ color: "#e8c47c" }}></i>
+                KronosCode
             </h2>
 
             <div className="flex items-center flex-shrink-0 whitespace-nowrap">

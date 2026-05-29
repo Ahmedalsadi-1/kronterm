@@ -5,6 +5,63 @@
 
 declare global {
 
+    // wconfig.ACPAgentDefinition
+    type ACPAgentDefinition = {
+        name?: string;
+        backend?: string;
+        description?: string;
+        scope?: string;
+        mode?: string;
+        model?: string;
+        temperature?: number;
+        topp?: number;
+        systemprompt?: string;
+    };
+
+    // wconfig.ACPAgentProfile
+    type ACPAgentProfile = {
+        model?: string;
+        mode?: string;
+        workspace?: string;
+        executable?: string;
+        configoptions?: {[key: string]: string};
+        mcpserverids?: string[];
+        skillsdirs?: string[];
+    };
+
+    // wconfig.ACPCommandDefinition
+    type ACPCommandDefinition = {
+        name?: string;
+        description?: string;
+        scope?: string;
+        agent?: string;
+        model?: string;
+        template?: string;
+        subtask?: boolean;
+    };
+
+    // wconfig.ACPGitIdentity
+    type ACPGitIdentity = {
+        id?: string;
+        name?: string;
+        username?: string;
+        useremail?: string;
+        authtype?: string;
+        sshkey?: string;
+        host?: string;
+        color?: string;
+        icon?: string;
+    };
+
+    // wconfig.ACPSkillDefinition
+    type ACPSkillDefinition = {
+        name?: string;
+        description?: string;
+        scope?: string;
+        backend?: string;
+        instructions?: string;
+    };
+
     // wshrpc.AIAttachedFile
     type AIAttachedFile = {
         name: string;
@@ -45,6 +102,33 @@ declare global {
         configs: {[key: string]: AIModeConfigType};
     };
 
+    // waveobj.AcpSession
+    type AcpSession = WaveObj & {
+        backend: string;
+        agentname?: string;
+        workspace?: string;
+        title?: string;
+        acpsessionid?: string;
+        status?: string;
+        resumestate?: string;
+        createdts: number;
+        updatedts: number;
+        modelinfojson?: string;
+        modesjson?: string;
+        configoptionsjson?: string;
+        capabilitiesjson?: string;
+        referencedfiles?: string[];
+        events?: AcpSessionEvent[];
+    };
+
+    // waveobj.AcpSessionEvent
+    type AcpSessionEvent = {
+        messageid: string;
+        type: string;
+        datajson?: string;
+        timestamp: number;
+    };
+
     // wshrpc.ActivityDisplayType
     type ActivityDisplayType = {
         width: number;
@@ -83,24 +167,39 @@ declare global {
         conn?: {[key: string]: number};
     };
 
+    // wps.AgentSurfaceActivityData
+    type AgentSurfaceActivityData = {
+        sessionid?: string;
+        source: string;
+        phase: string;
+        blockid?: string;
+        surface: string;
+        action: string;
+        detail?: string;
+        thought?: string;
+        point?: AgentSurfacePoint;
+        target?: AgentSurfaceTarget;
+        previewimageurl?: string;
+        petactivityurl?: string;
+    };
+
+    // wps.AgentSurfacePoint
+    type AgentSurfacePoint = {
+        x: number;
+        y: number;
+    };
+
+    // wps.AgentSurfaceTarget
+    type AgentSurfaceTarget = {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+
     // wshrpc.AiMessageData
     type AiMessageData = {
         message?: string;
-    };
-
-    // wshrpc.AppInfo
-    type AppInfo = {
-        appid: string;
-        modtime: number;
-        manifest?: AppManifest;
-    };
-
-    // wshrpc.AppManifest
-    type AppManifest = {
-        appmeta: AppMeta;
-        configschema: {[key: string]: any};
-        dataschema: {[key: string]: any};
-        secrets: {[key: string]: SecretMeta};
     };
 
     // wshrpc.AppMeta
@@ -191,18 +290,6 @@ declare global {
         workspaceid?: string;
     };
 
-    // wshrpc.BuilderStatusData
-    type BuilderStatusData = {
-        status: string;
-        port?: number;
-        exitcode?: number;
-        errormsg?: string;
-        version: number;
-        manifest?: AppManifest;
-        secretbindings?: {[key: string]: string};
-        secretbindingscomplete: boolean;
-    };
-
     // waveobj.Client
     type Client = WaveObj & {
         windowids: string[];
@@ -262,14 +349,6 @@ declare global {
         blockid: string;
     };
 
-    // wshrpc.CommandCheckGoVersionRtnData
-    type CommandCheckGoVersionRtnData = {
-        gostatus: string;
-        gopath: string;
-        goversion: string;
-        errorstring?: string;
-    };
-
     // wshrpc.CommandConnServerInitData
     type CommandConnServerInitData = {
         clientid: string;
@@ -307,6 +386,20 @@ declare global {
         blockdef: BlockDef;
     };
 
+    // wshrpc.CommandCreateSurfaceTokenData
+    type CommandCreateSurfaceTokenData = {
+        tabid: string;
+        blockid?: string;
+    };
+
+    // wshrpc.CommandCreateSurfaceTokenRtnData
+    type CommandCreateSurfaceTokenRtnData = {
+        token: string;
+        tabid: string;
+        blockid?: string;
+        expiresat: number;
+    };
+
     // wshrpc.CommandDebugTermData
     type CommandDebugTermData = {
         blockid: string;
@@ -317,12 +410,6 @@ declare global {
     type CommandDebugTermRtnData = {
         offset: number;
         data64: string;
-    };
-
-    // wshrpc.CommandDeleteAppFileData
-    type CommandDeleteAppFileData = {
-        appid: string;
-        filename: string;
     };
 
     // wshrpc.CommandDeleteBlockData
@@ -466,58 +553,17 @@ declare global {
     // wshrpc.CommandJobStartStreamData
     type CommandJobStartStreamData = object;
 
-    // wshrpc.CommandListAllAppFilesData
-    type CommandListAllAppFilesData = {
+    // wshrpc.CommandLaunchInstalledAppData
+    type CommandLaunchInstalledAppData = {
         appid: string;
-    };
-
-    // wshrpc.CommandListAllAppFilesRtnData
-    type CommandListAllAppFilesRtnData = {
-        path: string;
-        absolutepath: string;
-        parentdir?: string;
-        entries: DirEntryOut[];
-        entrycount: number;
-        totalentries: number;
-        truncated?: boolean;
-    };
-
-    // wshrpc.CommandMakeDraftFromLocalData
-    type CommandMakeDraftFromLocalData = {
-        localappid: string;
-    };
-
-    // wshrpc.CommandMakeDraftFromLocalRtnData
-    type CommandMakeDraftFromLocalRtnData = {
-        draftappid: string;
+        execpath: string;
+        workspace: string;
+        terminal: boolean;
     };
 
     // wshrpc.CommandMessageData
     type CommandMessageData = {
         message: string;
-    };
-
-    // wshrpc.CommandPublishAppData
-    type CommandPublishAppData = {
-        appid: string;
-    };
-
-    // wshrpc.CommandPublishAppRtnData
-    type CommandPublishAppRtnData = {
-        publishedappid: string;
-    };
-
-    // wshrpc.CommandReadAppFileData
-    type CommandReadAppFileData = {
-        appid: string;
-        filename: string;
-    };
-
-    // wshrpc.CommandReadAppFileRtnData
-    type CommandReadAppFileRtnData = {
-        data64: string;
-        notfound?: boolean;
-        modts?: number;
     };
 
     // wshrpc.CommandRemoteDisconnectFromJobManagerData
@@ -592,13 +638,6 @@ declare global {
         jobmanagerstartts: number;
     };
 
-    // wshrpc.CommandRenameAppFileData
-    type CommandRenameAppFileData = {
-        appid: string;
-        fromfilename: string;
-        tofilename: string;
-    };
-
     // wshrpc.CommandResolveIdsData
     type CommandResolveIdsData = {
         blockid: string;
@@ -608,11 +647,6 @@ declare global {
     // wshrpc.CommandResolveIdsRtnData
     type CommandResolveIdsRtnData = {
         resolvedids: {[key: string]: ORef};
-    };
-
-    // wshrpc.CommandRestartBuilderAndWaitData
-    type CommandRestartBuilderAndWaitData = {
-        builderid: string;
     };
 
     // wshrpc.CommandSetMetaData
@@ -626,11 +660,6 @@ declare global {
         oref: ORef;
         data: ObjRTInfo;
         delete?: boolean;
-    };
-
-    // wshrpc.CommandStartBuilderData
-    type CommandStartBuilderData = {
-        builderid: string;
     };
 
     // wshrpc.CommandStartJobData
@@ -749,28 +778,195 @@ declare global {
         opts?: WebSelectorOpts;
     };
 
-    // wshrpc.CommandWriteAppFileData
-    type CommandWriteAppFileData = {
-        appid: string;
-        filename: string;
-        data64: string;
+    // wshrpc.CommandWidgetClearData
+    type CommandWidgetClearData = {
+        blockid: string;
+        elementref: string;
     };
 
-    // wshrpc.CommandWriteAppGoFileData
-    type CommandWriteAppGoFileData = {
-        appid: string;
-        data64: string;
+    // wshrpc.CommandWidgetClickData
+    type CommandWidgetClickData = {
+        blockid: string;
+        elementref?: string;
+        x?: number;
+        y?: number;
+        button?: string;
+        clicktype?: string;
     };
 
-    // wshrpc.CommandWriteAppGoFileRtnData
-    type CommandWriteAppGoFileRtnData = {
-        data64: string;
+    // wshrpc.CommandWidgetClipboardGetData
+    type CommandWidgetClipboardGetData = {
+        blockid: string;
     };
 
-    // wshrpc.CommandWriteAppSecretBindingsData
-    type CommandWriteAppSecretBindingsData = {
-        appid: string;
-        bindings: {[key: string]: string};
+    // wshrpc.CommandWidgetClipboardSetData
+    type CommandWidgetClipboardSetData = {
+        blockid: string;
+        text: string;
+    };
+
+    // wshrpc.CommandWidgetDragData
+    type CommandWidgetDragData = {
+        blockid: string;
+        startref?: string;
+        startx?: number;
+        starty?: number;
+        endref?: string;
+        endx?: number;
+        endy?: number;
+        button?: string;
+    };
+
+    // wshrpc.CommandWidgetElementAtData
+    type CommandWidgetElementAtData = {
+        blockid: string;
+        x: number;
+        y: number;
+    };
+
+    // wshrpc.CommandWidgetFindData
+    type CommandWidgetFindData = {
+        blockid: string;
+        role?: string;
+        name?: string;
+        value?: string;
+        text?: string;
+        maxcount?: number;
+    };
+
+    // wshrpc.CommandWidgetGetElementsData
+    type CommandWidgetGetElementsData = {
+        blockid: string;
+    };
+
+    // wshrpc.CommandWidgetGetStateData
+    type CommandWidgetGetStateData = {
+        blockid: string;
+    };
+
+    // wshrpc.CommandWidgetGetValueData
+    type CommandWidgetGetValueData = {
+        blockid: string;
+        elementref: string;
+    };
+
+    // wshrpc.CommandWidgetHoverData
+    type CommandWidgetHoverData = {
+        blockid: string;
+        elementref?: string;
+        x?: number;
+        y?: number;
+    };
+
+    // wshrpc.CommandWidgetInspectData
+    type CommandWidgetInspectData = {
+        blockid: string;
+        elementref: string;
+    };
+
+    // wshrpc.CommandWidgetKeyboardPressData
+    type CommandWidgetKeyboardPressData = {
+        blockid: string;
+        keys: string[];
+    };
+
+    // wshrpc.CommandWidgetKeyboardTypeData
+    type CommandWidgetKeyboardTypeData = {
+        blockid: string;
+        text: string;
+        delayms: number;
+    };
+
+    // wshrpc.CommandWidgetLongPressData
+    type CommandWidgetLongPressData = {
+        blockid: string;
+        elementref?: string;
+        x?: number;
+        y?: number;
+        duration?: number;
+    };
+
+    // wshrpc.CommandWidgetMouseClickData
+    type CommandWidgetMouseClickData = {
+        blockid: string;
+        x: number;
+        y: number;
+        button: string;
+        clickcount: number;
+    };
+
+    // wshrpc.CommandWidgetMouseDragData
+    type CommandWidgetMouseDragData = {
+        blockid: string;
+        startx: number;
+        starty: number;
+        endx: number;
+        endy: number;
+        button: string;
+    };
+
+    // wshrpc.CommandWidgetMouseScrollData
+    type CommandWidgetMouseScrollData = {
+        blockid: string;
+        amount: number;
+        originx?: number;
+        originy?: number;
+    };
+
+    // wshrpc.CommandWidgetScreenshotAnnotatedData
+    type CommandWidgetScreenshotAnnotatedData = {
+        blockid: string;
+        showelements: boolean;
+    };
+
+    // wshrpc.CommandWidgetScrollToData
+    type CommandWidgetScrollToData = {
+        blockid: string;
+        elementref?: string;
+        x?: number;
+        y?: number;
+    };
+
+    // wshrpc.CommandWidgetSelectData
+    type CommandWidgetSelectData = {
+        blockid: string;
+        elementref: string;
+        option: string;
+    };
+
+    // wshrpc.CommandWidgetSetValueData
+    type CommandWidgetSetValueData = {
+        blockid: string;
+        elementref: string;
+        value: string;
+    };
+
+    // wshrpc.CommandWidgetSnapshotData
+    type CommandWidgetSnapshotData = {
+        blockid: string;
+    };
+
+    // wshrpc.CommandWidgetToggleData
+    type CommandWidgetToggleData = {
+        blockid: string;
+        elementref: string;
+    };
+
+    // wshrpc.CommandWidgetWaitConditionData
+    type CommandWidgetWaitConditionData = {
+        blockid: string;
+        elementref?: string;
+        condition: string;
+        value?: string;
+        timeoutms: number;
+    };
+
+    // wshrpc.CommandWidgetWaitForElementData
+    type CommandWidgetWaitForElementData = {
+        blockid: string;
+        elementref?: string;
+        condition: string;
+        timeoutms: number;
     };
 
     // wshrpc.CommandWriteTempFileData
@@ -864,17 +1060,6 @@ declare global {
     type CpuDataRequest = {
         id: string;
         count: number;
-    };
-
-    // wshrpc.DirEntryOut
-    type DirEntryOut = {
-        name: string;
-        dir?: boolean;
-        symlink?: boolean;
-        size?: number;
-        mode: string;
-        modified: string;
-        modifiedtime: string;
     };
 
     // vdom.DomRect
@@ -1001,6 +1186,20 @@ declare global {
         configerrors: ConfigError[];
     };
 
+    // wshrpc.InstalledAppInfo
+    type InstalledAppInfo = {
+        name: string;
+        appid: string;
+        path: string;
+        execpath?: string;
+        icon?: string;
+        iconpath?: string;
+        category?: string;
+        description?: string;
+        source: string;
+        bundleid?: string;
+    };
+
     // waveobj.Job
     type Job = WaveObj & {
         connection: string;
@@ -1061,6 +1260,54 @@ declare global {
     type LeafOrderEntry = {
         nodeid: string;
         blockid: string;
+    };
+
+    // wconfig.MCPConfig
+    type MCPConfig = {
+        enabled?: boolean;
+        type?: string;
+        command?: string[];
+        url?: string;
+        headers?: {[key: string]: string};
+        timeout?: number;
+        env?: {[key: string]: string};
+    };
+
+    // wshrpc.McpCallToolData
+    type McpCallToolData = {
+        server_name: string;
+        tool_name: string;
+        arguments: {[key: string]: any};
+    };
+
+    // wshrpc.McpCallToolResult
+    type McpCallToolResult = {
+        server_name: string;
+        tool_name: string;
+        success: boolean;
+        result?: string;
+        error?: string;
+    };
+
+    // wshrpc.McpServerInfo
+    type McpServerInfo = {
+        name: string;
+        status: string;
+        version?: string;
+    };
+
+    // wshrpc.McpStatus
+    type McpStatus = {
+        name: string;
+        status: string;
+        error?: string;
+    };
+
+    // wshrpc.McpToolInfo
+    type McpToolInfo = {
+        name: string;
+        description: string;
+        input_schema: string;
     };
 
     // waveobj.MetaTSType
@@ -1169,6 +1416,9 @@ declare global {
         "web:hidenav"?: boolean;
         "web:partition"?: string;
         "web:useragenttype"?: string;
+        "sandbox:mode"?: string;
+        "sandbox:browserurl"?: string;
+        "sandbox:browserblockid"?: string;
         "markdown:fontsize"?: number;
         "markdown:fixedfontsize"?: number;
         "tsunami:*"?: boolean;
@@ -1218,9 +1468,6 @@ declare global {
         "shell:inputempty"?: boolean;
         "shell:lastcmd"?: string;
         "shell:lastcmdexitcode"?: number;
-        "builder:layout"?: {[key: string]: number};
-        "builder:appid"?: string;
-        "builder:env"?: {[key: string]: string};
         "waveai:chatid"?: string;
         "waveai:mode"?: string;
         "waveai:maxoutputtokens"?: number;
@@ -1257,13 +1504,6 @@ declare global {
         clientversion: string;
         shell: string;
         homedir: string;
-    };
-
-    // wshrpc.RestartBuilderAndWaitResult
-    type RestartBuilderAndWaitResult = {
-        success: boolean;
-        errormessage?: string;
-        buildoutput: string;
     };
 
     // wshrpc.RpcContext
@@ -1304,10 +1544,59 @@ declare global {
         winsize?: WinSize;
     };
 
-    // wshrpc.SecretMeta
-    type SecretMeta = {
-        desc: string;
-        optional: boolean;
+    // wshrpc.SandboxStartRequest
+    type SandboxStartRequest = {
+        sessionId?: string;
+        mode?: string;
+        browserUrl?: string;
+        ensureBrowser?: boolean;
+    };
+
+    // wshrpc.SandboxStartResponse
+    type SandboxStartResponse = {
+        sessionId: string;
+        status: string;
+        mode: string;
+        runtime?: string;
+        vncPort?: number;
+        sshPort?: number;
+        vncWsUrl?: string;
+        desktopUrl?: string;
+        mcpUrl?: string;
+        sshConn?: string;
+        password?: string;
+        error?: string;
+    };
+
+    // wshrpc.SandboxStatusRequest
+    type SandboxStatusRequest = {
+        sessionId?: string;
+    };
+
+    // wshrpc.SandboxStatusResponse
+    type SandboxStatusResponse = {
+        sessionId?: string;
+        status: string;
+        mode?: string;
+        runtime?: string;
+        vncPort?: number;
+        sshPort?: number;
+        vncWsUrl?: string;
+        desktopUrl?: string;
+        mcpUrl?: string;
+        sshConn?: string;
+        error?: string;
+    };
+
+    // wshrpc.SandboxStopRequest
+    type SandboxStopRequest = {
+        sessionId?: string;
+    };
+
+    // wshrpc.SandboxStopResponse
+    type SandboxStopResponse = {
+        status: string;
+        error?: string;
     };
 
     // wconfig.SettingsType
@@ -1325,6 +1614,22 @@ declare global {
         "app:focusfollowscursor"?: string;
         "app:tabbar"?: string;
         "feature:waveappbuilder"?: boolean;
+        "mcp:*"?: boolean;
+        "mcp:enabled"?: boolean;
+        "mcp:servers"?: {[key: string]: MCPConfig};
+        "acp:*"?: boolean;
+        "acp:defaultbackend"?: string;
+        "acp:profiles"?: {[key: string]: ACPAgentProfile};
+        "acp:agents"?: {[key: string]: ACPAgentDefinition};
+        "acp:commands"?: {[key: string]: ACPCommandDefinition};
+        "acp:skills"?: {[key: string]: ACPSkillDefinition};
+        "acp:gitidentities"?: {[key: string]: ACPGitIdentity};
+        "sandbox:enabled"?: boolean;
+        "sandbox:cpu"?: number;
+        "sandbox:memory"?: number;
+        "sandbox:vncport"?: number;
+        "sandbox:sshport"?: number;
+        "sandbox:diskimage"?: string;
         "ai:*"?: boolean;
         "ai:preset"?: string;
         "ai:apitype"?: string;
@@ -2124,6 +2429,12 @@ declare global {
         inner?: boolean;
     };
 
+    // wshrpc.WidgetClipboardGetRtnData
+    type WidgetClipboardGetRtnData = {
+        blockid: string;
+        text: string;
+    };
+
     // wconfig.WidgetConfigType
     type WidgetConfigType = {
         "display:order"?: number;
@@ -2135,6 +2446,125 @@ declare global {
         workspaces?: string[];
         magnified?: boolean;
         blockdef: BlockDef;
+    };
+
+    // wshrpc.WidgetElementAtRtnData
+    type WidgetElementAtRtnData = {
+        blockid: string;
+        x: number;
+        y: number;
+        elementref?: string;
+        role?: string;
+        name?: string;
+        found: boolean;
+    };
+
+    // wshrpc.WidgetElementData
+    type WidgetElementData = {
+        ref: string;
+        role: string;
+        name: string;
+        value?: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        focusable: boolean;
+        visible: boolean;
+    };
+
+    // wshrpc.WidgetFindRtnData
+    type WidgetFindRtnData = {
+        blockid: string;
+        elements: WidgetElementData[];
+        count: number;
+    };
+
+    // wshrpc.WidgetGetElementsRtnData
+    type WidgetGetElementsRtnData = {
+        blockid: string;
+        elements: WidgetElementData[];
+        count: number;
+        timestamp: number;
+    };
+
+    // wshrpc.WidgetGetStateRtnData
+    type WidgetGetStateRtnData = {
+        blockid: string;
+        viewtype: string;
+        state: {[key: string]: any};
+        focused: boolean;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+
+    // wshrpc.WidgetGetValueRtnData
+    type WidgetGetValueRtnData = {
+        blockid: string;
+        elementref: string;
+        value: string;
+    };
+
+    // wshrpc.WidgetInspectRtnData
+    type WidgetInspectRtnData = {
+        blockid: string;
+        elementref: string;
+        role: string;
+        name: string;
+        value?: string;
+        description?: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        focusable: boolean;
+        visible: boolean;
+        enabled: boolean;
+        checked?: boolean;
+        expanded?: boolean;
+        selected?: boolean;
+        actions?: string[];
+    };
+
+    // wshrpc.WidgetMouseActionRtnData
+    type WidgetMouseActionRtnData = {
+        blockid: string;
+        success: boolean;
+        message?: string;
+    };
+
+    // wshrpc.WidgetScreenshotAnnotatedRtnData
+    type WidgetScreenshotAnnotatedRtnData = {
+        blockid: string;
+        imageurl: string;
+    };
+
+    // wshrpc.WidgetSnapshotRtnData
+    type WidgetSnapshotRtnData = {
+        blockid: string;
+        elements: WidgetElementData[];
+        count: number;
+        timestamp: number;
+    };
+
+    // wshrpc.WidgetWaitConditionRtnData
+    type WidgetWaitConditionRtnData = {
+        blockid: string;
+        condition: string;
+        met: boolean;
+        wait_time_ms: number;
+        message?: string;
+    };
+
+    // wshrpc.WidgetWaitForElementRtnData
+    type WidgetWaitForElementRtnData = {
+        blockid: string;
+        condition: string;
+        met: boolean;
+        wait_time_ms: number;
+        message?: string;
     };
 
     // waveobj.WinSize

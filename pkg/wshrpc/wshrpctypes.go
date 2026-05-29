@@ -46,6 +46,7 @@ type WshRpcInterface interface {
 	ControlGetRouteIdCommand(ctx context.Context) (string, error) // (special) gets the route for the link that we're on
 	SetPeerInfoCommand(ctx context.Context, peerInfo string) error
 	GetJwtPublicKeyCommand(ctx context.Context) (string, error) // (special) gets the public JWT signing key
+	CreateSurfaceTokenCommand(ctx context.Context, data CommandCreateSurfaceTokenData) (*CommandCreateSurfaceTokenRtnData, error)
 
 	MessageCommand(ctx context.Context, data CommandMessageData) error
 	GetMetaCommand(ctx context.Context, data CommandGetMetaData) (waveobj.MetaMapType, error)
@@ -138,11 +139,27 @@ type WshRpcInterface interface {
 	NetworkOnlineCommand(ctx context.Context) (bool, error)
 	ElectronSystemBellCommand(ctx context.Context) error
 
+	// installed apps
+	ListInstalledAppsCommand(ctx context.Context) ([]InstalledAppInfo, error)
+	LaunchInstalledAppCommand(ctx context.Context, data CommandLaunchInstalledAppData) error
+
 	// secrets
 	GetSecretsCommand(ctx context.Context, names []string) (map[string]string, error)
 	GetSecretsNamesCommand(ctx context.Context) ([]string, error)
 	SetSecretsCommand(ctx context.Context, secrets map[string]*string) error
 	GetSecretsLinuxStorageBackendCommand(ctx context.Context) (string, error)
+
+	// mcp
+	McpListServersCommand(ctx context.Context) ([]McpServerInfo, error)
+	McpConnectCommand(ctx context.Context, serverName string) error
+	McpDisconnectCommand(ctx context.Context, serverName string) error
+	McpListToolsCommand(ctx context.Context, serverName string) ([]McpToolInfo, error)
+	McpCallToolCommand(ctx context.Context, data McpCallToolData) (*McpCallToolResult, error)
+	McpGetStatusCommand(ctx context.Context) (map[string]McpStatus, error)
+
+	SandboxStartCommand(ctx context.Context, data SandboxStartRequest) (SandboxStartResponse, error)
+	SandboxStopCommand(ctx context.Context, data SandboxStopRequest) (SandboxStopResponse, error)
+	SandboxStatusCommand(ctx context.Context, data SandboxStatusRequest) (SandboxStatusResponse, error)
 
 	WorkspaceListCommand(ctx context.Context) ([]WorkspaceInfoData, error)
 	GetUpdateChannelCommand(ctx context.Context) (string, error)
@@ -162,6 +179,34 @@ type WshRpcInterface interface {
 
 	// screenshot
 	CaptureBlockScreenshotCommand(ctx context.Context, data CommandCaptureBlockScreenshotData) (string, error)
+	WidgetScreenshotAnnotatedCommand(ctx context.Context, data CommandWidgetScreenshotAnnotatedData) (*WidgetScreenshotAnnotatedRtnData, error)
+
+	// human simulation
+	WidgetGetElementsCommand(ctx context.Context, data CommandWidgetGetElementsData) (*WidgetGetElementsRtnData, error)
+	WidgetGetStateCommand(ctx context.Context, data CommandWidgetGetStateData) (*WidgetGetStateRtnData, error)
+	WidgetMouseClickCommand(ctx context.Context, data CommandWidgetMouseClickData) (*WidgetMouseActionRtnData, error)
+	WidgetMouseScrollCommand(ctx context.Context, data CommandWidgetMouseScrollData) (*WidgetMouseActionRtnData, error)
+	WidgetMouseDragCommand(ctx context.Context, data CommandWidgetMouseDragData) (*WidgetMouseActionRtnData, error)
+	WidgetKeyboardTypeCommand(ctx context.Context, data CommandWidgetKeyboardTypeData) (*WidgetMouseActionRtnData, error)
+	WidgetKeyboardPressCommand(ctx context.Context, data CommandWidgetKeyboardPressData) (*WidgetMouseActionRtnData, error)
+	WidgetWaitForElementCommand(ctx context.Context, data CommandWidgetWaitForElementData) (*WidgetWaitForElementRtnData, error)
+	WidgetSnapshotCommand(ctx context.Context, data CommandWidgetSnapshotData) (*WidgetSnapshotRtnData, error)
+	WidgetFindCommand(ctx context.Context, data CommandWidgetFindData) (*WidgetFindRtnData, error)
+	WidgetInspectCommand(ctx context.Context, data CommandWidgetInspectData) (*WidgetInspectRtnData, error)
+	WidgetElementAtCommand(ctx context.Context, data CommandWidgetElementAtData) (*WidgetElementAtRtnData, error)
+	WidgetClickCommand(ctx context.Context, data CommandWidgetClickData) (*WidgetMouseActionRtnData, error)
+	WidgetHoverCommand(ctx context.Context, data CommandWidgetHoverData) (*WidgetMouseActionRtnData, error)
+	WidgetLongPressCommand(ctx context.Context, data CommandWidgetLongPressData) (*WidgetMouseActionRtnData, error)
+	WidgetDragCommand(ctx context.Context, data CommandWidgetDragData) (*WidgetMouseActionRtnData, error)
+	WidgetScrollToCommand(ctx context.Context, data CommandWidgetScrollToData) (*WidgetMouseActionRtnData, error)
+	WidgetGetValueCommand(ctx context.Context, data CommandWidgetGetValueData) (*WidgetGetValueRtnData, error)
+	WidgetSetValueCommand(ctx context.Context, data CommandWidgetSetValueData) (*WidgetMouseActionRtnData, error)
+	WidgetClearCommand(ctx context.Context, data CommandWidgetClearData) (*WidgetMouseActionRtnData, error)
+	WidgetSelectCommand(ctx context.Context, data CommandWidgetSelectData) (*WidgetMouseActionRtnData, error)
+	WidgetToggleCommand(ctx context.Context, data CommandWidgetToggleData) (*WidgetMouseActionRtnData, error)
+	WidgetClipboardGetCommand(ctx context.Context, data CommandWidgetClipboardGetData) (*WidgetClipboardGetRtnData, error)
+	WidgetClipboardSetCommand(ctx context.Context, data CommandWidgetClipboardSetData) (*WidgetMouseActionRtnData, error)
+	WidgetWaitConditionCommand(ctx context.Context, data CommandWidgetWaitConditionData) (*WidgetWaitConditionRtnData, error)
 
 	// block focus
 	SetBlockFocusCommand(ctx context.Context, blockId string) error
@@ -177,9 +222,6 @@ type WshRpcInterface interface {
 	// file
 	WshRpcFileInterface
 	WaveFileReadStreamCommand(ctx context.Context, data CommandWaveFileReadStreamData) (*WaveFileInfo, error)
-
-	// builder
-	WshRpcBuilderInterface
 
 	// proc
 	VDomRenderCommand(ctx context.Context, data vdom.VDomFrontendUpdate) chan RespOrErrorUnion[*vdom.VDomBackendUpdate]
@@ -252,6 +294,18 @@ type CommandAuthenticateRtnData struct {
 
 type CommandAuthenticateTokenData struct {
 	Token string `json:"token"`
+}
+
+type CommandCreateSurfaceTokenData struct {
+	TabId   string `json:"tabid"`
+	BlockId string `json:"blockid,omitempty"`
+}
+
+type CommandCreateSurfaceTokenRtnData struct {
+	Token     string `json:"token"`
+	TabId     string `json:"tabid"`
+	BlockId   string `json:"blockid,omitempty"`
+	ExpiresAt int64  `json:"expiresat"`
 }
 
 type CommandDisposeData struct {
@@ -907,4 +961,366 @@ type FocusedBlockData struct {
 	ConnStatus                 *ConnStatus         `json:"connstatus,omitempty"`
 	TermShellIntegrationStatus string              `json:"termshellintegrationstatus,omitempty"`
 	TermLastCommand            string              `json:"termlastcommand,omitempty"`
+}
+
+// =============================================================================
+// Widget Human Simulation RPC Types
+// =============================================================================
+
+type WidgetElementData struct {
+	Ref       string `json:"ref"`
+	Role      string `json:"role"`
+	Name      string `json:"name"`
+	Value     string `json:"value,omitempty"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+	Focusable bool   `json:"focusable"`
+	Visible   bool   `json:"visible"`
+}
+
+type CommandWidgetGetElementsData struct {
+	BlockId string `json:"blockid"`
+}
+
+type WidgetGetElementsRtnData struct {
+	BlockId   string              `json:"blockid"`
+	Elements  []WidgetElementData `json:"elements"`
+	Count     int                 `json:"count"`
+	Timestamp int64               `json:"timestamp"`
+}
+
+type CommandWidgetGetStateData struct {
+	BlockId string `json:"blockid"`
+}
+
+type WidgetGetStateRtnData struct {
+	BlockId  string         `json:"blockid"`
+	ViewType string         `json:"viewtype"`
+	State    map[string]any `json:"state"`
+	Focused  bool           `json:"focused"`
+	X        int            `json:"x"`
+	Y        int            `json:"y"`
+	Width    int            `json:"width"`
+	Height   int            `json:"height"`
+}
+
+type CommandWidgetMouseClickData struct {
+	BlockId    string `json:"blockid"`
+	X          int    `json:"x"`
+	Y          int    `json:"y"`
+	Button     string `json:"button"`
+	ClickCount int    `json:"clickcount"`
+}
+
+type WidgetMouseActionRtnData struct {
+	BlockId string `json:"blockid"`
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+type CommandWidgetMouseScrollData struct {
+	BlockId string `json:"blockid"`
+	Amount  int    `json:"amount"`
+	OriginX *int   `json:"originx,omitempty"`
+	OriginY *int   `json:"originy,omitempty"`
+}
+
+type CommandWidgetMouseDragData struct {
+	BlockId string `json:"blockid"`
+	StartX  int    `json:"startx"`
+	StartY  int    `json:"starty"`
+	EndX    int    `json:"endx"`
+	EndY    int    `json:"endy"`
+	Button  string `json:"button"`
+}
+
+type CommandWidgetKeyboardTypeData struct {
+	BlockId string `json:"blockid"`
+	Text    string `json:"text"`
+	DelayMs int    `json:"delayms"`
+}
+
+type CommandWidgetKeyboardPressData struct {
+	BlockId string   `json:"blockid"`
+	Keys    []string `json:"keys"`
+}
+
+type CommandWidgetWaitForElementData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref,omitempty"`
+	Condition  string `json:"condition"`
+	TimeoutMs  int    `json:"timeoutms"`
+}
+
+type WidgetWaitForElementRtnData struct {
+	BlockId    string `json:"blockid"`
+	Condition  string `json:"condition"`
+	Met        bool   `json:"met"`
+	WaitTimeMs int    `json:"wait_time_ms"`
+	Message    string `json:"message,omitempty"`
+}
+
+type CommandWidgetScreenshotAnnotatedData struct {
+	BlockId      string `json:"blockid"`
+	ShowElements bool   `json:"showelements"`
+}
+
+type WidgetScreenshotAnnotatedRtnData struct {
+	BlockId  string `json:"blockid"`
+	ImageUrl string `json:"imageurl"`
+}
+
+type CommandWidgetSnapshotData struct {
+	BlockId string `json:"blockid"`
+}
+
+type WidgetSnapshotRtnData struct {
+	BlockId   string              `json:"blockid"`
+	Elements  []WidgetElementData `json:"elements"`
+	Count     int                 `json:"count"`
+	Timestamp int64               `json:"timestamp"`
+}
+
+type CommandWidgetFindData struct {
+	BlockId  string `json:"blockid"`
+	Role     string `json:"role,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Value    string `json:"value,omitempty"`
+	Text     string `json:"text,omitempty"`
+	MaxCount int    `json:"maxcount,omitempty"`
+}
+
+type WidgetFindRtnData struct {
+	BlockId  string              `json:"blockid"`
+	Elements []WidgetElementData `json:"elements"`
+	Count    int                 `json:"count"`
+}
+
+type CommandWidgetInspectData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+}
+
+type WidgetInspectRtnData struct {
+	BlockId     string   `json:"blockid"`
+	ElementRef  string   `json:"elementref"`
+	Role        string   `json:"role"`
+	Name        string   `json:"name"`
+	Value       string   `json:"value,omitempty"`
+	Description string   `json:"description,omitempty"`
+	X           int      `json:"x"`
+	Y           int      `json:"y"`
+	Width       int      `json:"width"`
+	Height      int      `json:"height"`
+	Focusable   bool     `json:"focusable"`
+	Visible     bool     `json:"visible"`
+	Enabled     bool     `json:"enabled"`
+	Checked     bool     `json:"checked,omitempty"`
+	Expanded    bool     `json:"expanded,omitempty"`
+	Selected    bool     `json:"selected,omitempty"`
+	Actions     []string `json:"actions,omitempty"`
+}
+
+type CommandWidgetElementAtData struct {
+	BlockId string `json:"blockid"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+}
+
+type WidgetElementAtRtnData struct {
+	BlockId    string `json:"blockid"`
+	X          int    `json:"x"`
+	Y          int    `json:"y"`
+	ElementRef string `json:"elementref,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Name       string `json:"name,omitempty"`
+	Found      bool   `json:"found"`
+}
+
+type CommandWidgetClickData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref,omitempty"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
+	Button     string `json:"button,omitempty"`
+	ClickType  string `json:"clicktype,omitempty"`
+}
+
+type CommandWidgetHoverData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref,omitempty"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
+}
+
+type CommandWidgetLongPressData struct {
+	BlockId    string  `json:"blockid"`
+	ElementRef string  `json:"elementref,omitempty"`
+	X          int     `json:"x,omitempty"`
+	Y          int     `json:"y,omitempty"`
+	Duration   float64 `json:"duration,omitempty"`
+}
+
+type CommandWidgetDragData struct {
+	BlockId  string `json:"blockid"`
+	StartRef string `json:"startref,omitempty"`
+	StartX   int    `json:"startx,omitempty"`
+	StartY   int    `json:"starty,omitempty"`
+	EndRef   string `json:"endref,omitempty"`
+	EndX     int    `json:"endx,omitempty"`
+	EndY     int    `json:"endy,omitempty"`
+	Button   string `json:"button,omitempty"`
+}
+
+type CommandWidgetScrollToData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref,omitempty"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
+}
+
+type CommandWidgetGetValueData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+}
+
+type WidgetGetValueRtnData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+	Value      string `json:"value"`
+}
+
+type CommandWidgetSetValueData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+	Value      string `json:"value"`
+}
+
+type CommandWidgetClearData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+}
+
+type CommandWidgetSelectData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+	Option     string `json:"option"`
+}
+
+type CommandWidgetToggleData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref"`
+}
+
+type CommandWidgetClipboardGetData struct {
+	BlockId string `json:"blockid"`
+}
+
+type WidgetClipboardGetRtnData struct {
+	BlockId string `json:"blockid"`
+	Text    string `json:"text"`
+}
+
+type CommandWidgetClipboardSetData struct {
+	BlockId string `json:"blockid"`
+	Text    string `json:"text"`
+}
+
+type CommandWidgetWaitConditionData struct {
+	BlockId    string `json:"blockid"`
+	ElementRef string `json:"elementref,omitempty"`
+	Condition  string `json:"condition"`
+	Value      string `json:"value,omitempty"`
+	TimeoutMs  int    `json:"timeoutms"`
+}
+
+type WidgetWaitConditionRtnData struct {
+	BlockId    string `json:"blockid"`
+	Condition  string `json:"condition"`
+	Met        bool   `json:"met"`
+	WaitTimeMs int    `json:"wait_time_ms"`
+	Message    string `json:"message,omitempty"`
+}
+
+type McpServerInfo struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Version string `json:"version,omitempty"`
+}
+
+type McpToolInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	InputSchema string `json:"input_schema"`
+}
+
+type McpCallToolData struct {
+	ServerName string                 `json:"server_name"`
+	ToolName   string                 `json:"tool_name"`
+	Arguments  map[string]interface{} `json:"arguments"`
+}
+
+type McpCallToolResult struct {
+	ServerName string `json:"server_name"`
+	ToolName   string `json:"tool_name"`
+	Success    bool   `json:"success"`
+	Result     string `json:"result,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+type McpStatus struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+type SandboxStartRequest struct {
+	SessionId     string `json:"sessionId,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	BrowserUrl    string `json:"browserUrl,omitempty"`
+	EnsureBrowser bool   `json:"ensureBrowser,omitempty"`
+}
+
+type SandboxStartResponse struct {
+	SessionId  string `json:"sessionId"`
+	Status     string `json:"status"`
+	Mode       string `json:"mode"`
+	Runtime    string `json:"runtime,omitempty"`
+	VncPort    int    `json:"vncPort,omitempty"`
+	SshPort    int    `json:"sshPort,omitempty"`
+	VncWsUrl   string `json:"vncWsUrl,omitempty"`
+	DesktopUrl string `json:"desktopUrl,omitempty"`
+	McpUrl     string `json:"mcpUrl,omitempty"`
+	SshConn    string `json:"sshConn,omitempty"`
+	Password   string `json:"password,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+type SandboxStopRequest struct {
+	SessionId string `json:"sessionId,omitempty"`
+}
+
+type SandboxStopResponse struct {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+type SandboxStatusRequest struct {
+	SessionId string `json:"sessionId,omitempty"`
+}
+
+type SandboxStatusResponse struct {
+	SessionId  string `json:"sessionId,omitempty"`
+	Status     string `json:"status"`
+	Mode       string `json:"mode,omitempty"`
+	Runtime    string `json:"runtime,omitempty"`
+	VncPort    int    `json:"vncPort,omitempty"`
+	SshPort    int    `json:"sshPort,omitempty"`
+	VncWsUrl   string `json:"vncWsUrl,omitempty"`
+	DesktopUrl string `json:"desktopUrl,omitempty"`
+	McpUrl     string `json:"mcpUrl,omitempty"`
+	SshConn    string `json:"sshConn,omitempty"`
+	Error      string `json:"error,omitempty"`
 }

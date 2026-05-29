@@ -3,6 +3,192 @@
   "$id": "https://github.com/wavetermdev/waveterm/pkg/wconfig/settings-type",
   "$ref": "#/$defs/SettingsType",
   "$defs": {
+    "ACPAgentDefinition": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "topp": {
+          "type": "number"
+        },
+        "systemprompt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ACPAgentProfile": {
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "workspace": {
+          "type": "string"
+        },
+        "executable": {
+          "type": "string"
+        },
+        "configoptions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "mcpserverids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "skillsdirs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ACPCommandDefinition": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "subtask": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ACPGitIdentity": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "useremail": {
+          "type": "string"
+        },
+        "authtype": {
+          "type": "string"
+        },
+        "sshkey": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ACPSkillDefinition": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MCPConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "timeout": {
+          "type": "integer"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "SettingsType": {
       "properties": {
         "app:*": {
@@ -52,6 +238,72 @@
         },
         "feature:waveappbuilder": {
           "type": "boolean"
+        },
+        "mcp:*": {
+          "type": "boolean"
+        },
+        "mcp:enabled": {
+          "type": "boolean"
+        },
+        "mcp:servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPConfig"
+          },
+          "type": "object"
+        },
+        "acp:*": {
+          "type": "boolean"
+        },
+        "acp:defaultbackend": {
+          "type": "string"
+        },
+        "acp:profiles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ACPAgentProfile"
+          },
+          "type": "object"
+        },
+        "acp:agents": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ACPAgentDefinition"
+          },
+          "type": "object"
+        },
+        "acp:commands": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ACPCommandDefinition"
+          },
+          "type": "object"
+        },
+        "acp:skills": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ACPSkillDefinition"
+          },
+          "type": "object"
+        },
+        "acp:gitidentities": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ACPGitIdentity"
+          },
+          "type": "object"
+        },
+        "sandbox:enabled": {
+          "type": "boolean"
+        },
+        "sandbox:cpu": {
+          "type": "integer"
+        },
+        "sandbox:memory": {
+          "type": "integer"
+        },
+        "sandbox:vncport": {
+          "type": "integer"
+        },
+        "sandbox:sshport": {
+          "type": "integer"
+        },
+        "sandbox:diskimage": {
+          "type": "string"
         },
         "ai:*": {
           "type": "boolean"

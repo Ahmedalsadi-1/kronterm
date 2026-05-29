@@ -31,7 +31,7 @@ const (
 	OType_MainServer  = "mainserver"
 	OType_Job         = "job"
 	OType_Temp        = "temp"
-	OType_Builder     = "builder" // not persisted to DB
+	OType_AcpSession  = "acpsession"
 )
 
 var ValidOTypes = map[string]bool{
@@ -44,7 +44,7 @@ var ValidOTypes = map[string]bool{
 	OType_MainServer:  true,
 	OType_Job:         true,
 	OType_Temp:        true,
-	OType_Builder:     true,
+	OType_AcpSession:  true,
 }
 
 type WaveObjUpdate struct {
@@ -354,6 +354,38 @@ func (*Job) GetOType() string {
 	return OType_Job
 }
 
+type AcpSessionEvent struct {
+	MessageId string `json:"messageid"`
+	Type      string `json:"type"`
+	DataJson  string `json:"datajson,omitempty"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type AcpSession struct {
+	OID               string            `json:"oid"`
+	Version           int               `json:"version"`
+	Backend           string            `json:"backend"`
+	AgentName         string            `json:"agentname,omitempty"`
+	Workspace         string            `json:"workspace,omitempty"`
+	Title             string            `json:"title,omitempty"`
+	AcpSessionId      string            `json:"acpsessionid,omitempty"`
+	Status            string            `json:"status,omitempty"`
+	ResumeState       string            `json:"resumestate,omitempty"`
+	CreatedTs         int64             `json:"createdts"`
+	UpdatedTs         int64             `json:"updatedts"`
+	ModelInfoJson     string            `json:"modelinfojson,omitempty"`
+	ModesJson         string            `json:"modesjson,omitempty"`
+	ConfigOptionsJson string            `json:"configoptionsjson,omitempty"`
+	CapabilitiesJson  string            `json:"capabilitiesjson,omitempty"`
+	ReferencedFiles   []string          `json:"referencedfiles,omitempty"`
+	Events            []AcpSessionEvent `json:"events,omitempty"`
+	Meta              MetaMapType       `json:"meta"`
+}
+
+func (*AcpSession) GetOType() string {
+	return OType_AcpSession
+}
+
 func AllWaveObjTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(&Client{}),
@@ -364,6 +396,7 @@ func AllWaveObjTypes() []reflect.Type {
 		reflect.TypeOf(&LayoutState{}),
 		reflect.TypeOf(&MainServer{}),
 		reflect.TypeOf(&Job{}),
+		reflect.TypeOf(&AcpSession{}),
 	}
 }
 

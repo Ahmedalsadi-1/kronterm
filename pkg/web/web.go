@@ -234,6 +234,67 @@ func handleKronosModeSnapshot(w http.ResponseWriter, r *http.Request) {
 	WriteJsonSuccess(w, snapshot)
 }
 
+func handleKronosCodeCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
+	if mode == "" {
+		http.Error(w, "mode parameter is required", http.StatusBadRequest)
+		return
+	}
+	snapshot, err := aiusechat.GetKronosChatHubSnapshot(r.Context(), mode)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load KronosCode catalog: %v", err), http.StatusBadRequest)
+		return
+	}
+	WriteJsonSuccess(w, snapshot)
+}
+
+func handleKronosCodeAgentInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	vars := mux.Vars(r)
+	agentID := strings.TrimSpace(vars["id"])
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
+	if mode == "" || agentID == "" {
+		http.Error(w, "mode and id are required", http.StatusBadRequest)
+		return
+	}
+	result, err := aiusechat.InstallKronosCatalogAgent(r.Context(), mode, agentID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to install agent: %v", err), http.StatusBadRequest)
+		return
+	}
+	WriteJsonSuccess(w, result)
+}
+
+func handleKronosCodeConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
+	if mode == "" {
+		http.Error(w, "mode parameter is required", http.StatusBadRequest)
+		return
+	}
+	var patch map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid config patch: %v", err), http.StatusBadRequest)
+		return
+	}
+	result, err := aiusechat.PatchKronosConfig(r.Context(), mode, patch)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to patch KronosCode config: %v", err), http.StatusBadRequest)
+		return
+	}
+	WriteJsonSuccess(w, result)
+}
+
 func handleLocalStreamFile(w http.ResponseWriter, r *http.Request, path string, no404 bool) {
 	http.NewResponseController(w).SetWriteDeadline(time.Time{})
 	if no404 {
@@ -471,6 +532,9 @@ func RunWebServer(listener net.Listener) {
 	gr.PathPrefix("/wave/stream-file/").HandlerFunc(WebFnWrap(WebFnOpts{AllowCaching: true}, handleStreamFile))
 	gr.HandleFunc("/api/post-chat-message", WebFnWrap(WebFnOpts{AllowCaching: false}, aiusechat.WaveAIPostMessageHandler))
 	gr.HandleFunc("/api/waveai/kronos/snapshot", WebFnWrap(WebFnOpts{AllowCaching: false}, handleKronosModeSnapshot))
+	gr.HandleFunc("/api/kronoscode/catalog", WebFnWrap(WebFnOpts{AllowCaching: false}, handleKronosCodeCatalog))
+	gr.HandleFunc("/api/kronoscode/config", WebFnWrap(WebFnOpts{AllowCaching: false}, handleKronosCodeConfig))
+	gr.HandleFunc("/api/kronoscode/agent-install/{id}", WebFnWrap(WebFnOpts{AllowCaching: false}, handleKronosCodeAgentInstall))
 
 	// Non-streaming /wave/ routes get timeout protection
 	waveRouter := mux.NewRouter()

@@ -21,37 +21,39 @@ interface AIModeMenuItemProps {
     isLast?: boolean;
 }
 
-const AIModeMenuItem = memo(({ config, isSelected, isDisabled, isPremiumDisabled, onClick, isFirst, isLast }: AIModeMenuItemProps) => {
-    return (
-        <button
-            key={config.mode}
-            onClick={onClick}
-            disabled={isDisabled}
-            className={cn(
-                "w-full flex flex-col gap-0.5 px-3 transition-colors text-left",
-                isFirst ? "pt-1 pb-0.5" : isLast ? "pt-0.5 pb-1" : "pt-0.5 pb-0.5",
-                isDisabled ? "text-zinc-500" : "text-zinc-300 hover:bg-zinc-700 cursor-pointer"
-            )}
-        >
-            <div className="flex items-center gap-2 w-full">
-                <i className={makeIconClass(config["display:icon"] || "sparkles", false)}></i>
-                <span className={cn("text-sm", isSelected && "font-bold")}>
-                    {getModeDisplayName(config)}
-                    {isPremiumDisabled && " (premium)"}
-                </span>
-                {isSelected && <i className="fa fa-check ml-auto"></i>}
-            </div>
-            {config["display:description"] && (
-                <div
-                    className={cn("text-xs pl-5", isDisabled ? "text-gray-500" : "text-muted")}
-                    style={{ whiteSpace: "pre-line" }}
-                >
-                    {config["display:description"]}
+const AIModeMenuItem = memo(
+    ({ config, isSelected, isDisabled, isPremiumDisabled, onClick, isFirst, isLast }: AIModeMenuItemProps) => {
+        return (
+            <button
+                key={config.mode}
+                onClick={onClick}
+                disabled={isDisabled}
+                className={cn(
+                    "w-full flex flex-col gap-0.5 px-3 transition-colors text-left",
+                    isFirst ? "pt-1 pb-0.5" : isLast ? "pt-0.5 pb-1" : "pt-0.5 pb-0.5",
+                    isDisabled ? "text-zinc-500" : "text-zinc-300 hover:bg-zinc-700 cursor-pointer"
+                )}
+            >
+                <div className="flex items-center gap-2 w-full">
+                    <i className={makeIconClass(config["display:icon"] || "sparkles", false)}></i>
+                    <span className={cn("text-sm", isSelected && "font-bold")}>
+                        {getModeDisplayName(config)}
+                        {isPremiumDisabled && " (premium)"}
+                    </span>
+                    {isSelected && <i className="fa fa-check ml-auto"></i>}
                 </div>
-            )}
-        </button>
-    );
-});
+                {config["display:description"] && (
+                    <div
+                        className={cn("text-xs pl-5", isDisabled ? "text-gray-500" : "text-muted")}
+                        style={{ whiteSpace: "pre-line" }}
+                    >
+                        {config["display:description"]}
+                    </div>
+                )}
+            </button>
+        );
+    }
+);
 
 AIModeMenuItem.displayName = "AIModeMenuItem";
 
@@ -120,13 +122,20 @@ function computeWaveCloudSections(
 
     if (waveProviderConfigs.length > 0) {
         sections.push({
-            sectionName: "Wave AI Cloud",
+            sectionName: "Hosted AI Cloud",
             configs: waveProviderConfigs,
             noTelemetry: !telemetryEnabled,
         });
     }
     if (otherProviderConfigs.length > 0) {
-        sections.push({ sectionName: "Custom", configs: otherProviderConfigs });
+        const allKronos = otherProviderConfigs.every(
+            (config) =>
+                config["ai:provider"] === "kronos" ||
+                config["ai:provider"] === "kronoscode" ||
+                config["ai:apitype"] === "kronos-session" ||
+                config["ai:apitype"] === "kronoscode"
+        );
+        sections.push({ sectionName: allKronos ? "KronosCode" : "Custom", configs: otherProviderConfigs });
     }
 
     return sections;
@@ -230,7 +239,7 @@ export const AIModeDropdown = memo(({ compatibilityMode = false }: AIModeDropdow
                     content={
                         <div className="max-w-xs">
                             Warning: This custom mode was configured without the "tools" capability in the
-                            "ai:capabilities" array. Without tool support, Wave AI will not be able to interact with
+                            "ai:capabilities" array. Without tool support, KronosCode will not be able to interact with
                             widgets or files.
                         </div>
                     }
@@ -274,7 +283,7 @@ export const AIModeDropdown = memo(({ compatibilityMode = false }: AIModeDropdow
                                                     onClick={handleEnableTelemetry}
                                                     className="text-center text-[11px] text-green-300 hover:text-green-200 pb-1 cursor-pointer transition-colors w-full"
                                                 >
-                                                    (enable telemetry to unlock Wave AI Cloud)
+                                                    (enable telemetry to unlock hosted AI cloud)
                                                 </button>
                                             )}
                                         </>

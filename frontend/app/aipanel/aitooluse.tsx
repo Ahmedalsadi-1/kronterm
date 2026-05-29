@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { BlockModel } from "@/app/block/block-model";
-import { Modal } from "@/app/modals/modal";
 import { recordTEvent } from "@/app/store/global";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
@@ -86,7 +85,7 @@ function getToolSourceBadge(toolSource?: string): { label: string; className: st
     }
     if (toolSource === "wave") {
         return {
-            label: "Wave bridge",
+            label: "Kronterm bridge",
             className: "border-amber-700/60 bg-amber-500/10 text-amber-200",
         };
     }
@@ -94,7 +93,11 @@ function getToolSourceBadge(toolSource?: string): { label: string; className: st
 }
 
 const ToolBadge = memo(({ label, className }: { label: string; className: string }) => {
-    return <span className={cn("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide", className)}>{label}</span>;
+    return (
+        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide", className)}>
+            {label}
+        </span>
+    );
 });
 
 ToolBadge.displayName = "ToolBadge";
@@ -113,19 +116,55 @@ const AIToolApprovalButtons = memo(({ count, onApprove, onDeny }: AIToolApproval
     const approveText = count > 1 ? `Approve All (${count})` : "Approve";
     const denyText = count > 1 ? "Deny All" : "Deny";
 
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        // Only focus the approval container if no text input/textarea currently has focus
+        const activeEl = document.activeElement;
+        if (
+            activeEl == null ||
+            (activeEl.tagName !== "INPUT" &&
+                activeEl.tagName !== "TEXTAREA" &&
+                !(activeEl as HTMLElement).isContentEditable)
+        ) {
+            container.focus();
+        }
+    }, []);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                onApprove();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onDeny();
+            }
+        };
+        container.addEventListener("keydown", handleKeyDown, true);
+        return () => container.removeEventListener("keydown", handleKeyDown, true);
+    }, [onApprove, onDeny]);
+
     return (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex gap-2 ai-approval-buttons" ref={containerRef} tabIndex={-1}>
             <button
                 onClick={onApprove}
                 className="px-3 py-1 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white text-sm rounded cursor-pointer transition-colors"
             >
-                {approveText}
+                {approveText}{" "}
+                <kbd className="ml-1 px-1 text-[10px] bg-zinc-700 border border-zinc-600 rounded">Enter</kbd>
             </button>
             <button
                 onClick={onDeny}
                 className="px-3 py-1 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white text-sm rounded cursor-pointer transition-colors"
             >
-                {denyText}
+                {denyText} <kbd className="ml-1 px-1 text-[10px] bg-zinc-700 border border-zinc-600 rounded">Esc</kbd>
             </button>
         </div>
     );

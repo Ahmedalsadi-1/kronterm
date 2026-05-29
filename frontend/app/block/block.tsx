@@ -12,6 +12,7 @@ import {
 import type { TabModel } from "@/app/store/tab-model";
 import { useTabModel } from "@/app/store/tab-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
+import { InstalledAppsViewModel } from "@/app/view/installedapps/installedapps";
 import { LauncherViewModel } from "@/app/view/launcher/launcher";
 import { PreviewModel } from "@/app/view/preview/preview-model";
 import { SysinfoViewModel } from "@/app/view/sysinfo/sysinfo";
@@ -34,6 +35,7 @@ import clsx from "clsx";
 import { atom, useAtomValue } from "jotai";
 import { memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuickTipsViewModel } from "../view/quicktipsview/quicktipsview";
+import { SandboxViewModel } from "../view/sandbox/sandbox-model";
 import { WaveConfigViewModel } from "../view/waveconfig/waveconfig-model";
 import "./block.scss";
 import { BlockEnv } from "./blockenv";
@@ -54,6 +56,8 @@ BlockRegistry.set("launcher", LauncherViewModel);
 BlockRegistry.set("tsunami", TsunamiViewModel);
 BlockRegistry.set("aifilediff", AiFileDiffViewModel);
 BlockRegistry.set("waveconfig", WaveConfigViewModel);
+BlockRegistry.set("sandbox", SandboxViewModel);
+BlockRegistry.set("installedapps", InstalledAppsViewModel);
 
 function makeViewModel(
     blockId: string,

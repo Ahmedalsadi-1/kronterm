@@ -16,7 +16,7 @@ func TestGenerateWaveEventTypes(t *testing.T) {
 	tsTypesMap := make(map[reflect.Type]string)
 	waveEventTypeDecl := GenerateWaveEventTypes(tsTypesMap)
 
-	if !strings.Contains(waveEventTypeDecl, `type WaveEventName = "blockclose"`) {
+	if !strings.Contains(waveEventTypeDecl, "type WaveEventName =\n    | \"blockclose\"") {
 		t.Fatalf("expected WaveEventName declaration, got:\n%s", waveEventTypeDecl)
 	}
 	if !strings.Contains(waveEventTypeDecl, `{ event: "block:jobstatus"; data?: BlockJobStatusData; }`) {
@@ -24,6 +24,9 @@ func TestGenerateWaveEventTypes(t *testing.T) {
 	}
 	if !strings.Contains(waveEventTypeDecl, `{ event: "route:up"; data?: null; }`) {
 		t.Fatalf("expected null for known no-data event, got:\n%s", waveEventTypeDecl)
+	}
+	if !strings.Contains(waveEventTypeDecl, `{ event: "agent:surfaceactivity"; data?: AgentSurfaceActivityData; }`) {
+		t.Fatalf("expected typed agent surface activity event, got:\n%s", waveEventTypeDecl)
 	}
 	if got := getWaveEventDataTSType("unmapped:event", tsTypesMap); got != "any" {
 		t.Fatalf("expected any for unmapped event fallback, got: %q", got)

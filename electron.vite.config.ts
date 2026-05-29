@@ -108,6 +108,7 @@ export default defineConfig({
                 input: {
                     index: "emain/preload.ts",
                     "preload-webview": "emain/preload-webview.ts",
+                    "preload-pet": "emain/preload-pet.ts",
                 },
                 output: {
                     format: "cjs",
@@ -130,6 +131,7 @@ export default defineConfig({
             rollupOptions: {
                 input: {
                     index: "index.html",
+                    pet: "pet.html",
                 },
                 output: {
                     manualChunks(id) {
@@ -149,9 +151,13 @@ export default defineConfig({
         },
         optimizeDeps: {
             include: ["monaco-yaml/yaml.worker.js"],
+            esbuildOptions: {
+                target: CHROME,
+            },
         },
         server: {
             open: false,
+            port: 9124,
             watch: {
                 ignored: [
                     "dist/**",

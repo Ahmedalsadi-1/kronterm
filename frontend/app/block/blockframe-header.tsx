@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting } from "@/app/block/agent-widget-settings";
 import {
     blockViewToIcon,
     blockViewToName,
@@ -30,7 +31,8 @@ function handleHeaderContextMenu(
     blockId: string,
     viewModel: ViewModel,
     nodeModel: NodeModel,
-    blockEnv: BlockEnv
+    blockEnv: BlockEnv,
+    metaView?: string
 ) {
     e.preventDefault();
     e.stopPropagation();
@@ -52,6 +54,44 @@ function handleHeaderContextMenu(
     ];
     const extraItems = viewModel?.getSettingsMenuItems?.();
     if (extraItems && extraItems.length > 0) menu.push({ type: "separator" }, ...extraItems);
+    if (metaView === "web" || metaView === "sandbox") {
+        const activitySettings = loadAgentWidgetVisualSettings(blockId);
+        menu.push(
+            { type: "separator" },
+            {
+                label: "Agent Activity Indicator",
+                type: "submenu",
+                submenu: [
+                    {
+                        label: "Glow",
+                        type: "checkbox",
+                        checked: activitySettings.glow,
+                        click: () => updateAgentWidgetVisualSetting(blockId, "glow", !activitySettings.glow),
+                    },
+                    {
+                        label: "Action Chip",
+                        type: "checkbox",
+                        checked: activitySettings.actionChip,
+                        click: () =>
+                            updateAgentWidgetVisualSetting(blockId, "actionChip", !activitySettings.actionChip),
+                    },
+                    {
+                        label: "Agent Cursor",
+                        type: "checkbox",
+                        checked: activitySettings.cursor,
+                        click: () => updateAgentWidgetVisualSetting(blockId, "cursor", !activitySettings.cursor),
+                    },
+                    {
+                        label: "Screenshot Preview",
+                        type: "checkbox",
+                        checked: activitySettings.screenshots,
+                        click: () =>
+                            updateAgentWidgetVisualSetting(blockId, "screenshots", !activitySettings.screenshots),
+                    },
+                ],
+            }
+        );
+    }
     menu.push(
         { type: "separator" },
         {
@@ -110,9 +150,10 @@ type HeaderEndIconsProps = {
     viewModel: ViewModel;
     nodeModel: NodeModel;
     blockId: string;
+    metaView?: string;
 };
 
-const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndIconsProps) => {
+const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId, metaView }: HeaderEndIconsProps) => {
     const blockEnv = useWaveEnv<BlockEnv>();
     const endIconButtons = util.useAtomValueSafe(viewModel?.endIconButtons);
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
@@ -129,7 +170,7 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndI
         elemtype: "iconbutton",
         icon: "cog",
         title: "Settings",
-        click: (e) => handleHeaderContextMenu(e, blockId, viewModel, nodeModel, blockEnv),
+        click: (e) => handleHeaderContextMenu(e, blockId, viewModel, nodeModel, blockEnv, metaView),
     };
     endIconsElem.push(<IconButton key="settings" decl={settingsDecl} className="block-frame-settings" />);
     if (ephemeral) {
@@ -212,7 +253,12 @@ const BlockFrame_Header = ({
             className={cn("block-frame-default-header", useTermHeader && "!pl-[2px]")}
             data-role="block-header"
             ref={dragHandleRef}
-            onContextMenu={(e) => handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv)}
+            onContextMenu={(e) =>
+                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
+            }
+            onDoubleClick={(e) =>
+                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
+            }
         >
             {!useTermHeader && (
                 <>
@@ -247,7 +293,12 @@ const BlockFrame_Header = ({
                 </div>
             )}
             <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
-            <HeaderEndIcons viewModel={viewModel} nodeModel={nodeModel} blockId={nodeModel.blockId} />
+            <HeaderEndIcons
+                viewModel={viewModel}
+                nodeModel={nodeModel}
+                blockId={nodeModel.blockId}
+                metaView={metaView}
+            />
         </div>
     );
 };

@@ -22,6 +22,7 @@ const (
 	APIType_OpenAIChat        = "openai-chat"
 	APIType_GoogleGemini      = "google-gemini"
 	APIType_KronosSession     = "kronos-session"
+	APIType_KronosCodeLegacy  = "kronoscode"
 )
 
 const (
@@ -36,6 +37,7 @@ const (
 	AIProvider_Ollama      = "ollama"
 	AIProvider_OpenCode    = "opencode"
 	AIProvider_Kronos      = "kronos"
+	AIProvider_KronosCode  = "kronoscode"
 	AIProvider_Custom      = "custom"
 )
 
@@ -515,11 +517,9 @@ type WaveChatOpts struct {
 	Tools                []ToolDefinition
 	SystemPrompt         []string
 	TabStateGenerator    func() (string, []ToolDefinition, string, error)
-	BuilderAppGenerator  func() (string, string, string, error)
 	WidgetAccess         bool
 	AllowNativeWebSearch bool
-	BuilderId            string
-	BuilderAppId         string
+	PermissionRules      []PermissionRuleConfig
 
 	// ephemeral to the step
 	TabState       string
@@ -528,6 +528,12 @@ type WaveChatOpts struct {
 	AppGoFile      string
 	AppStaticFiles string
 	PlatformInfo   string
+}
+
+type PermissionRuleConfig struct {
+	Tool     string
+	Resource string
+	Action   string
 }
 
 func (opts *WaveChatOpts) GetToolDefinition(toolName string) *ToolDefinition {
@@ -545,11 +551,7 @@ func (opts *WaveChatOpts) GetToolDefinition(toolName string) *ToolDefinition {
 }
 
 func (opts *WaveChatOpts) GetWaveRequestType() string {
-	if opts.BuilderId != "" {
-		return "waveapps-builder"
-	} else {
-		return "waveai"
-	}
+	return "waveai"
 }
 
 type ProxyErrorResponse struct {

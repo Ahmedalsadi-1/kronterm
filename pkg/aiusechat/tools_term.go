@@ -5,6 +5,7 @@ package aiusechat
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -296,6 +297,214 @@ func GetTermCommandOutputToolDefinition(tabId string) uctypes.ToolDefinition {
 				return nil, fmt.Errorf("failed to get command output: %w", err)
 			}
 			return output, nil
+		},
+	}
+}
+
+type TermRunCommandToolInput struct {
+	WidgetId string `json:"widget_id"`
+	Command  string `json:"command"`
+}
+
+func parseTermRunCommandInput(input any) (*TermRunCommandToolInput, error) {
+	result := &TermRunCommandToolInput{}
+
+	if input == nil {
+		return nil, fmt.Errorf("widget_id and command are required")
+	}
+
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal input: %w", err)
+	}
+
+	if err := json.Unmarshal(inputBytes, result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal input: %w", err)
+	}
+
+	if result.WidgetId == "" {
+		return nil, fmt.Errorf("widget_id is required")
+	}
+	if result.Command == "" {
+		return nil, fmt.Errorf("command is required")
+	}
+
+	return result, nil
+}
+
+func GetTermRunCommandToolDefinition(tabId string) uctypes.ToolDefinition {
+	return uctypes.ToolDefinition{
+		Name:        "term_run_command",
+		DisplayName: "Run Command",
+		Description: "Run a command in a terminal widget. The command will be typed into the shell. Requires shell integration and the shell must be in a ready state (not currently running a command).",
+		ToolLogName: "term:runcommand",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"widget_id": map[string]any{
+					"type":        "string",
+					"description": "8-character widget ID of the terminal widget",
+				},
+				"command": map[string]any{
+					"type":        "string",
+					"description": "The command string to execute",
+				},
+			},
+			"required":             []string{"widget_id", "command"},
+			"additionalProperties": false,
+		},
+		ToolCallDesc: func(input any, output any, toolUseData *uctypes.UIMessageDataToolUse) string {
+			parsed, err := parseTermRunCommandInput(input)
+			if err != nil {
+				return fmt.Sprintf("error parsing input: %v", err)
+			}
+			return fmt.Sprintf("running command in %s: %s", parsed.WidgetId, parsed.Command)
+		},
+		ToolAnyCallback: func(input any, toolUseData *uctypes.UIMessageDataToolUse) (any, error) {
+			parsed, err := parseTermRunCommandInput(input)
+			if err != nil {
+				return nil, err
+			}
+
+			// Ensure user approval
+			if toolUseData.Approval != uctypes.ApprovalUserApproved {
+				return nil, fmt.Errorf("command execution requires user approval")
+			}
+
+			ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelFn()
+
+			fullBlockId, err := wcore.ResolveBlockIdFromPrefix(ctx, tabId, parsed.WidgetId)
+			if err != nil {
+				return nil, err
+			}
+
+			blockORef := waveobj.MakeORef(waveobj.OType_Block, fullBlockId)
+			rtInfo := wstore.GetRTInfo(blockORef)
+			if rtInfo == nil {
+				return nil, fmt.Errorf("terminal not found or not ready")
+			}
+			if !rtInfo.ShellIntegration {
+				return nil, fmt.Errorf("shell integration is not enabled for this terminal")
+			}
+			if rtInfo.ShellState != "ready" {
+				return nil, fmt.Errorf("terminal is busy (state: %s)", rtInfo.ShellState)
+			}
+
+			cmdStr := parsed.Command + "\n"
+			inputData64 := base64.StdEncoding.EncodeToString([]byte(cmdStr))
+
+			rpcClient := wshclient.GetBareRpcClient()
+			err = wshclient.ControllerInputCommand(
+				rpcClient,
+				wshrpc.CommandBlockInputData{
+					BlockId:     fullBlockId,
+					InputData64: inputData64,
+				},
+				&wshrpc.RpcOpts{Route: wshutil.MakeFeBlockRouteId(fullBlockId)},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to send command to terminal: %w", err)
+			}
+			return "command sent to terminal", nil
+		},
+	}
+}
+
+type TermWaitForCommandToolInput struct {
+	WidgetId  string `json:"widget_id"`
+	TimeoutMs int    `json:"timeout_ms,omitempty"`
+}
+
+func parseTermWaitForCommandInput(input any) (*TermWaitForCommandToolInput, error) {
+	result := &TermWaitForCommandToolInput{
+		TimeoutMs: 30000, // Default 30s
+	}
+
+	if input == nil {
+		return nil, fmt.Errorf("widget_id is required")
+	}
+
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal input: %w", err)
+	}
+
+	if err := json.Unmarshal(inputBytes, result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal input: %w", err)
+	}
+
+	if result.WidgetId == "" {
+		return nil, fmt.Errorf("widget_id is required")
+	}
+
+	return result, nil
+}
+
+func GetTermWaitForCommandToolDefinition(tabId string) uctypes.ToolDefinition {
+	return uctypes.ToolDefinition{
+		Name:        "term_wait_for_command",
+		DisplayName: "Wait For Command",
+		Description: "Wait for a running command in a terminal to finish. Returns when the shell state becomes 'ready'. Use this after running a command to wait for its completion before reading output.",
+		ToolLogName: "term:waitforcommand",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"widget_id": map[string]any{
+					"type":        "string",
+					"description": "8-character widget ID of the terminal widget",
+				},
+				"timeout_ms": map[string]any{
+					"type":        "integer",
+					"description": "Timeout in milliseconds (default: 30000)",
+				},
+			},
+			"required":             []string{"widget_id"},
+			"additionalProperties": false,
+		},
+		ToolCallDesc: func(input any, output any, toolUseData *uctypes.UIMessageDataToolUse) string {
+			parsed, err := parseTermWaitForCommandInput(input)
+			if err != nil {
+				return fmt.Sprintf("error parsing input: %v", err)
+			}
+			return fmt.Sprintf("waiting for command in %s", parsed.WidgetId)
+		},
+		ToolAnyCallback: func(input any, toolUseData *uctypes.UIMessageDataToolUse) (any, error) {
+			parsed, err := parseTermWaitForCommandInput(input)
+			if err != nil {
+				return nil, err
+			}
+
+			ctx, cancelFn := context.WithTimeout(context.Background(), time.Duration(parsed.TimeoutMs)*time.Millisecond)
+			defer cancelFn()
+
+			fullBlockId, err := wcore.ResolveBlockIdFromPrefix(ctx, tabId, parsed.WidgetId)
+			if err != nil {
+				return nil, err
+			}
+
+			blockORef := waveobj.MakeORef(waveobj.OType_Block, fullBlockId)
+
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return nil, fmt.Errorf("timeout waiting for command to finish")
+				case <-ticker.C:
+					rtInfo := wstore.GetRTInfo(blockORef)
+					if rtInfo == nil {
+						return nil, fmt.Errorf("terminal not found")
+					}
+					if !rtInfo.ShellIntegration {
+						return nil, fmt.Errorf("shell integration is not enabled for this terminal")
+					}
+					if rtInfo.ShellState == "ready" {
+						return "command finished (shell is ready)", nil
+					}
+				}
+			}
 		},
 	}
 }

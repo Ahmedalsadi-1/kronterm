@@ -70,6 +70,8 @@ export function runWaveSrv(handleWSEvent: (evtMsg: WSEventType) => void): Promis
     envCopy[WaveAuthKeyEnv] = AuthKey;
     envCopy[WaveDataHomeVarName] = getWaveDataDir();
     envCopy[WaveConfigHomeVarName] = getWaveConfigDir();
+envCopy["WCLOUD_ENDPOINT"] = "https://api.kronterm.dev/central";
+envCopy["WCLOUD_WS_ENDPOINT"] = "wss://wsapi.kronterm.dev/";
     const waveSrvCmd = getWaveSrvPath();
     console.log("trying to run local server", waveSrvCmd);
     const proc = child_process.spawn(getWaveSrvPath(), {
@@ -107,9 +109,7 @@ export function runWaveSrv(handleWSEvent: (evtMsg: WSEventType) => void): Promis
     });
     rlStderr.on("line", (line) => {
         if (line.includes("WAVESRV-ESTART")) {
-            const startParams = /ws:([a-z0-9.:]+) web:([a-z0-9.:]+) version:([a-z0-9.-]+) buildtime:(\d+)/gm.exec(
-                line
-            );
+            const startParams = /ws:([a-z0-9.:]+) web:([a-z0-9.:]+) version:([a-z0-9.-]+) buildtime:(\d+)/gm.exec(line);
             if (startParams == null) {
                 console.log("error parsing WAVESRV-ESTART line", line);
                 setUserConfirmedQuit(true);

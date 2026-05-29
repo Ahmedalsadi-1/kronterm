@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/wavetermdev/waveterm/pkg/service/acpservice"
 	"github.com/wavetermdev/waveterm/pkg/service/blockservice"
 	"github.com/wavetermdev/waveterm/pkg/service/clientservice"
 	"github.com/wavetermdev/waveterm/pkg/service/objectservice"
@@ -22,6 +23,7 @@ import (
 )
 
 var ServiceMap = map[string]any{
+	"acp":       &acpservice.AcpService{},
 	"block":     blockservice.BlockServiceInstance,
 	"object":    &objectservice.ObjectService{},
 	"client":    &clientservice.ClientService{},

@@ -13,13 +13,28 @@ import { getWebServerEndpoint } from "../frontend/util/endpoints";
 import * as keyutil from "../frontend/util/keyutil";
 import { fireAndForget, parseDataUrl } from "../frontend/util/util";
 import {
+    AcpAgentManager,
+    AcpDetectedAgent,
+    AcpEvent,
+    createAgentManager,
+    getAgentManager,
+    listAgentManagers,
+    removeAgentManager,
+} from "./acp";
+import {
     incrementTermCommandsDurable,
     incrementTermCommandsRemote,
     incrementTermCommandsRun,
     incrementTermCommandsWsl,
     setWasActive,
 } from "./emain-activity";
-import { createBuilderWindow, getAllBuilderWindows, getBuilderWindowByWebContentsId } from "./emain-builder";
+
+import {
+    notifyDesktopPetActivity,
+    notifyDesktopPetNotification,
+    submitDesktopPetChat,
+    updateDesktopPetOptions,
+} from "./emain-pet";
 import { callWithOriginalXdgCurrentDesktopAsync, unamePlatform } from "./emain-platform";
 import { getWaveTabViewByWebContentsId } from "./emain-tabview";
 import { handleCtrlShiftState } from "./emain-util";
@@ -31,17 +46,6 @@ const electronApp = electron.app;
 
 let webviewFocusId: number = null;
 let webviewKeys: string[] = [];
-
-export function openBuilderWindow(appId?: string) {
-    const normalizedAppId = appId || "";
-    const existingBuilderWindows = getAllBuilderWindows();
-    const existingWindow = existingBuilderWindows.find((win) => win.builderAppId === normalizedAppId);
-    if (existingWindow) {
-        existingWindow.focus();
-        return;
-    }
-    fireAndForget(() => createBuilderWindow(normalizedAppId));
-}
 
 type UrlInSessionResult = {
     stream: Readable;
@@ -193,6 +197,51 @@ function saveImageFileWithNativeDialog(
 }
 
 export function initIpcHandlers() {
+    electron.ipcMain.on("desktop-pet-options", (_event, options) => {
+        updateDesktopPetOptions(options ?? {});
+    });
+
+    electron.ipcMain.on("desktop-pet-chat", (_event, text) => {
+        if (typeof text === "string") {
+            submitDesktopPetChat(text);
+        }
+    });
+
+    electron.ipcMain.on("desktop-pet-activity", (event, notification) => {
+        if (notification?.kind === "idle" || notification?.kind === "thinking" || notification?.kind === "tool") {
+            const tabView = getWaveTabViewByWebContentsId(event.sender.id);
+            const bounds = tabView?.getBounds();
+            const localTarget = notification.target;
+            const target =
+                bounds != null &&
+                localTarget != null &&
+                Number.isFinite(localTarget.x) &&
+                Number.isFinite(localTarget.y) &&
+                Number.isFinite(localTarget.width) &&
+                Number.isFinite(localTarget.height)
+                    ? {
+                          x: bounds.x + localTarget.x,
+                          y: bounds.y + localTarget.y,
+                          width: localTarget.width,
+                          height: localTarget.height,
+                      }
+                    : undefined;
+            notifyDesktopPetNotification({ ...notification, target });
+            const petActivityUrl = notification.petActivityUrl;
+            if (
+                typeof petActivityUrl === "string" &&
+                /^http:\/\/(127\.0\.0\.1|localhost):\d+\/pet\/activity$/.test(petActivityUrl) &&
+                notification.surfaceActivity != null
+            ) {
+                void fetch(petActivityUrl, {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ ...notification.surfaceActivity, target }),
+                }).catch(() => undefined);
+            }
+        }
+    });
+
     electron.ipcMain.on("open-external", (event, url) => {
         if (url && typeof url === "string") {
             fireAndForget(() =>
@@ -412,17 +461,6 @@ export function initIpcHandlers() {
             return;
         }
 
-        const builderWindow = getBuilderWindowByWebContentsId(event.sender.id);
-        if (builderWindow != null) {
-            if (status === "ready") {
-                if (builderWindow.savedInitOpts) {
-                    console.log("savedInitOpts calling builder-init", builderWindow.savedInitOpts.builderId);
-                    builderWindow.webContents.send("builder-init", builderWindow.savedInitOpts);
-                }
-            }
-            return;
-        }
-
         console.log("set-window-init-status: no window found for webContentsId", event.sender.id);
     });
 
@@ -450,40 +488,7 @@ export function initIpcHandlers() {
         event.sender.paste();
     });
 
-    electron.ipcMain.on("open-builder", (event, appId?: string) => {
-        openBuilderWindow(appId);
-    });
-
-    electron.ipcMain.on("set-builder-window-appid", (event, appId: string) => {
-        const bw = getBuilderWindowByWebContentsId(event.sender.id);
-        if (bw == null) {
-            return;
-        }
-        bw.builderAppId = appId;
-        console.log("set-builder-window-appid", bw.builderId, appId);
-    });
-
     electron.ipcMain.on("open-new-window", () => fireAndForget(createNewWaveWindow));
-
-    electron.ipcMain.on("close-builder-window", async (event) => {
-        const bw = getBuilderWindowByWebContentsId(event.sender.id);
-        if (bw == null) {
-            return;
-        }
-        const builderId = bw.builderId;
-        if (builderId) {
-            try {
-                await RpcApi.SetRTInfoCommand(ElectronWshClient, {
-                    oref: `builder:${builderId}`,
-                    data: {} as ObjRTInfo,
-                    delete: true,
-                });
-            } catch (e) {
-                console.error("Error deleting builder rtinfo:", e);
-            }
-        }
-        bw.destroy();
-    });
 
     electron.ipcMain.on("do-refresh", (event) => {
         event.sender.reloadIgnoringCache();
@@ -509,6 +514,269 @@ export function initIpcHandlers() {
         } catch (err) {
             console.error("error saving scrollback file", err);
             return false;
+        }
+    });
+
+    electron.ipcMain.handle("select-directory", async (event): Promise<string | null> => {
+        const ww = electron.BrowserWindow.fromWebContents(event.sender);
+        if (ww == null) {
+            return null;
+        }
+        const result = await electron.dialog.showOpenDialog(ww, {
+            title: "Select ACP Workspace",
+            properties: ["openDirectory"],
+        });
+        if (result.canceled) {
+            return null;
+        }
+        return result.filePaths[0] ?? null;
+    });
+
+    electron.ipcMain.handle("select-files", async (event): Promise<string[]> => {
+        const ww = electron.BrowserWindow.fromWebContents(event.sender);
+        if (ww == null) {
+            return [];
+        }
+        const result = await electron.dialog.showOpenDialog(ww, {
+            title: "Reference Files in ACP Chat",
+            properties: ["openFile", "multiSelections"],
+        });
+        if (result.canceled) {
+            return [];
+        }
+        return result.filePaths;
+    });
+
+    electron.ipcMain.handle(
+        "acp-apply-git-identity",
+        async (
+            _event,
+            opts: {
+                workspace: string;
+                userName: string;
+                userEmail: string;
+            }
+        ): Promise<{ success: boolean; error?: string }> => {
+            const workspace = opts.workspace?.trim();
+            const userName = opts.userName?.trim();
+            const userEmail = opts.userEmail?.trim();
+            if (!workspace || !userName || !userEmail) {
+                return { success: false, error: "Workspace, Git user name, and Git email are required." };
+            }
+            const runGitConfig = (key: string, value: string): Promise<void> =>
+                new Promise((resolve, reject) => {
+                    child_process.execFile("git", ["-C", workspace, "config", "--local", key, value], (err) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        resolve();
+                    });
+                });
+            try {
+                await runGitConfig("user.name", userName);
+                await runGitConfig("user.email", userEmail);
+                return { success: true };
+            } catch (err) {
+                return { success: false, error: err instanceof Error ? err.message : String(err) };
+            }
+        }
+    );
+
+    electron.ipcMain.handle("acp-detect-agents", async (): Promise<AcpDetectedAgent[]> => {
+        return AcpAgentManager.detectAgents();
+    });
+
+    electron.ipcMain.handle(
+        "acp-initialize",
+        async (
+            event,
+            opts: {
+                conversationId: string;
+                backend: string;
+                workspace?: string;
+                cliPath?: string;
+                customArgs?: string[];
+                customEnv?: Record<string, string>;
+                resumeSessionId?: string;
+                mcpServers?: Array<{
+                    name: string;
+                    command: string;
+                    args: string[];
+                    env: Array<{ name: string; value: string }>;
+                }>;
+                surfaceContext?: {
+                    tabId: string;
+                    blockId?: string;
+                };
+            }
+        ) => {
+            const manager = createAgentManager(opts);
+
+            const senderWc = event.sender;
+            manager.on("event", (acpEvent: AcpEvent) => {
+                notifyDesktopPetActivity(acpEvent);
+                if (!senderWc.isDestroyed()) {
+                    senderWc.send("acp-event", acpEvent);
+                }
+            });
+
+            try {
+                await manager.initialize(opts);
+                return { success: true, conversationId: opts.conversationId };
+            } catch (err) {
+                return { success: false, error: err instanceof Error ? err.message : String(err) };
+            }
+        }
+    );
+
+    electron.ipcMain.handle(
+        "acp-send-message",
+        async (
+            event,
+            opts: {
+                conversationId: string;
+                content: string;
+            }
+        ) => {
+            const manager = getAgentManager(opts.conversationId);
+            if (!manager) {
+                return { success: false, error: "Agent not initialized" };
+            }
+            try {
+                await manager.sendMessage(opts);
+                return { success: true };
+            } catch (err) {
+                return { success: false, error: err instanceof Error ? err.message : String(err) };
+            }
+        }
+    );
+
+    electron.ipcMain.handle(
+        "acp-confirm-tool",
+        async (
+            event,
+            opts: {
+                conversationId: string;
+                msgId: string;
+                callId: string;
+                optionId: string;
+            }
+        ) => {
+            const manager = getAgentManager(opts.conversationId);
+            if (!manager) {
+                return { success: false, error: "Agent not found" };
+            }
+            try {
+                await manager.confirmTool(opts);
+                return { success: true };
+            } catch (err) {
+                return { success: false, error: err instanceof Error ? err.message : String(err) };
+            }
+        }
+    );
+
+    electron.ipcMain.handle("acp-stop", async (event, opts: { conversationId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not found" };
+        }
+        try {
+            await manager.stop();
+            removeAgentManager(opts.conversationId);
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+
+    electron.ipcMain.handle("acp-get-status", async (event, opts: { conversationId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { status: "idle", found: false };
+        }
+        return {
+            found: true,
+            status: manager.status,
+            sessionId: manager.sessionId,
+            backend: manager.backend,
+            error: manager.error,
+            confirmations: manager.confirmations,
+            modes: manager.modes,
+            currentMode: manager.currentMode,
+            configOptions: manager.configOptions,
+            modelInfo: manager.modelInfo,
+            capabilities: manager.capabilities,
+        };
+    });
+
+    electron.ipcMain.handle("acp-list-runtimes", async () => {
+        return listAgentManagers();
+    });
+
+    electron.ipcMain.handle("acp-get-mode", async (event, opts: { conversationId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not initialized" };
+        }
+        return { success: true, data: manager.getMode() };
+    });
+
+    electron.ipcMain.handle("acp-set-mode", async (event, opts: { conversationId: string; mode: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not initialized" };
+        }
+        try {
+            await manager.setMode(opts);
+            return { success: true, data: manager.getMode() };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+
+    electron.ipcMain.handle("acp-get-config-options", async (event, opts: { conversationId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not initialized" };
+        }
+        return { success: true, data: manager.getConfigOptions() };
+    });
+
+    electron.ipcMain.handle(
+        "acp-set-config-option",
+        async (event, opts: { conversationId: string; configId: string; value: string }) => {
+            const manager = getAgentManager(opts.conversationId);
+            if (!manager) {
+                return { success: false, error: "Agent not initialized" };
+            }
+            try {
+                const data = await manager.setConfigOption(opts);
+                return { success: true, data };
+            } catch (err) {
+                return { success: false, error: err instanceof Error ? err.message : String(err) };
+            }
+        }
+    );
+
+    electron.ipcMain.handle("acp-get-model-info", async (event, opts: { conversationId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not initialized" };
+        }
+        return { success: true, data: manager.getModelInfo() };
+    });
+
+    electron.ipcMain.handle("acp-set-model", async (event, opts: { conversationId: string; modelId: string }) => {
+        const manager = getAgentManager(opts.conversationId);
+        if (!manager) {
+            return { success: false, error: "Agent not initialized" };
+        }
+        try {
+            await manager.setModel(opts);
+            return { success: true, data: manager.getModelInfo() };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
         }
     });
 }

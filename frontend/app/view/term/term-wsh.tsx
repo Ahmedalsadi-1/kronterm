@@ -160,7 +160,7 @@ export class TermWshClient extends WshClient {
                 // after the lines have already been combined (because of potential wrapping)
                 // for now this isn't worth fixing, just noted
                 returnLines = lines.slice(lines.length - 1000);
-                returnStartLine = (totalLines - endBufferIndex) + (lines.length - 1000);
+                returnStartLine = totalLines - endBufferIndex + (lines.length - 1000);
             }
 
             return {
@@ -184,5 +184,138 @@ export class TermWshClient extends WshClient {
             lines: lines,
             lastupdated: termWrap.lastUpdated,
         };
+    }
+
+    async handle_widgetgetelements(
+        rh: RpcResponseHelper,
+        data: CommandWidgetGetElementsData
+    ): Promise<WidgetGetElementsRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap || !termWrap.terminal) {
+            return { blockid: this.blockId, elements: [], count: 0, timestamp: Date.now() };
+        }
+        const rect = termWrap.connectElem.getBoundingClientRect();
+        return {
+            blockid: this.blockId,
+            elements: [
+                {
+                    ref: "terminal",
+                    role: "terminal",
+                    name: "Terminal",
+                    value: "",
+                    x: Math.round(rect.x),
+                    y: Math.round(rect.y),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height),
+                    focusable: true,
+                    visible: true,
+                },
+            ],
+            count: 1,
+            timestamp: Date.now(),
+        };
+    }
+
+    async handle_widgetgetstate(
+        rh: RpcResponseHelper,
+        data: CommandWidgetGetStateData
+    ): Promise<WidgetGetStateRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap) {
+            return {
+                blockid: this.blockId,
+                viewtype: "term",
+                state: {},
+                focused: false,
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            };
+        }
+        const rect = termWrap.connectElem.getBoundingClientRect();
+        const focused = globalStore.get(this.model.nodeModel.isFocused) === true;
+        return {
+            blockid: this.blockId,
+            viewtype: "term",
+            state: {},
+            focused: focused,
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        };
+    }
+
+    async handle_widgetmouseclick(
+        rh: RpcResponseHelper,
+        data: CommandWidgetMouseClickData
+    ): Promise<WidgetMouseActionRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap || !termWrap.terminal) {
+            return { blockid: this.blockId, success: false, message: "Terminal not found" };
+        }
+        try {
+            termWrap.connectElem.click();
+            return { blockid: this.blockId, success: true, message: "Click executed" };
+        } catch (e) {
+            return { blockid: this.blockId, success: false, message: `Failed: ${e}` };
+        }
+    }
+
+    async handle_widgetmousescroll(
+        rh: RpcResponseHelper,
+        data: CommandWidgetMouseScrollData
+    ): Promise<WidgetMouseActionRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap || !termWrap.terminal) {
+            return { blockid: this.blockId, success: false, message: "Terminal not found" };
+        }
+        try {
+            const scrollEvent = new WheelEvent("wheel", {
+                deltaY: data.amount * 100,
+                bubbles: true,
+            });
+            termWrap.connectElem.dispatchEvent(scrollEvent);
+            return { blockid: this.blockId, success: true, message: "Scroll executed" };
+        } catch (e) {
+            return { blockid: this.blockId, success: false, message: `Failed: ${e}` };
+        }
+    }
+
+    async handle_widgetkeyboardtype(
+        rh: RpcResponseHelper,
+        data: CommandWidgetKeyboardTypeData
+    ): Promise<WidgetMouseActionRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap || !termWrap.terminal) {
+            return { blockid: this.blockId, success: false, message: "Terminal not found" };
+        }
+        try {
+            termWrap.terminal.paste(data.text);
+            return { blockid: this.blockId, success: true, message: `Typed ${data.text.length} characters` };
+        } catch (e) {
+            return { blockid: this.blockId, success: false, message: `Failed: ${e}` };
+        }
+    }
+
+    async handle_widgetkeyboardpress(
+        rh: RpcResponseHelper,
+        data: CommandWidgetKeyboardPressData
+    ): Promise<WidgetMouseActionRtnData> {
+        const termWrap = this.model.termRef.current;
+        if (!termWrap || !termWrap.terminal) {
+            return { blockid: this.blockId, success: false, message: "Terminal not found" };
+        }
+        try {
+            for (const key of data.keys) {
+                termWrap.connectElem.dispatchEvent(new KeyboardEvent("keydown", { key: key, bubbles: true }));
+                termWrap.connectElem.dispatchEvent(new KeyboardEvent("keypress", { key: key, bubbles: true }));
+                termWrap.connectElem.dispatchEvent(new KeyboardEvent("keyup", { key: key, bubbles: true }));
+            }
+            return { blockid: this.blockId, success: true, message: `Pressed ${data.keys.length} keys` };
+        } catch (e) {
+            return { blockid: this.blockId, success: false, message: `Failed: ${e}` };
+        }
     }
 }

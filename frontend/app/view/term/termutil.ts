@@ -86,7 +86,7 @@ export async function createTempFileFromBlob(blob: Blob): Promise<string> {
     // Generate unique filename with timestamp and random component
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const filename = `waveterm_paste_${timestamp}_${random}.${ext}`;
+    const filename = `kronterm_paste_${timestamp}_${random}.${ext}`;
 
     const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
@@ -388,4 +388,44 @@ export function bufferLinesToText(buffer: TermTypes.IBuffer, startIndex: number,
     }
 
     return lines;
+}
+
+/**
+ * Cleans pasted text by:
+ * 1. Removing leading '$ ' or ' % ' prompts from lines
+ * 2. Identifying potential placeholders like <PLACEHOLDER> or [PLACEHOLDER]
+ *
+ * @param text - The raw text from clipboard
+ * @returns The cleaned text
+ */
+export function cleanPasteText(text: string): string {
+    if (!text) return text;
+
+    const lines = text.split(/\r?\n/);
+    const cleanedLines = lines.map((line) => {
+        // Remove leading $ or % prompts (common in tutorials)
+        // Matches start of line, optional whitespace, then $ or %, then space
+        return line.replace(/^(\s*[\$%]\s+)/, "");
+    });
+
+    return cleanedLines.join("\n");
+}
+
+/**
+ * Checks if a command is potentially dangerous.
+ *
+ * @param text - The command text to check
+ * @returns True if dangerous
+ */
+export function isDangerousCommand(text: string): boolean {
+    if (!text) return false;
+    const dangerousPatterns = [
+        /\brm\s+-[rf]+\s+\/\b/, // rm -rf /
+        /\bmkfs\b/, // mkfs
+        /\b>\s*\/dev\/sd[a-z]\b/, // writing to raw disk
+        /\bdd\s+if=.*of=\/dev\/sd[a-z]\b/, // dd to raw disk
+        /:(){ :|:& };:/, // fork bomb
+    ];
+
+    return dangerousPatterns.some((pattern) => pattern.test(text));
 }

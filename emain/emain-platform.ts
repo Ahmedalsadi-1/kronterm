@@ -11,10 +11,10 @@ import { WaveDevVarName, WaveDevViteVarName } from "../frontend/util/isdev";
 import * as keyutil from "../frontend/util/keyutil";
 
 // This is a little trick to ensure that Electron puts all its runtime data into a subdirectory to avoid conflicts with our own data.
-// On macOS, it will store to ~/Library/Application \Support/waveterm/electron
-// On Linux, it will store to ~/.config/waveterm/electron
-// On Windows, it will store to %LOCALAPPDATA%/waveterm/electron
-app.setName("waveterm/electron");
+// On macOS, it will store to ~/Library/Application \Support/kronterm/electron
+// On Linux, it will store to ~/.config/kronterm/electron
+// On Windows, it will store to %LOCALAPPDATA%/kronterm/electron
+app.setName("kronterm/electron");
 
 const isDev = !app.isPackaged;
 const isDevVite = isDev && process.env.ELECTRON_RENDERER_URL;
@@ -26,20 +26,25 @@ if (isDevVite) {
     process.env[WaveDevViteVarName] = "1";
 }
 
-const waveDirNamePrefix = "waveterm";
+const waveDirNamePrefix = "kronterm";
 const waveDirNameSuffix = isDev ? "dev" : "";
 const waveDirName = `${waveDirNamePrefix}${waveDirNameSuffix ? `-${waveDirNameSuffix}` : ""}`;
 
-const paths = envPaths("waveterm", { suffix: waveDirNameSuffix });
+const paths = envPaths("kronterm", { suffix: waveDirNameSuffix });
 
-app.setName(isDev ? "Wave (Dev)" : "Wave");
+app.setName(isDev ? "KronTerm (Dev)" : "KronTerm");
 const unamePlatform = process.platform;
 const unameArch: string = process.arch;
 keyutil.setKeyUtilPlatform(unamePlatform);
 
-const WaveConfigHomeVarName = "WAVETERM_CONFIG_HOME";
-const WaveDataHomeVarName = "WAVETERM_DATA_HOME";
-const WaveHomeVarName = "WAVETERM_HOME";
+const WaveConfigHomeVarName = "KRONTERM_CONFIG_HOME";
+const WaveDataHomeVarName = "KRONTERM_DATA_HOME";
+const WaveHomeVarName = "KRONTERM_HOME";
+
+// Backwards compatibility with old env var names
+const WaveConfigHomeVarNameOld = "WAVETERM_CONFIG_HOME";
+const WaveDataHomeVarNameOld = "WAVETERM_DATA_HOME";
+const WaveHomeVarNameOld = "WAVETERM_HOME";
 
 export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) {
     if (!fullConfig.settings["app:dismissarchitecturewarning"] && app.runningUnderARM64Translation) {
@@ -47,8 +52,8 @@ export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) 
         const dialogOpts: Electron.MessageBoxOptions = {
             type: "warning",
             buttons: ["Dismiss", "Learn More"],
-            title: "Wave has detected a performance issue",
-            message: `Wave is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from our website for optimal performance.`,
+            title: "KronTerm has detected a performance issue",
+            message: `KronTerm is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from our website for optimal performance.`,
         };
 
         const choice = dialog.showMessageBoxSync(null, dialogOpts);
@@ -57,7 +62,7 @@ export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) 
             console.log("User chose to learn more");
             fireAndForget(() =>
                 shell.openExternal(
-                    "https://docs.waveterm.dev/faq#why-does-wave-warn-me-about-arm64-translation-when-it-launches"
+                    "https://docs.kronterm.dev/faq#why-does-kronterm-warn-me-about-arm64-translation-when-it-launches"
                 )
             );
             throw new Error("User redirected to docsite to learn more about ARM64 translation, exiting");
@@ -68,11 +73,11 @@ export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) 
 }
 
 /**
- * Gets the path to the old Wave home directory (defaults to `~/.waveterm`).
+ * Gets the path to the old KronTerm home directory (defaults to `~/.kronterm`).
  * @returns The path to the directory if it exists and contains valid data for the current app, otherwise null.
  */
 function getWaveHomeDir(): string {
-    let home = process.env[WaveHomeVarName];
+    let home = process.env[WaveHomeVarName] || process.env[WaveHomeVarNameOld];
     if (!home) {
         const homeDir = app.getPath("home");
         if (homeDir) {
@@ -99,7 +104,7 @@ function ensurePathExists(path: string): string {
 }
 
 /**
- * Gets the path to the directory where Wave configurations are stored. Creates the directory if it does not exist.
+ * Gets the path to the directory where KronTerm configurations are stored. Creates the directory if it does not exist.
  * Handles backwards compatibility with the old Wave Home directory model, where configurations and data were stored together.
  * @returns The path where configurations should be stored.
  */
@@ -110,7 +115,7 @@ function getWaveConfigDir(): string {
         return path.join(waveHomeDir, "config");
     }
 
-    const override = process.env[WaveConfigHomeVarName];
+    const override = process.env[WaveConfigHomeVarName] || process.env[WaveConfigHomeVarNameOld];
     const xdgConfigHome = process.env.XDG_CONFIG_HOME;
     let retVal: string;
     if (override) {
@@ -124,7 +129,7 @@ function getWaveConfigDir(): string {
 }
 
 /**
- * Gets the path to the directory where Wave data is stored. Creates the directory if it does not exist.
+ * Gets the path to the directory where KronTerm data is stored. Creates the directory if it does not exist.
  * Handles backwards compatibility with the old Wave Home directory model, where configurations and data were stored together.
  * @returns The path where data should be stored.
  */
@@ -135,7 +140,7 @@ function getWaveDataDir(): string {
         return waveHomeDir;
     }
 
-    const override = process.env[WaveDataHomeVarName];
+    const override = process.env[WaveDataHomeVarName] || process.env[WaveDataHomeVarNameOld];
     const xdgDataHome = process.env.XDG_DATA_HOME;
     let retVal: string;
     if (override) {

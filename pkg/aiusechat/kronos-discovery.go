@@ -12,25 +12,25 @@ import (
 	"strings"
 
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/aiutil"
-	"github.com/wavetermdev/waveterm/pkg/aiusechat/uctypes"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
 )
 
 type KronosModeSnapshot struct {
-	Mode               string                         `json:"mode"`
-	Endpoint           string                         `json:"endpoint,omitempty"`
-	Model              string                         `json:"model,omitempty"`
-	Agent              string                         `json:"agent,omitempty"`
-	ToolRouting        string                         `json:"toolRouting,omitempty"`
-	PermissionMode     string                         `json:"permissionMode,omitempty"`
-	AuthConfigured     bool                           `json:"authConfigured"`
-	Connected          bool                           `json:"connected"`
-	SelectedProviderID string                         `json:"selectedProviderId,omitempty"`
-	SelectedModelID    string                         `json:"selectedModelId,omitempty"`
-	Providers          []KronosProviderSnapshot       `json:"providers,omitempty"`
-	ToolCapabilities   []KronosToolCapabilitySnapshot `json:"toolCapabilities,omitempty"`
-	SelectedTools      []KronosToolDefinitionSnapshot `json:"selectedTools,omitempty"`
-	Errors             []string                       `json:"errors,omitempty"`
+	Mode                string                            `json:"mode"`
+	Endpoint            string                            `json:"endpoint,omitempty"`
+	Model               string                            `json:"model,omitempty"`
+	Agent               string                            `json:"agent,omitempty"`
+	ToolRouting         string                            `json:"toolRouting,omitempty"`
+	PermissionMode      string                            `json:"permissionMode,omitempty"`
+	AuthConfigured      bool                              `json:"authConfigured"`
+	Connected           bool                              `json:"connected"`
+	SelectedProviderID  string                            `json:"selectedProviderId,omitempty"`
+	SelectedModelID     string                            `json:"selectedModelId,omitempty"`
+	NativeWaveConnector KronosNativeWaveConnectorSnapshot `json:"nativeWaveConnector"`
+	Providers           []KronosProviderSnapshot          `json:"providers,omitempty"`
+	ToolCapabilities    []KronosToolCapabilitySnapshot    `json:"toolCapabilities,omitempty"`
+	SelectedTools       []KronosToolDefinitionSnapshot    `json:"selectedTools,omitempty"`
+	Errors              []string                          `json:"errors,omitempty"`
 }
 
 type KronosProviderSnapshot struct {
@@ -68,6 +68,13 @@ type KronosToolDefinitionSnapshot struct {
 	Interactive bool           `json:"interactive"`
 	Fallback    []string       `json:"fallback,omitempty"`
 	Parameters  map[string]any `json:"parameters,omitempty"`
+}
+
+type KronosNativeWaveConnectorSnapshot struct {
+	Available bool   `json:"available"`
+	Connector string `json:"connector,omitempty"`
+	Status    string `json:"status"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type kronosProviderListResponse struct {
@@ -128,7 +135,7 @@ func GetKronosModeSnapshot(ctx context.Context, aiMode string) (*KronosModeSnaps
 	if err != nil {
 		return nil, err
 	}
-	if config.Provider != uctypes.AIProvider_Kronos {
+	if !isKronosAIConfig(config) {
 		return nil, fmt.Errorf("AI mode %q is not configured for Kronos", aiMode)
 	}
 
@@ -141,6 +148,10 @@ func GetKronosModeSnapshot(ctx context.Context, aiMode string) (*KronosModeSnaps
 		ToolRouting:    config.KronosToolRouting,
 		PermissionMode: config.KronosPermissionMode,
 		AuthConfigured: authConfigured,
+		NativeWaveConnector: KronosNativeWaveConnectorSnapshot{
+			Status: "xml-bridge",
+			Reason: "Kronos has not exposed a native Wave connector yet.",
+		},
 	}
 	if providerID, modelID, ok := parseKronosModel(config.Model); ok {
 		snapshot.SelectedProviderID = providerID
@@ -153,7 +164,7 @@ func GetKronosModeSnapshot(ctx context.Context, aiMode string) (*KronosModeSnaps
 	}
 
 	// Reuse the normal AI-mode resolution path so local proxy/prod settings stay consistent.
-	_, aiOptsErr := getWaveAISettings(shouldUsePremium(), false, waveobj.ObjRTInfo{}, aiMode)
+	_, aiOptsErr := getWaveAISettings(shouldUsePremium(), waveobj.ObjRTInfo{}, aiMode)
 	if aiOptsErr != nil {
 		snapshot.Errors = append(snapshot.Errors, aiOptsErr.Error())
 	}
@@ -192,6 +203,7 @@ func GetKronosModeSnapshot(ctx context.Context, aiMode string) (*KronosModeSnaps
 			snapshot.SelectedTools = makeKronosToolDefinitionSnapshots(selectedTools)
 		}
 	}
+	snapshot.NativeWaveConnector = detectKronosNativeWaveConnector(snapshot.ToolCapabilities, snapshot.SelectedTools)
 
 	return snapshot, nil
 }
@@ -289,6 +301,53 @@ func makeKronosToolDefinitionSnapshots(items []kronosToolDefinitionInfo) []Krono
 	return snapshots
 }
 
+func detectKronosNativeWaveConnector(capabilities []KronosToolCapabilitySnapshot, tools []KronosToolDefinitionSnapshot) KronosNativeWaveConnectorSnapshot {
+	for _, capability := range capabilities {
+		if isKronosNativeWaveConnectorRef(capability.ID, capability.Connector) {
+			return KronosNativeWaveConnectorSnapshot{
+				Available: true,
+				Connector: firstNonEmpty(capability.Connector, capability.ID),
+				Status:    "native-ready",
+			}
+		}
+	}
+	for _, tool := range tools {
+		if isKronosNativeWaveConnectorRef(tool.ID, tool.Connector) {
+			return KronosNativeWaveConnectorSnapshot{
+				Available: true,
+				Connector: firstNonEmpty(tool.Connector, tool.ID),
+				Status:    "native-ready",
+			}
+		}
+	}
+	return KronosNativeWaveConnectorSnapshot{
+		Status: "xml-bridge",
+		Reason: "Kronos has not exposed a native Wave connector yet.",
+	}
+}
+
+func isKronosNativeWaveConnectorRef(values ...string) bool {
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		if normalized == "" {
+			continue
+		}
+		if normalized == "wave" || strings.Contains(normalized, "waveterm") || strings.Contains(normalized, "kronterm") || strings.Contains(normalized, "wave-native") {
+			return true
+		}
+	}
+	return false
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
 func kronosModalitiesToList(info kronosModelModalityInfo) []string {
 	var modalities []string
 	if info.Text {
@@ -307,4 +366,179 @@ func kronosModalitiesToList(info kronosModelModalityInfo) []string {
 		modalities = append(modalities, "pdf")
 	}
 	return modalities
+}
+
+type KronosCatalogInstallSnapshot struct {
+	Manager string   `json:"manager,omitempty"`
+	Command []string `json:"command,omitempty"`
+	Note    string   `json:"note,omitempty"`
+	DocsURL string   `json:"docsUrl,omitempty"`
+}
+
+type KronosCatalogAgentSnapshot struct {
+	ID             string                        `json:"id"`
+	Name           string                        `json:"name"`
+	Kind           string                        `json:"kind"`
+	Status         string                        `json:"status"`
+	Available      bool                          `json:"available"`
+	Icon           string                        `json:"icon,omitempty"`
+	CLICommand     string                        `json:"cliCommand,omitempty"`
+	DefaultCLIPath string                        `json:"defaultCliPath,omitempty"`
+	ACPArgs        []string                      `json:"acpArgs,omitempty"`
+	SkillsDirs     []string                      `json:"skillsDirs,omitempty"`
+	AuthRequired   bool                          `json:"authRequired,omitempty"`
+	Install        *KronosCatalogInstallSnapshot `json:"install,omitempty"`
+	Description    string                        `json:"description,omitempty"`
+	Reason         string                        `json:"reason,omitempty"`
+}
+
+type KronosCatalogResponseSnapshot struct {
+	GeneratedAt int64                        `json:"generatedAt"`
+	Agents      []KronosCatalogAgentSnapshot `json:"agents"`
+}
+
+type KronosBytebotStatusSnapshot struct {
+	MCPURL        string `json:"mcpUrl"`
+	DesktopURL    string `json:"desktopUrl"`
+	MCPStatus     string `json:"mcpStatus"`
+	DesktopStatus string `json:"desktopStatus"`
+	Error         string `json:"error,omitempty"`
+}
+
+type KronosChatHubSnapshot struct {
+	Mode    string                         `json:"mode"`
+	Catalog *KronosCatalogResponseSnapshot `json:"catalog,omitempty"`
+	Kronos  *KronosModeSnapshot            `json:"kronos,omitempty"`
+	Bytebot KronosBytebotStatusSnapshot    `json:"bytebot"`
+	Errors  []string                       `json:"errors,omitempty"`
+}
+
+type KronosAgentInstallResult struct {
+	Success bool                       `json:"success"`
+	Output  string                     `json:"output,omitempty"`
+	Agent   KronosCatalogAgentSnapshot `json:"agent,omitempty"`
+}
+
+const defaultBytebotMCPURL = "http://localhost:9990/mcp"
+const defaultBytebotDesktopURL = "http://localhost:9990/novnc/vnc_lite.html?scale=true"
+
+func checkHTTPReady(ctx context.Context, target string) (string, string) {
+	if strings.TrimSpace(target) == "" {
+		return "missing", "missing URL"
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3_000_000_000)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return "error", err.Error()
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "error", err.Error()
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		return "connected", ""
+	}
+	return "error", resp.Status
+}
+
+func GetKronosChatHubSnapshot(ctx context.Context, aiMode string) (*KronosChatHubSnapshot, error) {
+	if strings.TrimSpace(aiMode) == "" {
+		return nil, fmt.Errorf("mode parameter is required")
+	}
+	config, err := getAIModeConfig(aiMode)
+	if err != nil {
+		return nil, err
+	}
+	if !isKronosAIConfig(config) {
+		return nil, fmt.Errorf("AI mode %q is not configured for Kronos", aiMode)
+	}
+	apiToken, _, tokenErr := resolveConfiguredAPIToken(*config, false)
+	client, clientErr := aiutil.MakeHTTPClient(config.ProxyURL)
+
+	mcpStatus, mcpErr := checkHTTPReady(ctx, defaultBytebotMCPURL)
+	desktopStatus, desktopErr := checkHTTPReady(ctx, defaultBytebotDesktopURL)
+	snapshot := &KronosChatHubSnapshot{
+		Mode: aiMode,
+		Bytebot: KronosBytebotStatusSnapshot{
+			MCPURL:        defaultBytebotMCPURL,
+			DesktopURL:    defaultBytebotDesktopURL,
+			MCPStatus:     mcpStatus,
+			DesktopStatus: desktopStatus,
+		},
+	}
+	if mcpErr != "" {
+		snapshot.Bytebot.Error = mcpErr
+	}
+	if snapshot.Bytebot.Error == "" && desktopErr != "" {
+		snapshot.Bytebot.Error = desktopErr
+	}
+	if tokenErr != nil {
+		snapshot.Errors = append(snapshot.Errors, tokenErr.Error())
+	}
+	if clientErr != nil {
+		snapshot.Errors = append(snapshot.Errors, clientErr.Error())
+		return snapshot, nil
+	}
+	var catalog KronosCatalogResponseSnapshot
+	if err := doKronosJSON(ctx, client, config.Endpoint, apiToken, http.MethodGet, "/agent/catalog", nil, &catalog); err != nil {
+		snapshot.Errors = append(snapshot.Errors, err.Error())
+	} else {
+		snapshot.Catalog = &catalog
+	}
+	kronosSnapshot, err := GetKronosModeSnapshot(ctx, aiMode)
+	if err != nil {
+		snapshot.Errors = append(snapshot.Errors, err.Error())
+	} else {
+		snapshot.Kronos = kronosSnapshot
+	}
+	return snapshot, nil
+}
+
+func InstallKronosCatalogAgent(ctx context.Context, aiMode string, id string) (*KronosAgentInstallResult, error) {
+	config, err := getAIModeConfig(aiMode)
+	if err != nil {
+		return nil, err
+	}
+	if !isKronosAIConfig(config) {
+		return nil, fmt.Errorf("AI mode %q is not configured for Kronos", aiMode)
+	}
+	apiToken, _, tokenErr := resolveConfiguredAPIToken(*config, false)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+	client, err := aiutil.MakeHTTPClient(config.ProxyURL)
+	if err != nil {
+		return nil, err
+	}
+	var result KronosAgentInstallResult
+	path := fmt.Sprintf("/agent/catalog/%s/install", url.PathEscape(id))
+	if err := doKronosJSON(ctx, client, config.Endpoint, apiToken, http.MethodPost, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func PatchKronosConfig(ctx context.Context, aiMode string, patch map[string]any) (map[string]any, error) {
+	config, err := getAIModeConfig(aiMode)
+	if err != nil {
+		return nil, err
+	}
+	if !isKronosAIConfig(config) {
+		return nil, fmt.Errorf("AI mode %q is not configured for Kronos", aiMode)
+	}
+	apiToken, _, tokenErr := resolveConfiguredAPIToken(*config, false)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+	client, err := aiutil.MakeHTTPClient(config.ProxyURL)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]any
+	if err := doKronosJSON(ctx, client, config.Endpoint, apiToken, http.MethodPatch, "/config", patch, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

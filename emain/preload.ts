@@ -19,7 +19,6 @@ contextBridge.exposeInMainWorld("api", {
     getZoomFactor: () => ipcRenderer.sendSync("get-zoom-factor"),
     openNewWindow: () => ipcRenderer.send("open-new-window"),
     showWorkspaceAppMenu: (workspaceId) => ipcRenderer.send("workspace-appmenu-show", workspaceId),
-    showBuilderAppMenu: (builderId) => ipcRenderer.send("builder-appmenu-show", builderId),
     showContextMenu: (workspaceId, menu) => ipcRenderer.send("contextmenu-show", workspaceId, menu),
     onContextMenuClick: (callback: (id: string | null) => void) =>
         ipcRenderer.on("contextmenu-click", (_event, id: string | null) => callback(id)),
@@ -55,7 +54,6 @@ contextBridge.exposeInMainWorld("api", {
     closeTab: (workspaceId, tabId, confirmClose) => ipcRenderer.invoke("close-tab", workspaceId, tabId, confirmClose),
     setWindowInitStatus: (status) => ipcRenderer.send("set-window-init-status", status),
     onWaveInit: (callback) => ipcRenderer.on("wave-init", (_event, initOpts) => callback(initOpts)),
-    onBuilderInit: (callback) => ipcRenderer.on("builder-init", (_event, initOpts) => callback(initOpts)),
     sendLog: (log) => ipcRenderer.send("fe-log", log),
     onQuicklook: (filePath: string) => ipcRenderer.send("quicklook", filePath),
     openNativePath: (filePath: string) => ipcRenderer.send("open-native-path", filePath),
@@ -63,15 +61,39 @@ contextBridge.exposeInMainWorld("api", {
     setKeyboardChordMode: () => ipcRenderer.send("set-keyboard-chord-mode"),
     clearWebviewStorage: (webContentsId: number) => ipcRenderer.invoke("clear-webview-storage", webContentsId),
     setWaveAIOpen: (isOpen: boolean) => ipcRenderer.send("set-waveai-open", isOpen),
-    closeBuilderWindow: () => ipcRenderer.send("close-builder-window"),
     incrementTermCommands: (opts?: { isRemote?: boolean; isWsl?: boolean; isDurable?: boolean }) =>
         ipcRenderer.send("increment-term-commands", opts),
     nativePaste: () => ipcRenderer.send("native-paste"),
-    openBuilder: (appId?: string) => ipcRenderer.send("open-builder", appId),
-    setBuilderWindowAppId: (appId: string) => ipcRenderer.send("set-builder-window-appid", appId),
     doRefresh: () => ipcRenderer.send("do-refresh"),
     saveTextFile: (fileName: string, content: string) => ipcRenderer.invoke("save-text-file", fileName, content),
+    selectDirectory: () => ipcRenderer.invoke("select-directory"),
+    selectFiles: () => ipcRenderer.invoke("select-files"),
+    acpApplyGitIdentity: (opts) => ipcRenderer.invoke("acp-apply-git-identity", opts),
     setIsActive: () => ipcRenderer.invoke("set-is-active"),
+    setDesktopPetActivity: (notification) => ipcRenderer.send("desktop-pet-activity", notification),
+    onDesktopPetChat: (callback: (text: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+        ipcRenderer.on("desktop-pet-chat", handler);
+        return () => ipcRenderer.removeListener("desktop-pet-chat", handler);
+    },
+    acpDetectAgents: () => ipcRenderer.invoke("acp-detect-agents"),
+    acpInitialize: (opts) => ipcRenderer.invoke("acp-initialize", opts),
+    acpSendMessage: (opts) => ipcRenderer.invoke("acp-send-message", opts),
+    acpConfirmTool: (opts) => ipcRenderer.invoke("acp-confirm-tool", opts),
+    acpStop: (opts) => ipcRenderer.invoke("acp-stop", opts),
+    acpGetStatus: (opts) => ipcRenderer.invoke("acp-get-status", opts),
+    acpListRuntimes: () => ipcRenderer.invoke("acp-list-runtimes"),
+    acpGetMode: (opts) => ipcRenderer.invoke("acp-get-mode", opts),
+    acpSetMode: (opts) => ipcRenderer.invoke("acp-set-mode", opts),
+    acpGetConfigOptions: (opts) => ipcRenderer.invoke("acp-get-config-options", opts),
+    acpSetConfigOption: (opts) => ipcRenderer.invoke("acp-set-config-option", opts),
+    acpGetModelInfo: (opts) => ipcRenderer.invoke("acp-get-model-info", opts),
+    acpSetModel: (opts) => ipcRenderer.invoke("acp-set-model", opts),
+    onAcpEvent: (callback: (event: any) => void) => {
+        const handler = (_event: any, event: any) => callback(event);
+        ipcRenderer.on("acp-event", handler);
+        return () => ipcRenderer.removeListener("acp-event", handler);
+    },
 });
 
 // Custom event for "new-window"

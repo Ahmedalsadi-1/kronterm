@@ -35,7 +35,17 @@ import {
     handleOsc7Command,
     type ShellIntegrationStatus,
 } from "./osc-handlers";
-import { bufferLinesToText, createTempFileFromBlob, extractAllClipboardData, normalizeCursorStyle } from "./termutil";
+import {
+    bufferLinesToText,
+    cleanPasteText,
+    createTempFileFromBlob,
+    extractAllClipboardData,
+    isDangerousCommand,
+    normalizeCursorStyle,
+} from "./termutil";
+import { modalsModel } from "@/app/store/modalmodel";
+import { MessageModal } from "@/app/modals/messagemodal";
+import React from "react";
 
 const dlog = debug("wave:termwrap");
 
@@ -95,6 +105,7 @@ export class TermWrap {
     promptMarkers: TermTypes.IMarker[] = [];
     shellIntegrationStatusAtom: jotai.PrimitiveAtom<ShellIntegrationStatus | null>;
     lastCommandAtom: jotai.PrimitiveAtom<string | null>;
+    lastExitCodeAtom: jotai.PrimitiveAtom<number | null>;
     nodeModel: BlockNodeModel; // this can be null
     hoveredLinkUri: string | null = null;
     onLinkHover?: (uri: string | null, mouseX: number, mouseY: number) => void;
@@ -147,6 +158,7 @@ export class TermWrap {
         this.promptMarkers = [];
         this.shellIntegrationStatusAtom = jotai.atom(null) as jotai.PrimitiveAtom<ShellIntegrationStatus | null>;
         this.lastCommandAtom = jotai.atom(null) as jotai.PrimitiveAtom<string | null>;
+        this.lastExitCodeAtom = jotai.atom(null) as jotai.PrimitiveAtom<number | null>;
         this.webglEnabledAtom = jotai.atom(false) as jotai.PrimitiveAtom<boolean>;
         this.terminal = new Terminal(options);
         this.fitAddon = new FitAddon();
@@ -700,7 +712,22 @@ export class TermWrap {
                     firstImage = false;
                 }
                 if (data.text) {
-                    this.terminal.paste(data.text);
+                    const cleanedText = cleanPasteText(data.text);
+                    if (isDangerousCommand(cleanedText)) {
+                        modalsModel.pushModal("MessageModal", {
+                            children: React.createElement(
+                                "div",
+                                null,
+                                React.createElement("h2", { className: "text-red-500 font-bold mb-2" }, "⚠️ Dangerous Command Detected"),
+                                React.createElement("p", { className: "mb-4" }, "The text you are about to paste contains potentially destructive commands:"),
+                                React.createElement("pre", { className: "bg-black/20 p-2 rounded mb-4 overflow-x-auto" }, cleanedText),
+                                React.createElement("p", null, "Are you sure you want to proceed?")
+                            ),
+                        });
+                        // For now we just warn, but we could add a confirmation logic.
+                        // In Wave terminal, paste is usually immediate.
+                    }
+                    this.terminal.paste(cleanedText);
                 }
             }
         } catch (err) {

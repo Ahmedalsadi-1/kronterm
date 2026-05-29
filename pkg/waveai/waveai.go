@@ -19,6 +19,7 @@ const APIType_Anthropic = "anthropic"
 const APIType_Perplexity = "perplexity"
 const APIType_Google = "google"
 const APIType_OpenAI = "openai"
+const APIType_KronosCode = "kronoscode"
 
 type WaveAICmdInfoPacketOutputType struct {
 	Model        string `json:"model,omitempty"`
@@ -90,6 +91,9 @@ func RunAICommand(ctx context.Context, request wshrpc.WaveAIStreamRequest) chan 
 	} else if request.Opts.APIType == APIType_Google {
 		backend = GoogleBackend{}
 		backendType = APIType_Google
+	} else if request.Opts.APIType == APIType_KronosCode {
+		backend = KronosCodeBackend{}
+		backendType = APIType_KronosCode
 	} else if IsCloudAIRequest(request.Opts) {
 		endpoint = "waveterm cloud"
 		request.Opts.APIType = APIType_OpenAI

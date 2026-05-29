@@ -13,6 +13,9 @@ import (
 )
 
 var createBlockMagnified bool
+var createBlockEphemeral bool
+var createBlockTargetBlockId string
+var createBlockTargetAction string
 
 var createBlockCmd = &cobra.Command{
 	Use:     "createblock viewname key=value ...",
@@ -25,6 +28,9 @@ var createBlockCmd = &cobra.Command{
 
 func init() {
 	createBlockCmd.Flags().BoolVarP(&createBlockMagnified, "magnified", "m", false, "create block in magnified mode")
+	createBlockCmd.Flags().BoolVar(&createBlockEphemeral, "ephemeral", false, "create block as an ephemeral overlay")
+	createBlockCmd.Flags().StringVar(&createBlockTargetBlockId, "target-block", "", "target block id for split or replace")
+	createBlockCmd.Flags().StringVar(&createBlockTargetAction, "target-action", "", "target action: replace, splitright, splitleft, splitup, or splitdown")
 	rootCmd.AddCommand(createBlockCmd)
 }
 
@@ -42,13 +48,19 @@ func createBlockRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if (createBlockTargetBlockId == "") != (createBlockTargetAction == "") {
+		return fmt.Errorf("--target-block and --target-action must be provided together")
+	}
 	meta["view"] = viewName
 	data := wshrpc.CommandCreateBlockData{
-		TabId: tabId,
+		TabId:         tabId,
+		TargetBlockId: createBlockTargetBlockId,
+		TargetAction:  createBlockTargetAction,
 		BlockDef: &waveobj.BlockDef{
 			Meta: meta,
 		},
 		Magnified: createBlockMagnified,
+		Ephemeral: createBlockEphemeral,
 		Focused:   true,
 	}
 	oref, err := wshclient.CreateBlockCommand(RpcClient, data, nil)

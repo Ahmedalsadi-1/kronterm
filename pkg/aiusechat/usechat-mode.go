@@ -201,11 +201,10 @@ func applyProviderDefaults(config *wconfig.AIModeConfigType) {
 			config.Capabilities = []string{uctypes.AICapabilityTools, uctypes.AICapabilityImages, uctypes.AICapabilityPdfs}
 		}
 	}
-	if config.Provider == uctypes.AIProvider_Kronos {
-		if config.APIType == "" {
-			config.APIType = uctypes.APIType_KronosSession
-		}
-		if config.Endpoint == "" {
+	if isKronosAIConfig(config) {
+		config.Provider = uctypes.AIProvider_Kronos
+		config.APIType = uctypes.APIType_KronosSession
+		if config.Endpoint == "" || config.Endpoint == "http://localhost:4096" {
 			config.Endpoint = KronosSessionEndpoint
 		}
 		if config.APITokenSecretName == "" {
@@ -215,7 +214,7 @@ func applyProviderDefaults(config *wconfig.AIModeConfigType) {
 			config.Agent = "coder"
 		}
 		if config.KronosToolRouting == "" {
-			config.KronosToolRouting = "hybrid"
+			config.KronosToolRouting = "wave-only"
 		}
 		if config.KronosPermissionMode == "" {
 			config.KronosPermissionMode = "always"
@@ -227,6 +226,16 @@ func applyProviderDefaults(config *wconfig.AIModeConfigType) {
 	if config.APIType == "" {
 		config.APIType = uctypes.APIType_OpenAIChat
 	}
+}
+
+func isKronosAIConfig(config *wconfig.AIModeConfigType) bool {
+	if config == nil {
+		return false
+	}
+	return config.Provider == uctypes.AIProvider_Kronos ||
+		config.Provider == uctypes.AIProvider_KronosCode ||
+		config.APIType == uctypes.APIType_KronosSession ||
+		config.APIType == uctypes.APIType_KronosCodeLegacy
 }
 
 func isAzureAPIType(apiType string) bool {

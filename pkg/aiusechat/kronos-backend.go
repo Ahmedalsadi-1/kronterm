@@ -29,6 +29,15 @@ const (
 	kronosToolRoutingHybrid     = "hybrid"
 	kronosToolRoutingWaveOnly   = "wave-only"
 	kronosToolRoutingKronosOnly = "kronos-only"
+
+	kronosPermissionToolName = "kronos_permission"
+)
+
+type kronosWaveBridgeMode string
+
+const (
+	kronosWaveBridgeModeXML    kronosWaveBridgeMode = "xml"
+	kronosWaveBridgeModeNative kronosWaveBridgeMode = "native"
 )
 
 type kronosSessionBackend struct{}
@@ -215,7 +224,9 @@ type kronosStreamState struct {
 	lock               sync.Mutex
 	assistantMessageID string
 	messageStarted     bool
+	syntheticMessageID bool
 	textParts          map[string]*kronosTextStreamState
+	permissionParts    []KronosChatPart
 }
 
 type kronosTextStreamState struct {
@@ -280,6 +291,7 @@ func (b *kronosSessionBackend) RunChatStep(
 			ErrorText: err.Error(),
 		}, nil, nil, nil
 	}
+	assistantMsg.Parts = append(assistantMsg.Parts, collectKronosPermissionParts(streamState)...)
 
 	flushKronosAssistantToSSE(streamState, assistantMsg, sseHandler)
 	if stopReason != nil && stopReason.Kind == uctypes.StopKindError && stopReason.ErrorText != "" {
@@ -475,6 +487,9 @@ func (b *kronosSessionBackend) ConvertAIChatToUIChat(aiChat uctypes.AIChat) (*uc
 				uiMsg.Parts = append(uiMsg.Parts, uctypes.UIMessagePart{Type: "step-start"})
 			case "tool":
 				toolData := kronosToolUseDataFromPart(part)
+				if part.WaveToolUseData != nil {
+					toolData = *part.WaveToolUseData
+				}
 				if part.ToolSource == "wave" && part.WaveToolUseData != nil {
 					toolData = *part.WaveToolUseData
 					if result, ok := waveToolResults[part.CallID]; ok {
@@ -540,7 +555,11 @@ func postKronosPrompt(ctx context.Context, httpClient *http.Client, chatOpts uct
 	payload := map[string]any{
 		"parts": parts,
 	}
-	if systemPrompt := buildKronosSystemPrompt(chatOpts); systemPrompt != "" {
+	waveBridgeMode := kronosWaveBridgeModeXML
+	if shouldUseKronosNativeWaveConnector(ctx, httpClient, chatOpts) {
+		waveBridgeMode = kronosWaveBridgeModeNative
+	}
+	if systemPrompt := buildKronosSystemPrompt(chatOpts, waveBridgeMode); systemPrompt != "" {
 		payload["system"] = systemPrompt
 	}
 	if chatOpts.Config.Agent != "" {
@@ -655,9 +674,19 @@ func buildKronosPromptParts(messages []*KronosChatMessage, chatOpts uctypes.Wave
 	return parts, nil
 }
 
-func buildKronosSystemPrompt(chatOpts uctypes.WaveChatOpts) string {
+func buildKronosSystemPrompt(chatOpts uctypes.WaveChatOpts, waveBridgeMode kronosWaveBridgeMode) string {
 	prompts := append([]string{}, chatOpts.SystemPrompt...)
 	if chatOpts.Config.ToolRouting == kronosToolRoutingKronosOnly || !chatOpts.Config.HasCapability(uctypes.AICapabilityTools) {
+		return strings.TrimSpace(strings.Join(prompts, "\n\n"))
+	}
+	if waveBridgeMode == kronosWaveBridgeModeNative {
+		prompts = append(prompts, strings.TrimSpace(strings.Join([]string{
+			"<WaveNativeConnector>",
+			"You are KronosCode, hosted directly inside the Kronterm chat shell.",
+			"Kronos reports a native Kronterm connector. Use those native connector tools for live Kronterm widgets, tabs, terminal blocks, and host-scoped files/context.",
+			"Do not emit <wave_tool_request> XML blocks while the native connector is available.",
+			"</WaveNativeConnector>",
+		}, "\n")))
 		return strings.TrimSpace(strings.Join(prompts, "\n\n"))
 	}
 	manifest := buildWaveToolManifest(chatOpts)
@@ -666,19 +695,22 @@ func buildKronosSystemPrompt(chatOpts uctypes.WaveChatOpts) string {
 	}
 	routingNote := "Kronos native tools remain available and should be used whenever they are the best fit."
 	if chatOpts.Config.ToolRouting == kronosToolRoutingWaveOnly {
-		routingNote = "Prefer the Wave bridge tools below for tab, widget, filesystem, terminal, and in-app browser work. Avoid Kronos native tools unless the Wave bridge cannot satisfy the request."
+		routingNote = "Prefer the Kronterm host tools below for tab, widget, filesystem, terminal, and in-app browser work. Avoid Kronos native tools unless the host bridge cannot satisfy the request."
 	}
 	prompts = append(prompts, strings.TrimSpace(strings.Join([]string{
 		"<WaveToolBridge>",
+		"You are KronosCode, hosted directly inside the Kronterm chat shell.",
 		routingNote,
-		"When you need one of the Wave bridge tools, respond with exactly one XML block and no markdown fences:",
+		"Treat these Kronterm host tools as KronosCode tools. They are the authoritative way to inspect and directly operate Kronterm widgets, tabs, terminal blocks, and the in-app browser.",
+		"For live widget control, prefer widget_* tools when a semantic operation exists, then mouse_* and keyboard_* tools for direct interaction.",
+		"When you need one of the Kronterm host tools, respond with exactly one XML block and no markdown fences:",
 		kronosWaveToolRequestOpenTag + `{"id":"call_id","name":"tool_name","input":{}}` + kronosWaveToolRequestCloseTag,
 		"Rules:",
-		"- Emit at most one Wave bridge tool request per assistant turn.",
+		"- Emit at most one Kronterm host tool request per assistant turn.",
 		"- Do not include any explanatory prose inside the XML block.",
 		"- Wait for a user message containing a <wave_tool_result>...</wave_tool_result> block before continuing.",
-		"- Use Wave bridge tools when you must act on the user's live Kronterm widgets, tabs, terminal blocks, or Wave-scoped files/context.",
-		"Available Wave bridge tools:",
+		"- Use Kronterm host tools when you must act on the user's live Kronterm widgets, tabs, terminal blocks, or host-scoped files/context.",
+		"Available Kronterm host tools:",
 		manifest,
 		"</WaveToolBridge>",
 	}, "\n")))
@@ -715,6 +747,7 @@ func buildWaveToolManifest(chatOpts uctypes.WaveChatOpts) string {
 			"name":            toolDef.Name,
 			"description":     toolDef.Description,
 			"source":          toolDef.Source,
+			"family":          waveToolCapabilityFamily(toolDef.Name),
 			"acts_on_widgets": toolDef.ActsOnWidgets,
 			"input_schema":    toolDef.InputSchema,
 		})
@@ -724,6 +757,39 @@ func buildWaveToolManifest(chatOpts uctypes.WaveChatOpts) string {
 		return ""
 	}
 	return string(jsonBytes)
+}
+
+func waveToolCapabilityFamily(toolName string) string {
+	switch {
+	case strings.HasPrefix(toolName, "widget_"):
+		return "widget-control"
+	case strings.HasPrefix(toolName, "mouse_"), strings.HasPrefix(toolName, "keyboard_"):
+		return "direct-widget-input"
+	case strings.HasPrefix(toolName, "term_"):
+		return "terminal-control"
+	case strings.HasPrefix(toolName, "web_"):
+		return "browser-control"
+	case strings.HasPrefix(toolName, "sandbox_"), strings.HasPrefix(toolName, "desktop_"):
+		return "sandbox-control"
+	case strings.HasPrefix(toolName, "codebase_"):
+		return "codebase"
+	case strings.Contains(toolName, "file") || strings.Contains(toolName, "dir"):
+		return "filesystem"
+	default:
+		return "wave-host"
+	}
+}
+
+func shouldUseKronosNativeWaveConnector(ctx context.Context, httpClient *http.Client, chatOpts uctypes.WaveChatOpts) bool {
+	if chatOpts.Config.ToolRouting == kronosToolRoutingKronosOnly || !chatOpts.Config.HasCapability(uctypes.AICapabilityTools) {
+		return false
+	}
+	var toolCapabilities []kronosToolCapabilityInfo
+	if err := doKronosJSON(ctx, httpClient, chatOpts.Config.Endpoint, chatOpts.Config.APIToken, http.MethodGet, "/experimental/tool/capabilities", nil, &toolCapabilities); err != nil {
+		return false
+	}
+	snapshot := detectKronosNativeWaveConnector(makeKronosToolCapabilitySnapshots(toolCapabilities), nil)
+	return snapshot.Available
 }
 
 func parseKronosModel(model string) (string, string, bool) {
@@ -1048,6 +1114,10 @@ func streamKronosEvents(ctx context.Context, httpClient *http.Client, chatOpts u
 				state.assistantMessageID = payload.Info.ID
 				state.lock.Unlock()
 				_ = sseHandler.AiMsgStart(payload.Info.ID)
+			} else if state.syntheticMessageID {
+				state.assistantMessageID = payload.Info.ID
+				state.syntheticMessageID = false
+				state.lock.Unlock()
 			} else {
 				state.lock.Unlock()
 			}
@@ -1087,22 +1157,174 @@ func streamKronosEvents(ctx context.Context, httpClient *http.Client, chatOpts u
 			if payload.SessionID != sessionID {
 				continue
 			}
-			handleKronosPermissionEvent(ctx, httpClient, chatOpts, sessionID, payload)
+			handleKronosPermissionEvent(ctx, httpClient, chatOpts, sessionID, payload, state, sseHandler)
 		}
 	}
 }
 
-func handleKronosPermissionEvent(ctx context.Context, httpClient *http.Client, chatOpts uctypes.WaveChatOpts, sessionID string, evt kronosPermissionAskedEvent) {
-	response := "reject"
-	switch chatOpts.Config.PermissionMode {
-	case "always":
-		response = "always"
-	case "once":
-		response = "once"
+func handleKronosPermissionEvent(ctx context.Context, httpClient *http.Client, chatOpts uctypes.WaveChatOpts, sessionID string, evt kronosPermissionAskedEvent, state *kronosStreamState, sseHandler *sse.SSEHandlerCh) {
+	if chatOpts.Config.PermissionMode == "ask" {
+		handleKronosInteractivePermission(ctx, httpClient, chatOpts, sessionID, evt, state, sseHandler)
+		return
 	}
+	response := kronosPermissionResponseForMode(chatOpts.Config.PermissionMode)
 	body := map[string]string{"response": response}
 	path := fmt.Sprintf("/session/%s/permissions/%s", sessionID, evt.ID)
 	_ = doKronosJSON(ctx, httpClient, chatOpts.Config.Endpoint, chatOpts.Config.APIToken, http.MethodPost, path, body, nil)
+}
+
+func kronosPermissionResponseForMode(mode string) string {
+	switch mode {
+	case "always":
+		return "always"
+	case "once":
+		return "once"
+	default:
+		return "reject"
+	}
+}
+
+func handleKronosInteractivePermission(ctx context.Context, httpClient *http.Client, chatOpts uctypes.WaveChatOpts, sessionID string, evt kronosPermissionAskedEvent, state *kronosStreamState, sseHandler *sse.SSEHandlerCh) string {
+	toolData := makeKronosPermissionToolUseData(evt)
+	appendKronosPermissionPart(state, evt, toolData)
+	RegisterToolApproval(toolData.ToolCallId, sseHandler)
+	ensureKronosMessageStartedForPermission(state, sseHandler, toolData.ToolCallId)
+	_ = sseHandler.AiMsgData("data-tooluse", toolData.ToolCallId, toolData)
+
+	approval, err := WaitForToolApproval(sseHandler.Context(), toolData.ToolCallId)
+	if err != nil || approval == "" {
+		approval = uctypes.ApprovalCanceled
+	}
+	toolData.Approval = approval
+	response := "reject"
+	if approval == uctypes.ApprovalUserApproved || approval == uctypes.ApprovalAutoApproved {
+		response = "once"
+		toolData.Status = uctypes.ToolUseStatusCompleted
+	} else {
+		toolData.Status = uctypes.ToolUseStatusError
+		toolData.ErrorMessage = "Kronos permission denied"
+		if approval == uctypes.ApprovalCanceled {
+			toolData.ErrorMessage = "Kronos permission approval canceled"
+		} else if approval == uctypes.ApprovalTimeout {
+			toolData.ErrorMessage = "Kronos permission approval timed out"
+		}
+	}
+	body := map[string]string{"response": response}
+	path := fmt.Sprintf("/session/%s/permissions/%s", sessionID, evt.ID)
+	if err := doKronosJSON(ctx, httpClient, chatOpts.Config.Endpoint, chatOpts.Config.APIToken, http.MethodPost, path, body, nil); err != nil {
+		toolData.Status = uctypes.ToolUseStatusError
+		toolData.ErrorMessage = err.Error()
+		response = "reject"
+	}
+	updateKronosPermissionPart(state, toolData)
+	_ = sseHandler.AiMsgData("data-tooluse", toolData.ToolCallId, toolData)
+	return response
+}
+
+func ensureKronosMessageStartedForPermission(state *kronosStreamState, sseHandler *sse.SSEHandlerCh, toolCallID string) {
+	if state == nil {
+		return
+	}
+	state.lock.Lock()
+	if state.messageStarted {
+		state.lock.Unlock()
+		return
+	}
+	state.messageStarted = true
+	state.syntheticMessageID = true
+	state.assistantMessageID = toolCallID + ":message"
+	messageID := state.assistantMessageID
+	state.lock.Unlock()
+	_ = sseHandler.AiMsgStart(messageID)
+}
+
+func makeKronosPermissionToolCallID(permissionID string) string {
+	if strings.TrimSpace(permissionID) == "" {
+		return "kronos-permission:" + uuid.New().String()
+	}
+	return "kronos-permission:" + permissionID
+}
+
+func makeKronosPermissionToolUseData(evt kronosPermissionAskedEvent) uctypes.UIMessageDataToolUse {
+	desc := "Kronos permission request"
+	if len(evt.Patterns) > 0 {
+		desc = "Allow Kronos: " + strings.Join(evt.Patterns, ", ")
+	}
+	return uctypes.UIMessageDataToolUse{
+		ToolCallId: makeKronosPermissionToolCallID(evt.ID),
+		ToolName:   kronosPermissionToolName,
+		ToolDesc:   desc,
+		Status:     uctypes.ToolUseStatusPending,
+		Approval:   uctypes.ApprovalNeedsApproval,
+		ToolSource: "kronos",
+	}
+}
+
+func appendKronosPermissionPart(state *kronosStreamState, evt kronosPermissionAskedEvent, toolData uctypes.UIMessageDataToolUse) {
+	if state == nil {
+		return
+	}
+	input := map[string]any{
+		"permission_id": evt.ID,
+		"patterns":      evt.Patterns,
+	}
+	toolDataCopy := toolData
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	state.permissionParts = append(state.permissionParts, KronosChatPart{
+		Type:       "tool",
+		ID:         toolData.ToolCallId,
+		CallID:     toolData.ToolCallId,
+		Tool:       kronosPermissionToolName,
+		ToolSource: "kronos",
+		State: &kronosToolState{
+			Status: "pending",
+			Input:  input,
+			Title:  toolData.ToolDesc,
+		},
+		WaveToolUseData: &toolDataCopy,
+	})
+}
+
+func updateKronosPermissionPart(state *kronosStreamState, toolData uctypes.UIMessageDataToolUse) {
+	if state == nil {
+		return
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	for i := range state.permissionParts {
+		part := &state.permissionParts[i]
+		if part.CallID != toolData.ToolCallId {
+			continue
+		}
+		toolDataCopy := toolData
+		part.WaveToolUseData = &toolDataCopy
+		if part.State != nil {
+			part.State.Title = toolData.ToolDesc
+			if toolData.Status == uctypes.ToolUseStatusCompleted {
+				part.State.Status = "completed"
+				part.State.Error = ""
+			} else if toolData.Status == uctypes.ToolUseStatusError {
+				part.State.Status = "error"
+				part.State.Error = toolData.ErrorMessage
+			}
+		}
+		return
+	}
+}
+
+func collectKronosPermissionParts(state *kronosStreamState) []KronosChatPart {
+	if state == nil {
+		return nil
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	if len(state.permissionParts) == 0 {
+		return nil
+	}
+	parts := make([]KronosChatPart, len(state.permissionParts))
+	copy(parts, state.permissionParts)
+	return parts
 }
 
 func kronosToolUseDataFromPart(part KronosChatPart) uctypes.UIMessageDataToolUse {

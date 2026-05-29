@@ -35,6 +35,8 @@
     --color-highlightbg: rgba(255, 255, 255, 0.2);
     --color-accent: rgb(88, 193, 66);
     --color-accenthover: rgb(118, 223, 96);
+    --color-saturn: rgb(232, 196, 124);
+    --color-saturn-light: rgb(250, 230, 180);
 
     --font-sans: "Inter", sans-serif;
     --font-mono: "Hack", monospace;
@@ -120,4 +122,16 @@ svg [aria-label="tip"] g path {
         transform: translate(-50%, -40px);
         opacity: 0;
     }
+}
+
+.text-saturn {
+    color: rgb(232, 196, 124);
+}
+
+.bg-saturn {
+    background-color: rgb(232, 196, 124);
+}
+
+.border-saturn {
+    border-color: rgb(232, 196, 124);
 }

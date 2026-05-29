@@ -165,7 +165,7 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 		// - openai-responses API type
 		// - google-gemini API type with Gemini 3+ models
 		if chatOpts.Config.APIType == uctypes.APIType_OpenAIResponses ||
-		   (chatOpts.Config.APIType == uctypes.APIType_GoogleGemini && aiutil.GeminiSupportsImageToolResults(chatOpts.Config.Model)) {
+			(chatOpts.Config.APIType == uctypes.APIType_GoogleGemini && aiutil.GeminiSupportsImageToolResults(chatOpts.Config.Model)) {
 			tools = append(tools, GetCaptureScreenshotToolDefinition(tabid))
 		}
 		tools = append(tools, GetReadTextFileToolDefinition())
@@ -173,6 +173,9 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 		tools = append(tools, GetWriteTextFileToolDefinition())
 		tools = append(tools, GetEditTextFileToolDefinition())
 		tools = append(tools, GetDeleteTextFileToolDefinition())
+		tools = append(tools, GetGuiCreateAppToolDefinition(tabid))
+		tools = append(tools, GetCodebaseSearchToolDefinition())
+		tools = append(tools, GetCodebaseGetStructureToolDefinition())
 		viewTypes := make(map[string]bool)
 		for _, block := range blocks {
 			if block.Meta == nil {
@@ -190,11 +193,56 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 		}
 		if viewTypes["term"] {
 			tools = append(tools, GetTermGetScrollbackToolDefinition(tabid))
+			tools = append(tools, GetTermRunCommandToolDefinition(tabid))
+			tools = append(tools, GetTermWaitForCommandToolDefinition(tabid))
 			// tools = append(tools, GetTermCommandOutputToolDefinition(tabid))
 		}
 		if viewTypes["web"] {
 			tools = append(tools, GetWebNavigateToolDefinition(tabid))
 		}
+		if viewTypes["sandbox"] {
+			tools = append(tools, GetSandboxStartToolDefinition())
+			tools = append(tools, GetSandboxStopToolDefinition())
+			tools = append(tools, GetSandboxStatusToolDefinition())
+			tools = append(tools, GetDesktopScreenshotToolDefinition())
+			tools = append(tools, GetDesktopMouseMoveToolDefinition())
+			tools = append(tools, GetDesktopMouseClickToolDefinition())
+			tools = append(tools, GetDesktopKeyboardTypeToolDefinition())
+			tools = append(tools, GetDesktopKeyboardPressToolDefinition())
+		}
+		// Human simulation tools - work across all widget types
+		if len(blocks) > 0 {
+			tools = append(tools, GetWidgetGetElementsToolDefinition(tabid))
+			tools = append(tools, GetWidgetGetStateToolDefinition(tabid))
+			tools = append(tools, GetMouseClickToolDefinition(tabid))
+			tools = append(tools, GetMouseScrollToolDefinition(tabid))
+			tools = append(tools, GetMouseDragToolDefinition(tabid))
+			tools = append(tools, GetKeyboardTypeToolDefinition(tabid))
+			tools = append(tools, GetKeyboardPressToolDefinition(tabid))
+			tools = append(tools, GetWaitForElementToolDefinition(tabid))
+			tools = append(tools, GetScreenshotAnnotatedToolDefinition(tabid))
+			tools = append(tools, GetWidgetSnapshotToolDefinition(tabid))
+			tools = append(tools, GetWidgetFindToolDefinition(tabid))
+			tools = append(tools, GetWidgetInspectToolDefinition(tabid))
+			tools = append(tools, GetWidgetElementAtToolDefinition(tabid))
+			tools = append(tools, GetWidgetClickToolDefinition(tabid))
+			tools = append(tools, GetWidgetHoverToolDefinition(tabid))
+			tools = append(tools, GetWidgetLongPressToolDefinition(tabid))
+			tools = append(tools, GetWidgetDragToolDefinition(tabid))
+			tools = append(tools, GetWidgetScrollToToolDefinition(tabid))
+			tools = append(tools, GetWidgetGetValueToolDefinition(tabid))
+			tools = append(tools, GetWidgetSetValueToolDefinition(tabid))
+			tools = append(tools, GetWidgetClearToolDefinition(tabid))
+			tools = append(tools, GetWidgetSelectToolDefinition(tabid))
+			tools = append(tools, GetWidgetToggleToolDefinition(tabid))
+			tools = append(tools, GetWidgetClipboardGetToolDefinition(tabid))
+			tools = append(tools, GetWidgetClipboardSetToolDefinition(tabid))
+			tools = append(tools, GetWidgetWaitConditionToolDefinition(tabid))
+		}
+	}
+	tools = markWaveToolDefinitions(tools)
+	if len(tools) > 0 {
+		tabState += GenerateToolCapabilityPrompt(tools)
 	}
 	return tabState, tools, nil
 }
@@ -235,6 +283,52 @@ func GenerateCurrentTabStatePrompt(blocks []*waveobj.Block, widgetAccess bool) s
 	prompt.WriteString("</current_tab_state>")
 	rtn := prompt.String()
 	return rtn
+}
+
+func markWaveToolDefinitions(tools []uctypes.ToolDefinition) []uctypes.ToolDefinition {
+	for i := range tools {
+		if tools[i].Source == "" {
+			tools[i].Source = "wave"
+		}
+		tools[i].ActsOnWidgets = toolActsOnWidgets(tools[i].Name)
+	}
+	return tools
+}
+
+func GenerateToolCapabilityPrompt(tools []uctypes.ToolDefinition) string {
+	summary := BuildToolRegistry(tools).Scorecard()
+	if summary.Total == 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"\n<available_tool_capabilities total=%d widget=%d browser=%d desktop=%d code=%d read=%d write=%d dangerous=%d />",
+		summary.Total,
+		summary.ByPack["widget"],
+		summary.ByPack["browser"],
+		summary.ByPack["desktop"],
+		summary.ByPack["code"],
+		summary.ByRisk["read"],
+		summary.ByRisk["write"],
+		summary.ByRisk["dangerous"],
+	)
+}
+
+func toolActsOnWidgets(toolName string) bool {
+	if strings.HasPrefix(toolName, "widget_") {
+		return true
+	}
+	if strings.HasPrefix(toolName, "mouse_") || strings.HasPrefix(toolName, "keyboard_") {
+		return true
+	}
+	if strings.HasPrefix(toolName, "term_") || strings.HasPrefix(toolName, "web_") {
+		return true
+	}
+	switch toolName {
+	case "capture_screenshot", "screenshot_annotated", "wait_for_element":
+		return true
+	default:
+		return false
+	}
 }
 
 func generateToolsForTsunamiBlock(block *waveobj.Block) []uctypes.ToolDefinition {

@@ -3,7 +3,6 @@
 
 import { RpcApi } from "@/app/store/wshclientapi";
 import * as electron from "electron";
-import { focusedBuilderWindow, getAllBuilderWindows } from "emain/emain-builder";
 import { globalEvents } from "emain/emain-events";
 import { sprintf } from "sprintf-js";
 import * as services from "../frontend/app/store/services";
@@ -27,6 +26,7 @@ import {
     setWasInFg,
 } from "./emain-activity";
 import { initIpcHandlers } from "./emain-ipc";
+import { stopAllAgentManagers } from "./acp";
 import { log } from "./emain-log";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
 import {
@@ -68,7 +68,7 @@ electron.nativeTheme.themeSource = "dark";
 console.log = log;
 console.log(
     sprintf(
-        "waveterm-app starting, data_dir=%s, config_dir=%s electronpath=%s gopath=%s arch=%s/%s electron=%s",
+        "kronterm-app starting, data_dir=%s, config_dir=%s electronpath=%s gopath=%s arch=%s/%s electron=%s",
         waveDataDir,
         waveConfigDir,
         getElectronAppBasePath(),
@@ -79,7 +79,7 @@ console.log(
     )
 );
 if (isDev) {
-    console.log("waveterm-app WAVETERM_DEV set");
+    console.log("kronterm-app KRONTERM_DEV set");
 }
 
 function handleWSEvent(evtMsg: WSEventType) {
@@ -263,21 +263,20 @@ electronApp.on("window-all-closed", () => {
 });
 electronApp.on("before-quit", (e) => {
     const allWindows = getAllWaveWindows();
-    const allBuilders = getAllBuilderWindows();
     if (
         confirmQuit &&
         !getForceQuit() &&
         !getUserConfirmedQuit() &&
-        (allWindows.length > 0 || allBuilders.length > 0) &&
+        allWindows.length > 0 &&
         !getIsWaveSrvDead() &&
-        !process.env.WAVETERM_NOCONFIRMQUIT
+        !process.env.KRONTERM_NOCONFIRMQUIT
     ) {
         e.preventDefault();
         const choice = electron.dialog.showMessageBoxSync(null, {
             type: "question",
             buttons: ["Cancel", "Quit"],
             title: "Confirm Quit",
-            message: "Are you sure you want to quit Wave Terminal?",
+            message: "Are you sure you want to quit KronTerm?",
             defaultId: 0,
             cancelId: 0,
         });
@@ -289,6 +288,7 @@ electronApp.on("before-quit", (e) => {
         return;
     }
     setGlobalIsQuitting(true);
+    void stopAllAgentManagers();
     updater?.stop();
     if (unamePlatform == "win32") {
         // win32 doesn't have a SIGINT, so we just let electron die, which
@@ -303,9 +303,6 @@ electronApp.on("before-quit", (e) => {
     e.preventDefault();
     for (const window of allWindows) {
         hideWindowWithCatch(window);
-    }
-    for (const builder of allBuilders) {
-        builder.hide();
     }
     if (getIsWaveSrvDead()) {
         console.log("wavesrv is dead, quitting immediately");
@@ -356,16 +353,13 @@ process.on("uncaughtException", (error) => {
 });
 
 let lastWaveWindowCount = 0;
-let lastIsBuilderWindowActive = false;
 globalEvents.on("windows-updated", () => {
     const wwCount = getAllWaveWindows().length;
-    const isBuilderActive = focusedBuilderWindow != null;
-    if (wwCount == lastWaveWindowCount && isBuilderActive == lastIsBuilderWindowActive) {
+    if (wwCount == lastWaveWindowCount) {
         return;
     }
     lastWaveWindowCount = wwCount;
-    lastIsBuilderWindowActive = isBuilderActive;
-    console.log("windows-updated", wwCount, "builder-active:", isBuilderActive);
+    console.log("windows-updated", wwCount);
     makeAndSetAppMenu();
 });
 
@@ -379,7 +373,7 @@ async function appMain() {
     const startTs = Date.now();
     const instanceLock = electronApp.requestSingleInstanceLock();
     if (!instanceLock) {
-        console.log("waveterm-app could not get single-instance-lock, shutting down");
+        console.log("kronterm-app could not get single-instance-lock, shutting down");
         setUserConfirmedQuit(true);
         electronApp.quit();
         return;

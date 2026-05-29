@@ -133,11 +133,11 @@ const providerTemplates: Record<TemplateKey, TemplateConfig> = {
     },
     kronos: {
         label: "Kronos local engine",
-        description: "Keep Saturn UI and route the chat session through a local KronosCode server.",
+        description: "Keep the Kronterm chat UI and route the session through a local KronosCode server.",
         create: (modeKey) => ({
             "display:name": "Kronos Local",
             "display:icon": "server",
-            "display:description": "Saturn UI powered by a local KronosCode session engine",
+            "display:description": "KronosCode hosted inside Kronterm",
             "ai:provider": "kronos",
             "ai:apitype": "kronos-session",
             "ai:model": "anthropic/claude-sonnet-4-5",
@@ -146,8 +146,8 @@ const providerTemplates: Record<TemplateKey, TemplateConfig> = {
             "ai:apitokensecretname": "KRONOSCODE_SERVER_PASSWORD",
             "ai:thinkinglevel": "medium",
             "ai:capabilities": ["tools"],
-            "ai:kronostoolrouting": "hybrid",
-            "ai:kronospermissionmode": "always",
+            "ai:kronostoolrouting": "wave-only",
+            "ai:kronospermissionmode": "ask",
             "ai:switchcompat": [modeKey],
         }),
     },
@@ -276,18 +276,25 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
         [selectedMode?.["ai:model"]]
     );
     const selectableDefaultModes = useMemo(() => {
-        return [
-            { key: "waveai@balanced", label: "Wave AI Balanced" },
-            { key: "waveai@quick", label: "Wave AI Quick" },
-            ...customModeEntries.map(([key, config]) => ({
-                key,
-                label: config["display:name"] || key,
-            })),
-        ];
+        const kronosModeEntries = customModeEntries.filter(
+            ([, config]) =>
+                config["ai:provider"] === "kronos" ||
+                config["ai:provider"] === "kronoscode" ||
+                config["ai:apitype"] === "kronos-session" ||
+                config["ai:apitype"] === "kronoscode"
+        );
+        const defaultModeEntries = kronosModeEntries.length > 0 ? kronosModeEntries : customModeEntries;
+        return defaultModeEntries.map(([key, config]) => ({
+            key,
+            label: config["display:name"] || key,
+        }));
     }, [customModeEntries]);
 
     useEffect(() => {
-        if (!selectedModeKey || selectedMode?.["ai:provider"] !== "kronos") {
+        if (
+            !selectedModeKey ||
+            (selectedMode?.["ai:provider"] !== "kronos" && selectedMode?.["ai:provider"] !== "kronoscode")
+        ) {
             setKronosSnapshot(null);
             setKronosSnapshotLoading(false);
             setKronosSnapshotError("");
@@ -439,7 +446,7 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
         <div className="h-full overflow-y-auto bg-background">
             <div className="max-w-6xl mx-auto p-6 space-y-5">
                 <div>
-                    <div className="text-2xl font-semibold text-primary">Wave AI Setup</div>
+                    <div className="text-2xl font-semibold text-primary">KronosCode Setup</div>
                     <div className="text-sm text-muted mt-2 max-w-3xl">
                         This view is meant for normal setup, not hand-editing JSON. Choose a default mode, control
                         privacy behavior, and add common providers with one click. For advanced options, switch to{" "}
@@ -454,10 +461,10 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                         <div>
                             <FieldLabel
                                 title="Default AI mode"
-                                hint="Choose what Saturn should use first when it opens."
+                                hint="Choose what KronosCode should use first when it opens."
                             />
                             <select
-                                value={settings["waveai:defaultmode"] ?? "waveai@balanced"}
+                                value={settings["waveai:defaultmode"] ?? "waveai@kronos"}
                                 onChange={(e) => model.setConfigValues({ "waveai:defaultmode": e.target.value })}
                                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-primary cursor-pointer"
                             >
@@ -478,7 +485,9 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                 <div className="flex items-center gap-3 mt-3">
                                     <Toggle
                                         checked={settings["waveai:showcloudmodes"] ?? true}
-                                        onChange={(checked) => model.setConfigValues({ "waveai:showcloudmodes": checked })}
+                                        onChange={(checked) =>
+                                            model.setConfigValues({ "waveai:showcloudmodes": checked })
+                                        }
                                     />
                                     <span className="text-sm text-primary">Show Wave cloud modes in picker</span>
                                 </div>
@@ -577,13 +586,17 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                         />
                                     </div>
                                     <div>
-                                        <FieldLabel title="Provider" hint="Leave as custom if you are using a manual endpoint." />
+                                        <FieldLabel
+                                            title="Provider"
+                                            hint="Leave as custom if you are using a manual endpoint."
+                                        />
                                         <select
                                             value={selectedMode["ai:provider"] ?? "custom"}
                                             onChange={(e) =>
                                                 updateMode(selectedModeKey, (config) => ({
                                                     ...config,
-                                                    "ai:provider": e.target.value === "custom" ? undefined : e.target.value,
+                                                    "ai:provider":
+                                                        e.target.value === "custom" ? undefined : e.target.value,
                                                 }))
                                             }
                                             className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-primary cursor-pointer"
@@ -600,7 +613,8 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                         <FieldLabel
                                             title="Model"
                                             hint={
-                                                selectedMode["ai:provider"] === "kronos"
+                                                selectedMode["ai:provider"] === "kronos" ||
+                                                selectedMode["ai:provider"] === "kronoscode"
                                                     ? "Kronos expects provider/model, for example anthropic/claude-sonnet-4-5."
                                                     : undefined
                                             }
@@ -619,9 +633,15 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                     </div>
                                     <div className="md:col-span-2">
                                         <FieldLabel
-                                            title={selectedMode["ai:provider"] === "kronos" ? "Gateway / endpoint" : "Endpoint"}
+                                            title={
+                                                selectedMode["ai:provider"] === "kronos" ||
+                                                selectedMode["ai:provider"] === "kronoscode"
+                                                    ? "Gateway / endpoint"
+                                                    : "Endpoint"
+                                            }
                                             hint={
-                                                selectedMode["ai:provider"] === "kronos"
+                                                selectedMode["ai:provider"] === "kronos" ||
+                                                selectedMode["ai:provider"] === "kronoscode"
                                                     ? "Base URL for the local KronosCode server."
                                                     : "Mostly for local servers and OpenAI-compatible APIs. Leave blank for provider-based modes like OpenAI or Gemini."
                                             }
@@ -657,9 +677,15 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                     </div>
                                     <div>
                                         <FieldLabel
-                                            title={selectedMode["ai:provider"] === "kronos" ? "Auth secret name" : "API token secret name"}
+                                            title={
+                                                selectedMode["ai:provider"] === "kronos" ||
+                                                selectedMode["ai:provider"] === "kronoscode"
+                                                    ? "Auth secret name"
+                                                    : "API token secret name"
+                                            }
                                             hint={
-                                                selectedMode["ai:provider"] === "kronos"
+                                                selectedMode["ai:provider"] === "kronos" ||
+                                                selectedMode["ai:provider"] === "kronoscode"
                                                     ? "Secret containing KRONOSCODE_SERVER_PASSWORD for Basic auth."
                                                     : "For providers that expect a secret stored in Wave."
                                             }
@@ -678,12 +704,16 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                     </div>
                                 </div>
 
-                                {selectedMode["ai:provider"] === "kronos" && (
+                                {(selectedMode["ai:provider"] === "kronos" ||
+                                    selectedMode["ai:provider"] === "kronoscode") && (
                                     <div className="rounded-lg border border-border bg-background px-4 py-4 space-y-4">
                                         <div>
-                                            <div className="text-sm font-semibold text-primary">Kronos session settings</div>
+                                            <div className="text-sm font-semibold text-primary">
+                                                Kronos session settings
+                                            </div>
                                             <div className="text-sm text-muted mt-1">
-                                                These settings control the local Kronos engine that sits behind Saturn.
+                                                These settings control the local Kronos engine that sits behind
+                                                Kronterm.
                                             </div>
                                         </div>
                                         <div className="rounded-lg border border-border bg-panel px-4 py-4 space-y-4">
@@ -693,8 +723,8 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                         Server snapshot
                                                     </div>
                                                     <div className="text-sm text-muted mt-1">
-                                                        Saturn asks Wave to inspect the configured Kronos server and
-                                                        list the providers, models, and native tools it can see.
+                                                        Kronterm asks KronosCode to inspect the configured Kronos server
+                                                        and list the providers, models, and native tools it can see.
                                                     </div>
                                                 </div>
                                                 <button
@@ -728,7 +758,9 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                     {kronosSnapshot?.toolCapabilities?.length ?? 0} native tools
                                                 </div>
                                                 <div className="text-[11px] rounded-full px-2 py-1 bg-secondary text-secondary-foreground">
-                                                    {kronosSnapshot?.authConfigured ? "Auth configured" : "Auth missing or optional"}
+                                                    {kronosSnapshot?.authConfigured
+                                                        ? "Auth configured"
+                                                        : "Auth missing or optional"}
                                                 </div>
                                             </div>
                                             {kronosSnapshotError && (
@@ -736,7 +768,9 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                             )}
                                             {kronosSnapshot?.errors && kronosSnapshot.errors.length > 0 && (
                                                 <div className="rounded-lg border border-border bg-background px-3 py-3">
-                                                    <div className="text-xs font-semibold text-primary">Snapshot notes</div>
+                                                    <div className="text-xs font-semibold text-primary">
+                                                        Snapshot notes
+                                                    </div>
                                                     <div className="text-xs text-muted mt-2 space-y-1">
                                                         {kronosSnapshot.errors.map((errorText, idx) => (
                                                             <div key={`${errorText}-${idx}`}>{errorText}</div>
@@ -773,7 +807,10 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                             value={selectedKronosModel?.id ?? ""}
                                                             onChange={(e) => void selectKronosModel(e.target.value)}
                                                             className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-primary cursor-pointer"
-                                                            disabled={!selectedKronosProvider || selectedKronosProvider.models.length === 0}
+                                                            disabled={
+                                                                !selectedKronosProvider ||
+                                                                selectedKronosProvider.models.length === 0
+                                                            }
                                                         >
                                                             {(selectedKronosProvider?.models ?? []).map((modelInfo) => (
                                                                 <option key={modelInfo.id} value={modelInfo.id}>
@@ -823,42 +860,52 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                     </div>
                                                 </div>
                                             )}
-                                            {kronosSnapshot?.selectedTools && kronosSnapshot.selectedTools.length > 0 && (
-                                                <div>
-                                                    <div className="text-sm font-semibold text-primary">
-                                                        Native tools for this model
-                                                    </div>
-                                                    <div className="text-sm text-muted mt-1">
-                                                        Showing the first {Math.min(12, kronosSnapshot.selectedTools.length)} of{" "}
-                                                        {kronosSnapshot.selectedTools.length} tools returned by Kronos.
-                                                    </div>
-                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-                                                        {kronosSnapshot.selectedTools.slice(0, 12).map((toolInfo) => (
-                                                            <div
-                                                                key={toolInfo.id}
-                                                                className="rounded-lg border border-border bg-background px-3 py-3"
-                                                            >
-                                                                <div className="text-sm font-semibold text-primary">
-                                                                    {toolInfo.id}
-                                                                </div>
-                                                                <div className="text-xs text-muted mt-1">
-                                                                    {(toolInfo.connector || "core") +
-                                                                        (toolInfo.riskLevel ? ` • ${toolInfo.riskLevel}` : "")}
-                                                                </div>
-                                                                {toolInfo.description && (
-                                                                    <div className="text-xs text-muted mt-2 line-clamp-3">
-                                                                        {toolInfo.description}
+                                            {kronosSnapshot?.selectedTools &&
+                                                kronosSnapshot.selectedTools.length > 0 && (
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-primary">
+                                                            Native tools for this model
+                                                        </div>
+                                                        <div className="text-sm text-muted mt-1">
+                                                            Showing the first{" "}
+                                                            {Math.min(12, kronosSnapshot.selectedTools.length)} of{" "}
+                                                            {kronosSnapshot.selectedTools.length} tools returned by
+                                                            Kronos.
+                                                        </div>
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+                                                            {kronosSnapshot.selectedTools
+                                                                .slice(0, 12)
+                                                                .map((toolInfo) => (
+                                                                    <div
+                                                                        key={toolInfo.id}
+                                                                        className="rounded-lg border border-border bg-background px-3 py-3"
+                                                                    >
+                                                                        <div className="text-sm font-semibold text-primary">
+                                                                            {toolInfo.id}
+                                                                        </div>
+                                                                        <div className="text-xs text-muted mt-1">
+                                                                            {(toolInfo.connector || "core") +
+                                                                                (toolInfo.riskLevel
+                                                                                    ? ` • ${toolInfo.riskLevel}`
+                                                                                    : "")}
+                                                                        </div>
+                                                                        {toolInfo.description && (
+                                                                            <div className="text-xs text-muted mt-2 line-clamp-3">
+                                                                                {toolInfo.description}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
+                                                                ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <FieldLabel title="Default agent" hint="For example coder, planner, reviewer." />
+                                                <FieldLabel
+                                                    title="Default agent"
+                                                    hint="For example coder, planner, reviewer."
+                                                />
                                                 <input
                                                     key={`${selectedModeKey}-agent`}
                                                     defaultValue={selectedMode["ai:agent"] ?? "coder"}
@@ -874,10 +921,10 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                             <div>
                                                 <FieldLabel
                                                     title="Tool routing"
-                                                    hint="Hybrid keeps Kronos native tools and the Wave widget bridge together."
+                                                    hint="Hybrid keeps Kronos native tools and the Kronterm widget bridge together."
                                                 />
                                                 <select
-                                                    value={selectedMode["ai:kronostoolrouting"] ?? "hybrid"}
+                                                    value={selectedMode["ai:kronostoolrouting"] ?? "wave-only"}
                                                     onChange={(e) =>
                                                         updateMode(selectedModeKey, (config) => ({
                                                             ...config,
@@ -887,14 +934,14 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                     className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-primary cursor-pointer"
                                                 >
                                                     <option value="hybrid">Hybrid</option>
-                                                    <option value="wave-only">Wave tools first</option>
+                                                    <option value="wave-only">Kronterm tools first</option>
                                                     <option value="kronos-only">Kronos only</option>
                                                 </select>
                                             </div>
                                             <div className="md:col-span-2">
                                                 <FieldLabel
                                                     title="Permission mode"
-                                                    hint="How Saturn should answer Kronos permission prompts for this mode."
+                                                    hint="How KronosCode should answer Kronos permission prompts for this mode."
                                                 />
                                                 <select
                                                     value={selectedMode["ai:kronospermissionmode"] ?? "always"}
@@ -908,7 +955,7 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                                 >
                                                     <option value="always">Auto approve and remember</option>
                                                     <option value="once">Auto approve once</option>
-                                                    <option value="ask">Reject interactive prompts</option>
+                                                    <option value="ask">Ask interactively</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -918,8 +965,8 @@ export const WaveAIVisualContent = memo(({ model }: WaveAIVisualContentProps) =>
                                 <div className="rounded-lg border border-border bg-background px-4 py-4">
                                     <div className="text-sm font-semibold text-primary">Capabilities</div>
                                     <div className="text-sm text-muted mt-1 mb-3">
-                                        Turn on tools if you want Saturn to expose the Wave widget bridge while this
-                                        mode is active.
+                                        Turn on tools if you want KronosCode to expose the Kronterm widget bridge while
+                                        this mode is active.
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <Toggle

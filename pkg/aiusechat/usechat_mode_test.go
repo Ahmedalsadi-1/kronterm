@@ -55,8 +55,8 @@ func TestApplyProviderDefaultsKronos(t *testing.T) {
 	if config.Agent != "coder" {
 		t.Fatalf("expected default agent %q, got %q", "coder", config.Agent)
 	}
-	if config.KronosToolRouting != "hybrid" {
-		t.Fatalf("expected default tool routing %q, got %q", "hybrid", config.KronosToolRouting)
+	if config.KronosToolRouting != "wave-only" {
+		t.Fatalf("expected default tool routing %q, got %q", "wave-only", config.KronosToolRouting)
 	}
 	if config.KronosPermissionMode != "always" {
 		t.Fatalf("expected default permission mode %q, got %q", "always", config.KronosPermissionMode)

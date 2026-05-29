@@ -103,8 +103,8 @@ export class WaveAiModel implements ViewModel {
         this.cancel = false;
         this.viewType = "waveai";
         this.blockAtom = WOS.getWaveObjectAtom<Block>(`block:${blockId}`);
-        this.viewIcon = atom("sparkles");
-        this.viewName = atom("Wave AI");
+        this.viewIcon = atom("circle-nodes");
+        this.viewName = atom("KronosCode");
         this.messagesAtom = atom([]);
         this.messagesSplitAtom = splitAtom(this.messagesAtom);
         this.latestMessageAtom = atom((get) => get(this.messagesAtom).slice(-1)[0]);
@@ -484,7 +484,7 @@ const ChatItem = ({ chatItemAtom, model }: ChatItemProps) => {
                 <>
                     <div className="chat-msg chat-msg-header">
                         <div className="icon-box">
-                            <i className="fa-sharp fa-solid fa-sparkles"></i>
+                            <i className="fa-solid fa-circle-nodes"></i>
                         </div>
                     </div>
                     <div className="chat-msg chat-msg-assistant">
@@ -499,7 +499,7 @@ const ChatItem = ({ chatItemAtom, model }: ChatItemProps) => {
             ) : (
                 <>
                     <div className="chat-msg-header">
-                        <i className="fa-sharp fa-solid fa-sparkles"></i>
+                        <i className="fa-solid fa-circle-nodes"></i>
                     </div>
                     <TypingIndicator className="chat-msg typing-indicator" />
                 </>
@@ -703,12 +703,21 @@ const WaveAi = ({ model }: { model: WaveAiModel; blockId: string }) => {
 
     const [value, setValue] = useState("");
     const [selectedBlockIdx, setSelectedBlockIdx] = useState<number | null>(null);
+    const [showKronosAnimation, setShowKronosAnimation] = useState(true);
 
     const baseFontSize: number = 14;
     const msgWidths = {};
     const locked = useAtomValue(model.locked);
     const aiOpts = useAtomValue(model.aiOpts);
     const isUsingProxy = isBlank(aiOpts.apitoken) && isBlank(aiOpts.baseurl);
+
+    // Kronos animation on mount
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setShowKronosAnimation(false);
+        }, 2500);
+        return () => clearTimeout(timer);
+    }, []);
 
     // a weird workaround to initialize ansynchronously
     useEffect(() => {
@@ -875,15 +884,31 @@ const WaveAi = ({ model }: { model: WaveAiModel; blockId: string }) => {
                 <div className="flex items-start gap-3 px-4 py-2 bg-orange-500/25 border-b border-orange-500/50 text-sm">
                     <i className="fa-sharp fa-solid fa-triangle-exclamation text-orange-300 mt-0.5"></i>
                     <span className="text-primary/90">
-                        Wave AI Proxy is deprecated and will be removed. Please use the new{" "}
+                        KronosCode Proxy is deprecated and will be removed. Please use the new{" "}
                         <button
                             onClick={handleOpenAIPanel}
                             className="text-accent hover:text-accent/80 underline cursor-pointer"
                         >
-                            Wave AI panel
+                            KronosCode panel
                         </button>{" "}
                         instead (better model, terminal integration, tool support, image uploads).
                     </span>
+                </div>
+            )}
+            {showKronosAnimation && (
+                <div className="saturn-animation">
+                    <div className="saturn-planet">
+                        <div className="saturn-body"></div>
+                        <div className="saturn-ring"></div>
+                    </div>
+                    <div className="saturn-glow"></div>
+                    <div className="saturn-stars">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
                 </div>
             )}
             <div className="waveai-chat">

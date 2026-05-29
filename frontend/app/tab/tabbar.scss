@@ -12,7 +12,12 @@
     -webkit-app-region: drag;
     height: max(33px, calc(33px * var(--zoomfactor-inv)));
     backdrop-filter: blur(20px);
-    background: rgba(0, 0, 0, 0.35);
+    background: linear-gradient(
+        180deg,
+        rgb(from var(--surface-base-color) r g b / 0.92),
+        rgb(from var(--main-bg-color) r g b / 0.72)
+    );
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.72);
     flex-shrink: 0;
 
     button {
@@ -37,7 +42,7 @@
         display: block;
         height: 100%;
         margin: 2px;
-        border: 1px solid var(--border-color);
+        border: 1px solid rgb(from var(--accent-color) r g b / 0.36);
     }
 
     .add-tab {

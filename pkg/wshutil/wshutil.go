@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/wavetermdev/waveterm/pkg/baseds"
@@ -217,6 +218,10 @@ func SetupDomainSocketRpcClient(sockName string, serverImpl ServerImpl, debugNam
 }
 
 func MakeClientJWTToken(rpcCtx wshrpc.RpcContext) (string, error) {
+	return MakeClientJWTTokenWithExpiration(rpcCtx, time.Time{})
+}
+
+func MakeClientJWTTokenWithExpiration(rpcCtx wshrpc.RpcContext, expiresAt time.Time) (string, error) {
 	if wavebase.IsDevMode() {
 		if rpcCtx.IsRouter && (rpcCtx.RouteId != "" || rpcCtx.ProcRoute) {
 			panic("Invalid RpcCtx, router w/ routeid")
@@ -232,6 +237,9 @@ func MakeClientJWTToken(rpcCtx wshrpc.RpcContext) (string, error) {
 		BlockId:   rpcCtx.BlockId,
 		Conn:      rpcCtx.Conn,
 		Router:    rpcCtx.IsRouter,
+	}
+	if !expiresAt.IsZero() {
+		claims.ExpiresAt = jwt.NewNumericDate(expiresAt)
 	}
 	return wavejwt.Sign(claims)
 }

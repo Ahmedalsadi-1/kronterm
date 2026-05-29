@@ -95,12 +95,6 @@ func CaptureBlockScreenshotCommand(w *wshutil.WshRpc, data wshrpc.CommandCapture
 	return resp, err
 }
 
-// command "checkgoversion", wshserver.CheckGoVersionCommand
-func CheckGoVersionCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.CommandCheckGoVersionRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandCheckGoVersionRtnData](w, "checkgoversion", nil, opts)
-	return resp, err
-}
-
 // command "connconnect", wshserver.ConnConnectCommand
 func ConnConnectCommand(w *wshutil.WshRpc, data wshrpc.ConnRequest, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "connconnect", data, opts)
@@ -191,27 +185,21 @@ func CreateSubBlockCommand(w *wshutil.WshRpc, data wshrpc.CommandCreateSubBlockD
 	return resp, err
 }
 
+// command "createsurfacetoken", wshserver.CreateSurfaceTokenCommand
+func CreateSurfaceTokenCommand(w *wshutil.WshRpc, data wshrpc.CommandCreateSurfaceTokenData, opts *wshrpc.RpcOpts) (*wshrpc.CommandCreateSurfaceTokenRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandCreateSurfaceTokenRtnData](w, "createsurfacetoken", data, opts)
+	return resp, err
+}
+
 // command "debugterm", wshserver.DebugTermCommand
 func DebugTermCommand(w *wshutil.WshRpc, data wshrpc.CommandDebugTermData, opts *wshrpc.RpcOpts) (*wshrpc.CommandDebugTermRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandDebugTermRtnData](w, "debugterm", data, opts)
 	return resp, err
 }
 
-// command "deleteappfile", wshserver.DeleteAppFileCommand
-func DeleteAppFileCommand(w *wshutil.WshRpc, data wshrpc.CommandDeleteAppFileData, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "deleteappfile", data, opts)
-	return err
-}
-
 // command "deleteblock", wshserver.DeleteBlockCommand
 func DeleteBlockCommand(w *wshutil.WshRpc, data wshrpc.CommandDeleteBlockData, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "deleteblock", data, opts)
-	return err
-}
-
-// command "deletebuilder", wshserver.DeleteBuilderCommand
-func DeleteBuilderCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "deletebuilder", data, opts)
 	return err
 }
 
@@ -411,18 +399,6 @@ func GetAllVarsCommand(w *wshutil.WshRpc, data wshrpc.CommandVarData, opts *wshr
 	return resp, err
 }
 
-// command "getbuilderoutput", wshserver.GetBuilderOutputCommand
-func GetBuilderOutputCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) ([]string, error) {
-	resp, err := sendRpcRequestCallHelper[[]string](w, "getbuilderoutput", data, opts)
-	return resp, err
-}
-
-// command "getbuilderstatus", wshserver.GetBuilderStatusCommand
-func GetBuilderStatusCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) (*wshrpc.BuilderStatusData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.BuilderStatusData](w, "getbuilderstatus", data, opts)
-	return resp, err
-}
-
 // command "getfocusedblockdata", wshserver.GetFocusedBlockDataCommand
 func GetFocusedBlockDataCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.FocusedBlockData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.FocusedBlockData](w, "getfocusedblockdata", nil, opts)
@@ -603,21 +579,15 @@ func JobStartStreamCommand(w *wshutil.WshRpc, data wshrpc.CommandJobStartStreamD
 	return err
 }
 
-// command "listallappfiles", wshserver.ListAllAppFilesCommand
-func ListAllAppFilesCommand(w *wshutil.WshRpc, data wshrpc.CommandListAllAppFilesData, opts *wshrpc.RpcOpts) (*wshrpc.CommandListAllAppFilesRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandListAllAppFilesRtnData](w, "listallappfiles", data, opts)
-	return resp, err
+// command "launchinstalledapp", wshserver.LaunchInstalledAppCommand
+func LaunchInstalledAppCommand(w *wshutil.WshRpc, data wshrpc.CommandLaunchInstalledAppData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "launchinstalledapp", data, opts)
+	return err
 }
 
-// command "listallapps", wshserver.ListAllAppsCommand
-func ListAllAppsCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.AppInfo, error) {
-	resp, err := sendRpcRequestCallHelper[[]wshrpc.AppInfo](w, "listallapps", nil, opts)
-	return resp, err
-}
-
-// command "listalleditableapps", wshserver.ListAllEditableAppsCommand
-func ListAllEditableAppsCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.AppInfo, error) {
-	resp, err := sendRpcRequestCallHelper[[]wshrpc.AppInfo](w, "listalleditableapps", nil, opts)
+// command "listinstalledapps", wshserver.ListInstalledAppsCommand
+func ListInstalledAppsCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.InstalledAppInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.InstalledAppInfo](w, "listinstalledapps", nil, opts)
 	return resp, err
 }
 
@@ -627,9 +597,39 @@ func MacOSVersionCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error
 	return resp, err
 }
 
-// command "makedraftfromlocal", wshserver.MakeDraftFromLocalCommand
-func MakeDraftFromLocalCommand(w *wshutil.WshRpc, data wshrpc.CommandMakeDraftFromLocalData, opts *wshrpc.RpcOpts) (*wshrpc.CommandMakeDraftFromLocalRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandMakeDraftFromLocalRtnData](w, "makedraftfromlocal", data, opts)
+// command "mcpcalltool", wshserver.McpCallToolCommand
+func McpCallToolCommand(w *wshutil.WshRpc, data wshrpc.McpCallToolData, opts *wshrpc.RpcOpts) (*wshrpc.McpCallToolResult, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.McpCallToolResult](w, "mcpcalltool", data, opts)
+	return resp, err
+}
+
+// command "mcpconnect", wshserver.McpConnectCommand
+func McpConnectCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "mcpconnect", data, opts)
+	return err
+}
+
+// command "mcpdisconnect", wshserver.McpDisconnectCommand
+func McpDisconnectCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "mcpdisconnect", data, opts)
+	return err
+}
+
+// command "mcpgetstatus", wshserver.McpGetStatusCommand
+func McpGetStatusCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (map[string]wshrpc.McpStatus, error) {
+	resp, err := sendRpcRequestCallHelper[map[string]wshrpc.McpStatus](w, "mcpgetstatus", nil, opts)
+	return resp, err
+}
+
+// command "mcplistservers", wshserver.McpListServersCommand
+func McpListServersCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.McpServerInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.McpServerInfo](w, "mcplistservers", nil, opts)
+	return resp, err
+}
+
+// command "mcplisttools", wshserver.McpListToolsCommand
+func McpListToolsCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) ([]wshrpc.McpToolInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.McpToolInfo](w, "mcplisttools", data, opts)
 	return resp, err
 }
 
@@ -660,18 +660,6 @@ func NotifySystemResumeCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) error {
 // command "path", wshserver.PathCommand
 func PathCommand(w *wshutil.WshRpc, data wshrpc.PathCommandData, opts *wshrpc.RpcOpts) (string, error) {
 	resp, err := sendRpcRequestCallHelper[string](w, "path", data, opts)
-	return resp, err
-}
-
-// command "publishapp", wshserver.PublishAppCommand
-func PublishAppCommand(w *wshutil.WshRpc, data wshrpc.CommandPublishAppData, opts *wshrpc.RpcOpts) (*wshrpc.CommandPublishAppRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandPublishAppRtnData](w, "publishapp", data, opts)
-	return resp, err
-}
-
-// command "readappfile", wshserver.ReadAppFileCommand
-func ReadAppFileCommand(w *wshutil.WshRpc, data wshrpc.CommandReadAppFileData, opts *wshrpc.RpcOpts) (*wshrpc.CommandReadAppFileRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandReadAppFileRtnData](w, "readappfile", data, opts)
 	return resp, err
 }
 
@@ -792,21 +780,9 @@ func RemoteWriteFileCommand(w *wshutil.WshRpc, data wshrpc.FileData, opts *wshrp
 	return err
 }
 
-// command "renameappfile", wshserver.RenameAppFileCommand
-func RenameAppFileCommand(w *wshutil.WshRpc, data wshrpc.CommandRenameAppFileData, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "renameappfile", data, opts)
-	return err
-}
-
 // command "resolveids", wshserver.ResolveIdsCommand
 func ResolveIdsCommand(w *wshutil.WshRpc, data wshrpc.CommandResolveIdsData, opts *wshrpc.RpcOpts) (wshrpc.CommandResolveIdsRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[wshrpc.CommandResolveIdsRtnData](w, "resolveids", data, opts)
-	return resp, err
-}
-
-// command "restartbuilderandwait", wshserver.RestartBuilderAndWaitCommand
-func RestartBuilderAndWaitCommand(w *wshutil.WshRpc, data wshrpc.CommandRestartBuilderAndWaitData, opts *wshrpc.RpcOpts) (*wshrpc.RestartBuilderAndWaitResult, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.RestartBuilderAndWaitResult](w, "restartbuilderandwait", data, opts)
 	return resp, err
 }
 
@@ -820,6 +796,24 @@ func RouteAnnounceCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) error {
 func RouteUnannounceCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "routeunannounce", nil, opts)
 	return err
+}
+
+// command "sandboxstart", wshserver.SandboxStartCommand
+func SandboxStartCommand(w *wshutil.WshRpc, data wshrpc.SandboxStartRequest, opts *wshrpc.RpcOpts) (wshrpc.SandboxStartResponse, error) {
+	resp, err := sendRpcRequestCallHelper[wshrpc.SandboxStartResponse](w, "sandboxstart", data, opts)
+	return resp, err
+}
+
+// command "sandboxstatus", wshserver.SandboxStatusCommand
+func SandboxStatusCommand(w *wshutil.WshRpc, data wshrpc.SandboxStatusRequest, opts *wshrpc.RpcOpts) (wshrpc.SandboxStatusResponse, error) {
+	resp, err := sendRpcRequestCallHelper[wshrpc.SandboxStatusResponse](w, "sandboxstatus", data, opts)
+	return resp, err
+}
+
+// command "sandboxstop", wshserver.SandboxStopCommand
+func SandboxStopCommand(w *wshutil.WshRpc, data wshrpc.SandboxStopRequest, opts *wshrpc.RpcOpts) (wshrpc.SandboxStopResponse, error) {
+	resp, err := sendRpcRequestCallHelper[wshrpc.SandboxStopResponse](w, "sandboxstop", data, opts)
+	return resp, err
 }
 
 // command "sendtelemetry", wshserver.SendTelemetryCommand
@@ -876,22 +870,10 @@ func SetVarCommand(w *wshutil.WshRpc, data wshrpc.CommandVarData, opts *wshrpc.R
 	return err
 }
 
-// command "startbuilder", wshserver.StartBuilderCommand
-func StartBuilderCommand(w *wshutil.WshRpc, data wshrpc.CommandStartBuilderData, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "startbuilder", data, opts)
-	return err
-}
-
 // command "startjob", wshserver.StartJobCommand
 func StartJobCommand(w *wshutil.WshRpc, data wshrpc.CommandStartJobData, opts *wshrpc.RpcOpts) (*wshrpc.CommandStartJobRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandStartJobRtnData](w, "startjob", data, opts)
 	return resp, err
-}
-
-// command "stopbuilder", wshserver.StopBuilderCommand
-func StopBuilderCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "stopbuilder", data, opts)
-	return err
 }
 
 // command "streamcpudata", wshserver.StreamCpuDataCommand
@@ -1021,28 +1003,166 @@ func WebSelectorCommand(w *wshutil.WshRpc, data wshrpc.CommandWebSelectorData, o
 	return resp, err
 }
 
+// command "widgetclear", wshserver.WidgetClearCommand
+func WidgetClearCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetClearData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetclear", data, opts)
+	return resp, err
+}
+
+// command "widgetclick", wshserver.WidgetClickCommand
+func WidgetClickCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetClickData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetclick", data, opts)
+	return resp, err
+}
+
+// command "widgetclipboardget", wshserver.WidgetClipboardGetCommand
+func WidgetClipboardGetCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetClipboardGetData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetClipboardGetRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetClipboardGetRtnData](w, "widgetclipboardget", data, opts)
+	return resp, err
+}
+
+// command "widgetclipboardset", wshserver.WidgetClipboardSetCommand
+func WidgetClipboardSetCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetClipboardSetData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetclipboardset", data, opts)
+	return resp, err
+}
+
+// command "widgetdrag", wshserver.WidgetDragCommand
+func WidgetDragCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetDragData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetdrag", data, opts)
+	return resp, err
+}
+
+// command "widgetelementat", wshserver.WidgetElementAtCommand
+func WidgetElementAtCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetElementAtData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetElementAtRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetElementAtRtnData](w, "widgetelementat", data, opts)
+	return resp, err
+}
+
+// command "widgetfind", wshserver.WidgetFindCommand
+func WidgetFindCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetFindData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetFindRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetFindRtnData](w, "widgetfind", data, opts)
+	return resp, err
+}
+
+// command "widgetgetelements", wshserver.WidgetGetElementsCommand
+func WidgetGetElementsCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetGetElementsData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetGetElementsRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetGetElementsRtnData](w, "widgetgetelements", data, opts)
+	return resp, err
+}
+
+// command "widgetgetstate", wshserver.WidgetGetStateCommand
+func WidgetGetStateCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetGetStateData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetGetStateRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetGetStateRtnData](w, "widgetgetstate", data, opts)
+	return resp, err
+}
+
+// command "widgetgetvalue", wshserver.WidgetGetValueCommand
+func WidgetGetValueCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetGetValueData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetGetValueRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetGetValueRtnData](w, "widgetgetvalue", data, opts)
+	return resp, err
+}
+
+// command "widgethover", wshserver.WidgetHoverCommand
+func WidgetHoverCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetHoverData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgethover", data, opts)
+	return resp, err
+}
+
+// command "widgetinspect", wshserver.WidgetInspectCommand
+func WidgetInspectCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetInspectData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetInspectRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetInspectRtnData](w, "widgetinspect", data, opts)
+	return resp, err
+}
+
+// command "widgetkeyboardpress", wshserver.WidgetKeyboardPressCommand
+func WidgetKeyboardPressCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetKeyboardPressData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetkeyboardpress", data, opts)
+	return resp, err
+}
+
+// command "widgetkeyboardtype", wshserver.WidgetKeyboardTypeCommand
+func WidgetKeyboardTypeCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetKeyboardTypeData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetkeyboardtype", data, opts)
+	return resp, err
+}
+
+// command "widgetlongpress", wshserver.WidgetLongPressCommand
+func WidgetLongPressCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetLongPressData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetlongpress", data, opts)
+	return resp, err
+}
+
+// command "widgetmouseclick", wshserver.WidgetMouseClickCommand
+func WidgetMouseClickCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetMouseClickData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetmouseclick", data, opts)
+	return resp, err
+}
+
+// command "widgetmousedrag", wshserver.WidgetMouseDragCommand
+func WidgetMouseDragCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetMouseDragData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetmousedrag", data, opts)
+	return resp, err
+}
+
+// command "widgetmousescroll", wshserver.WidgetMouseScrollCommand
+func WidgetMouseScrollCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetMouseScrollData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetmousescroll", data, opts)
+	return resp, err
+}
+
+// command "widgetscreenshotannotated", wshserver.WidgetScreenshotAnnotatedCommand
+func WidgetScreenshotAnnotatedCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetScreenshotAnnotatedData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetScreenshotAnnotatedRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetScreenshotAnnotatedRtnData](w, "widgetscreenshotannotated", data, opts)
+	return resp, err
+}
+
+// command "widgetscrollto", wshserver.WidgetScrollToCommand
+func WidgetScrollToCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetScrollToData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetscrollto", data, opts)
+	return resp, err
+}
+
+// command "widgetselect", wshserver.WidgetSelectCommand
+func WidgetSelectCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetSelectData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetselect", data, opts)
+	return resp, err
+}
+
+// command "widgetsetvalue", wshserver.WidgetSetValueCommand
+func WidgetSetValueCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetSetValueData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgetsetvalue", data, opts)
+	return resp, err
+}
+
+// command "widgetsnapshot", wshserver.WidgetSnapshotCommand
+func WidgetSnapshotCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetSnapshotData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetSnapshotRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetSnapshotRtnData](w, "widgetsnapshot", data, opts)
+	return resp, err
+}
+
+// command "widgettoggle", wshserver.WidgetToggleCommand
+func WidgetToggleCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetToggleData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetMouseActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetMouseActionRtnData](w, "widgettoggle", data, opts)
+	return resp, err
+}
+
+// command "widgetwaitcondition", wshserver.WidgetWaitConditionCommand
+func WidgetWaitConditionCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetWaitConditionData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetWaitConditionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetWaitConditionRtnData](w, "widgetwaitcondition", data, opts)
+	return resp, err
+}
+
+// command "widgetwaitforelement", wshserver.WidgetWaitForElementCommand
+func WidgetWaitForElementCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetWaitForElementData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetWaitForElementRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetWaitForElementRtnData](w, "widgetwaitforelement", data, opts)
+	return resp, err
+}
+
 // command "workspacelist", wshserver.WorkspaceListCommand
 func WorkspaceListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.WorkspaceInfoData, error) {
 	resp, err := sendRpcRequestCallHelper[[]wshrpc.WorkspaceInfoData](w, "workspacelist", nil, opts)
 	return resp, err
-}
-
-// command "writeappfile", wshserver.WriteAppFileCommand
-func WriteAppFileCommand(w *wshutil.WshRpc, data wshrpc.CommandWriteAppFileData, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "writeappfile", data, opts)
-	return err
-}
-
-// command "writeappgofile", wshserver.WriteAppGoFileCommand
-func WriteAppGoFileCommand(w *wshutil.WshRpc, data wshrpc.CommandWriteAppGoFileData, opts *wshrpc.RpcOpts) (*wshrpc.CommandWriteAppGoFileRtnData, error) {
-	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandWriteAppGoFileRtnData](w, "writeappgofile", data, opts)
-	return resp, err
-}
-
-// command "writeappsecretbindings", wshserver.WriteAppSecretBindingsCommand
-func WriteAppSecretBindingsCommand(w *wshutil.WshRpc, data wshrpc.CommandWriteAppSecretBindingsData, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "writeappsecretbindings", data, opts)
-	return err
 }
 
 // command "writetempfile", wshserver.WriteTempFileCommand

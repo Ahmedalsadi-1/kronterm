@@ -88,16 +88,24 @@ type FDLock interface {
 }
 
 func CacheAndRemoveEnvVars() error {
-	ConfigHome_VarCache = os.Getenv(WaveConfigHomeEnvVar)
+	ConfigHome_VarCache = os.Getenv("KRONTERM_CONFIG_HOME")
 	if ConfigHome_VarCache == "" {
-		return fmt.Errorf(WaveConfigHomeEnvVar + " not set")
+		ConfigHome_VarCache = os.Getenv("WAVETERM_CONFIG_HOME")
 	}
-	os.Unsetenv(WaveConfigHomeEnvVar)
-	DataHome_VarCache = os.Getenv(WaveDataHomeEnvVar)
+	if ConfigHome_VarCache == "" {
+		return fmt.Errorf("KRONTERM_CONFIG_HOME not set")
+	}
+	os.Unsetenv("KRONTERM_CONFIG_HOME")
+	os.Unsetenv("WAVETERM_CONFIG_HOME")
+	DataHome_VarCache = os.Getenv("KRONTERM_DATA_HOME")
 	if DataHome_VarCache == "" {
-		return fmt.Errorf("%s not set", WaveDataHomeEnvVar)
+		DataHome_VarCache = os.Getenv("WAVETERM_DATA_HOME")
 	}
-	os.Unsetenv(WaveDataHomeEnvVar)
+	if DataHome_VarCache == "" {
+		return fmt.Errorf("KRONTERM_DATA_HOME not set")
+	}
+	os.Unsetenv("KRONTERM_DATA_HOME")
+	os.Unsetenv("WAVETERM_DATA_HOME")
 	AppPath_VarCache = os.Getenv(WaveAppPathVarName)
 	os.Unsetenv(WaveAppPathVarName)
 	AppResourcesPath_VarCache = os.Getenv(WaveAppResourcesPathVarName)

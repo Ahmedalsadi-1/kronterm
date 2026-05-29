@@ -1,13 +1,14 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { handleWaveAIContextMenu } from "@/app/aipanel/aipanel-contextmenu";
 import { waveAIHasSelection } from "@/app/aipanel/waveai-focus-utils";
 import { ErrorBoundary } from "@/app/element/errorboundary";
-import { atoms, getSettingsKeyAtom } from "@/app/store/global";
+import { atoms, getApi, getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { useTabModelMaybe } from "@/app/store/tab-model";
 import { isBuilderWindow } from "@/app/store/windowtype";
+import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { getWebServerEndpoint } from "@/util/endpoints";
 import { checkKeyPressed, keydownWrapper } from "@/util/keyutil";
 import { isMacOS, isWindows } from "@/util/platformutil";
 import { cn } from "@/util/util";
@@ -16,16 +17,11 @@ import { DefaultChatTransport } from "ai";
 import * as jotai from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useDrop } from "react-dnd";
+import { AcpChatPanel } from "./acp-chat-panel";
 import { formatFileSizeError, isAcceptableFile, validateFileSize } from "./ai-utils";
-import { AIDroppedFiles } from "./aidroppedfiles";
-import { AIModeDropdown } from "./aimode";
-import { AIPanelHeader } from "./aipanelheader";
-import { AIPanelInput } from "./aipanelinput";
-import { AIPanelMessages } from "./aipanelmessages";
 import { AIRateLimitStrip } from "./airatelimitstrip";
 import { WaveUIMessage } from "./aitypes";
 import { BYOKAnnouncement } from "./byokannouncement";
-import { TelemetryRequiredMessage } from "./telemetryrequired";
 import { WaveAIModel } from "./waveai-model";
 
 const AIBlockMask = memo(() => {
@@ -73,7 +69,7 @@ const KeyCap = memo(({ children, className }: { children: React.ReactNode; class
     return (
         <kbd
             className={cn(
-                "px-1.5 py-0.5 text-xs bg-zinc-700 border border-zinc-600 rounded-sm shadow-sm font-mono",
+                "px-1.5 py-0.5 text-xs bg-black/30 border border-border rounded-sm shadow-sm font-mono",
                 className
             )}
         >
@@ -89,18 +85,14 @@ const AIWelcomeMessage = memo(() => {
     const aiModeConfigs = jotai.useAtomValue(atoms.waveaiModeConfigAtom);
     const hasCustomModes = Object.keys(aiModeConfigs).some((key) => !key.startsWith("waveai@"));
     return (
-        <div className="text-secondary py-8">
+        <div className="text-secondary py-6">
             <div className="text-center">
                 <i className="fa fa-circle-nodes text-4xl mb-2 block" style={{ color: "#e8c47c" }}></i>
-                <p className="text-lg font-bold text-primary">Welcome to Saturn</p>
+                <p className="text-lg font-bold text-primary">KronosCode</p>
             </div>
             <div className="mt-4 text-left max-w-md mx-auto">
-                <p className="text-sm mb-6">
-                    Saturn is your terminal assistant with context. I can read your terminal output, analyze widgets,
-                    access files, and help you solve problems faster.
-                </p>
-                <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
-                    <div className="text-sm font-semibold mb-3 text-accent">Getting Started:</div>
+                <div className="bg-black/20 border border-border rounded-md p-4">
+                    <div className="text-sm font-semibold mb-3 text-accent">Start</div>
                     <div className="space-y-3 text-sm">
                         <div className="flex items-start gap-3">
                             <div className="w-4 text-center flex-shrink-0">
@@ -108,8 +100,7 @@ const AIWelcomeMessage = memo(() => {
                             </div>
                             <div>
                                 <span className="font-bold">Widget Context</span>
-                                <div className="">When ON, I can read your terminal and analyze widgets.</div>
-                                <div className="">When OFF, I'm sandboxed with no system access.</div>
+                                <div>ON reads terminal and widgets. OFF stays sandboxed.</div>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -190,7 +181,7 @@ const AIBuilderWelcomeMessage = memo(() => {
             </div>
             <div className="mt-4 text-left max-w-md mx-auto">
                 <p className="text-sm mb-6">
-                    The WaveApp builder helps create wave widgets that integrate seamlessly into Wave Terminal.
+                    The WaveApp builder helps create wave widgets that integrate seamlessly into Kronterm.
                 </p>
             </div>
         </div>
@@ -243,6 +234,53 @@ function formatGatewayLabel(endpoint?: string): string | null {
     }
 }
 
+type KronosPanelModelSnapshot = {
+    id: string;
+    name?: string;
+    toolCall?: boolean;
+    reasoning?: boolean;
+    attachment?: boolean;
+    status?: string;
+};
+
+type KronosPanelProviderSnapshot = {
+    id: string;
+    name?: string;
+    connected?: boolean;
+    defaultModelId?: string;
+    models?: KronosPanelModelSnapshot[];
+};
+
+type KronosPanelNativeConnectorSnapshot = {
+    available?: boolean;
+    connector?: string;
+    status?: string;
+    reason?: string;
+};
+
+type KronosPanelModeSnapshot = {
+    connected?: boolean;
+    selectedProviderId?: string;
+    selectedModelId?: string;
+    providers?: KronosPanelProviderSnapshot[];
+    toolCapabilities?: unknown[];
+    selectedTools?: unknown[];
+    nativeWaveConnector?: KronosPanelNativeConnectorSnapshot;
+    errors?: string[];
+};
+
+function parseKronosModelLabel(model?: string): { providerId: string; modelId: string } | null {
+    if (!model) {
+        return null;
+    }
+    const [providerId, ...modelParts] = model.split("/");
+    const modelId = modelParts.join("/");
+    if (!providerId || !modelId) {
+        return null;
+    }
+    return { providerId, modelId };
+}
+
 const AIPrivacyStrip = memo(() => {
     const model = WaveAIModel.getInstance();
     const currentMode = jotai.useAtomValue(model.currentAIMode);
@@ -255,14 +293,81 @@ const AIPrivacyStrip = memo(() => {
     const provider = modeConfig?.["ai:provider"];
     const apiType = modeConfig?.["ai:apitype"];
     const toolsEnabled = modeConfig?.["ai:capabilities"]?.includes("tools") ?? false;
-    const isKronosMode = provider === "kronos" || apiType === "kronos-session";
+    const isKronosMode =
+        provider === "kronos" || provider === "kronoscode" || apiType === "kronos-session" || apiType === "kronoscode";
     const gatewayLabel = formatGatewayLabel(endpoint);
+    const [kronosSnapshot, setKronosSnapshot] = useState<KronosPanelModeSnapshot | null>(null);
+    const [kronosSnapshotLoading, setKronosSnapshotLoading] = useState(false);
+    const [kronosSnapshotError, setKronosSnapshotError] = useState("");
+    const [kronosSnapshotRefreshNonce, setKronosSnapshotRefreshNonce] = useState(0);
+
+    useEffect(() => {
+        if (!isKronosMode) {
+            setKronosSnapshot(null);
+            setKronosSnapshotLoading(false);
+            setKronosSnapshotError("");
+            return;
+        }
+
+        const webEndpoint = getWebServerEndpoint();
+        if (!webEndpoint) {
+            setKronosSnapshot(null);
+            setKronosSnapshotLoading(false);
+            setKronosSnapshotError("Wave web endpoint unavailable");
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadSnapshot = async () => {
+            setKronosSnapshotLoading(true);
+            setKronosSnapshotError("");
+            try {
+                const url = `${webEndpoint}/api/waveai/kronos/snapshot?mode=${encodeURIComponent(currentMode)}`;
+                const response = await fetch(url, { method: "GET" });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) {
+                    const errorText =
+                        typeof payload?.error === "string" && payload.error.length > 0
+                            ? payload.error
+                            : response.statusText || "Failed to load Kronos snapshot";
+                    throw new Error(errorText);
+                }
+                const snapshot = (payload?.data ?? payload) as KronosPanelModeSnapshot;
+                if (!cancelled) {
+                    setKronosSnapshot(snapshot);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setKronosSnapshot(null);
+                    setKronosSnapshotError(err instanceof Error ? err.message : "Failed to load Kronos snapshot");
+                }
+            } finally {
+                if (!cancelled) {
+                    setKronosSnapshotLoading(false);
+                }
+            }
+        };
+
+        void loadSnapshot();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        currentMode,
+        endpoint,
+        isKronosMode,
+        modeConfig?.["ai:model"],
+        modeConfig?.["ai:apitokensecretname"],
+        kronosSnapshotRefreshNonce,
+    ]);
 
     let privacyLabel = "Custom provider";
-    if (currentMode.startsWith("waveai@") || modeConfig?.["waveai:cloud"]) {
+    if (isKronosMode) {
+        privacyLabel = "KronosCode host";
+    } else if (currentMode.startsWith("waveai@") || modeConfig?.["waveai:cloud"]) {
         privacyLabel = telemetryEnabled ? "Wave cloud" : "Wave cloud locked";
-    } else if (isKronosMode) {
-        privacyLabel = "Local Kronos server";
     } else if (
         endpoint.includes("localhost") ||
         endpoint.includes("127.0.0.1") ||
@@ -273,16 +378,38 @@ const AIPrivacyStrip = memo(() => {
         privacyLabel = "Your cloud account";
     }
 
+    const parsedModel = parseKronosModelLabel(modeConfig?.["ai:model"]);
+    const kronosProviderId = kronosSnapshot?.selectedProviderId ?? parsedModel?.providerId ?? "";
+    const kronosModelId = kronosSnapshot?.selectedModelId ?? parsedModel?.modelId ?? "";
+    const kronosProvider = kronosSnapshot?.providers?.find((item) => item.id === kronosProviderId);
+    const kronosModel =
+        kronosProvider?.models?.find((item) => item.id === kronosModelId) ??
+        kronosProvider?.models?.find((item) => item.id === kronosProvider.defaultModelId);
+    const kronosProviderLabel = kronosProvider?.name || kronosProviderId;
+    const kronosModelLabel = kronosModel?.name || kronosModelId;
+    const kronosCapabilities = [
+        kronosModel?.toolCall ? "Tools" : "",
+        kronosModel?.reasoning ? "Reasoning" : "",
+        kronosModel?.attachment ? "Attachments" : "",
+    ].filter(Boolean);
+    const kronosToolCount = kronosSnapshot?.selectedTools?.length ?? kronosSnapshot?.toolCapabilities?.length ?? 0;
+    const nativeConnector = kronosSnapshot?.nativeWaveConnector;
+    const nativeConnectorLabel =
+        nativeConnector?.available && nativeConnector.connector
+            ? `Native: ${nativeConnector.connector}`
+            : "Bridge: XML";
+    const kronosErrorText = kronosSnapshotError || kronosSnapshot?.errors?.[0] || "";
+
     return (
-        <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-900/70">
+        <div className="px-3 py-2 border-b border-border bg-panel">
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Current AI path</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted">AI path</div>
                     <div className="flex items-center gap-2 mt-1 min-w-0">
-                        <span className="text-xs rounded-full px-2 py-1 bg-zinc-800 text-zinc-200 shrink-0">
+                        <span className="text-xs rounded-full px-2 py-1 bg-black/25 text-primary shrink-0 border border-border">
                             {privacyLabel}
                         </span>
-                        <span className="text-sm text-zinc-200 truncate">{modeName}</span>
+                        <span className="text-sm text-primary truncate">{modeName}</span>
                     </div>
                 </div>
                 <button
@@ -292,7 +419,7 @@ const AIPrivacyStrip = memo(() => {
                     Configure
                 </button>
             </div>
-            <div className="flex items-center gap-4 mt-2 text-xs text-zinc-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted">
                 <span>Widget context: {widgetContextEnabled ? "On" : "Off"}</span>
                 <span>Tools: {toolsEnabled ? "Enabled" : "Unavailable"}</span>
                 {isKronosMode && gatewayLabel && <span>Gateway: {gatewayLabel}</span>}
@@ -301,6 +428,39 @@ const AIPrivacyStrip = memo(() => {
                     <span>Routing: {modeConfig["ai:kronostoolrouting"]}</span>
                 )}
             </div>
+            {isKronosMode && (
+                <div className="mt-2 rounded border border-border bg-black/20 px-2.5 py-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span
+                            className={cn(
+                                "font-medium",
+                                kronosSnapshot?.connected ? "text-emerald-300" : "text-amber-300"
+                            )}
+                        >
+                            {kronosSnapshotLoading
+                                ? "Checking Kronos..."
+                                : kronosSnapshot?.connected
+                                  ? "Kronos connected"
+                                  : "Kronos offline"}
+                        </span>
+                        {kronosProviderLabel && <span className="text-secondary">Provider: {kronosProviderLabel}</span>}
+                        {kronosModelLabel && <span className="text-secondary">Model: {kronosModelLabel}</span>}
+                        {kronosCapabilities.length > 0 && (
+                            <span className="text-muted">{kronosCapabilities.join(" / ")}</span>
+                        )}
+                        <span className="text-muted">{kronosToolCount} native tools</span>
+                        <span className="text-muted">{nativeConnectorLabel}</span>
+                        <button
+                            onClick={() => setKronosSnapshotRefreshNonce((value) => value + 1)}
+                            className="ml-auto text-muted hover:text-primary cursor-pointer"
+                            title="Refresh Kronos snapshot"
+                        >
+                            <i className="fa fa-rotate-right text-xs"></i>
+                        </button>
+                    </div>
+                    {kronosErrorText && <div className="mt-1 text-xs text-amber-300">{kronosErrorText}</div>}
+                </div>
+            )}
         </div>
     );
 });
@@ -338,23 +498,42 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
     const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
     const isPanelVisible = jotai.useAtomValue(model.getPanelVisibleAtom());
     const tabModel = useTabModelMaybe();
-    const defaultMode = jotai.useAtomValue(getSettingsKeyAtom("waveai:defaultmode")) ?? "waveai@balanced";
+    const defaultMode = jotai.useAtomValue(getSettingsKeyAtom("waveai:defaultmode")) ?? "waveai@kronos";
     const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
+
+    useEffect(() => {
+        return getApi().onDesktopPetChat((text) => {
+            WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
+            void model.sendMessage(text);
+        });
+    }, [model]);
 
     const hasCustomModes = Object.keys(aiModeConfigs).some((key) => !key.startsWith("waveai@"));
     const isUsingCustomMode = !defaultMode.startsWith("waveai@");
-    const allowAccess = telemetryEnabled || (hasCustomModes && isUsingCustomMode);
+    const hasKronosMode = Object.values(aiModeConfigs).some(
+        (config) =>
+            config["ai:provider"] === "kronos" ||
+            config["ai:provider"] === "kronoscode" ||
+            config["ai:apitype"] === "kronos-session" ||
+            config["ai:apitype"] === "kronoscode"
+    );
+    const allowAccess = telemetryEnabled || hasKronosMode || (hasCustomModes && isUsingCustomMode);
 
     const { messages, sendMessage, status, setMessages, error, stop } = useChat<WaveUIMessage>({
         transport: new DefaultChatTransport({
             api: model.getUseChatEndpointUrl(),
             prepareSendMessagesRequest: (_opts) => {
                 const msg = model.getAndClearMessage();
+                const selectedKronosAgent = globalStore.get(model.selectedKronosAgentAtom);
                 const body: any = {
                     msg,
                     chatid: globalStore.get(model.chatId),
                     widgetaccess: globalStore.get(model.widgetAccessAtom),
                     aimode: globalStore.get(model.currentAIMode),
+                    kronosAgent: selectedKronosAgent === "kronoscode" ? "build" : selectedKronosAgent,
+                    kronosProvider: globalStore.get(model.selectedKronosProviderAtom),
+                    kronosModel: globalStore.get(model.selectedKronosModelAtom),
+                    kronosMode: globalStore.get(model.selectedKronosModeAtom),
                 };
                 if (isBuilderWindow()) {
                     body.builderid = globalStore.get(atoms.builderId);
@@ -584,7 +763,7 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
 
     const handleFocusCapture = useCallback(
         (_event: React.FocusEvent) => {
-            // console.log("Wave AI focus capture", getElemAsStr(event.target));
+            // console.log("KronosCode focus capture", getElemAsStr(event.target));
             model.requestWaveAIFocus();
         },
         [model]
@@ -628,9 +807,9 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
             ref={containerRef}
             data-waveai-panel="true"
             className={cn(
-                "@container bg-zinc-900/70 flex flex-col relative",
+                "@container bg-panel flex flex-col relative",
                 model.inBuilder ? "mt-0 h-full" : "mt-1 h-[calc(100%-4px)]",
-                (isDragOver || isReactDndDragOver) && "bg-zinc-800 border-accent",
+                (isDragOver || isReactDndDragOver) && "bg-hoverbg border-accent",
                 isFocused ? "border-2 border-accent" : "border-2 border-transparent"
             )}
             style={{
@@ -651,37 +830,10 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
             <ConfigChangeModeFixer />
             {(isDragOver || isReactDndDragOver) && allowAccess && <AIDragOverlay />}
             {showBlockMask && <AIBlockMask />}
-            <AIPanelHeader />
-            <AIPrivacyStrip />
             <AIRateLimitStrip />
 
             <div key="main-content" className="flex-1 flex flex-col min-h-0">
-                {!allowAccess ? (
-                    <TelemetryRequiredMessage />
-                ) : (
-                    <>
-                        {messages.length === 0 && initialLoadDone ? (
-                            <div
-                                className="flex-1 overflow-y-auto p-2 relative"
-                                onContextMenu={(e) => handleWaveAIContextMenu(e, true)}
-                            >
-                                <div className="absolute top-2 left-2 z-10">
-                                    <AIModeDropdown />
-                                </div>
-                                {model.inBuilder ? <AIBuilderWelcomeMessage /> : <AIWelcomeMessage />}
-                            </div>
-                        ) : (
-                            <AIPanelMessages
-                                messages={messages}
-                                status={status}
-                                onContextMenu={(e) => handleWaveAIContextMenu(e, true)}
-                            />
-                        )}
-                        <AIErrorMessage />
-                        <AIDroppedFiles model={model} />
-                        <AIPanelInput onSubmit={handleSubmit} status={status} model={model} />
-                    </>
-                )}
+                <AcpChatPanel />
             </div>
         </div>
     );

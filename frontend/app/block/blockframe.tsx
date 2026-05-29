@@ -1,6 +1,12 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
+import {
+    AgentWidgetSettingsEvent,
+    type AgentWidgetVisualSettings,
+    loadAgentWidgetVisualSettings,
+} from "@/app/block/agent-widget-settings";
 import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
 import { blockViewToIcon, getViewIconElem } from "@/app/block/blockutil";
@@ -92,6 +98,45 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     );
 });
 
+const AgentWidgetOverlay = React.memo(
+    ({ activity, settings }: { activity: AgentWidgetActivity; settings: AgentWidgetVisualSettings }) => {
+        const cursorStyle = activity.point
+            ? ({
+                  left: activity.point.x,
+                  top: activity.point.y,
+              } as React.CSSProperties)
+            : undefined;
+        return (
+            <div className="agent-widget-overlay" aria-hidden="true">
+                {settings.actionChip && (
+                    <div className="agent-widget-chip">
+                        <span className="agent-widget-dot" />
+                        KronosCode {activity.action}
+                    </div>
+                )}
+                {settings.cursor && activity.action === "typing" ? (
+                    <div className="agent-typing-indicator">
+                        <span />
+                        <span />
+                        <span />
+                    </div>
+                ) : settings.cursor && activity.action !== "view" ? (
+                    <div className="agent-pet-cursor" style={cursorStyle}>
+                        <span>K</span>
+                    </div>
+                ) : null}
+                {settings.screenshots && activity.previewImageUrl ? (
+                    <figure className="agent-capture-preview">
+                        <figcaption>Agent screenshot</figcaption>
+                        <img src={activity.previewImageUrl} alt="" />
+                    </figure>
+                ) : null}
+            </div>
+        );
+    }
+);
+AgentWidgetOverlay.displayName = "AgentWidgetOverlay";
+
 const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const waveEnv = useWaveEnv<BlockEnv>();
     const { nodeModel, viewModel, blockModel, preview, numBlocksInTab, children } = props;
@@ -107,14 +152,60 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const connModalOpen = jotai.useAtomValue(changeConnModalAtom);
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
-    const [magnifiedBlockBlurAtom] = React.useState(() => waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx"));
+    const [magnifiedBlockBlurAtom] = React.useState(() =>
+        waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx")
+    );
     const magnifiedBlockBlur = jotai.useAtomValue(magnifiedBlockBlurAtom);
-    const [magnifiedBlockOpacityAtom] = React.useState(() => waveEnv.getSettingsKeyAtom("window:magnifiedblockopacity"));
+    const [magnifiedBlockOpacityAtom] = React.useState(() =>
+        waveEnv.getSettingsKeyAtom("window:magnifiedblockopacity")
+    );
     const magnifiedBlockOpacity = jotai.useAtomValue(magnifiedBlockOpacityAtom);
     const connBtnRef = React.useRef<HTMLDivElement>(null);
     const connName = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "connection"));
     const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const noHeader = util.useAtomValueSafe(viewModel?.noHeader);
+    const [agentActivity, setAgentActivity] = React.useState<AgentWidgetActivity | null>(null);
+    const [agentSettings, setAgentSettings] = React.useState<AgentWidgetVisualSettings>(() =>
+        loadAgentWidgetVisualSettings(nodeModel.blockId)
+    );
+    const visualAgentSurface = metaView === "web" || metaView === "sandbox";
+
+    React.useEffect(() => {
+        if (!visualAgentSurface) {
+            return;
+        }
+        let clearTimer: ReturnType<typeof setTimeout> = null;
+        const handleActivity = (event: Event) => {
+            const activity = (event as CustomEvent<AgentWidgetActivity>).detail;
+            if (activity.blockId !== nodeModel.blockId) {
+                return;
+            }
+            setAgentActivity(activity);
+            if (clearTimer != null) {
+                clearTimeout(clearTimer);
+            }
+            clearTimer = setTimeout(() => setAgentActivity(null), activity.previewImageUrl ? 6000 : 1800);
+        };
+        window.addEventListener("agent-widget-activity", handleActivity);
+        return () => {
+            window.removeEventListener("agent-widget-activity", handleActivity);
+            if (clearTimer != null) {
+                clearTimeout(clearTimer);
+            }
+        };
+    }, [nodeModel.blockId, visualAgentSurface]);
+
+    React.useEffect(() => {
+        const handleSettings = (event: Event) => {
+            const detail = (event as CustomEvent<{ blockId: string; settings: AgentWidgetVisualSettings }>).detail;
+            if (detail.blockId === nodeModel.blockId) {
+                setAgentSettings(detail.settings);
+            }
+        };
+        setAgentSettings(loadAgentWidgetVisualSettings(nodeModel.blockId));
+        window.addEventListener(AgentWidgetSettingsEvent, handleSettings);
+        return () => window.removeEventListener(AgentWidgetSettingsEvent, handleSettings);
+    }, [nodeModel.blockId]);
 
     React.useEffect(() => {
         if (!manageConnection) {
@@ -141,7 +232,11 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
         if (!util.isLocalConnName(connName)) {
             console.log("ensure conn", nodeModel.blockId, connName);
             waveEnv.rpc
-                .ConnEnsureCommand(TabRpcClient, { connname: connName, logblockid: nodeModel.blockId }, { timeout: 60000 })
+                .ConnEnsureCommand(
+                    TabRpcClient,
+                    { connname: connName, logblockid: nodeModel.blockId },
+                    { timeout: 60000 }
+                )
                 .catch((e) => {
                     console.log("error ensuring connection", nodeModel.blockId, connName, e);
                 });
@@ -166,6 +261,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 "block-no-highlight": numBlocksInTab === 1 && !aiPanelVisible,
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
+                "agent-widget-active": agentActivity != null && agentSettings.glow,
             })}
             data-blockid={nodeModel.blockId}
             onClick={blockModel?.onClick}
@@ -180,6 +276,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
             }
             inert={preview || undefined}
         >
+            {agentActivity != null && <AgentWidgetOverlay activity={agentActivity} settings={agentSettings} />}
             <BlockMask nodeModel={nodeModel} />
             {preview || viewModel == null || !manageConnection ? null : (
                 <ConnStatusOverlay

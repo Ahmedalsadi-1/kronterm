@@ -1,6 +1,7 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { SubBlock } from "@/app/block/block";
 import type { BlockNodeModel } from "@/app/block/blocktypes";
 import { NullErrorBoundary } from "@/app/element/errorboundary";
@@ -28,6 +29,8 @@ import { TermWrap } from "./termwrap";
 import "./xterm.css";
 
 const dlog = debug("wave:term");
+const NullStringAtom = jotai.atom<string | null>(null);
+const KronosCodeCommandRegex = /(?:^|[\s/])kronoscode(?:\s|$)/i;
 
 interface TerminalViewProps {
     blockId: string;
@@ -167,6 +170,40 @@ const TermToolbarVDomNode = ({ blockId, model }: TerminalViewProps) => {
     );
 };
 
+const TerminalPetActivityTracker = React.memo(
+    ({
+        blockId,
+        model,
+        termWrap,
+        command,
+        isCmdController,
+    }: TerminalViewProps & { termWrap: TermWrap | null; command: string; isCmdController: boolean }) => {
+        const shellIntegrationStatus = jotai.useAtomValue(termWrap?.shellIntegrationStatusAtom ?? NullStringAtom);
+        const lastCommand = jotai.useAtomValue(termWrap?.lastCommandAtom ?? NullStringAtom);
+        const shellProcStatus = jotai.useAtomValue(model.shellProcStatus);
+        const wasTracking = React.useRef(false);
+
+        React.useEffect(() => {
+            const isShellTuiRunning =
+                !isCmdController &&
+                shellIntegrationStatus == "running-command" &&
+                KronosCodeCommandRegex.test(lastCommand ?? "");
+            const isCommandTuiRunning =
+                isCmdController && shellProcStatus == "running" && KronosCodeCommandRegex.test(command);
+            const isTracking = isShellTuiRunning || isCommandTuiRunning;
+            if (isTracking) {
+                reportDesktopPetActivity({ kind: "tool", detail: "KronosCode TUI terminal" }, blockId);
+            } else if (wasTracking.current) {
+                reportDesktopPetActivity({ kind: "idle", detail: "KronosCode TUI complete" });
+            }
+            wasTracking.current = isTracking;
+        }, [blockId, command, isCmdController, lastCommand, shellIntegrationStatus, shellProcStatus]);
+
+        return null;
+    }
+);
+TerminalPetActivityTracker.displayName = "TerminalPetActivityTracker";
+
 const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => {
     const viewRef = React.useRef<HTMLDivElement>(null);
     const connectElemRef = React.useRef<HTMLDivElement>(null);
@@ -187,6 +224,13 @@ const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => 
     const isFocused = jotai.useAtomValue(model.nodeModel.isFocused);
     const isMI = jotai.useAtomValue(tabModel.isTermMultiInput);
     const isBasicTerm = termMode != "vdom" && blockData?.meta?.controller != "cmd"; // needs to match isBasicTerm
+    const isCmdController = blockData?.meta?.controller == "cmd";
+    const command = [
+        blockData?.meta?.cmd,
+        ...(Array.isArray(blockData?.meta?.["cmd:args"]) ? blockData.meta["cmd:args"] : []),
+    ]
+        .filter((value): value is string => typeof value == "string")
+        .join(" ");
 
     // search
     const searchProps = useSearch({
@@ -379,6 +423,13 @@ const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => 
         <div className={clsx("view-term", "term-mode-" + termMode)} ref={viewRef} onContextMenu={handleContextMenu}>
             {termBg && <div key="term-bg" className="absolute inset-0 z-0 pointer-events-none" style={termBg} />}
             <TermResyncHandler blockId={blockId} model={model} />
+            <TerminalPetActivityTracker
+                blockId={blockId}
+                model={model}
+                termWrap={termWrapInst}
+                command={command}
+                isCmdController={isCmdController}
+            />
             <TermThemeUpdater blockId={blockId} model={model} termRef={model.termRef} />
             <TermStickers config={stickerConfig} />
             <TermToolbarVDomNode key="vdom-toolbar" blockId={blockId} model={model} />

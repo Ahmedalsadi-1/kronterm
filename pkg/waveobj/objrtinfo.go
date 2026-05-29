@@ -19,10 +19,6 @@ type ObjRTInfo struct {
 	ShellLastCmd         string `json:"shell:lastcmd,omitempty"`
 	ShellLastCmdExitCode int    `json:"shell:lastcmdexitcode,omitempty"`
 
-	BuilderLayout map[string]float64 `json:"builder:layout,omitempty"`
-	BuilderAppId  string             `json:"builder:appid,omitempty"`
-	BuilderEnv    map[string]string  `json:"builder:env,omitempty"`
-
 	WaveAIChatId          string `json:"waveai:chatid,omitempty"`
 	WaveAIMode            string `json:"waveai:mode,omitempty"`
 	WaveAIMaxOutputTokens int    `json:"waveai:maxoutputtokens,omitempty"`
