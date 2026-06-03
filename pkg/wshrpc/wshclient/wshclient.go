@@ -29,6 +29,24 @@ func AiSendMessageCommand(w *wshutil.WshRpc, data wshrpc.AiMessageData, opts *ws
 	return err
 }
 
+// command "appstreamaction", wshserver.AppStreamActionCommand
+func AppStreamActionCommand(w *wshutil.WshRpc, data wshrpc.AppStreamActionRequest, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "appstreamaction", data, opts)
+	return err
+}
+
+// command "appstreamstart", wshserver.AppStreamStartCommand
+func AppStreamStartCommand(w *wshutil.WshRpc, data wshrpc.AppStreamStartRequest, opts *wshrpc.RpcOpts) (wshrpc.AppStreamStartResponse, error) {
+	resp, err := sendRpcRequestCallHelper[wshrpc.AppStreamStartResponse](w, "appstreamstart", data, opts)
+	return resp, err
+}
+
+// command "appstreamstop", wshserver.AppStreamStopCommand
+func AppStreamStopCommand(w *wshutil.WshRpc, data wshrpc.AppStreamStopRequest, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "appstreamstop", data, opts)
+	return err
+}
+
 // command "authenticate", wshserver.AuthenticateCommand
 func AuthenticateCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) (wshrpc.CommandAuthenticateRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[wshrpc.CommandAuthenticateRtnData](w, "authenticate", data, opts)
@@ -396,6 +414,12 @@ func GetAllBadgesCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]baseds.Badg
 // command "getallvars", wshserver.GetAllVarsCommand
 func GetAllVarsCommand(w *wshutil.WshRpc, data wshrpc.CommandVarData, opts *wshrpc.RpcOpts) ([]wshrpc.CommandVarResponseData, error) {
 	resp, err := sendRpcRequestCallHelper[[]wshrpc.CommandVarResponseData](w, "getallvars", data, opts)
+	return resp, err
+}
+
+// command "getblockcontent", wshserver.GetBlockContentCommand
+func GetBlockContentCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) (*wshrpc.CommandGetBlockContentRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandGetBlockContentRtnData](w, "getblockcontent", data, opts)
 	return resp, err
 }
 

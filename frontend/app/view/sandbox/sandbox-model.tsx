@@ -1,4 +1,6 @@
 import { BlockNodeModel } from "@/app/block/blocktypes";
+import { RpcApi } from "@/app/store/wshclientapi";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { globalStore } from "@/app/store/jotaiStore";
 import { createBlockSplitHorizontally } from "@/app/store/global";
 import { makeORef } from "@/app/store/wos";
@@ -43,6 +45,14 @@ export class SandboxViewModel implements ViewModel {
 
     getCurrentMode(): string {
         return globalStore.get(this.modeAtom) ?? "desktop";
+    }
+
+    keyDownHandler(e: WaveKeyboardEvent): boolean {
+        if (e.control && e.shiftKey && e.key === "i") {
+            RpcApi.SandboxStatusCommand(TabRpcClient, { sessionId: this.blockId }).catch(() => {});
+            return true;
+        }
+        return false;
     }
 
     getCurrentBrowserUrl(): string {

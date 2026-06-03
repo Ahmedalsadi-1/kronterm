@@ -78,7 +78,7 @@
         "display:name": "Kronos Computer Use",
         "display:order": 13,
         "display:icon": "monitor-cog",
-        "display:description": "KronosCode computer-use agent with Bytebot MCP desktop control",
+        "display:description": "KronosCode computer-use agent with Kronterm Desktop API desktop control",
         "ai:provider": "kronos",
         "ai:apitype": "kronos-session",
         "ai:model": "computer-use",

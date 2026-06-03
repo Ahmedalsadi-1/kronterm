@@ -397,20 +397,20 @@ type KronosCatalogResponseSnapshot struct {
 	Agents      []KronosCatalogAgentSnapshot `json:"agents"`
 }
 
-type KronosBytebotStatusSnapshot struct {
-	MCPURL        string `json:"mcpUrl"`
+type KrontermDesktopStatusSnapshot struct {
+	APIURL        string `json:"apiUrl"`
 	DesktopURL    string `json:"desktopUrl"`
-	MCPStatus     string `json:"mcpStatus"`
+	APIStatus     string `json:"apiStatus"`
 	DesktopStatus string `json:"desktopStatus"`
 	Error         string `json:"error,omitempty"`
 }
 
 type KronosChatHubSnapshot struct {
-	Mode    string                         `json:"mode"`
-	Catalog *KronosCatalogResponseSnapshot `json:"catalog,omitempty"`
-	Kronos  *KronosModeSnapshot            `json:"kronos,omitempty"`
-	Bytebot KronosBytebotStatusSnapshot    `json:"bytebot"`
-	Errors  []string                       `json:"errors,omitempty"`
+	Mode            string                         `json:"mode"`
+	Catalog         *KronosCatalogResponseSnapshot `json:"catalog,omitempty"`
+	Kronos          *KronosModeSnapshot            `json:"kronos,omitempty"`
+	KrontermDesktop KrontermDesktopStatusSnapshot  `json:"krontermDesktop"`
+	Errors          []string                       `json:"errors,omitempty"`
 }
 
 type KronosAgentInstallResult struct {
@@ -419,8 +419,8 @@ type KronosAgentInstallResult struct {
 	Agent   KronosCatalogAgentSnapshot `json:"agent,omitempty"`
 }
 
-const defaultBytebotMCPURL = "http://localhost:9990/mcp"
-const defaultBytebotDesktopURL = "http://localhost:9990/novnc/vnc_lite.html?scale=true"
+const defaultKrontermDesktopAPIURL = "http://localhost:9990"
+const defaultKrontermDesktopVNCURL = "http://localhost:9990/novnc/vnc_lite.html?scale=true"
 
 func checkHTTPReady(ctx context.Context, target string) (string, string) {
 	if strings.TrimSpace(target) == "" {
@@ -457,22 +457,22 @@ func GetKronosChatHubSnapshot(ctx context.Context, aiMode string) (*KronosChatHu
 	apiToken, _, tokenErr := resolveConfiguredAPIToken(*config, false)
 	client, clientErr := aiutil.MakeHTTPClient(config.ProxyURL)
 
-	mcpStatus, mcpErr := checkHTTPReady(ctx, defaultBytebotMCPURL)
-	desktopStatus, desktopErr := checkHTTPReady(ctx, defaultBytebotDesktopURL)
+	apiStatus, apiErr := checkHTTPReady(ctx, defaultKrontermDesktopAPIURL)
+	desktopStatus, desktopErr := checkHTTPReady(ctx, defaultKrontermDesktopVNCURL)
 	snapshot := &KronosChatHubSnapshot{
 		Mode: aiMode,
-		Bytebot: KronosBytebotStatusSnapshot{
-			MCPURL:        defaultBytebotMCPURL,
-			DesktopURL:    defaultBytebotDesktopURL,
-			MCPStatus:     mcpStatus,
+		KrontermDesktop: KrontermDesktopStatusSnapshot{
+			APIURL:        defaultKrontermDesktopAPIURL,
+			DesktopURL:    defaultKrontermDesktopVNCURL,
+			APIStatus:     apiStatus,
 			DesktopStatus: desktopStatus,
 		},
 	}
-	if mcpErr != "" {
-		snapshot.Bytebot.Error = mcpErr
+	if apiErr != "" {
+		snapshot.KrontermDesktop.Error = apiErr
 	}
-	if snapshot.Bytebot.Error == "" && desktopErr != "" {
-		snapshot.Bytebot.Error = desktopErr
+	if snapshot.KrontermDesktop.Error == "" && desktopErr != "" {
+		snapshot.KrontermDesktop.Error = desktopErr
 	}
 	if tokenErr != nil {
 		snapshot.Errors = append(snapshot.Errors, tokenErr.Error())

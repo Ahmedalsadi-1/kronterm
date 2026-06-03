@@ -12,4 +12,12 @@ contextBridge.exposeInMainWorld("petApi", {
     },
     updateOptions: (options: Partial<DesktopPetOptions>) => ipcRenderer.send("desktop-pet-options", options),
     sendChat: (text: string) => ipcRenderer.send("desktop-pet-chat", text),
+    resumeContext: () => ipcRenderer.send("desktop-pet-resume"),
+    toggleClickThrough: () => ipcRenderer.send("desktop-pet-clickthrough-toggle"),
+    isClickThrough: () => ipcRenderer.invoke("desktop-pet-clickthrough-status"),
+    onClickThroughChange: (callback: (enabled: boolean) => void) => {
+        const listener = (_event: Electron.IpcRendererEvent, enabled: boolean) => callback(enabled);
+        ipcRenderer.on("desktop-pet-clickthrough-changed", listener);
+        return () => ipcRenderer.removeListener("desktop-pet-clickthrough-changed", listener);
+    },
 });

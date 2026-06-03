@@ -8,7 +8,7 @@
     padding: 0 0 0 0;
     box-sizing: border-box;
     font-weight: bold;
-    color: var(--secondary-text-color);
+    color: var(--text-secondary-color);
     opacity: 0;
     display: flex;
     align-items: center;
@@ -18,8 +18,8 @@
         position: absolute;
         left: 0;
         width: 1px;
-        height: 14px;
-        background: rgb(from var(--main-text-color) r g b / 0.2);
+        height: 13px;
+        background: rgb(from var(--main-text-color) r g b / 0.14);
     }
 
     .tab-inner {
@@ -27,7 +27,7 @@
         width: calc(100% - 6px);
         height: 100%;
         white-space: nowrap;
-        border-radius: 6px;
+        border-radius: 6px 6px 4px 4px;
         border: 1px solid transparent;
         transition:
             background-color 160ms ease,
@@ -43,14 +43,19 @@
 
     &.active {
         .tab-inner {
-            border-color: rgb(from var(--accent-color) r g b / 0.36);
-            border-radius: 6px;
-            background: var(--surface-selected-color);
-            box-shadow: inset 0 -1px 0 rgb(from var(--accent-color) r g b / 0.45);
+            border-color: rgb(from var(--accent-color) r g b / 0.42);
+            background: linear-gradient(
+                180deg,
+                rgb(from var(--accent-color) r g b / 0.17),
+                rgb(from var(--accent-color) r g b / 0.11)
+            );
+            box-shadow:
+                inset 0 -1px 0 rgb(from var(--accent-color) r g b / 0.6),
+                0 1px 4px rgb(from var(--main-bg-color) r g b / 0.24);
         }
 
         .name {
-            color: rgba(255, 255, 255, 1);
+            color: var(--text-primary-color);
             font-weight: 600;
         }
     }
@@ -93,6 +98,10 @@
         padding: 1px 2px;
         transition: none !important;
         border-radius: 4px;
+
+        &:focus-visible {
+            box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.3);
+        }
     }
 
     .close {

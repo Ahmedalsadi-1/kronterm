@@ -732,6 +732,19 @@ function registerGlobalKeys() {
         WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
         return true;
     });
+    globalKeyMap.set("Ctrl:Shift:t", () => {
+        const blockId = getFocusedBlockInStaticTab();
+        if (!blockId) return false;
+        const bcm = getBlockComponentModel(blockId);
+        if (bcm?.viewModel?.viewType !== "sandbox") return false;
+        const desktopUrl = "http://localhost:9990/computer-use";
+        fetch(desktopUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "screenshot" }),
+        }).catch(() => {});
+        return true;
+    });
     const allKeys = Array.from(globalKeyMap.keys());
     // special case keys, handled by web view
     allKeys.push("Cmd:l", "Cmd:r", "Cmd:ArrowRight", "Cmd:ArrowLeft", "Cmd:o");

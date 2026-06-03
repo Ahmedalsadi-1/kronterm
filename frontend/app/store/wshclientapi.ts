@@ -30,6 +30,24 @@ export class RpcApiType {
         return client.wshRpcCall("aisendmessage", data, opts);
     }
 
+    // command "appstreamaction" [call]
+    AppStreamActionCommand(client: WshClient, data: AppStreamActionRequest, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "appstreamaction", data, opts);
+        return client.wshRpcCall("appstreamaction", data, opts);
+    }
+
+    // command "appstreamstart" [call]
+    AppStreamStartCommand(client: WshClient, data: AppStreamStartRequest, opts?: RpcOpts): Promise<AppStreamStartResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "appstreamstart", data, opts);
+        return client.wshRpcCall("appstreamstart", data, opts);
+    }
+
+    // command "appstreamstop" [call]
+    AppStreamStopCommand(client: WshClient, data: AppStreamStopRequest, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "appstreamstop", data, opts);
+        return client.wshRpcCall("appstreamstop", data, opts);
+    }
+
     // command "authenticate" [call]
     AuthenticateCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<CommandAuthenticateRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "authenticate", data, opts);
@@ -400,6 +418,12 @@ export class RpcApiType {
     GetAllVarsCommand(client: WshClient, data: CommandVarData, opts?: RpcOpts): Promise<CommandVarResponseData[]> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getallvars", data, opts);
         return client.wshRpcCall("getallvars", data, opts);
+    }
+
+    // command "getblockcontent" [call]
+    GetBlockContentCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<CommandGetBlockContentRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getblockcontent", data, opts);
+        return client.wshRpcCall("getblockcontent", data, opts);
     }
 
     // command "getfocusedblockdata" [call]

@@ -84,6 +84,7 @@ export enum LayoutTreeActionType {
     DeleteNode = "delete",
     FocusNode = "focus",
     MagnifyNodeToggle = "magnify",
+    FoldNodeToggle = "fold",
     ClearTree = "clear",
     ReplaceNode = "replace",
     SplitHorizontal = "splithorizontal",
@@ -283,6 +284,11 @@ export interface LayoutTreeMagnifyNodeToggleAction extends LayoutTreeAction {
     nodeId: string;
 }
 
+export interface LayoutTreeFoldNodeToggleAction extends LayoutTreeAction {
+    type: LayoutTreeActionType.FoldNodeToggle;
+    nodeId: string;
+}
+
 /**
  * Action for clearing all nodes from the layout tree.
  */
@@ -307,6 +313,7 @@ export type LayoutTreeState = {
     rootNode: LayoutNode;
     focusedNodeId?: string;
     magnifiedNodeId?: string;
+    foldedNodeIds?: Set<string>;
     /**
      * A computed ordered list of leafs in the layout. This value is driven by the LayoutModel and should not be read when updated from the backend.
      */
@@ -391,11 +398,13 @@ export interface NodeModel {
     isResizing: Atom<boolean>;
     isFocused: Atom<boolean>;
     isMagnified: Atom<boolean>;
+    isFolded: Atom<boolean>;
     anyMagnified: Atom<boolean>;
     isEphemeral: Atom<boolean>;
     ready: Atom<boolean>;
     disablePointerEvents: Atom<boolean>;
     toggleMagnify: () => void;
+    toggleFold: () => void;
     focusNode: () => void;
     onClose: () => void;
     dragHandleRef?: React.RefObject<HTMLDivElement>;

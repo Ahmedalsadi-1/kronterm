@@ -49,8 +49,19 @@ func (t *ClickTool) Execute(ctx context.Context, args map[string]interface{}) (s
 		return "", fmt.Errorf("click only supported on macOS")
 	}
 
-	x := int(args["x"].(float64))
-	y := int(args["y"].(float64))
+	xVal, ok := args["x"].(float64)
+	if !ok {
+		return "", fmt.Errorf("missing or invalid required parameter: x")
+	}
+	yVal, ok := args["y"].(float64)
+	if !ok {
+		return "", fmt.Errorf("missing or invalid required parameter: y")
+	}
+	x := int(xVal)
+	y := int(yVal)
+	if x < 0 || x > 10000 || y < 0 || y > 10000 {
+		return "", fmt.Errorf("coordinates out of range: (%d, %d)", x, y)
+	}
 
 	script := fmt.Sprintf(`osascript -e 'tell application "System Events" to click at {%d, %d}'`, x, y)
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
@@ -76,7 +87,9 @@ func (t *TypeTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		return "", fmt.Errorf("missing required parameter: text")
 	}
 
-	script := fmt.Sprintf(`osascript -e 'tell application "System Events" to keystroke "%s"'`, strings.ReplaceAll(text, `"`, `\"`))
+	escaped := strings.ReplaceAll(text, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	script := fmt.Sprintf(`osascript -e 'tell application "System Events" to keystroke "%s"'`, escaped)
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -90,27 +103,82 @@ type HotkeyTool struct{}
 func (t *HotkeyTool) Name() string        { return "desktop_hotkey" }
 func (t *HotkeyTool) Description() string { return "Press a keyboard shortcut combination" }
 
+// modifierMap maps human-readable modifier names to osascript key terms
+var modifierMap = map[string]string{
+	"command": "command down",
+	"cmd":     "command down",
+	"option":  "option down",
+	"opt":     "option down",
+	"alt":     "option down",
+	"shift":   "shift down",
+	"control": "control down",
+	"ctrl":    "control down",
+}
+
+var knownModifiers = map[string]bool{
+	"command": true, "cmd": true,
+	"option": true, "opt": true, "alt": true,
+	"shift": true,
+	"control": true, "ctrl": true,
+}
+
 func (t *HotkeyTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
 	if runtime.GOOS != "darwin" {
 		return "", fmt.Errorf("hotkey only supported on macOS")
 	}
 
-	keys, ok := args["keys"].([]interface{})
-	if !ok || len(keys) == 0 {
-		return "", fmt.Errorf("missing required parameter: keys")
+	rawKeys, ok := args["keys"].([]interface{})
+	if !ok || len(rawKeys) == 0 {
+		return "", fmt.Errorf("missing required parameter: keys (array of key strings)")
 	}
 
-	var keyParts []string
-	for _, k := range keys {
-		keyParts = append(keyParts, fmt.Sprintf(`"%s"`, k))
+	var modifiers []string
+	var mainKey string
+	for i, k := range rawKeys {
+		keyStr, ok := k.(string)
+		if !ok {
+			return "", fmt.Errorf("key at index %d is not a string", i)
+		}
+		lower := strings.ToLower(keyStr)
+		if knownModifiers[lower] {
+			modTerm, exists := modifierMap[lower]
+			if exists {
+				modifiers = append(modifiers, modTerm)
+			}
+		} else {
+			mainKey = keyStr
+		}
 	}
-	script := fmt.Sprintf(`osascript -e 'tell application "System Events" to keystroke %s using {%s}'`, keyParts[len(keyParts)-1], strings.Join(keyParts[:len(keyParts)-1], ", "))
+
+	if mainKey == "" {
+		return "", fmt.Errorf("no main key found in keys array (all entries are modifiers)")
+	}
+
+	var script string
+	if len(modifiers) > 0 {
+		script = fmt.Sprintf(
+			`osascript -e 'tell application "System Events" to keystroke "%s" using {%s}'`,
+			escapeKey(mainKey), strings.Join(modifiers, ", "),
+		)
+	} else {
+		script = fmt.Sprintf(
+			`osascript -e 'tell application "System Events" to keystroke "%s"'`,
+			escapeKey(mainKey),
+		)
+	}
+
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("hotkey failed: %v, output: %s", err, string(out))
 	}
-	return fmt.Sprintf("Pressed hotkey: %v", keys), nil
+	return fmt.Sprintf("Pressed hotkey: %s", mainKey), nil
+}
+
+func escapeKey(key string) string {
+	key = strings.ReplaceAll(key, "\\", "\\\\")
+	key = strings.ReplaceAll(key, `"`, `\"`)
+	return key
 }
 
 type WindowListTool struct{}
@@ -148,7 +216,9 @@ func (t *ClipboardGetTool) Execute(ctx context.Context, args map[string]interfac
 	if err != nil {
 		return "", fmt.Errorf("clipboard_get failed: %v", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	result := strings.TrimSpace(string(out))
+	result = strings.ReplaceAll(result, "\n", " ")
+	return result, nil
 }
 
 type ClipboardSetTool struct{}
@@ -166,7 +236,9 @@ func (t *ClipboardSetTool) Execute(ctx context.Context, args map[string]interfac
 		return "", fmt.Errorf("missing required parameter: value")
 	}
 
-	script := fmt.Sprintf(`osascript -e 'set the clipboard to "%s"'`, strings.ReplaceAll(text, `"`, `\"`))
+	escaped := strings.ReplaceAll(text, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	script := fmt.Sprintf(`osascript -e 'set the clipboard to "%s"'`, escaped)
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

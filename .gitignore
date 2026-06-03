@@ -49,3 +49,7 @@ kronoscode/tmp/
 kronoscode/.tmp/
 kronoscode/*.bun-build
 .sisyphus/
+
+# Embedded repositories
+kronoscoder/
+packages/kronbotd/

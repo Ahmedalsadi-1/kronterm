@@ -27,8 +27,8 @@ const STATUS_CFG: Record<AgentStatus, { label: string; color: string; icon: stri
 
 const FALLBACK: CatalogAgent[] = [
     { id: "kronoscode", name: "KronosCode", kind: "kronoscode", status: "ready", available: true, icon: "⬡", description: "Main AI coding agent" },
-    { id: "computer-use-mcp", name: "Bytebot MCP", kind: "mcp", status: "missing", available: false, icon: "▣", description: "Computer use via MCP" },
-    { id: "bytebot-desktop", name: "Bytebot Desktop", kind: "desktop", status: "missing", available: false, icon: "▤", description: "Desktop automation" },
+    { id: "computer-use-mcp", name: "Kron Computer Use", kind: "mcp", status: "missing", available: false, icon: "▣", description: "Native desktop control with visual cursor motion" },
+    { id: "kronterm-desktop", name: "Kronterm Desktop", kind: "desktop", status: "missing", available: false, icon: "▤", description: "Desktop automation" },
     { id: "codex", name: "Codex", kind: "acp", status: "missing", available: false, icon: "◈", description: "OpenAI Codex CLI", install: { command: ["npm", "i", "-g", "@openai/codex"] } },
     { id: "gemini", name: "Gemini", kind: "acp", status: "missing", available: false, icon: "✦", description: "Google Gemini CLI", install: { command: ["npm", "i", "-g", "@google/gemini-cli"] } },
 ];

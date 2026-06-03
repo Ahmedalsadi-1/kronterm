@@ -42,6 +42,11 @@ var SystemPromptText_OpenAI = strings.Join([]string{
 	`To help you understand the entire project, use the "codebase_get_structure" tool to see the file tree and "codebase_search" to find code snippets across the whole repo. Use these tools proactively when the user asks about project-wide concepts or when you need to find where something is defined.`,
 	`If the user asks you to deal with remote files say that these features aren't available yet AND make sure to say that they are coming soon (stay tuned for updates).`,
 
+	// Desktop tool usage guidance
+	`Desktop tools (prefixed with "desktop_") control a separate Linux sandbox desktop running alongside Kronterm. These are distinct from widget tools (prefixed with "widget_") which interact with Kronterm's own block widgets. Desktop tools use absolute pixel screen coordinates; widget tools use coordinates relative to the block.`,
+	`When using desktop tools, always take a screenshot first to see the current desktop state. Use the coordinates from the screenshot image to determine where to click with desktop_mouse_click. The desktop has a fixed resolution (the image dimensions from desktop_screenshot). To type text on the desktop, use desktop_keyboard_type. To send special key combinations (like Ctrl+C, Alt+Tab), use desktop_keyboard_press with the comma-separated key names (e.g., "Control,c" for Ctrl+C).`,
+	`Desktop tools require a running sandbox session. If desktop tools are available, the toolbar at the top of the sandbox block shows start/stop controls. Use desktop_application to open or switch to specific applications on the sandbox desktop.`,
+
 	// Final reminder
 	`You have NO API access to Kronterm widgets or host internals unless provided via an explicit tool.`,
 }, " ")

@@ -12,6 +12,39 @@
     min-height: 0;
     border-radius: var(--block-border-radius);
 
+    &.block-folded {
+        height: 0px;
+        min-height: 0px;
+        max-height: 0px;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        padding: 0;
+        margin: 0;
+
+        .block-content {
+            display: none;
+        }
+
+        .block-frame-default-inner {
+            height: 0px;
+            padding: 0;
+            margin: 0;
+        }
+
+        .block-frame-fold-btn i {
+            transform: rotate(180deg);
+        }
+
+        .block-frame-default-header {
+            display: none;
+        }
+    }
+
+    .block-frame-fold-btn {
+        transition: transform 0.2s ease;
+    }
+
     .block-frame-icon {
         margin-right: 0.5em;
     }
@@ -656,5 +689,43 @@
     40% {
         opacity: 1;
         transform: translateY(-3px);
+    }
+}
+
+// KronosCode context ribbon
+.kron-context-ribbon {
+    font-family: var(--font-default);
+    user-select: none;
+}
+
+.kron-context-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--color-saturn, rgb(232, 196, 124));
+    animation: kron-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes kron-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+// Agent action button
+.kron-agent-action-trigger {
+    font-family: var(--font-default);
+    &:focus-visible {
+        outline: 2px solid var(--accent-color, rgb(88, 193, 66));
+        outline-offset: 1px;
+    }
+    svg, i {
+        pointer-events: none;
+    }
+}
+
+.kron-agent-action-menu {
+    font-family: var(--font-default);
+    button {
+        font-family: var(--font-default);
     }
 }

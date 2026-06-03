@@ -137,6 +137,7 @@ const previewElectronApi: ElectronApi = {
     setIsActive: async () => {},
     setDesktopPetActivity: (_notification) => {},
     onDesktopPetChat: (_callback) => () => {},
+    onDesktopPetSurfaceActivity: (_callback) => () => {},
     acpDetectAgents: () => Promise.resolve(previewAcpAgents),
     acpInitialize: (opts: {
         conversationId: string;

@@ -76,6 +76,69 @@ const ToolDesc = memo(({ text, className }: ToolDescProps) => {
 
 ToolDesc.displayName = "ToolDesc";
 
+const toolTypeIcons: Record<string, string> = {
+    browser_navigate: "fa-globe",
+    browser_click: "fa-pointer",
+    browser_type: "fa-keyboard",
+    browser_screenshot: "fa-camera",
+    browser_scroll: "fa-arrows-up-down",
+    browser_fill_form: "fa-file-pen",
+    desktop_screenshot: "fa-desktop",
+    desktop_click: "fa-computer-mouse",
+    desktop_type: "fa-keyboard",
+    desktop_hotkey: "fa-key",
+    desktop_window_list: "fa-window-maximize",
+    desktop_clipboard_get: "fa-clipboard",
+    desktop_clipboard_set: "fa-clipboard",
+    desktop_open_app: "fa-rocket",
+    screen_search: "fa-magnifying-glass",
+    screen_recall: "fa-clock-rotate-left",
+    screen_context: "fa-brain",
+    write_text_file: "fa-file-pen",
+    edit_text_file: "fa-file-lines",
+    read_text_file: "fa-file-import",
+    read_dir: "fa-folder-open",
+    widget_snapshot: "fa-camera",
+    widget_click: "fa-pointer",
+    widget_type: "fa-keyboard",
+    widget_scroll: "fa-arrows-up-down",
+};
+
+function getToolIcon(toolname: string): string {
+    return toolTypeIcons[toolname] ?? "fa-wand-magic-sparkles";
+}
+
+function ToolStatusIcon({ status }: { status: string }) {
+    if (status === "running") {
+        return (
+            <span className="relative inline-flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-sky-500" />
+            </span>
+        );
+    }
+    if (status === "completed") {
+        return (
+            <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-emerald-500/20 text-emerald-400"
+                style={{ animation: "statusCompletePop 0.3s ease-out" }}>
+                <i className="fa fa-check text-[10px]" />
+            </span>
+        );
+    }
+    if (status === "error") {
+        return (
+            <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-red-500/20 text-red-400">
+                <i className="fa fa-xmark text-[10px]" />
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center justify-center h-4 w-4 text-gray-400">
+            <i className="fa fa-circle text-[6px]" />
+        </span>
+    );
+}
+
 function getToolSourceBadge(toolSource?: string): { label: string; className: string } | null {
     if (toolSource === "kronos") {
         return {
@@ -178,18 +241,11 @@ interface AIToolUseBatchItemProps {
 }
 
 const AIToolUseBatchItem = memo(({ part, effectiveApproval }: AIToolUseBatchItemProps) => {
-    const statusIcon = part.data.status === "completed" ? "✓" : part.data.status === "error" ? "✗" : "•";
-    const statusColor =
-        part.data.status === "completed"
-            ? "text-success"
-            : part.data.status === "error"
-              ? "text-error"
-              : "text-gray-400";
     const effectiveErrorMessage = part.data.errormessage || (effectiveApproval === "timeout" ? "Not approved" : null);
 
     return (
         <div className="text-sm pl-2 flex items-start gap-1.5">
-            <span className={cn("font-bold flex-shrink-0", statusColor)}>{statusIcon}</span>
+            <ToolStatusIcon status={part.data.status} />
             <div className="flex-1">
                 <span className="text-gray-400">{part.data.tooldesc}</span>
                 {effectiveErrorMessage && <div className="text-red-300 mt-0.5">{effectiveErrorMessage}</div>}
@@ -231,6 +287,7 @@ const AIToolUseBatch = memo(({ parts, isStreaming }: AIToolUseBatchProps) => {
         <div className="flex items-start gap-2 p-2 rounded bg-zinc-800/60 border border-zinc-700">
             <div className="flex-1">
                 <div className="flex items-center gap-2">
+                    <i className="fa fa-book-open text-[10px] text-gray-500" />
                     <div className="font-semibold">Reading Files</div>
                     {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
                 </div>
@@ -263,10 +320,8 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
     const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const highlightedBlockIdRef = useRef<string | null>(null);
 
-    const statusIcon = toolData.status === "completed" ? "✓" : toolData.status === "error" ? "✗" : "•";
-    const statusColor =
-        toolData.status === "completed" ? "text-success" : toolData.status === "error" ? "text-error" : "text-gray-400";
     const sourceBadge = getToolSourceBadge(toolData.toolsource);
+    const toolIcon = getToolIcon(toolData.toolname);
 
     const baseApproval = userApprovalOverride || toolData.approval;
     const effectiveApproval = getEffectiveApprovalStatus(baseApproval, isStreaming);
@@ -331,14 +386,22 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
         fireAndForget(() => WaveAIModel.getInstance().openDiff(toolData.inputfilename, toolData.toolcallid));
     };
 
+    const borderColor =
+        toolData.status === "completed"
+            ? "border-emerald-700/40"
+            : toolData.status === "error"
+              ? "border-red-700/40"
+              : "border-zinc-700/60";
+
     return (
         <div
-            className={cn("flex flex-col gap-1 p-2 rounded bg-zinc-800/60 border border-zinc-700", statusColor)}
+            className={cn("flex flex-col gap-1 p-2 rounded bg-zinc-800/60 border", borderColor)}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
             <div className="flex items-center gap-2">
-                <span className="font-bold">{statusIcon}</span>
+                <ToolStatusIcon status={toolData.status} />
+                <i className={cn("tool-type-icon fa", toolIcon)} />
                 <div className="font-semibold">{toolData.toolname}</div>
                 {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
                 {toolData.actsonwidgets && (
@@ -398,12 +461,19 @@ interface AIToolProgressProps {
 
 const AIToolProgress = memo(({ part }: AIToolProgressProps) => {
     const progressData = part.data;
+    const toolIcon = getToolIcon(progressData.toolname);
 
     return (
-        <div className="flex flex-col gap-1 p-2 rounded bg-zinc-800/60 border border-zinc-700">
+        <div className="flex flex-col gap-1.5 p-2 rounded bg-zinc-800/60 border border-sky-700/40">
             <div className="flex items-center gap-2">
-                <i className="fa fa-spinner fa-spin text-gray-400"></i>
-                <div className="font-semibold">{progressData.toolname}</div>
+                <ToolStatusIcon status="running" />
+                <i className={cn("tool-type-icon fa", toolIcon)} />
+                <div className="font-semibold text-sky-200">{progressData.toolname}</div>
+                <div className="flex-1" />
+                <span className="text-[10px] text-sky-400/60 uppercase tracking-wide animate-pulse">Running</span>
+            </div>
+            <div className="tool-use-progress-bar">
+                <div className="tool-use-progress-fill" />
             </div>
             {progressData.statuslines && progressData.statuslines.length > 0 && (
                 <ToolDesc text={progressData.statuslines} className="text-sm text-gray-400 pl-6 space-y-0.5" />

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -315,6 +315,77 @@ export class WshBridge {
         return this.run(["-b", this.blockRef(blockId), "widget", "clipboard-set", "--text", text]);
     }
 
+    // ── Sandbox VM ─────────────────────────────────────────────────────
+
+    private sandboxArgs(sessionId: string, command: string): string[] {
+        return ["sandbox", "--session-id", sessionId, command];
+    }
+
+    async sandboxStart(sessionId = "default", mode?: string, browserUrl?: string): Promise<string> {
+        const args = this.sandboxArgs(sessionId, "start");
+        if (mode) args.push("--mode", mode);
+        if (browserUrl) args.push("--browser-url", browserUrl);
+        return this.run(args);
+    }
+
+    async sandboxStatus(sessionId = "default"): Promise<string> {
+        return this.run(this.sandboxArgs(sessionId, "status"));
+    }
+
+    async sandboxStop(sessionId = "default"): Promise<string> {
+        return this.run(this.sandboxArgs(sessionId, "stop"));
+    }
+
+    async sandboxScreenshot(sessionId = "default"): Promise<string> {
+        return this.run(this.sandboxArgs(sessionId, "screenshot"));
+    }
+
+    async sandboxMouseMove(sessionId: string, x: number, y: number): Promise<string> {
+        return this.run([...this.sandboxArgs(sessionId, "mouse-move"), String(x), String(y)]);
+    }
+
+    async sandboxClick(sessionId: string, x?: number, y?: number, button?: string, count?: number): Promise<string> {
+        const args = this.sandboxArgs(sessionId, "click");
+        if (x != null && y != null) args.push("--at", "--x", String(x), "--y", String(y));
+        if (button) args.push("--button", button);
+        if (count != null) args.push("--count", String(count));
+        return this.run(args);
+    }
+
+    async sandboxType(sessionId: string, text: string, delayMs?: number): Promise<string> {
+        const args = [...this.sandboxArgs(sessionId, "type"), text];
+        if (delayMs != null) args.push("--delay", String(delayMs));
+        return this.run(args);
+    }
+
+    async sandboxPaste(sessionId: string, text: string): Promise<string> {
+        return this.run([...this.sandboxArgs(sessionId, "paste"), text]);
+    }
+
+    async sandboxPress(sessionId: string, keys: string[]): Promise<string> {
+        return this.run([...this.sandboxArgs(sessionId, "press"), ...keys]);
+    }
+
+    async sandboxScroll(sessionId: string, direction?: string, count?: number, x?: number, y?: number): Promise<string> {
+        const args = this.sandboxArgs(sessionId, "scroll");
+        if (direction) args.push("--direction", direction);
+        if (count != null) args.push("--count", String(count));
+        if (x != null && y != null) args.push("--at", "--x", String(x), "--y", String(y));
+        return this.run(args);
+    }
+
+    async sandboxDrag(sessionId: string, startX: number, startY: number, endX: number, endY: number, button?: string): Promise<string> {
+        const args = [
+            ...this.sandboxArgs(sessionId, "drag"),
+            String(startX),
+            String(startY),
+            String(endX),
+            String(endY),
+        ];
+        if (button) args.push("--button", button);
+        return this.run(args);
+    }
+
     // ── New: Launch Widget ──────────────────────────────────────────────
 
     async launchWidget(widgetKey: string, magnified?: boolean): Promise<string> {
@@ -447,15 +518,30 @@ export class WshBridge {
     // ── Agent Activity (for KronosCode integration) ────────────────────
 
     async publishAgentSurfaceActivity(activity: Record<string, unknown>): Promise<void> {
-        await this.run(["agentactivity", JSON.stringify(activity)]);
-        const petActivityUrl = process.env.KRONOSCODE_PET_ACTIVITY_URL;
-        if (!petActivityUrl) {
-            return;
+        const waveActivity = { ...activity };
+        if (typeof waveActivity.previewimageurl === "string" && waveActivity.previewimageurl.length > 64 * 1024) {
+            delete waveActivity.previewimageurl;
         }
-        await fetch(petActivityUrl, {
+        spawn(this.wshPath, ["agentactivity", JSON.stringify(waveActivity)], {
+            stdio: "ignore",
+            env: { ...process.env },
+            detached: true,
+        }).unref();
+        const petActivityUrl =
+            process.env.KRONTERM_PET_ACTIVITY_URL ??
+            process.env.KRONOSCODE_PET_ACTIVITY_URL ??
+            "http://127.0.0.1:4097/pet/activity";
+        const phase = activity.phase;
+        const action = activity.action;
+        fetch(petActivityUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(activity),
+            body: JSON.stringify({
+                kind: phase === "finish" || phase === "error" ? "idle" : "tool",
+                detail: typeof activity.detail === "string" ? activity.detail : action,
+                cursorPoint: activity.point,
+                surfaceActivity: activity,
+            }),
         }).catch(() => undefined);
     }
 }

@@ -14,20 +14,21 @@ export class BlockModel {
     private blockHighlightAtomCache = new Map<string, jotai.Atom<BlockHighlightType | null>>();
 
     blockHighlightAtom: jotai.PrimitiveAtom<BlockHighlightType> = jotai.atom(null) as jotai.PrimitiveAtom<BlockHighlightType>;
+    blockHighlightsAtom: jotai.PrimitiveAtom<BlockHighlightType[]> = jotai.atom([]) as jotai.PrimitiveAtom<BlockHighlightType[]>;
 
-    private constructor() {
-        // Empty for now
-    }
+    private constructor() {}
 
     getBlockHighlightAtom(blockId: string): jotai.Atom<BlockHighlightType | null> {
         let atom = this.blockHighlightAtomCache.get(blockId);
         if (!atom) {
             atom = jotai.atom((get) => {
-                const highlight = get(this.blockHighlightAtom);
-                if (highlight?.blockId === blockId) {
-                    return highlight;
+                const single = get(this.blockHighlightAtom);
+                if (single?.blockId === blockId) {
+                    return single;
                 }
-                return null;
+                const highlights = get(this.blockHighlightsAtom);
+                const found = highlights.find((h) => h.blockId === blockId);
+                return found ?? null;
             });
             this.blockHighlightAtomCache.set(blockId, atom);
         }
@@ -36,6 +37,27 @@ export class BlockModel {
 
     setBlockHighlight(highlight: BlockHighlightType | null) {
         globalStore.set(this.blockHighlightAtom, highlight);
+    }
+
+    addBlockHighlight(highlight: BlockHighlightType) {
+        const current = globalStore.get(this.blockHighlightsAtom);
+        const exists = current.some((h) => h.blockId === highlight.blockId);
+        if (!exists) {
+            globalStore.set(this.blockHighlightsAtom, [...current, highlight]);
+        }
+    }
+
+    removeBlockHighlight(blockId: string) {
+        const current = globalStore.get(this.blockHighlightsAtom);
+        globalStore.set(this.blockHighlightsAtom, current.filter((h) => h.blockId !== blockId));
+    }
+
+    clearBlockHighlights() {
+        globalStore.set(this.blockHighlightsAtom, []);
+    }
+
+    getBlockHighlights(): BlockHighlightType[] {
+        return globalStore.get(this.blockHighlightsAtom);
     }
 
     static getInstance(): BlockModel {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { BlockNodeModel } from "@/app/block/blocktypes";
+import { getSettingsKeyAtom } from "@/app/store/global";
 import { Search, useSearch } from "@/app/element/search";
 import { globalStore } from "@/app/store/jotaiStore";
 import { getSimpleControlShiftAtom } from "@/app/store/keymodel";
@@ -15,7 +16,6 @@ import {
 } from "@/app/suggestion/suggestion";
 import { MockBoundary } from "@/app/waveenv/mockboundary";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { openLink } from "@/store/global";
 import { adaptFromReactOrNativeKeyEvent, checkKeyPressed } from "@/util/keyutil";
 import { fireAndForget, useAtomValueSafe } from "@/util/util";
 import clsx from "clsx";
@@ -25,6 +25,13 @@ import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } f
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
 
+type BrowserTabRecord = {
+    id: string;
+    url: string;
+    title?: string;
+    favicon?: string;
+};
+
 // User agent strings for mobile emulation
 const USER_AGENT_IPHONE =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -32,6 +39,35 @@ const USER_AGENT_ANDROID =
     "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.43 Mobile Safari/537.36";
 
 let webviewPreloadUrl = null;
+
+function makeBrowserTabId(): string {
+    return `webtab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeBrowserTabs(block: Block | null | undefined, fallbackUrl: string): BrowserTabRecord[] {
+    const meta = block?.meta as Record<string, any> | undefined;
+    const rawTabs = meta?.["web:tabs"];
+    if (Array.isArray(rawTabs)) {
+        const tabs = rawTabs
+            .map((tab) => ({
+                id: String(tab?.id ?? makeBrowserTabId()),
+                url: String(tab?.url ?? fallbackUrl ?? "about:blank"),
+                title: typeof tab?.title === "string" ? tab.title : undefined,
+                favicon: typeof tab?.favicon === "string" ? tab.favicon : undefined,
+            }))
+            .filter((tab) => tab.url);
+        if (tabs.length > 0) {
+            return tabs;
+        }
+    }
+    return [
+        {
+            id: String(meta?.["web:activetabid"] ?? makeBrowserTabId()),
+            url: fallbackUrl || "about:blank",
+            title: fallbackUrl || "New tab",
+        },
+    ];
+}
 
 function getWebviewPreloadUrl(env: WebViewEnv) {
     if (webviewPreloadUrl == null) {
@@ -372,16 +408,107 @@ export class WebViewModel implements ViewModel {
      * @param url The URL that has been navigated to.
      */
     handleNavigate(url: string) {
+        const blockData = globalStore.get(this.blockAtom);
+        const tabs = this.getBrowserTabs(blockData);
+        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
+        const nextTabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, url } : tab));
         fireAndForget(() =>
             this.env.rpc.SetMetaCommand(TabRpcClient, {
                 oref: makeORef("block", this.blockId),
-                meta: { url },
+                meta: { url, "web:tabs": nextTabs, "web:activetabid": activeTabId } as unknown as MetaType,
             })
         );
         globalStore.set(this.url, url);
         if (this.searchAtoms) {
             globalStore.set(this.searchAtoms.isOpen, false);
         }
+    }
+
+    getBrowserTabs(blockData?: Block | null): BrowserTabRecord[] {
+        const defaultUrl = globalStore.get(this.homepageUrl) || "";
+        const fallbackUrl = (blockData?.meta as Record<string, any> | undefined)?.url || defaultUrl || "about:blank";
+        return normalizeBrowserTabs(blockData, fallbackUrl);
+    }
+
+    getActiveBrowserTabId(blockData?: Block | null, tabs?: BrowserTabRecord[]): string {
+        const meta = blockData?.meta as Record<string, any> | undefined;
+        const browserTabs = tabs ?? this.getBrowserTabs(blockData);
+        const activeTabId = typeof meta?.["web:activetabid"] === "string" ? meta["web:activetabid"] : "";
+        if (browserTabs.some((tab) => tab.id === activeTabId)) {
+            return activeTabId;
+        }
+        return browserTabs[0]?.id ?? makeBrowserTabId();
+    }
+
+    persistBrowserTabs(tabs: BrowserTabRecord[], activeTabId: string, url?: string) {
+        fireAndForget(() =>
+            this.env.rpc.SetMetaCommand(TabRpcClient, {
+                oref: makeORef("block", this.blockId),
+                meta: {
+                    url: url ?? tabs.find((tab) => tab.id === activeTabId)?.url ?? null,
+                    "web:tabs": tabs,
+                    "web:activetabid": activeTabId,
+                } as unknown as MetaType,
+            })
+        );
+    }
+
+    addBrowserTab(url?: string, title?: string) {
+        const blockData = globalStore.get(this.blockAtom);
+        const defaultUrl = globalStore.get(this.homepageUrl) || "about:blank";
+        const nextUrl = this.ensureUrlScheme(url || defaultUrl, globalStore.get(this.env.getSettingsKeyAtom("web:defaultsearch")));
+        const tabs = this.getBrowserTabs(blockData);
+        const tab: BrowserTabRecord = {
+            id: makeBrowserTabId(),
+            url: nextUrl,
+            title: title || nextUrl,
+        };
+        const nextTabs = [...tabs, tab];
+        this.persistBrowserTabs(nextTabs, tab.id, nextUrl);
+        this.loadUrl(nextUrl, "new-tab");
+    }
+
+    activateBrowserTab(tabId: string) {
+        const blockData = globalStore.get(this.blockAtom);
+        const tabs = this.getBrowserTabs(blockData);
+        const tab = tabs.find((candidate) => candidate.id === tabId);
+        if (!tab) {
+            return;
+        }
+        this.persistBrowserTabs(tabs, tab.id, tab.url);
+        this.loadUrl(tab.url, "activate-tab");
+    }
+
+    closeBrowserTab(tabId: string) {
+        const blockData = globalStore.get(this.blockAtom);
+        const tabs = this.getBrowserTabs(blockData);
+        if (tabs.length <= 1) {
+            const defaultUrl = globalStore.get(this.homepageUrl) || "about:blank";
+            const nextTab = { id: makeBrowserTabId(), url: defaultUrl, title: "New tab" };
+            this.persistBrowserTabs([nextTab], nextTab.id, defaultUrl);
+            this.loadUrl(defaultUrl, "close-last-tab");
+            return;
+        }
+        const closeIndex = tabs.findIndex((tab) => tab.id === tabId);
+        const nextTabs = tabs.filter((tab) => tab.id !== tabId);
+        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
+        const nextActiveTab =
+            activeTabId === tabId ? nextTabs[Math.max(0, closeIndex - 1)] ?? nextTabs[0] : nextTabs.find((tab) => tab.id === activeTabId);
+        if (!nextActiveTab) {
+            return;
+        }
+        this.persistBrowserTabs(nextTabs, nextActiveTab.id, nextActiveTab.url);
+        if (activeTabId === tabId) {
+            this.loadUrl(nextActiveTab.url, "close-tab");
+        }
+    }
+
+    updateActiveBrowserTab(patch: Partial<BrowserTabRecord>) {
+        const blockData = globalStore.get(this.blockAtom);
+        const tabs = this.getBrowserTabs(blockData);
+        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
+        const nextTabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, ...patch } : tab));
+        this.persistBrowserTabs(nextTabs, activeTabId, nextTabs.find((tab) => tab.id === activeTabId)?.url);
     }
 
     ensureUrlScheme(url: string, searchTemplate: string) {
@@ -838,7 +965,10 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     const defaultUrl = useAtomValue(model.homepageUrl);
     const defaultSearchAtom = env.getSettingsKeyAtom("web:defaultsearch");
     const defaultSearch = useAtomValue(defaultSearchAtom);
-    let metaUrl = blockData?.meta?.url || defaultUrl || "";
+    const browserTabs = model.getBrowserTabs(blockData);
+    const activeTabId = model.getActiveBrowserTabId(blockData, browserTabs);
+    const activeTab = browserTabs.find((tab) => tab.id === activeTabId) ?? browserTabs[0];
+    let metaUrl = activeTab?.url || blockData?.meta?.url || defaultUrl || "";
     if (metaUrl) {
         metaUrl = model.ensureUrlScheme(metaUrl, defaultSearch);
     }
@@ -848,6 +978,9 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     const metaPartition = useAtomValue(env.getBlockMetaKeyAtom(model.blockId, "web:partition"));
     const webPartition = partitionOverride || metaPartition || undefined;
     const userAgentType = useAtomValue(model.userAgentType) || "default";
+    const hideNav = useAtomValue(model.hideNav);
+    const tabStripPosition =
+        (useAtomValue(getSettingsKeyAtom("web:tabstripposition" as keyof SettingsType)) as string | null) ?? "top";
 
     // Determine user agent string based on type
     let userAgent: string | undefined = undefined;
@@ -1010,8 +1143,24 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         };
         const newWindowHandler = (e: any) => {
             e.preventDefault();
-            const newUrl = e.detail.url;
-            fireAndForget(() => openLink(newUrl, true));
+            const newUrl = e?.detail?.url || e?.url;
+            if (!newUrl) {
+                return;
+            }
+            model.addBrowserTab(newUrl);
+        };
+        const titleUpdatedHandler = (e: any) => {
+            if (typeof e?.title !== "string" || e.title.length === 0) {
+                return;
+            }
+            model.updateActiveBrowserTab({ title: e.title });
+        };
+        const faviconUpdatedHandler = (e: any) => {
+            const favicons = e?.favicons;
+            if (!Array.isArray(favicons) || favicons.length === 0) {
+                return;
+            }
+            model.updateActiveBrowserTab({ favicon: favicons[0] });
         };
         const startLoadingHandler = () => {
             model.setRefreshIcon("xmark-large");
@@ -1060,6 +1209,8 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         webview.addEventListener("did-start-loading", startLoadingHandler);
         webview.addEventListener("did-stop-loading", stopLoadingHandler);
         webview.addEventListener("new-window", newWindowHandler);
+        webview.addEventListener("page-title-updated", titleUpdatedHandler);
+        webview.addEventListener("page-favicon-updated", faviconUpdatedHandler);
         webview.addEventListener("did-fail-load", failLoadHandler);
         webview.addEventListener("focus", webviewFocus);
         webview.addEventListener("blur", webviewBlur);
@@ -1074,6 +1225,8 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             webview.removeEventListener("did-navigate", navigateListener);
             webview.removeEventListener("did-navigate-in-page", navigateListener);
             webview.removeEventListener("new-window", newWindowHandler);
+            webview.removeEventListener("page-title-updated", titleUpdatedHandler);
+            webview.removeEventListener("page-favicon-updated", faviconUpdatedHandler);
             webview.removeEventListener("did-fail-load", failLoadHandler);
             webview.removeEventListener("did-start-loading", startLoadingHandler);
             webview.removeEventListener("did-stop-loading", stopLoadingHandler);
@@ -1086,28 +1239,84 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         };
     }, []);
 
+    const tabStrip = !hideNav ? (
+        <div className={clsx("webview-tab-strip", tabStripPosition === "left" && "is-left")}>
+            <div className="webview-tab-scroll">
+                {browserTabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        className={clsx("webview-tab", tab.id === activeTabId && "is-active")}
+                        title={tab.url}
+                        onClick={() => model.activateBrowserTab(tab.id)}
+                    >
+                        {tab.favicon ? (
+                            <img className="webview-tab-favicon" src={tab.favicon} alt="" />
+                        ) : (
+                            <i className="fa-solid fa-globe webview-tab-icon" />
+                        )}
+                        <span className="webview-tab-title">{tab.title || tab.url || "New tab"}</span>
+                        <span
+                            role="button"
+                            tabIndex={0}
+                            className="webview-tab-close"
+                            title="Close tab"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                model.closeBrowserTab(tab.id);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    model.closeBrowserTab(tab.id);
+                                }
+                            }}
+                        >
+                            <i className="fa-solid fa-xmark" />
+                        </span>
+                    </button>
+                ))}
+            </div>
+            <button
+                type="button"
+                className="webview-tab-add"
+                title="New tab"
+                onClick={() => model.addBrowserTab()}
+            >
+                <i className="fa-solid fa-plus" />
+            </button>
+        </div>
+    ) : null;
+
     return (
         <Fragment>
-            <MockBoundary fallback={<WebViewPreviewFallback url={metaUrl} />}>
-                <webview
-                    id="webview"
-                    className="webview"
-                    ref={model.webviewRef}
-                    src={metaUrlInitial}
-                    data-blockid={model.blockId}
-                    data-webcontentsid={webContentsId} // needed for emain
-                    preload={getWebviewPreloadUrl(env)}
-                    // @ts-expect-error This is a discrepancy between the React typing and the Chromium impl for webviewTag. Chrome webviewTag expects a string, while React expects a boolean.
-                    allowpopups="true"
-                    partition={webPartition}
-                    useragent={userAgent}
-                />
-            </MockBoundary>
-            {errorText && (
-                <div className="webview-error">
-                    <div>{errorText}</div>
+            <div className={clsx("webview-shell", tabStripPosition === "left" ? "is-left-tabs" : "is-top-tabs")}>
+                {tabStrip}
+                <div className="webview-stage">
+                    <MockBoundary fallback={<WebViewPreviewFallback url={metaUrl} />}>
+                        <webview
+                            id="webview"
+                            className="webview"
+                            ref={model.webviewRef}
+                            src={metaUrlInitial}
+                            data-blockid={model.blockId}
+                            data-webcontentsid={webContentsId} // needed for emain
+                            preload={getWebviewPreloadUrl(env)}
+                            // @ts-expect-error This is a discrepancy between the React typing and the Chromium impl for webviewTag. Chrome webviewTag expects a string, while React expects a boolean.
+                            allowpopups="true"
+                            partition={webPartition}
+                            useragent={userAgent}
+                        />
+                    </MockBoundary>
+                    {errorText && (
+                        <div className="webview-error">
+                            <div>{errorText}</div>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
             <Search {...searchProps} />
             <BookmarkTypeahead model={model} blockRef={blockRef} />
         </Fragment>

@@ -1,0 +1,139 @@
+// Copyright 2026, Command Line Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+.vtab-block-tree {
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 2px 0;
+}
+
+.vtab-block-group {
+    display: flex;
+    flex-direction: column;
+
+    .vtab-block-group-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px 2px 16px;
+        cursor: pointer;
+        border-radius: 3px;
+        margin: 0 4px;
+        font-size: 10px;
+        color: var(--pt-text-secondary);
+        transition: background 0.15s ease;
+        user-select: none;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+    }
+
+    .vtab-block-group-chevron {
+        font-size: 7px;
+        width: 10px;
+        text-align: center;
+        transition: transform 0.15s ease;
+        opacity: 0.5;
+
+        &.expanded {
+            transform: rotate(90deg);
+        }
+    }
+
+    .vtab-block-group-icon {
+        font-size: 10px;
+        width: 14px;
+        text-align: center;
+        opacity: 0.6;
+    }
+
+    .vtab-block-group-name {
+        font-weight: 500;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vtab-block-group-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 3px;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.1);
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--pt-text-tertiary);
+    }
+
+    .vtab-block-group-folded-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 4px;
+        border-radius: 7px;
+        background: rgba(232, 196, 124, 0.2);
+        font-size: 9px;
+        font-weight: 700;
+        color: #e8c47c;
+        margin-left: 2px;
+    }
+
+    .vtab-block-items {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+    }
+
+    .vtab-block-item {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px 2px 24px;
+        cursor: pointer;
+        border-radius: 3px;
+        margin: 0 6px;
+        font-size: 10px;
+        color: var(--pt-text-secondary);
+        transition: background 0.15s ease;
+        user-select: none;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        &.folded {
+            opacity: 0.5;
+            font-style: italic;
+        }
+    }
+
+    .vtab-block-item-icon {
+        font-size: 9px;
+        width: 12px;
+        text-align: center;
+        opacity: 0.5;
+    }
+
+    .vtab-block-item-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vtab-block-item-fold-icon {
+        font-size: 8px;
+        opacity: 0.4;
+    }
+}

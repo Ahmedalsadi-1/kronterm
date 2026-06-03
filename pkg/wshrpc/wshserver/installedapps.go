@@ -6,6 +6,7 @@ package wshserver
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -86,10 +87,11 @@ func parseMacOSApp(ctx context.Context, appPath, source string) *wshrpc.Installe
 	}
 
 	name := strings.TrimSuffix(filepath.Base(appPath), ".app")
-	bundleId := readPlistString(ctx, plistPath, "CFBundleIdentifier")
-	displayName := readPlistString(ctx, plistPath, "CFBundleDisplayName")
-	category := readPlistString(ctx, plistPath, "LSApplicationCategoryType")
-	iconFile := readPlistString(ctx, plistPath, "CFBundleIconFile")
+	plist := readMacOSAppPlist(ctx, plistPath)
+	bundleId := plist.BundleId
+	displayName := plist.DisplayName
+	category := plist.Category
+	iconFile := plist.IconFile
 
 	if displayName != "" {
 		name = displayName
@@ -106,6 +108,7 @@ func parseMacOSApp(ctx context.Context, appPath, source string) *wshrpc.Installe
 	category, description := macOSAppMetadata(name, bundleId, category)
 	return &wshrpc.InstalledAppInfo{
 		Name:        name,
+		AppId:       bundleId,
 		ExecPath:    appPath,
 		Icon:        icon,
 		BundleId:    bundleId,
@@ -115,13 +118,24 @@ func parseMacOSApp(ctx context.Context, appPath, source string) *wshrpc.Installe
 	}
 }
 
-func readPlistString(ctx context.Context, plistPath, key string) string {
-	cmd := exec.CommandContext(ctx, "plutil", "-extract", key, "raw", "-o", "-", plistPath)
+type macOSAppPlist struct {
+	BundleId    string `json:"CFBundleIdentifier"`
+	DisplayName string `json:"CFBundleDisplayName"`
+	Category    string `json:"LSApplicationCategoryType"`
+	IconFile    string `json:"CFBundleIconFile"`
+}
+
+func readMacOSAppPlist(ctx context.Context, plistPath string) macOSAppPlist {
+	cmd := exec.CommandContext(ctx, "plutil", "-convert", "json", "-o", "-", plistPath)
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return macOSAppPlist{}
 	}
-	return strings.TrimSpace(string(out))
+	var plist macOSAppPlist
+	if err := json.Unmarshal(out, &plist); err != nil {
+		return macOSAppPlist{}
+	}
+	return plist
 }
 
 func extractMacOSAppIcon(appPath, iconFile string) string {

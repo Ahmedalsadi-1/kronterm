@@ -18,6 +18,7 @@ func TestRegisterLookupAndCopyIsolation(t *testing.T) {
 		Source:      ToolSourceBuiltin,
 		Risk:        ToolRiskWrite,
 		Packs:       []ToolPack{ToolPackWidget},
+		FallbackIDs: []string{"desktop_click"},
 	}
 
 	if err := registry.Register(capability); err != nil {
@@ -35,9 +36,13 @@ func TestRegisterLookupAndCopyIsolation(t *testing.T) {
 	}
 
 	stored.Packs[0] = ToolPackBrowser
+	stored.FallbackIDs[0] = "browser_open"
 	storedAgain, _ := registry.Lookup("widget_click")
 	if !reflect.DeepEqual(storedAgain.Packs, []ToolPack{ToolPackWidget}) {
 		t.Fatalf("expected lookup result to be isolated, got %#v", storedAgain.Packs)
+	}
+	if !reflect.DeepEqual(storedAgain.FallbackIDs, []string{"desktop_click"}) {
+		t.Fatalf("expected fallback ids to be isolated, got %#v", storedAgain.FallbackIDs)
 	}
 }
 
@@ -77,6 +82,26 @@ func TestListByPackAndSourceAreSorted(t *testing.T) {
 	}
 }
 
+func TestListByAvailabilityAndConnectorAreSorted(t *testing.T) {
+	registry := MakeRegistry()
+	for _, capability := range []Capability{
+		{ID: "mcp:demo:write", Name: "write", Source: ToolSourceMCP, Risk: ToolRiskSensitive, Packs: []ToolPack{ToolPackCore}, Availability: ToolAvailabilityReady, ConnectorID: "demo"},
+		{ID: "mcp:demo:read", Name: "read", Source: ToolSourceMCP, Risk: ToolRiskSensitive, Packs: []ToolPack{ToolPackCore}, Availability: ToolAvailabilityOffline, ConnectorID: "demo"},
+		{ID: "widget_click", Name: "click", Source: ToolSourceBuiltin, Risk: ToolRiskWrite, Packs: []ToolPack{ToolPackWidget}, Availability: ToolAvailabilityReady},
+	} {
+		if err := registry.Register(capability); err != nil {
+			t.Fatalf("register %q: %v", capability.ID, err)
+		}
+	}
+
+	if got := capabilityIDs(registry.ListByAvailability(ToolAvailabilityReady)); !reflect.DeepEqual(got, []string{"mcp:demo:write", "widget_click"}) {
+		t.Fatalf("unexpected ready list: %#v", got)
+	}
+	if got := capabilityIDs(registry.ListByConnector("demo")); !reflect.DeepEqual(got, []string{"mcp:demo:read", "mcp:demo:write"}) {
+		t.Fatalf("unexpected connector list: %#v", got)
+	}
+}
+
 func TestSummaryIncludesManifestAndScorecard(t *testing.T) {
 	registry := MakeRegistry()
 	for _, capability := range []Capability{
@@ -104,6 +129,12 @@ func TestSummaryIncludesManifestAndScorecard(t *testing.T) {
 	}
 	if summary.Scorecard.ByRisk[ToolRiskSensitive] != 1 {
 		t.Fatalf("expected 1 sensitive capability, got %d", summary.Scorecard.ByRisk[ToolRiskSensitive])
+	}
+	if summary.Scorecard.ByAvailability[ToolAvailabilityUnknown] != 3 {
+		t.Fatalf("expected 3 unknown availability capabilities, got %d", summary.Scorecard.ByAvailability[ToolAvailabilityUnknown])
+	}
+	if summary.Scorecard.ByVerification[ToolVerificationResult] != 3 {
+		t.Fatalf("expected 3 result verification capabilities, got %d", summary.Scorecard.ByVerification[ToolVerificationResult])
 	}
 }
 

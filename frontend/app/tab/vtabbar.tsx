@@ -15,6 +15,7 @@ import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
 import { VTab, VTabItem } from "./vtab";
 import { VTabBarEnv } from "./vtabbarenv";
+import { VTabBlockTree } from "./vtab-block-tree";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 export type { VTabItem } from "./vtab";
 
@@ -151,24 +152,27 @@ function VTabWrapper({
     );
 
     return (
-        <VTab
-            key={`${tabId}:${hoverResetVersion}`}
-            tab={tab}
-            active={active}
-            showDivider={showDivider}
-            isDragging={isDragging}
-            isReordering={isReordering}
-            onSelect={onSelect}
-            onClose={onClose}
-            onRename={onRename}
-            onContextMenu={handleContextMenu}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onDragEnd={onDragEnd}
-            onHoverChanged={onHoverChanged}
-            renameRef={renameRef}
-        />
+        <>
+            <VTab
+                key={`${tabId}:${hoverResetVersion}`}
+                tab={tab}
+                active={active}
+                showDivider={showDivider}
+                isDragging={isDragging}
+                isReordering={isReordering}
+                onSelect={onSelect}
+                onClose={onClose}
+                onRename={onRename}
+                onContextMenu={handleContextMenu}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onDragEnd={onDragEnd}
+                onHoverChanged={onHoverChanged}
+                renameRef={renameRef}
+            />
+            <VTabBlockTree tabId={tabId} active={active} />
+        </>
     );
 }
 

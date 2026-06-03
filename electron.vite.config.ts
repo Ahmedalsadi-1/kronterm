@@ -109,6 +109,7 @@ export default defineConfig({
                     index: "emain/preload.ts",
                     "preload-webview": "emain/preload-webview.ts",
                     "preload-pet": "emain/preload-pet.ts",
+                    "preload-overlay": "emain/preload-overlay.ts",
                 },
                 output: {
                     format: "cjs",
@@ -132,6 +133,7 @@ export default defineConfig({
                 input: {
                     index: "index.html",
                     pet: "pet.html",
+                    overlay: "overlay.html",
                 },
                 output: {
                     manualChunks(id) {

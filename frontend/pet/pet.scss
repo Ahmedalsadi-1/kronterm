@@ -66,12 +66,14 @@ input {
     align-items: center;
     gap: 8px;
     padding: 5px 10px;
-    border: 1px solid rgba(103, 212, 252, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 20px;
-    background: rgba(7, 12, 22, 0.72);
-    box-shadow: 0 0 16px rgba(37, 196, 255, 0.2);
+    background: rgba(22, 27, 38, 0.68);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.24),
+        inset 0 1px rgba(255, 255, 255, 0.12);
     color: #dfeeff;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(20px) saturate(145%);
 }
 
 .context {
@@ -102,6 +104,25 @@ input {
     color: #dbefff;
     font-size: 11px;
     line-height: 1.35;
+}
+
+.thought-burst {
+    animation: thought-burst 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes thought-burst {
+    0% {
+        transform: scale(0.6);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.08);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .action {
@@ -138,16 +159,19 @@ input {
     right: 8px;
     z-index: 5;
     display: flex;
-    width: 190px;
+    width: 210px;
     flex-direction: column;
     gap: 7px;
-    padding: 9px;
-    border: 1px solid rgba(103, 212, 252, 0.36);
-    border-radius: 10px;
-    background: rgba(7, 12, 22, 0.94);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.42);
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+    background: rgba(24, 28, 38, 0.78);
+    box-shadow:
+        0 12px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px rgba(255, 255, 255, 0.12);
     color: #e7eaf6;
     font-size: 11px;
+    backdrop-filter: blur(24px) saturate(150%);
 }
 
 .pet-menu[hidden],
@@ -160,6 +184,48 @@ input {
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+.pet-menu select {
+    min-width: 0;
+    flex: 1;
+    border: 1px solid rgba(102, 215, 253, 0.27);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #e8f4ff;
+    font-size: 11px;
+    padding: 3px 5px;
+}
+
+.pet-menu-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pet-menu-title span:last-child {
+    display: grid;
+    gap: 2px;
+}
+
+.pet-menu-title small {
+    color: rgba(231, 234, 246, 0.55);
+    font-size: 9px;
+}
+
+.pet-menu-app-icon {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border-radius: 7px;
+    background: linear-gradient(145deg, rgba(107, 220, 255, 0.92), rgba(107, 119, 255, 0.78));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.42);
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .chat-toggle,
@@ -191,15 +257,17 @@ input {
 .capture-preview {
     position: absolute;
     left: 8px;
-    bottom: 43px;
+    bottom: 40px;
     z-index: 5;
-    width: 128px;
+    width: 190px;
     margin: 0;
     overflow: hidden;
     border: 1px solid rgba(102, 215, 253, 0.5);
-    border-radius: 9px;
-    background: rgba(6, 10, 20, 0.94);
-    box-shadow: 0 0 17px rgba(55, 207, 255, 0.3);
+    border-radius: 12px;
+    background: rgba(6, 10, 20, 0.96);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        0 0 19px rgba(55, 207, 255, 0.3);
 }
 
 .capture-preview[hidden] {
@@ -207,7 +275,7 @@ input {
 }
 
 .capture-preview figcaption {
-    padding: 4px 6px;
+    padding: 5px 7px;
     color: #8bdfff;
     font-size: 9px;
     font-weight: 600;
@@ -218,8 +286,9 @@ input {
 .capture-preview img {
     display: block;
     width: 100%;
-    max-height: 86px;
-    object-fit: cover;
+    max-height: 126px;
+    object-fit: contain;
+    background: #02050a;
 }
 
 .pet-chat input {
@@ -401,36 +470,66 @@ input {
     display: block;
 }
 
-/* Context glow colors */
-.context-terminal {
-    --pet-glow: rgba(104, 255, 205, 0.68);
-}
-
-.context-browser {
+/* Lifecycle glow colors */
+.lifecycle-queued,
+.lifecycle-running {
     --pet-glow: rgba(87, 219, 255, 0.78);
 }
 
-.context-desktop {
-    --pet-glow: rgba(236, 93, 255, 0.7);
-}
-
-.context-file {
-    --pet-glow: rgba(255, 187, 76, 0.72);
-}
-
-.context-thinking {
+.lifecycle-verifying {
     --pet-glow: rgba(151, 120, 255, 0.82);
 }
 
-/* Active state animations */
+.lifecycle-awaiting-approval,
+.lifecycle-degraded,
+.lifecycle-paused {
+    --pet-glow: rgba(255, 187, 76, 0.82);
+}
+
+.lifecycle-succeeded {
+    --pet-glow: rgba(104, 255, 205, 0.72);
+}
+
+.lifecycle-failed,
+.lifecycle-cancelled {
+    --pet-glow: rgba(255, 104, 104, 0.82);
+}
+
+/* Active state — smooth SwiftUI-style breathing glow */
+.is-active .sprite-shell {
+    transition: filter 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
 .is-active .sprite-shell::after {
     border-color: var(--pet-glow);
     opacity: 0.7;
-    animation: glitch-border 1.15s steps(2, end) infinite;
+    animation: breathing-glow 2.8s ease-in-out infinite;
 }
 
 .is-active #pet-sprite {
-    animation: glitch-shift 2.1s steps(2, end) infinite;
+    animation: subtle-float 3.6s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+@keyframes breathing-glow {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.85;
+        transform: scale(1.02);
+    }
+}
+
+@keyframes subtle-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
 }
 
 .glow-disabled .sprite-shell,
@@ -446,6 +545,66 @@ input {
 .glow-disabled.is-active #pet-sprite {
     animation: none;
     opacity: 0;
+}
+
+.mode-off > :not(.pet-menu-toggle):not(.pet-menu),
+.mode-status-only .sprite-shell,
+.mode-status-only .thought,
+.mode-status-only .action,
+.mode-status-only .pet-cursor,
+.mode-status-only .capture-preview {
+    display: none;
+}
+
+/* Click-through mode - pet becomes transparent to clicks */
+.click-through #pet-root {
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+}
+
+.click-through .pet-menu,
+.click-through .chat-toggle,
+.click-through .reasoning-toggle,
+.click-through input,
+.click-through button {
+    pointer-events: none;
+}
+
+.click-through-toast {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(6, 10, 20, 0.92);
+    border: 1px solid rgba(151, 120, 255, 0.5);
+    box-shadow: 0 0 18px rgba(151, 120, 255, 0.3);
+    color: #dbefff;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 20;
+    pointer-events: none;
+    animation: toast-fade 2s ease forwards;
+}
+
+@keyframes toast-fade {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(8px);
+    }
+    15% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    85% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-8px);
+    }
 }
 
 @keyframes cursor-pop {
@@ -469,34 +628,37 @@ input {
     }
 }
 
-@keyframes glitch-shift {
-    0%,
-    84%,
-    100% {
-        transform: translate(0, 0);
-    }
-    86% {
-        transform: translate(2px, -1px);
-        filter: drop-shadow(-2px 0 #42d9ff) drop-shadow(2px 0 #e93dff);
-    }
-    89% {
-        transform: translate(-2px, 1px);
-    }
+/* Smooth transitions for the sprite shell */
+.sprite-shell {
+    transition: filter 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-@keyframes glitch-border {
-    0%,
-    82%,
-    100% {
-        clip-path: inset(0 0 0 0);
-        transform: translate(0, 0);
-    }
-    85% {
-        clip-path: inset(16% 0 52% 0);
-        transform: translate(3px, 0);
-    }
-    91% {
-        clip-path: inset(58% 0 12% 0);
-        transform: translate(-2px, 0);
+/* Smooth activity bubble transitions */
+.activity {
+    transition:
+        opacity 0.3s ease,
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.thought {
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.action {
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
     }
 }

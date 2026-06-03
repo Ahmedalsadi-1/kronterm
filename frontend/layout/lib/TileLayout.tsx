@@ -242,9 +242,7 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
         [node, addlProps, isEphemeral, isMagnified]
     );
 
-    const [previewElementGeneration, setPreviewElementGeneration] = useState(0);
     const previewElement = useMemo(() => {
-        setPreviewElementGeneration(previewElementGeneration + 1);
         return (
             <div key="preview" className="tile-preview-container">
                 <div
@@ -262,30 +260,17 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
         );
     }, [devicePixelRatio, nodeModel]);
 
-    const [previewImage, setPreviewImage] = useState<HTMLImageElement>(null);
-    const [previewImageGeneration, setPreviewImageGeneration] = useState(0);
     const generatePreviewImage = useCallback(() => {
         const offsetX = (DragPreviewWidth * devicePixelRatio - DragPreviewWidth) / 2 + 10;
         const offsetY = (DragPreviewHeight * devicePixelRatio - DragPreviewHeight) / 2 + 10;
-        if (previewImage !== null && previewElementGeneration === previewImageGeneration) {
-            dragPreview(previewImage, { offsetY, offsetX });
-        } else if (previewRef.current) {
-            setPreviewImageGeneration(previewElementGeneration);
+        if (previewRef.current) {
             toPng(previewRef.current).then((url) => {
                 const img = new Image();
                 img.src = url;
-                setPreviewImage(img);
                 dragPreview(img, { offsetY, offsetX });
             });
         }
-    }, [
-        dragPreview,
-        previewRef.current,
-        previewElementGeneration,
-        previewImageGeneration,
-        previewImage,
-        devicePixelRatio,
-    ]);
+    }, [dragPreview, previewRef.current, devicePixelRatio]);
 
     const leafContent = useMemo(() => {
         return (

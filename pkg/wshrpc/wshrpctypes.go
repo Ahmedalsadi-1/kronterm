@@ -81,6 +81,7 @@ type WshRpcInterface interface {
 	GetFullConfigCommand(ctx context.Context) (wconfig.FullConfigType, error)
 	GetWaveAIModeConfigCommand(ctx context.Context) (wconfig.AIModeConfigUpdate, error)
 	BlockInfoCommand(ctx context.Context, blockId string) (*BlockInfoData, error)
+	GetBlockContentCommand(ctx context.Context, blockId string) (*CommandGetBlockContentRtnData, error)
 	DebugTermCommand(ctx context.Context, data CommandDebugTermData) (*CommandDebugTermRtnData, error)
 	BlocksListCommand(ctx context.Context, data BlocksListRequest) ([]BlocksListEntry, error)
 	WaveInfoCommand(ctx context.Context) (*WaveInfoData, error)
@@ -160,6 +161,10 @@ type WshRpcInterface interface {
 	SandboxStartCommand(ctx context.Context, data SandboxStartRequest) (SandboxStartResponse, error)
 	SandboxStopCommand(ctx context.Context, data SandboxStopRequest) (SandboxStopResponse, error)
 	SandboxStatusCommand(ctx context.Context, data SandboxStatusRequest) (SandboxStatusResponse, error)
+
+	AppStreamStartCommand(ctx context.Context, data AppStreamStartRequest) (AppStreamStartResponse, error)
+	AppStreamStopCommand(ctx context.Context, data AppStreamStopRequest) error
+	AppStreamActionCommand(ctx context.Context, data AppStreamActionRequest) error
 
 	WorkspaceListCommand(ctx context.Context) ([]WorkspaceInfoData, error)
 	GetUpdateChannelCommand(ctx context.Context) (string, error)
@@ -542,6 +547,64 @@ type BlockInfoData struct {
 	WorkspaceId string          `json:"workspaceid"`
 	Block       *waveobj.Block  `json:"block"`
 	Files       []*WaveFileInfo `json:"files"`
+}
+
+type BlockContentTermData struct {
+	Cwd             string `json:"cwd,omitempty"`
+	RunningProcess  string `json:"runningprocess,omitempty"`
+	ShellType       string `json:"shelltype,omitempty"`
+	ExitCode        int    `json:"exitcode,omitempty"`
+	HasShellIntegration bool `json:"hasshellintegration,omitempty"`
+	JobId           string `json:"jobid,omitempty"`
+	JobRunning      bool   `json:"jobrunning,omitempty"`
+	ControllerType  string `json:"controllertype,omitempty"`
+	TotalLines      int    `json:"totallines,omitempty"`
+	ConnectionName  string `json:"connectionname,omitempty"`
+}
+
+type BlockContentWebData struct {
+	Url              string   `json:"url,omitempty"`
+	Title            string   `json:"title,omitempty"`
+	Loading          bool     `json:"loading,omitempty"`
+	PinnedUrl        string   `json:"pinnedurl,omitempty"`
+	ElementCount     int      `json:"elementcount,omitempty"`
+}
+
+type BlockContentEditorData struct {
+	FilePath     string `json:"filepath,omitempty"`
+	Language     string `json:"language,omitempty"`
+	Modified     bool   `json:"modified,omitempty"`
+	LineCount    int    `json:"linecount,omitempty"`
+	PreviewType  string `json:"previewtype,omitempty"`
+}
+
+type BlockContentPreviewData struct {
+	FilePath string `json:"filepath,omitempty"`
+	MimeType string `json:"mimetype,omitempty"`
+	FileSize int64  `json:"filesize,omitempty"`
+}
+
+type BlockContentSandboxData struct {
+	SandboxId string `json:"sandboxid,omitempty"`
+	Os        string `json:"os,omitempty"`
+	Running   bool   `json:"running,omitempty"`
+}
+
+type BlockContentAIData struct {
+	Model       string `json:"model,omitempty"`
+	Provider    string `json:"provider,omitempty"`
+	MessageCount int   `json:"messagecount,omitempty"`
+}
+
+type CommandGetBlockContentRtnData struct {
+	BlockId   string                  `json:"blockid"`
+	ViewType  string                  `json:"viewtype"`
+	Terminal  *BlockContentTermData   `json:"terminal,omitempty"`
+	Web       *BlockContentWebData    `json:"web,omitempty"`
+	Editor    *BlockContentEditorData `json:"editor,omitempty"`
+	Preview   *BlockContentPreviewData `json:"preview,omitempty"`
+	Sandbox   *BlockContentSandboxData `json:"sandbox,omitempty"`
+	AI        *BlockContentAIData     `json:"ai,omitempty"`
 }
 
 type WaveNotificationOptions struct {
@@ -1000,10 +1063,10 @@ type WidgetGetStateRtnData struct {
 	ViewType string         `json:"viewtype"`
 	State    map[string]any `json:"state"`
 	Focused  bool           `json:"focused"`
-	X        int            `json:"x"`
-	Y        int            `json:"y"`
-	Width    int            `json:"width"`
-	Height   int            `json:"height"`
+	X        float64        `json:"x"`
+	Y        float64        `json:"y"`
+	Width    float64        `json:"width"`
+	Height   float64        `json:"height"`
 }
 
 type CommandWidgetMouseClickData struct {
@@ -1323,4 +1386,34 @@ type SandboxStatusResponse struct {
 	McpUrl     string `json:"mcpUrl,omitempty"`
 	SshConn    string `json:"sshConn,omitempty"`
 	Error      string `json:"error,omitempty"`
+}
+
+type AppStreamStartRequest struct {
+	SessionId string `json:"sessionId,omitempty"`
+	AppId     string `json:"appId,omitempty"`
+	AppName   string `json:"appName,omitempty"`
+	BundleId  string `json:"bundleId,omitempty"`
+}
+
+type AppStreamStartResponse struct {
+	SessionId string `json:"sessionId,omitempty"`
+	StreamUrl string `json:"streamUrl,omitempty"`
+	Status    string `json:"status"`
+	Error     string `json:"error,omitempty"`
+}
+
+type AppStreamStopRequest struct {
+	SessionId string `json:"sessionId,omitempty"`
+}
+
+type AppStreamActionRequest struct {
+	SessionId   string `json:"sessionId,omitempty"`
+	Action      string `json:"action"`
+	X           int    `json:"x,omitempty"`
+	Y           int    `json:"y,omitempty"`
+	Button      string `json:"button,omitempty"`
+	Text        string `json:"text,omitempty"`
+	Keys        string `json:"keys,omitempty"`
+	Direction   string `json:"direction,omitempty"`
+	ScrollCount int    `json:"scrollCount,omitempty"`
 }

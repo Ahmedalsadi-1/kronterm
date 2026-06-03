@@ -236,6 +236,16 @@
             "left"
           ]
         },
+        "app:layoutmode": {
+          "type": "string",
+          "enum": [
+            "widgets",
+            "canvas"
+          ]
+        },
+        "app:quickcomposer": {
+          "type": "boolean"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },
@@ -446,6 +456,13 @@
         },
         "web:defaultsearch": {
           "type": "string"
+        },
+        "web:tabstripposition": {
+          "type": "string",
+          "enum": [
+            "top",
+            "left"
+          ]
         },
         "autoupdate:*": {
           "type": "boolean"

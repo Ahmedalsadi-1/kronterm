@@ -2,14 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { handleWaveAIContextMenu } from "@/app/aipanel/aipanel-contextmenu";
+import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { useAtomValue } from "jotai";
 import { memo } from "react";
 import { WaveAIModel } from "./waveai-model";
 
-export const AIPanelHeader = memo(() => {
+type AIPanelHeaderProps = {
+    onFloatingIsland?: () => void;
+};
+
+export const AIPanelHeader = memo(({ onFloatingIsland }: AIPanelHeaderProps) => {
     const model = WaveAIModel.getInstance();
     const widgetAccess = useAtomValue(model.widgetAccessAtom);
     const inBuilder = model.inBuilder;
+    const aiPanelOpen = useAtomValue(WorkspaceLayoutModel.getInstance().panelVisibleAtom);
 
     const handleKebabClick = (e: React.MouseEvent) => {
         handleWaveAIContextMenu(e, false);
@@ -34,7 +40,17 @@ export const AIPanelHeader = memo(() => {
                     <div className="flex items-center text-sm whitespace-nowrap">
                         <span className="text-gray-300 @xs:hidden mr-1 text-[12px]">Context</span>
                         <span className="text-gray-300 hidden @xs:inline mr-2 text-[12px]">Widget Context</span>
-                        <button
+                {onFloatingIsland && (
+                    <button
+                        onClick={onFloatingIsland}
+                        className="text-gray-400 hover:text-white cursor-pointer transition-colors p-1 rounded flex-shrink-0 ml-2 focus:outline-none"
+                        title="Pop out as floating island"
+                    >
+                        <i className="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                    </button>
+                )}
+
+                <button
                             onClick={() => {
                                 model.setWidgetAccess(!widgetAccess);
                                 setTimeout(() => {

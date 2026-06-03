@@ -210,6 +210,40 @@ declare global {
         iconcolor: string;
     };
 
+    // wshrpc.AppStreamActionRequest
+    type AppStreamActionRequest = {
+        sessionId?: string;
+        action: string;
+        x?: number;
+        y?: number;
+        button?: string;
+        text?: string;
+        keys?: string;
+        direction?: string;
+        scrollCount?: number;
+    };
+
+    // wshrpc.AppStreamStartRequest
+    type AppStreamStartRequest = {
+        sessionId?: string;
+        appId?: string;
+        appName?: string;
+        bundleId?: string;
+    };
+
+    // wshrpc.AppStreamStartResponse
+    type AppStreamStartResponse = {
+        sessionId?: string;
+        streamUrl?: string;
+        status: string;
+        error?: string;
+    };
+
+    // wshrpc.AppStreamStopRequest
+    type AppStreamStopRequest = {
+        sessionId?: string;
+    };
+
     // baseds.Badge
     type Badge = {
         badgeid: string;
@@ -235,6 +269,59 @@ declare global {
         stickers?: StickerType[];
         subblockids?: string[];
         jobid?: string;
+    };
+
+    // wshrpc.BlockContentAIData
+    type BlockContentAIData = {
+        model?: string;
+        provider?: string;
+        messagecount?: number;
+    };
+
+    // wshrpc.BlockContentEditorData
+    type BlockContentEditorData = {
+        filepath?: string;
+        language?: string;
+        modified?: boolean;
+        linecount?: number;
+        previewtype?: string;
+    };
+
+    // wshrpc.BlockContentPreviewData
+    type BlockContentPreviewData = {
+        filepath?: string;
+        mimetype?: string;
+        filesize?: number;
+    };
+
+    // wshrpc.BlockContentSandboxData
+    type BlockContentSandboxData = {
+        sandboxid?: string;
+        os?: string;
+        running?: boolean;
+    };
+
+    // wshrpc.BlockContentTermData
+    type BlockContentTermData = {
+        cwd?: string;
+        runningprocess?: string;
+        shelltype?: string;
+        exitcode?: number;
+        hasshellintegration?: boolean;
+        jobid?: string;
+        jobrunning?: boolean;
+        controllertype?: string;
+        totallines?: number;
+        connectionname?: string;
+    };
+
+    // wshrpc.BlockContentWebData
+    type BlockContentWebData = {
+        url?: string;
+        title?: string;
+        loading?: boolean;
+        pinnedurl?: string;
+        elementcount?: number;
     };
 
     // blockcontroller.BlockControllerRuntimeStatus
@@ -475,6 +562,18 @@ declare global {
         info: FileInfo;
         byterange?: string;
         streammeta: StreamMeta;
+    };
+
+    // wshrpc.CommandGetBlockContentRtnData
+    type CommandGetBlockContentRtnData = {
+        blockid: string;
+        viewtype: string;
+        terminal?: BlockContentTermData;
+        web?: BlockContentWebData;
+        editor?: BlockContentEditorData;
+        preview?: BlockContentPreviewData;
+        sandbox?: BlockContentSandboxData;
+        ai?: BlockContentAIData;
     };
 
     // wshrpc.CommandGetMetaData

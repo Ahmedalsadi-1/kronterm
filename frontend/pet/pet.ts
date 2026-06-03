@@ -1,9 +1,22 @@
 import "./pet.scss";
 
 type PetContext = "idle" | "terminal" | "browser" | "desktop" | "file" | "thinking";
+type PetLifecycle =
+    | "idle"
+    | "queued"
+    | "awaiting-approval"
+    | "running"
+    | "verifying"
+    | "succeeded"
+    | "degraded"
+    | "failed"
+    | "cancelled"
+    | "paused";
 type PetCursorAction = "idle" | "click" | "type" | "scroll" | "hover" | null;
+type PetMode = "off" | "status-only" | "docked" | "expressive";
 type PetState = {
     context: PetContext;
+    lifecycle: PetLifecycle;
     detail: string;
     thought?: string;
     active: boolean;
@@ -14,12 +27,14 @@ type PetState = {
     previewImageUrl?: string;
 };
 type PetOptions = {
+    mode: PetMode;
     glow: boolean;
     thoughts: boolean;
     actions: boolean;
     roam: boolean;
     followUserCursor: boolean;
 };
+type BooleanPetOption = Exclude<keyof PetOptions, "mode">;
 
 declare global {
     interface Window {
@@ -27,6 +42,10 @@ declare global {
             onState: (callback: (state: PetState) => void) => () => void;
             updateOptions: (options: Partial<PetOptions>) => void;
             sendChat: (text: string) => void;
+            resumeContext: () => void;
+            toggleClickThrough: () => void;
+            isClickThrough: () => Promise<boolean>;
+            onClickThroughChange: (callback: (enabled: boolean) => void) => () => void;
         };
     }
 }
@@ -71,6 +90,9 @@ const optionControls = {
     roam: document.getElementById("toggle-roam") as HTMLInputElement,
     followUserCursor: document.getElementById("toggle-follow-cursor") as HTMLInputElement,
 };
+const modeControl = document.getElementById("pet-mode") as HTMLSelectElement;
+
+const clickThroughCheckbox = document.getElementById("toggle-clickthrough") as HTMLInputElement;
 
 const petCursor = document.getElementById("pet-cursor");
 const petCursorIcon = document.getElementById("pet-cursor-icon");
@@ -84,6 +106,27 @@ const resizeHandle = document.getElementById("resize-handle");
 const capturePreview = document.getElementById("capture-preview");
 const capturePreviewImage = document.getElementById("capture-preview-image") as HTMLImageElement;
 
+let clickThroughEnabled = false;
+
+window.petApi?.isClickThrough().then((enabled) => {
+    clickThroughEnabled = enabled;
+    root.classList.toggle("click-through", clickThroughEnabled);
+});
+window.petApi?.onClickThroughChange((enabled) => {
+    clickThroughEnabled = enabled;
+    root.classList.toggle("click-through", enabled);
+    if (clickThroughCheckbox) {
+        clickThroughCheckbox.checked = enabled;
+    }
+    if (enabled) {
+        const toast = document.createElement("div");
+        toast.className = "click-through-toast";
+        toast.textContent = "🔍 Click-through ON — pet is transparent to clicks";
+        root.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+});
+
 const cursorIcons: Record<string, string> = {
     click: "👆",
     type: "⌨️",
@@ -93,14 +136,16 @@ const cursorIcons: Record<string, string> = {
 
 let frame = 0;
 let options: PetOptions = {
+    mode: "docked",
     glow: true,
     thoughts: true,
     actions: true,
-    roam: true,
-    followUserCursor: true,
+    roam: false,
+    followUserCursor: false,
 };
 let state: PetState = {
     context: "idle",
+    lifecycle: "idle",
     detail: "KronosCode ready",
     active: false,
     moving: false,
@@ -115,14 +160,21 @@ let resizeStartW = 0;
 let resizeStartH = 0;
 
 function applyOptions() {
+    root.classList.remove("mode-off", "mode-status-only", "mode-docked", "mode-expressive");
+    root.classList.add(`mode-${options.mode}`);
     root.classList.toggle("glow-disabled", !options.glow);
     localStorage.setItem("kronos-pet-options", JSON.stringify(options));
-    window.petApi?.updateOptions({ roam: options.roam, followUserCursor: options.followUserCursor });
+    localStorage.setItem("kronos-pet-options:surface-docking-v1", "true");
+    window.petApi?.updateOptions({
+        mode: options.mode,
+        roam: options.roam,
+        followUserCursor: options.followUserCursor,
+    });
     renderState(state);
 }
 
-function renderCursor(action: PetCursorAction, point: { x: number; y: number } | null | undefined) {
-    if (action == null || action === "idle" || !petCursor || !petCursorIcon) {
+function renderCursor(action: PetCursorAction, _point: { x: number; y: number } | null | undefined) {
+    if (options.mode !== "expressive" || action == null || action === "idle" || !petCursor || !petCursorIcon) {
         petCursor?.setAttribute("hidden", "");
         return;
     }
@@ -130,17 +182,8 @@ function renderCursor(action: PetCursorAction, point: { x: number; y: number } |
     petCursorIcon.textContent = icon;
     petCursor.className = `pet-cursor cursor-${action}`;
 
-    if (point && typeof point.x === "number" && typeof point.y === "number") {
-        const maxX = window.innerWidth - 40;
-        const maxY = window.innerHeight - 40;
-        const px = Math.min(point.x, maxX);
-        const py = Math.min(point.y, maxY);
-        petCursor.style.left = `${px}px`;
-        petCursor.style.top = `${py}px`;
-    } else {
-        petCursor.style.left = "";
-        petCursor.style.top = "";
-    }
+    petCursor.style.left = "";
+    petCursor.style.top = "";
     petCursor.removeAttribute("hidden");
 }
 
@@ -165,6 +208,8 @@ function renderReasoningLog(log: string[] | undefined) {
     reasoningFeedBody.scrollTop = reasoningFeedBody.scrollHeight;
 }
 
+let lastThoughtText = "";
+
 function renderState(nextState: PetState) {
     const prevAction = state.cursorAction;
     state = nextState;
@@ -175,28 +220,51 @@ function renderState(nextState: PetState) {
         "context-desktop",
         "context-file",
         "context-thinking",
+        "lifecycle-idle",
+        "lifecycle-queued",
+        "lifecycle-awaiting-approval",
+        "lifecycle-running",
+        "lifecycle-verifying",
+        "lifecycle-succeeded",
+        "lifecycle-degraded",
+        "lifecycle-failed",
+        "lifecycle-cancelled",
+        "lifecycle-paused",
         "is-active"
     );
     root.classList.add(`context-${state.context}`);
+    root.classList.add(`lifecycle-${state.lifecycle}`);
     root.classList.toggle("is-active", state.active);
-    context.textContent = state.context.toUpperCase();
+    context.textContent = state.lifecycle.replace("-", " ").toUpperCase();
     detail.textContent = state.detail;
 
     if (!reasoningFeed?.hidden) {
         renderReasoningLog(state.reasoningLog);
     }
 
-    const showThought = options.thoughts && state.thought && !state.cursorAction;
+    const showThought = options.mode === "expressive" && options.thoughts && state.thought && !state.cursorAction;
+    const isNewThought = state.thought && state.thought !== lastThoughtText;
+    lastThoughtText = state.thought ?? "";
+    if (isNewThought) {
+        thought.classList.remove("thought-burst");
+        void thought.offsetWidth;
+        thought.classList.add("thought-burst");
+    }
     thought.textContent = state.thought ?? "";
     thought.hidden = !showThought;
 
-    const showAction = options.actions && state.active && state.context !== "thinking" && !state.cursorAction;
+    const showAction =
+        options.mode === "expressive" &&
+        options.actions &&
+        state.active &&
+        state.context !== "thinking" &&
+        !state.cursorAction;
     action.textContent = state.detail;
     action.hidden = !showAction;
 
     renderCursor(state.cursorAction, state.cursorPoint);
     if (capturePreview && capturePreviewImage) {
-        if (state.previewImageUrl) {
+        if (options.mode === "expressive" && state.previewImageUrl) {
             capturePreviewImage.src = state.previewImageUrl;
             capturePreview.removeAttribute("hidden");
         } else {
@@ -207,7 +275,7 @@ function renderState(nextState: PetState) {
 }
 
 function animate() {
-    const frames = state.moving ? walkFrames : idleFrames;
+    const frames = options.mode === "expressive" && state.moving ? walkFrames : idleFrames;
     if (frames.length > 0) {
         sprite.src = frames[frame % frames.length];
         frame++;
@@ -252,25 +320,51 @@ try {
     if (stored) {
         options = { ...options, ...(JSON.parse(stored) as Partial<PetOptions>) };
     }
+    if (!localStorage.getItem("kronos-pet-options:surface-docking-v1")) {
+        options = { ...options, roam: false, followUserCursor: false };
+    }
 } catch {
     localStorage.removeItem("kronos-pet-options");
 }
 
 Object.entries(optionControls).forEach(([key, control]) => {
-    control.checked = options[key as keyof PetOptions];
+    const option = key as BooleanPetOption;
+    control.checked = options[option];
     control.addEventListener("change", () => {
-        options = { ...options, [key]: control.checked };
+        options = { ...options, [option]: control.checked };
         applyOptions();
     });
 });
+modeControl.value = options.mode;
+modeControl.addEventListener("change", () => {
+    options = { ...options, mode: modeControl.value as PetMode };
+    applyOptions();
+});
+if (clickThroughCheckbox) {
+    clickThroughCheckbox.addEventListener("change", () => {
+        window.petApi?.toggleClickThrough();
+    });
+}
 menuToggle.addEventListener("click", () => {
     menu.hidden = !menu.hidden;
+});
+root.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    menu.hidden = false;
+    chat.hidden = true;
+    reasoningFeed.hidden = true;
 });
 root.addEventListener("dblclick", (event) => {
     if ((event.target as HTMLElement).closest("input, button, form")) {
         return;
     }
-    menu.hidden = !menu.hidden;
+    window.petApi?.toggleClickThrough();
+});
+root.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("input, button, select, form, .pet-menu")) {
+        return;
+    }
+    window.petApi?.resumeContext();
 });
 chatToggle.addEventListener("click", () => {
     chat.hidden = !chat.hidden;

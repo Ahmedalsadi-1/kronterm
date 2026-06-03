@@ -52,6 +52,7 @@ import {
     relaunchBrowserWindows,
     WaveBrowserWindow,
 } from "./emain-window";
+import { createDesktopPetWindow } from "./emain-pet";
 import { ElectronWshClient, initElectronWshClient } from "./emain-wsh";
 import { getLaunchSettings } from "./launchsettings";
 import { configureAutoUpdater, updater } from "./updater";
@@ -418,6 +419,9 @@ async function appMain() {
     if (fullConfig?.settings?.["window:maxtabcachesize"] != null) {
         setMaxTabCacheSize(fullConfig.settings["window:maxtabcachesize"]);
     }
+
+    // Activate the desktop pet. The full-screen animation overlay is created lazily.
+    createDesktopPetWindow();
 
     electronApp.on("activate", () => {
         const allWindows = getAllWaveWindows();

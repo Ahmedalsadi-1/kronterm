@@ -7,7 +7,7 @@
     <script type="module" src="/frontend/pet/pet.ts"></script>
   </head>
   <body>
-    <main id="pet-root" class="context-idle">
+    <main id="pet-root" class="context-idle lifecycle-idle mode-docked">
       <div id="drag-handle" class="drag-handle pet-drag" title="Drag to move">
         <span class="drag-handle-dots"></span>
       </div>
@@ -43,11 +43,25 @@
       </div>
 
       <section id="pet-menu" class="pet-menu no-drag" hidden>
+        <div class="pet-menu-title">
+          <span class="pet-menu-app-icon">K</span>
+          <span><strong>KronosCode</strong><small>Computer use controls</small></span>
+        </div>
+        <label
+          >Presentation
+          <select id="pet-mode">
+            <option value="off">Off</option>
+            <option value="status-only">Status only</option>
+            <option value="docked" selected>Docked</option>
+            <option value="expressive">Expressive</option>
+          </select>
+        </label>
         <label><input id="toggle-glow" type="checkbox" checked /> Activity glow</label>
         <label><input id="toggle-thoughts" type="checkbox" checked /> Thought bubbles</label>
         <label><input id="toggle-actions" type="checkbox" checked /> Action bubbles</label>
-        <label><input id="toggle-roam" type="checkbox" checked /> Roam while idle</label>
-        <label><input id="toggle-follow-cursor" type="checkbox" checked /> Follow user cursor while idle</label>
+        <label><input id="toggle-roam" type="checkbox" /> Dock near Kronterm when idle</label>
+        <label><input id="toggle-follow-cursor" type="checkbox" /> Follow physical cursor during tool use</label>
+        <label><input id="toggle-clickthrough" type="checkbox" /> Click-through mode (see-through)</label>
         <button id="reasoning-toggle" class="reasoning-toggle" type="button">Reasoning log</button>
         <button id="chat-toggle" class="chat-toggle" type="button">Mini chat</button>
       </section>

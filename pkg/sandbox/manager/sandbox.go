@@ -29,8 +29,8 @@ const (
 	SandboxDefaultBrowserURL = "about:blank"
 	SandboxDefaultPassword   = "wave123"
 
-	SandboxRuntimeQEMU    = "qemu"
-	SandboxRuntimeBytebot = "bytebot"
+	SandboxRuntimeQEMU            = "qemu"
+	SandboxRuntimeKrontermDesktop = "kronterm-desktop"
 )
 
 func MakeVNCWsURL(sessionID string) string {
@@ -124,11 +124,11 @@ func selectedRuntime() string {
 	if runtime == SandboxRuntimeQEMU {
 		return SandboxRuntimeQEMU
 	}
-	return SandboxRuntimeBytebot
+	return SandboxRuntimeKrontermDesktop
 }
 
-func bytebotBaseURL() string {
-	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("WAVE_BYTEBOT_URL")), "/")
+func krontermDesktopBaseURL() string {
+	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("WAVE_KRONTERM_DESKTOP_URL")), "/")
 	if baseURL == "" {
 		return "http://localhost:9990"
 	}
@@ -149,8 +149,8 @@ func (sm *SandboxManager) Start(ctx context.Context, opts StartOpts) (*Session, 
 	sessionID := normalizeSessionID(opts.SessionID)
 	mode := normalizeMode(opts.Mode)
 	browserURL := normalizeBrowserURL(opts.BrowserURL)
-	if selectedRuntime() == SandboxRuntimeBytebot {
-		return sm.startBytebot(ctx, sessionID, mode, browserURL)
+	if selectedRuntime() == SandboxRuntimeKrontermDesktop {
+		return sm.startKrontermDesktop(ctx, sessionID, mode, browserURL)
 	}
 	diskImage := getDefaultDiskImage()
 
@@ -214,16 +214,16 @@ func (sm *SandboxManager) Start(ctx context.Context, opts StartOpts) (*Session, 
 	return cloneSession(session), nil
 }
 
-func (sm *SandboxManager) startBytebot(ctx context.Context, sessionID string, mode string, browserURL string) (*Session, error) {
-	baseURL := bytebotBaseURL()
+func (sm *SandboxManager) startKrontermDesktop(ctx context.Context, sessionID string, mode string, browserURL string) (*Session, error) {
+	baseURL := krontermDesktopBaseURL()
 	session := &Session{
 		SessionID:  sessionID,
 		Status:     SandboxStatusStarting,
 		Mode:       mode,
 		BrowserURL: browserURL,
-		Runtime:    SandboxRuntimeBytebot,
+		Runtime:    SandboxRuntimeKrontermDesktop,
 		DesktopURL: baseURL,
-		MCPURL:     baseURL + "/mcp",
+		MCPURL:     baseURL + "/computer-use",
 	}
 
 	sm.mu.Lock()
@@ -233,12 +233,12 @@ func (sm *SandboxManager) startBytebot(ctx context.Context, sessionID string, mo
 	readyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	go func() {
 		defer cancel()
-		sm.waitForBytebotReady(readyCtx, sessionID, baseURL)
+		sm.waitForKrontermDesktopReady(readyCtx, sessionID, baseURL)
 	}()
 	return cloneSession(session), nil
 }
 
-func (sm *SandboxManager) waitForBytebotReady(ctx context.Context, sessionID string, baseURL string) {
+func (sm *SandboxManager) waitForKrontermDesktopReady(ctx context.Context, sessionID string, baseURL string) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		sm.setSessionError(sessionID, err)
@@ -372,7 +372,7 @@ func (sm *SandboxManager) Stop(sessionID string) error {
 	if session == nil {
 		return fmt.Errorf("session %s not found", sessionID)
 	}
-	if session.Runtime == SandboxRuntimeBytebot || session.Process == nil {
+	if session.Runtime == SandboxRuntimeKrontermDesktop || session.Process == nil {
 		sm.mu.Lock()
 		delete(sm.sessions, sessionID)
 		sm.mu.Unlock()
@@ -422,8 +422,8 @@ func (sm *SandboxManager) DialVNC(sessionID string) (net.Conn, *Session, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	if session.Runtime == SandboxRuntimeBytebot {
-		return nil, session, fmt.Errorf("bytebot runtime exposes noVNC at %s instead of raw VNC", session.DesktopURL)
+	if session.Runtime == SandboxRuntimeKrontermDesktop {
+		return nil, session, fmt.Errorf("kronterm-desktop runtime exposes noVNC at %s instead of raw VNC", session.DesktopURL)
 	}
 	if session.Status != SandboxStatusRunning || session.Config == nil {
 		return nil, session, fmt.Errorf("sandbox session %s is not running", sessionID)

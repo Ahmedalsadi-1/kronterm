@@ -76,6 +76,16 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.on("desktop-pet-chat", handler);
         return () => ipcRenderer.removeListener("desktop-pet-chat", handler);
     },
+    onDesktopPetResume: (callback: () => void) => {
+        const handler = () => callback();
+        ipcRenderer.on("desktop-pet-resume", handler);
+        return () => ipcRenderer.removeListener("desktop-pet-resume", handler);
+    },
+    onDesktopPetSurfaceActivity: (callback: (activity: Record<string, unknown>) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, activity: Record<string, unknown>) => callback(activity);
+        ipcRenderer.on("desktop-pet-surface-activity", handler);
+        return () => ipcRenderer.removeListener("desktop-pet-surface-activity", handler);
+    },
     acpDetectAgents: () => ipcRenderer.invoke("acp-detect-agents"),
     acpInitialize: (opts) => ipcRenderer.invoke("acp-initialize", opts),
     acpSendMessage: (opts) => ipcRenderer.invoke("acp-send-message", opts),

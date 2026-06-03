@@ -1,4 +1,14 @@
 import { getApi } from "@/store/global";
+import {
+    createAgentActivityTimeline,
+    cursorActionForAgentActivity,
+    inferAgentActivityAction,
+    inferAgentActivitySurface,
+    normalizeAgentActivity,
+    pointFromAgentActivityInput,
+    type AgentActivityEvent,
+    type AgentActivityPhase,
+} from "../../types/agent-activity";
 
 type DesktopPetNotification = Parameters<ReturnType<typeof getApi>["setDesktopPetActivity"]>[0];
 
@@ -8,36 +18,19 @@ export type AgentWidgetActivity = {
     detail: string;
     point?: { x: number; y: number };
     previewImageUrl?: string;
+    typingText?: string;
+    typingIndex?: number;
 };
 
-export type AgentSurfaceActivity = {
-    sessionid?: string;
-    source: "acp" | "kronoscode-tui";
-    phase: "start" | "update" | "finish" | "error";
-    blockid?: string;
-    surface: "browser" | "sandbox" | "terminal" | "file" | "panel";
-    action:
-        | "open"
-        | "focus"
-        | "inspect"
-        | "move"
-        | "click"
-        | "doubleClick"
-        | "type"
-        | "press"
-        | "scroll"
-        | "drag"
-        | "screenshot"
-        | "thinking";
-    detail?: string;
-    thought?: string;
-    point?: { x: number; y: number };
-    target?: { x: number; y: number; width: number; height: number };
-    previewimageurl?: string;
-    petactivityurl?: string;
+export type AgentSurfaceActivity = AgentActivityEvent;
+
+export type LiveAgentSurfaceActivity = ReturnType<typeof normalizeAgentActivity> & {
+    timestamp: number;
 };
 
 const DefaultTuiPetActivityUrl = "http://127.0.0.1:4096/pet/activity";
+export const AgentSurfaceUiActivityEvent = "agent-surface-ui-activity";
+export const agentActivityTimeline = createAgentActivityTimeline();
 
 function targetForBlock(blockId: string | undefined): DesktopPetNotification["target"] {
     if (!blockId) {
@@ -70,39 +63,34 @@ function targetForPanel(): DesktopPetNotification["target"] {
     };
 }
 
-function toolAction(detail: string): AgentWidgetActivity["action"] {
-    if (/screenshot|snapshot|capture/i.test(detail)) {
+function widgetActionForActivity(activity: Pick<AgentActivityEvent, "action">): AgentWidgetActivity["action"] {
+    if (activity.action === "screenshot" || activity.action === "inspect") {
         return "view";
     }
-    if (/type|paste|keyboard|press/i.test(detail)) {
+    if (activity.action === "type" || activity.action === "press") {
         return "typing";
     }
-    if (/scroll/i.test(detail)) {
+    if (activity.action === "scroll") {
         return "scroll";
     }
-    if (/click|hover|drag|mouse|pointer/i.test(detail)) {
+    if (
+        activity.action === "move" ||
+        activity.action === "click" ||
+        activity.action === "doubleClick" ||
+        activity.action === "drag"
+    ) {
         return "cursor";
     }
     return "browse";
 }
 
-function pointFromToolInput(input: Record<string, unknown> | undefined): AgentWidgetActivity["point"] {
-    const x = input?.x ?? input?.originX ?? input?.startX ?? input?.endX;
-    const y = input?.y ?? input?.originY ?? input?.startY ?? input?.endY;
-    return typeof x === "number" && typeof y === "number" ? { x, y } : undefined;
-}
-
-function cursorActionForTool(action: AgentWidgetActivity["action"], detail: string) {
-    if (action === "typing") {
-        return "type" as const;
-    }
-    if (action === "scroll") {
-        return "scroll" as const;
-    }
-    if (action === "cursor") {
-        return /click/i.test(detail) ? ("click" as const) : ("hover" as const);
-    }
-    return "idle" as const;
+function dispatchSurfaceUiActivity(activity: AgentSurfaceActivity) {
+    const normalized = agentActivityTimeline.record(activity);
+    window.dispatchEvent(
+        new CustomEvent<LiveAgentSurfaceActivity>(AgentSurfaceUiActivityEvent, {
+            detail: normalized,
+        })
+    );
 }
 
 function imageDataUrl(value: unknown): string | undefined {
@@ -155,38 +143,35 @@ export function previewImageFromToolUpdate(data: unknown): string | undefined {
 export function reportDesktopPetActivity(
     notification: DesktopPetNotification,
     blockId?: string,
-    input?: Record<string, unknown>
+    input?: Record<string, unknown>,
+    explicitActivity?: Partial<AgentSurfaceActivity>
 ) {
     const detail = notification.detail ?? "Using widget";
-    const action = toolAction(detail);
+    const inferredAction = notification.kind === "thinking" ? ("thinking" as const) : inferAgentActivityAction(detail);
+    const point = explicitActivity?.point ?? pointFromAgentActivityInput(input);
+    const surfaceActivity: AgentSurfaceActivity = {
+        source: "acp",
+        phase: notification.kind === "idle" ? "succeeded" : "running",
+        blockid: blockId,
+        surface: inferAgentActivitySurface(detail, blockId),
+        action: inferredAction,
+        detail,
+        thought: notification.thought,
+        point,
+        previewimageurl: notification.previewImageUrl,
+        ...explicitActivity,
+    };
+    const action = widgetActionForActivity(surfaceActivity);
+    const typingText = action === "typing" ? detail : undefined;
     getApi().setDesktopPetActivity({
         ...notification,
         target: targetForBlock(blockId) ?? (notification.kind === "idle" ? undefined : targetForPanel()),
-        cursorAction: notification.kind === "tool" ? cursorActionForTool(action, detail) : undefined,
+        cursorAction: notification.kind === "tool" ? cursorActionForAgentActivity(surfaceActivity) : undefined,
+        cursorPoint: point,
         petActivityUrl: DefaultTuiPetActivityUrl,
-        surfaceActivity: {
-            source: "acp",
-            phase: notification.kind === "idle" ? "finish" : "update",
-            blockid: blockId,
-            surface: blockId ? "browser" : "panel",
-            action:
-                notification.kind === "thinking"
-                    ? "thinking"
-                    : action === "typing"
-                      ? "type"
-                      : action === "scroll"
-                        ? "scroll"
-                        : action === "cursor"
-                          ? "click"
-                          : action === "view"
-                            ? "screenshot"
-                            : "focus",
-            detail,
-            thought: notification.thought,
-            point: pointFromToolInput(input),
-            previewimageurl: notification.previewImageUrl,
-        },
+        surfaceActivity,
     });
+    dispatchSurfaceUiActivity(surfaceActivity);
     if (notification.kind === "tool" && blockId) {
         window.dispatchEvent(
             new CustomEvent<AgentWidgetActivity>("agent-widget-activity", {
@@ -194,8 +179,9 @@ export function reportDesktopPetActivity(
                     blockId,
                     action,
                     detail,
-                    point: pointFromToolInput(input),
+                    point,
                     previewImageUrl: notification.previewImageUrl,
+                    typingText,
                 },
             })
         );
@@ -206,50 +192,48 @@ export function blockIdFromToolInput(input: Record<string, unknown> | undefined)
     if (!input) {
         return undefined;
     }
-    const target = input.blockId ?? input.blockid ?? input.sessionId ?? input.sessionid;
+    const target =
+        input.blockId ?? input.blockid ?? input.block_id ?? input.sessionId ?? input.sessionid ?? input.session_id;
     return typeof target === "string" ? target : undefined;
 }
 
-function widgetActivityFromSurface(activity: AgentSurfaceActivity): AgentWidgetActivity["action"] {
-    if (activity.action === "type" || activity.action === "press") {
-        return "typing";
+function petNotificationKindForPhase(phase: AgentActivityPhase): DesktopPetNotification["kind"] {
+    if (phase === "succeeded" || phase === "failed" || phase === "cancelled") {
+        return "idle";
     }
-    if (activity.action === "scroll") {
-        return "scroll";
-    }
-    if (activity.action === "move" || activity.action === "click" || activity.action === "doubleClick" || activity.action === "drag") {
-        return "cursor";
-    }
-    if (activity.action === "screenshot" || activity.action === "inspect") {
-        return "view";
-    }
-    return "browse";
+    return "tool";
 }
 
 export function reportAgentSurfaceActivity(activity: AgentSurfaceActivity) {
-    const action = widgetActivityFromSurface(activity);
-    const target = targetForBlock(activity.blockid) ?? targetForPanel();
+    const normalized = normalizeAgentActivity(activity);
+    const action = widgetActionForActivity(normalized);
+    const target = targetForBlock(normalized.blockid) ?? targetForPanel();
+    const typingText = action === "typing" ? normalized.detail : undefined;
     getApi().setDesktopPetActivity({
-        kind: activity.phase === "finish" && activity.action === "thinking" ? "idle" : "tool",
-        detail: activity.detail ?? activity.action,
-        thought: activity.thought,
+        kind: petNotificationKindForPhase(normalized.phase),
+        detail: normalized.detail ?? normalized.action,
+        thought: normalized.thought,
+        reasoningLog: normalized.reasoningSteps ?? (normalized.thought ? [normalized.thought] : undefined),
         target,
-        cursorAction: cursorActionForTool(action, activity.action),
-        previewImageUrl: activity.previewimageurl,
-        petActivityUrl: activity.petactivityurl ?? DefaultTuiPetActivityUrl,
-        surfaceActivity: activity,
+        cursorAction: cursorActionForAgentActivity(normalized),
+        cursorPoint: normalized.point,
+        previewImageUrl: normalized.previewimageurl,
+        petActivityUrl: normalized.petactivityurl ?? DefaultTuiPetActivityUrl,
+        surfaceActivity: normalized,
     });
-    if (!activity.blockid) {
+    dispatchSurfaceUiActivity(normalized);
+    if (!normalized.blockid) {
         return;
     }
     window.dispatchEvent(
         new CustomEvent<AgentWidgetActivity>("agent-widget-activity", {
             detail: {
-                blockId: activity.blockid,
+                blockId: normalized.blockid,
                 action,
-                detail: activity.detail ?? activity.action,
-                point: activity.point,
-                previewImageUrl: activity.previewimageurl,
+                detail: normalized.detail ?? normalized.action,
+                point: normalized.point,
+                previewImageUrl: normalized.previewimageurl,
+                typingText: typingText,
             },
         })
     );

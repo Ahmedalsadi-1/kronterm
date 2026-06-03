@@ -992,7 +992,7 @@ func widgetGetStateRun(cmd *cobra.Command, args []string) (rtnErr error) {
 		WriteStdout("Block:    %s\n", result.BlockId)
 		WriteStdout("ViewType: %s\n", result.ViewType)
 		WriteStdout("Focused:  %v\n", result.Focused)
-		WriteStdout("Position: (%d,%d) %dx%d\n", result.X, result.Y, result.Width, result.Height)
+		WriteStdout("Position: (%.0f,%.0f) %.0fx%.0f\n", result.X, result.Y, result.Width, result.Height)
 	}
 	return nil
 }

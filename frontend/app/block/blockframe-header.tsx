@@ -23,6 +23,7 @@ import * as util from "@/util/util";
 import { cn, makeIconClass } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
+import { AgentActionButton } from "./agent-action-button";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
 
@@ -37,7 +38,14 @@ function handleHeaderContextMenu(
     e.preventDefault();
     e.stopPropagation();
     const magnified = globalStore.get(nodeModel.isMagnified);
+    const folded = globalStore.get(nodeModel.isFolded);
     const menu: ContextMenuItem[] = [
+        {
+            label: folded ? "Unfold Block" : "Fold Block",
+            click: () => {
+                nodeModel.toggleFold();
+            },
+        },
         {
             label: magnified ? "Un-Magnify Block" : "Magnify Block",
             click: () => {
@@ -69,6 +77,12 @@ function handleHeaderContextMenu(
                         click: () => updateAgentWidgetVisualSetting(blockId, "glow", !activitySettings.glow),
                     },
                     {
+                        label: "Pixel Aura",
+                        type: "checkbox",
+                        checked: activitySettings.aura,
+                        click: () => updateAgentWidgetVisualSetting(blockId, "aura", !activitySettings.aura),
+                    },
+                    {
                         label: "Action Chip",
                         type: "checkbox",
                         checked: activitySettings.actionChip,
@@ -88,12 +102,106 @@ function handleHeaderContextMenu(
                         click: () =>
                             updateAgentWidgetVisualSetting(blockId, "screenshots", !activitySettings.screenshots),
                     },
+                    { type: "separator" },
+                    {
+                        label: "Pointer Style",
+                        type: "submenu",
+                        submenu: [
+                            {
+                                label: "Pixel (Stepped)",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "pixel",
+                                click: () =>
+                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "pixel"),
+                            },
+                            {
+                                label: "Smooth",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "smooth",
+                                click: () =>
+                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "smooth"),
+                            },
+                            {
+                                label: "Minimal",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "minimal",
+                                click: () =>
+                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "minimal"),
+                            },
+                        ],
+                    },
                 ],
             }
         );
     }
     menu.push(
         { type: "separator" },
+        {
+            label: "KronosCode",
+            type: "submenu" as const,
+            submenu: [
+                {
+                    label: "Explain Output",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "explain-output", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Fix Error",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "fix-error", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Suggest Command",
+                    visible: metaView === "term",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "suggest-command", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Summarize Page",
+                    visible: metaView === "webview" || metaView === "preview",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "summarize-page", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Extract Data",
+                    visible: metaView === "webview",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "extract-data", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Refactor Code",
+                    visible: metaView === "waveai" || metaView === "codeeditor",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "refactor", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Improve Response",
+                    visible: metaView === "waveai",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "improve", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                { type: "separator" as const },
+                {
+                    label: "Take Screenshot",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "screenshot", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+                {
+                    label: "Send to AI Panel",
+                    click: () => {
+                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "send-to-panel", blockId, blockType: metaView }, bubbles: true }));
+                    },
+                },
+            ],
+        },
         {
             label: "Close Block",
             click: () => uxCloseBlock(blockId),
@@ -197,6 +305,16 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId, metaView }: 
         );
     }
 
+    const foldDecl: IconButtonDecl = {
+        elemtype: "iconbutton",
+        icon: "chevron-down",
+        title: "Fold Block",
+        click: () => {
+            nodeModel.toggleFold();
+        },
+    };
+    endIconsElem.push(<IconButton key="fold" decl={foldDecl} className="block-frame-fold-btn" />);
+
     const closeDecl: IconButtonDecl = {
         elemtype: "iconbutton",
         icon: "xmark-large",
@@ -299,6 +417,7 @@ const BlockFrame_Header = ({
                 blockId={nodeModel.blockId}
                 metaView={metaView}
             />
+            {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
         </div>
     );
 };

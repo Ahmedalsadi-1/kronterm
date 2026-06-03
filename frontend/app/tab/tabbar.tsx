@@ -64,7 +64,7 @@ const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement
             content="Toggle KronosCode Panel"
             placement="bottom"
             hideOnClick
-            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-saturn" : "text-secondary"}`}
+            divClassName={`shell-toolbar-button shell-ai-button ${aiPanelOpen ? "is-active text-saturn" : "text-secondary"}`}
             divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             divOnClick={onClick}
             divRef={divRef}
@@ -123,7 +123,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const rightContainerRef = useRef<HTMLDivElement>(null);
     const workspaceSwitcherRef = useRef<HTMLDivElement>(null);
     const waveAIButtonRef = useRef<HTMLDivElement>(null);
-    const appMenuButtonRef = useRef<HTMLDivElement>(null);
+    const appMenuButtonRef = useRef<HTMLButtonElement>(null);
     const tabWidthRef = useRef<number>(TabDefaultWidth);
     const scrollableRef = useRef<boolean>(false);
     const prevAllLoadedRef = useRef<boolean>(false);
@@ -592,14 +592,16 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 style={{ width: windowDragLeftWidth, WebkitAppRegion: "drag" } as any}
             />
             {showAppMenuButton && (
-                <div
+                <button
+                    type="button"
                     ref={appMenuButtonRef}
-                    className="flex items-center justify-center pr-1.5 text-[26px] select-none cursor-pointer text-secondary hover:text-primary"
+                    className="shell-toolbar-button shell-app-menu-button"
                     style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
                     onClick={onEllipsisClick}
+                    aria-label="Open application menu"
                 >
                     <i className="fa fa-ellipsis" />
-                </div>
+                </button>
             )}
             <WaveAIButton divRef={waveAIButtonRef} />
             <Tooltip
@@ -644,9 +646,11 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 </div>
             </div>
             <button
+                type="button"
                 ref={addBtnRef}
                 title="Add Tab"
-                className={`flex h-[22px] px-2 mb-1 mx-1 items-center rounded-md box-border cursor-pointer hover:bg-hoverbg transition-colors text-[12px] text-secondary hover:text-primary${noTabs ? " invisible" : ""}`}
+                aria-label="Add tab"
+                className={`shell-toolbar-button add-tab${noTabs ? " invisible" : ""}`}
                 style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
                 onClick={handleAddTab}
             >

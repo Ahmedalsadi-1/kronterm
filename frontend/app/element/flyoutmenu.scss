@@ -3,26 +3,26 @@
 
 .menu {
     position: absolute;
-    z-index: 1000;
+    z-index: var(--zindex-popover);
     display: flex;
     max-width: 400px;
     min-width: 125px;
-    padding: 2px;
+    padding: 3px;
     flex-direction: column;
     justify-content: flex-end;
     align-items: flex-start;
     gap: 1px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: #212121;
-    box-shadow: 0px 8px 24px 0px rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid var(--modal-border-color);
+    background: var(--modal-bg-color);
+    box-shadow: var(--modal-box-shadow);
 }
 
 .menu-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 6px;
+    padding: 5px 7px;
     cursor: pointer;
     color: var(--main-text-color);
     font-size: 12px;
@@ -31,7 +31,7 @@
     line-height: normal;
     letter-spacing: -0.12px;
     width: 100%;
-    border-radius: 2px;
+    border-radius: 4px;
 
     .label {
         display: block;
@@ -46,8 +46,7 @@
     color: var(--main-text-color);
 
     &:hover {
-        background-color: var(--accent-color);
-        color: var(--button-text-color);
-        border-radius: 2px;
+        background-color: var(--surface-selected-color);
+        color: var(--main-text-color);
     }
 }

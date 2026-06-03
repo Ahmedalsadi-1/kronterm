@@ -60,12 +60,17 @@ export function useTileLayout(tabAtom: Atom<Tab>, tileContent: TileLayoutContent
     useAtomValue(tabAtom);
     const layoutModel = useLayoutModel(tabAtom);
 
+    // Register callbacks synchronously so renderContent is available on first render
+    layoutModel.registerTileLayout(tileContent);
+
     useOnResize(layoutModel?.displayContainerRef, layoutModel?.onContainerResize);
+
+    // Defer state-updating side effects to avoid render-time setState loops
+    useEffect(() => layoutModel.registerTileLayoutEffects(tileContent), [tileContent]);
 
     // Once the TileLayout is mounted, re-run the state update to get all the nodes to flow in the layout.
     useEffect(() => fireAndForget(() => layoutModel.onTreeStateAtomUpdated(true)), []);
 
-    useEffect(() => layoutModel.registerTileLayout(tileContent), [tileContent]);
     return layoutModel;
 }
 

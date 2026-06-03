@@ -12,7 +12,9 @@ import {
 import type { TabModel } from "@/app/store/tab-model";
 import { useTabModel } from "@/app/store/tab-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
+import { AppStreamViewModel } from "@/app/view/appstream/appstream-model";
 import { InstalledAppsViewModel } from "@/app/view/installedapps/installedapps";
+import { KronSettingsViewModel } from "@/app/view/kronsettings/kronsettings-model";
 import { LauncherViewModel } from "@/app/view/launcher/launcher";
 import { PreviewModel } from "@/app/view/preview/preview-model";
 import { SysinfoViewModel } from "@/app/view/sysinfo/sysinfo";
@@ -56,7 +58,9 @@ BlockRegistry.set("launcher", LauncherViewModel);
 BlockRegistry.set("tsunami", TsunamiViewModel);
 BlockRegistry.set("aifilediff", AiFileDiffViewModel);
 BlockRegistry.set("waveconfig", WaveConfigViewModel);
+BlockRegistry.set("kronsettings", KronSettingsViewModel);
 BlockRegistry.set("sandbox", SandboxViewModel);
+BlockRegistry.set("appstream", AppStreamViewModel);
 BlockRegistry.set("installedapps", InstalledAppsViewModel);
 
 function makeViewModel(

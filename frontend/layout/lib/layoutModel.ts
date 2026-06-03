@@ -17,6 +17,7 @@ import {
     computeMoveNode,
     deleteNode,
     focusNode,
+    foldNodeToggle,
     insertNode,
     insertNodeAtIndex,
     magnifyNodeToggle,
@@ -41,6 +42,7 @@ import {
     LayoutTreeInsertNodeAction,
     LayoutTreeInsertNodeAtIndexAction,
     LayoutTreeMagnifyNodeToggleAction,
+    LayoutTreeFoldNodeToggleAction,
     LayoutTreeMoveNodeAction,
     LayoutTreeReplaceNodeAction,
     LayoutTreeResizeNodeAction,
@@ -601,6 +603,9 @@ export class LayoutModel {
         this.renderContent = contents.renderContent;
         this.renderPreview = contents.renderPreview;
         this.onNodeDelete = contents.onNodeDelete;
+    }
+
+    registerTileLayoutEffects(contents: TileLayoutContents) {
         if (contents.gapSizePx !== undefined) {
             this.setter(this.gapSizePx, contents.gapSizePx);
         }
@@ -673,6 +678,9 @@ export class LayoutModel {
             case LayoutTreeActionType.MagnifyNodeToggle:
                 magnifyNodeToggle(this.treeState, action as LayoutTreeMagnifyNodeToggleAction);
                 FocusManager.getInstance().requestNodeFocus();
+                break;
+            case LayoutTreeActionType.FoldNodeToggle:
+                foldNodeToggle(this.treeState, action as LayoutTreeFoldNodeToggleAction);
                 break;
             case LayoutTreeActionType.ClearTree:
                 clearTree(this.treeState);
@@ -1086,8 +1094,13 @@ export class LayoutModel {
                 animationTimeS: this.animationTimeS,
                 ready: this.ready,
                 disablePointerEvents: this.activeDrag,
-                onClose: () => fireAndForget(() => this.closeNode(nodeid)), // no longer used (instead we use keymodel uxCloseBlock)
+                onClose: () => fireAndForget(() => this.closeNode(nodeid)),
                 toggleMagnify: () => this.magnifyNodeToggle(nodeid),
+                toggleFold: () => this.foldNodeToggle(nodeid),
+                isFolded: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    return treeState.foldedNodeIds?.has(nodeid) ?? false;
+                }),
                 focusNode: () => this.focusNode(nodeid),
                 dragHandleRef: createRef(),
                 displayContainerRef: this.displayContainerRef,
@@ -1276,6 +1289,33 @@ export class LayoutModel {
         this.lastEphemeralNodeId = undefined;
 
         this.treeReducer(action, setState);
+    }
+
+    foldNodeToggle(nodeId: string, setState = true) {
+        const action: LayoutTreeFoldNodeToggleAction = {
+            type: LayoutTreeActionType.FoldNodeToggle,
+            nodeId: nodeId,
+        };
+        const oldState = this.treeState.foldedNodeIds?.has(nodeId) ?? false;
+        this.treeReducer(action, setState);
+        const newState = this.treeState.foldedNodeIds?.has(nodeId) ?? false;
+        if (oldState !== newState) {
+            try {
+                const key = "kronoscode:folded-blocks";
+                const raw = window.localStorage.getItem(key);
+                const ids: string[] = raw ? JSON.parse(raw) : [];
+                const idSet = new Set(ids);
+                if (newState) {
+                    idSet.add(nodeId);
+                } else {
+                    idSet.delete(nodeId);
+                }
+                window.localStorage.setItem(key, JSON.stringify(Array.from(idSet)));
+            } catch {
+                // localStorage unavailable
+            }
+            window.dispatchEvent(new CustomEvent("kronoscode:fold-changed", { detail: { nodeId, folded: newState } }));
+        }
     }
 
     /**

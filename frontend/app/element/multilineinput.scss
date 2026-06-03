@@ -17,8 +17,17 @@
     padding: 5px;
     border-radius: 4px;
     min-height: 26px;
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+
+    &::placeholder {
+        color: var(--form-element-placeholder-color);
+    }
 
     &:focus-visible {
         outline: none;
+        border-color: var(--form-element-primary-color);
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.2);
     }
 }

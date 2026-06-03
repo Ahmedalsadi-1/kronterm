@@ -12,12 +12,13 @@ import {
     SettingsPanel,
     WorkspaceFilesPanel,
     getComposerSuggestions,
-    type AcpModeOption,
     type AcpComposerMenuMode,
     type AcpComposerSuggestion,
     type AcpMentionTab,
+    type AcpModeOption,
 } from "./acp-chat-controls";
 import { AcpToolApproval } from "./acp-tool-approval";
+import { AgentSurfaceUiActivityEvent, type LiveAgentSurfaceActivity } from "./desktop-pet-activity";
 import {
     useAcpSession,
     type AcpAgentMessage,
@@ -202,17 +203,50 @@ const AgentStatus = memo(({ agent, status }: { agent: AcpBackendInfo | null; sta
             <span
                 className={cn(
                     "h-1.5 w-1.5 rounded-full",
-                    status === "running"
-                        ? "bg-[#b1b955]"
-                        : status === "error"
-                          ? "bg-[#dc7668]"
-                          : "bg-[#6d6963]"
+                    status === "running" ? "bg-[#b1b955]" : status === "error" ? "bg-[#dc7668]" : "bg-[#6d6963]"
                 )}
             />
         </div>
     );
 });
 AgentStatus.displayName = "AgentStatus";
+
+const LiveSurfaceStrip = memo(({ activity }: { activity: LiveAgentSurfaceActivity | null }) => {
+    if (activity == null) {
+        return null;
+    }
+    const isActive = activity.phase === "queued" || activity.phase === "running" || activity.phase === "verifying";
+    const needsApproval = activity.phase === "awaiting-approval";
+    const hasFailed = activity.phase === "failed" || activity.phase === "degraded";
+    const surfaceIcon: Record<LiveAgentSurfaceActivity["surface"], string> = {
+        browser: "fa-globe",
+        sandbox: "fa-cube",
+        desktop: "fa-display",
+        terminal: "fa-terminal",
+        file: "fa-file-lines",
+        panel: "fa-layer-group",
+    };
+    return (
+        <div className="flex shrink-0 items-center gap-2 border-b border-[#2d3024] bg-[#161812] px-4 py-2 text-[11px] text-[#a9a69d]">
+            <span
+                className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    isActive && "animate-pulse bg-[#b1b955]",
+                    needsApproval && "animate-pulse bg-[#d7a85d]",
+                    hasFailed && "bg-[#dc7668]",
+                    !isActive && !needsApproval && !hasFailed && "bg-[#696c57]"
+                )}
+            />
+            <i className={cn("fa", surfaceIcon[activity.surface], "text-[#b1b955]")} />
+            <span className="font-semibold uppercase tracking-[0.14em] text-[#c5c9a2]">{activity.surface}</span>
+            <span className="truncate text-[#938f88]">{activity.detail ?? activity.action}</span>
+            <span className="ml-auto rounded-md border border-[#383b28] bg-[#202217] px-1.5 py-0.5 font-medium text-[#b8bd82]">
+                {needsApproval ? "review" : activity.phase}
+            </span>
+        </div>
+    );
+});
+LiveSurfaceStrip.displayName = "LiveSurfaceStrip";
 
 const RuntimeStrip = memo(
     ({
@@ -372,6 +406,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const [sessionSidebarOpen, setSessionSidebarOpen] = useState(true);
     const [restartRequiredBackends, setRestartRequiredBackends] = useState<Set<string>>(new Set());
     const [workspaceDraft, setWorkspaceDraft] = useState("");
+    const [liveSurfaceActivity, setLiveSurfaceActivity] = useState<LiveAgentSurfaceActivity | null>(null);
     const [composerMenu, setComposerMenu] = useState<{
         mode: AcpComposerMenuMode;
         query: string;
@@ -402,6 +437,14 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     useEffect(() => {
         setComposerSuggestionIndex(0);
     }, [composerMenu?.mode, composerMenu?.query, composerMenu?.mentionTab]);
+
+    useEffect(() => {
+        const handleActivity = (event: Event) => {
+            setLiveSurfaceActivity((event as CustomEvent<LiveAgentSurfaceActivity>).detail);
+        };
+        window.addEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+        return () => window.removeEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -579,12 +622,14 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                   if (!server?.command?.length) {
                       return [];
                   }
-                  return [{
-                      name: serverId,
-                      command: server.command[0],
-                      args: server.command.slice(1),
-                      env: Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value })),
-                  }];
+                  return [
+                      {
+                          name: serverId,
+                          command: server.command[0],
+                          args: server.command.slice(1),
+                          env: Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value })),
+                      },
+                  ];
               })
             : [];
         return initialize({
@@ -896,7 +941,12 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     };
 
     return (
-        <div className={cn("@container relative flex min-h-0 flex-1 overflow-hidden bg-[#101010] text-[#e6e2dc]", className)}>
+        <div
+            className={cn(
+                "@container relative flex min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(177,185,85,0.12),transparent_34%),linear-gradient(180deg,#111315,#0b0c0e)] text-[#e6e2dc]",
+                className
+            )}
+        >
             {!settingsOpen && sessionSidebarOpen ? (
                 <SessionSidebar
                     sessions={sessions}
@@ -912,17 +962,38 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 />
             ) : null}
             <div className="relative flex min-w-0 flex-1 flex-col">
-                <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#292827] bg-[#111111] px-4">
+                <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#101216]/92 px-4 shadow-[0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
                     <div className="flex min-w-0 items-center gap-3">
                         <button
                             type="button"
                             onClick={() => setSessionSidebarOpen((open) => !open)}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/8 bg-white/[0.03] text-[#9a958e] transition-colors hover:bg-white/[0.08] hover:text-[#f1ede6]"
                             aria-label={sessionSidebarOpen ? "Hide sessions" : "Show sessions"}
                         >
                             <i className="fa fa-columns text-xs" />
                         </button>
-                        <AgentStatus agent={selectedAgent} status={state.status} />
+                        <div className="min-w-0">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="truncate text-sm font-semibold tracking-tight text-[#f2eee7]">
+                                    KronosCode
+                                </span>
+                                <span className="rounded-md border border-[#3c3b22] bg-[#232419] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b1b955]">
+                                    {selectedMode}
+                                </span>
+                            </div>
+                            <AgentStatus agent={selectedAgent} status={state.status} />
+                        </div>
+                    </div>
+                    <div className="hidden min-w-0 flex-1 items-center justify-center gap-2 px-3 @lg:flex">
+                        <span className="max-w-36 truncate rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[11px] text-[#b8b3ac]">
+                            {state.modelInfo?.currentModelLabel ?? "Model auto"}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[11px] text-[#8f8982]">
+                            {referencedFiles.length} files
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[11px] text-[#8f8982]">
+                            {state.pendingConfirmations.length} approvals
+                        </span>
                     </div>
                     <div className="flex items-center gap-1">
                         <button
@@ -931,7 +1002,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                                 setSettingsOpen(false);
                                 setResourcesOpen((open) => !open);
                             }}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#9a958e] transition-colors hover:bg-white/[0.08] hover:text-[#f1ede6]"
                             title="Workspace and files"
                             aria-label="Workspace and files"
                         >
@@ -940,7 +1011,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                         <button
                             type="button"
                             onClick={() => void handleNewChat()}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#9a958e] transition-colors hover:bg-white/[0.08] hover:text-[#f1ede6]"
                             title="Start new chat"
                             aria-label="Start new chat"
                         >
@@ -953,7 +1024,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                                 setSettingsBackend(selectedAgent?.backend ?? defaultBackend);
                                 setSettingsOpen((open) => !open);
                             }}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#9a958e] transition-colors hover:bg-white/[0.08] hover:text-[#f1ede6]"
                             title="Settings"
                             aria-label="Settings"
                         >
@@ -961,6 +1032,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                         </button>
                     </div>
                 </div>
+                <LiveSurfaceStrip activity={liveSurfaceActivity} />
 
                 {settingsOpen ? (
                     <SettingsPanel
@@ -1037,9 +1109,14 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 {activeRuntime && !activeRuntime.isLive && activeRuntime.resumeState !== "archived" ? (
                     <div className="mx-auto mt-3 flex w-[calc(100%-32px)] max-w-3xl items-center justify-between gap-3 rounded-lg border border-[#3a3829] bg-[#1d1d18] px-4 py-2 text-xs text-[#b8b3ac]">
                         <span>
-                            Saved transcript. Sending continues in a {activeRuntime.resumeState === "resumable" ? "resumed" : "new"} runtime.
+                            Saved transcript. Sending continues in a{" "}
+                            {activeRuntime.resumeState === "resumable" ? "resumed" : "new"} runtime.
                         </span>
-                        <button type="button" onClick={() => textareaRef.current?.focus()} className="cursor-pointer font-medium text-[#b1b955]">
+                        <button
+                            type="button"
+                            onClick={() => textareaRef.current?.focus()}
+                            className="cursor-pointer font-medium text-[#b1b955]"
+                        >
                             Continue
                         </button>
                     </div>
@@ -1047,7 +1124,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
 
                 <AcpToolApproval confirmations={state.pendingConfirmations} onConfirm={confirmTool} />
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 @lg:px-6">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 @lg:px-6">
                     {hasMessages ? (
                         <MessageStream
                             messages={state.messages}
@@ -1073,10 +1150,10 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="shrink-0 bg-[#101010]/95 px-3 pb-3 pt-2 backdrop-blur-sm @lg:px-5 @lg:pb-5">
+                <div className="shrink-0 border-t border-white/10 bg-[#0b0c0e]/95 px-3 pb-3 pt-2 backdrop-blur-xl @lg:px-5 @lg:pb-5">
                     <form
                         onSubmit={handleSubmit}
-                        className="relative mx-auto w-full max-w-3xl rounded-xl border border-[#42362a] bg-[#1a1918] p-3 shadow-sm shadow-black/20 focus-within:border-[#68533c]"
+                        className="relative mx-auto w-full max-w-3xl rounded-2xl border border-[#4a3f2d] bg-[linear-gradient(180deg,#1b1c1b,#141414)] p-3 shadow-2xl shadow-black/35 focus-within:border-[#82724b] focus-within:shadow-[0_0_0_1px_rgba(177,185,85,0.18),0_18px_50px_rgba(0,0,0,0.35)]"
                     >
                         {composerMenu ? (
                             <ComposerAutocomplete
@@ -1138,16 +1215,16 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                             rows={3}
                             disabled={state.status === "running" || !selectedAgent?.available}
                             data-chat-input="true"
-                            className="max-h-40 min-h-16 w-full resize-none bg-transparent px-1 pb-3 pt-1 text-sm leading-relaxed text-[#ddd9d2] outline-none placeholder:text-[#827f79] disabled:opacity-50"
+                            className="max-h-44 min-h-20 w-full resize-none bg-transparent px-1 pb-3 pt-1 text-sm leading-relaxed text-[#eee9e1] outline-none placeholder:text-[#77716a] disabled:opacity-50"
                         />
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5 border-t border-white/8 pt-2">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setSettingsOpen(false);
                                     setResourcesOpen(true);
                                 }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#aaa59d] transition-colors hover:bg-[#252421] hover:text-[#dedad4]"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#aaa59d] transition-colors hover:bg-white/[0.07] hover:text-[#f1ede6]"
                                 title="Attach files from workspace"
                                 aria-label="Attach files from workspace"
                             >
@@ -1156,7 +1233,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                             <select
                                 value={selectedMode}
                                 onChange={(event) => setMode(event.target.value)}
-                                className="max-w-28 cursor-pointer appearance-none rounded-md border border-[#343521] bg-[#222419] px-2 py-1.5 text-xs font-medium capitalize text-[#b1b955] outline-none hover:bg-[#292b1d]"
+                                className="max-w-28 cursor-pointer appearance-none rounded-lg border border-[#343521] bg-[#222419] px-2 py-1.5 text-xs font-medium capitalize text-[#b1b955] outline-none hover:bg-[#292b1d]"
                                 aria-label="Mode"
                             >
                                 {modeOptions.map((mode) => (
@@ -1171,7 +1248,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                                 <button
                                     type="button"
                                     onClick={() => stop()}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-[#522c29] bg-[#211716] text-[#dc7668] hover:bg-[#30201d]"
+                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#522c29] bg-[#211716] text-[#dc7668] hover:bg-[#30201d]"
                                     title="Stop"
                                     aria-label="Stop"
                                 >
@@ -1181,7 +1258,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                                 <button
                                     type="submit"
                                     disabled={!input.trim() || !selectedAgent?.available}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#b1b955] transition-colors hover:bg-[#252421] disabled:text-[#57534e]"
+                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#4d512d] bg-[#252719] text-[#c4cc68] transition-colors hover:bg-[#30331f] disabled:border-transparent disabled:bg-transparent disabled:text-[#57534e]"
                                     title="Send"
                                     aria-label="Send"
                                 >

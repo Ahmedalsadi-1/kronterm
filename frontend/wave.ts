@@ -67,9 +67,9 @@ async function initBare() {
     getApi().onZoomFactorChange((zoomFactor) => {
         updateZoomFactor(zoomFactor);
     });
+    getApi().setWindowInitStatus("ready");
     document.fonts.ready.then(() => {
         console.log("Init Bare Done");
-        getApi().setWindowInitStatus("ready");
     });
 }
 
@@ -211,5 +211,4 @@ async function initWave(initOpts: WaveInitOpts) {
     console.log("Wave First Render Done");
     getApi().setWindowInitStatus("wave-ready");
 }
-
 

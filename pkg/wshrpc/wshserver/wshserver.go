@@ -31,6 +31,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/filestore"
 	"github.com/wavetermdev/waveterm/pkg/genconn"
 	"github.com/wavetermdev/waveterm/pkg/jobcontroller"
+	"github.com/wavetermdev/waveterm/pkg/mcp"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
@@ -882,6 +883,216 @@ func (ws *WshServer) BlockInfoCommand(ctx context.Context, blockId string) (*wsh
 	}, nil
 }
 
+func (ws *WshServer) GetBlockContentCommand(ctx context.Context, blockId string) (*wshrpc.CommandGetBlockContentRtnData, error) {
+	if blockId == "" {
+		return nil, fmt.Errorf("blockid is required")
+	}
+	blockData, err := wstore.DBMustGet[*waveobj.Block](ctx, blockId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting block: %w", err)
+	}
+	meta := blockData.Meta
+	viewType := meta.GetString(waveobj.MetaKey_View, "")
+	oref := waveobj.MakeORef(waveobj.OType_Block, blockId)
+	rtInfo := wstore.GetRTInfo(oref)
+
+	rtn := &wshrpc.CommandGetBlockContentRtnData{
+		BlockId:  blockId,
+		ViewType: viewType,
+	}
+
+	switch viewType {
+	case "term":
+		ctrlType := meta.GetString(waveobj.MetaKey_Controller, "")
+		cwd := meta.GetString(waveobj.MetaKey_CmdCwd, "")
+		if cwd == "" && rtInfo != nil && rtInfo.ShellHasCurCwd {
+			cwd = "available"
+		}
+		shellType := meta.GetString(waveobj.MetaKey_CmdShell, "")
+		if shellType == "" && rtInfo != nil {
+			shellType = rtInfo.ShellType
+		}
+		connName := meta.GetString(waveobj.MetaKey_Connection, "")
+		hasShellInt := rtInfo != nil && rtInfo.ShellIntegration
+		lastCmd := ""
+		if rtInfo != nil {
+			lastCmd = rtInfo.ShellLastCmd
+		}
+		jobRunning := false
+		if blockData.JobId != "" {
+			status, jobErr := jobcontroller.GetJobManagerStatus(ctx, blockData.JobId)
+			if jobErr == nil {
+				jobRunning = status == jobcontroller.JobManagerStatus_Running
+			}
+		}
+		rtn.Terminal = &wshrpc.BlockContentTermData{
+			Cwd:                 cwd,
+			ShellType:           shellType,
+			ControllerType:      ctrlType,
+			JobId:               blockData.JobId,
+			JobRunning:          jobRunning,
+			HasShellIntegration: hasShellInt,
+			ConnectionName:      connName,
+		}
+		runtimeStatus := blockcontroller.GetBlockControllerRuntimeStatus(blockId)
+		if runtimeStatus != nil {
+			rtn.Terminal.ExitCode = runtimeStatus.ShellProcExitCode
+			if runtimeStatus.ShellProcStatus == "running" {
+				rtn.Terminal.RunningProcess = lastCmd
+				if rtn.Terminal.RunningProcess == "" {
+					rtn.Terminal.RunningProcess = "active"
+				}
+			}
+		}
+
+	case "web":
+		url := meta.GetString(waveobj.MetaKey_Url, "")
+		pinnedUrl := meta.GetString(waveobj.MetaKey_PinnedUrl, "")
+		title := meta.GetString(waveobj.MetaKey_FrameTitle, "")
+		loading := title == "" && url != ""
+		rtn.Web = &wshrpc.BlockContentWebData{
+			Url:       url,
+			Title:     title,
+			Loading:   loading,
+			PinnedUrl: pinnedUrl,
+		}
+
+	case "preview":
+		filePath := meta.GetString(waveobj.MetaKey_File, "")
+		var mimeType string
+		var fileSize int64
+		if filePath != "" {
+			fi, statErr := os.Stat(filePath)
+			if statErr == nil {
+				fileSize = fi.Size()
+			}
+			mimeType = getMimeType(filePath)
+		}
+		rtn.Preview = &wshrpc.BlockContentPreviewData{
+			FilePath: filePath,
+			MimeType: mimeType,
+			FileSize: fileSize,
+		}
+
+	case "editor", "edit":
+		filePath := meta.GetString(waveobj.MetaKey_File, "")
+		lang := detectLanguage(filePath)
+		previewType := meta.GetString("preview", "")
+		rtn.Editor = &wshrpc.BlockContentEditorData{
+			FilePath:    filePath,
+			Language:    lang,
+			PreviewType: previewType,
+		}
+
+	case "sandbox":
+		sandboxId := blockData.OID
+		running := false
+		sm := sandboxmanager.GetSandboxManager()
+		session, sbErr := sm.GetStatus(sandboxId)
+		if sbErr == nil {
+			running = session.Status == sandboxmanager.SandboxStatusRunning
+		}
+		rtn.Sandbox = &wshrpc.BlockContentSandboxData{
+			SandboxId: sandboxId,
+			Running:   running,
+		}
+
+	case "waveai", "ai":
+		model := meta.GetString("model", "")
+		provider := meta.GetString("provider", "")
+		messageCount := 0
+		if rtInfo != nil && rtInfo.WaveAIChatId != "" {
+			chat := chatstore.DefaultChatStore.Get(rtInfo.WaveAIChatId)
+			if chat != nil {
+				messageCount = len(chat.NativeMessages)
+			}
+		}
+		rtn.AI = &wshrpc.BlockContentAIData{
+			Model:        model,
+			Provider:     provider,
+			MessageCount: messageCount,
+		}
+	}
+
+	return rtn, nil
+}
+
+func getMimeType(filePath string) string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	mimeMap := map[string]string{
+		".md":   "text/markdown",
+		".html": "text/html",
+		".json": "application/json",
+		".yaml": "text/yaml",
+		".yml":  "text/yaml",
+		".csv":  "text/csv",
+		".xml":  "text/xml",
+		".svg":  "image/svg+xml",
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".pdf":  "application/pdf",
+		".txt":  "text/plain",
+		".go":   "text/x-go",
+		".ts":   "text/x-typescript",
+		".tsx":  "text/x-typescript",
+		".js":   "text/javascript",
+		".jsx":  "text/javascript",
+		".py":   "text/x-python",
+		".rs":   "text/x-rust",
+		".sh":   "text/x-shellscript",
+		".toml": "text/x-toml",
+	}
+	if mime, ok := mimeMap[ext]; ok {
+		return mime
+	}
+	return "text/plain"
+}
+
+func detectLanguage(filePath string) string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	langMap := map[string]string{
+		".go":    "go",
+		".ts":    "typescript",
+		".tsx":   "typescript",
+		".js":    "javascript",
+		".jsx":   "javascript",
+		".py":    "python",
+		".rs":    "rust",
+		".java":  "java",
+		".kt":    "kotlin",
+		".swift": "swift",
+		".c":     "c",
+		".cpp":   "cpp",
+		".h":     "c",
+		".hpp":   "cpp",
+		".css":   "css",
+		".scss":  "scss",
+		".html":  "html",
+		".json":  "json",
+		".yaml":  "yaml",
+		".yml":   "yaml",
+		".md":    "markdown",
+		".sh":    "shellscript",
+		".bash":  "shellscript",
+		".zsh":   "shellscript",
+		".sql":   "sql",
+		".rb":    "ruby",
+		".php":   "php",
+		".pl":    "perl",
+		".lua":   "lua",
+		".toml":  "toml",
+		".xml":   "xml",
+		".csv":   "csv",
+	}
+	if lang, ok := langMap[ext]; ok {
+		return lang
+	}
+	return ""
+}
+
 func (ws *WshServer) DebugTermCommand(ctx context.Context, data wshrpc.CommandDebugTermData) (*wshrpc.CommandDebugTermRtnData, error) {
 	if data.BlockId == "" {
 		return nil, fmt.Errorf("blockid is required")
@@ -1544,40 +1755,138 @@ func (ws *WshServer) BlockJobStatusCommand(ctx context.Context, blockId string) 
 }
 
 func (ws *WshServer) McpListServersCommand(ctx context.Context) ([]wshrpc.McpServerInfo, error) {
-	return []wshrpc.McpServerInfo{
-		{Name: "ghost-os", Status: "available", Version: "1.0"},
-		{Name: "automation-mcp", Status: "available", Version: "1.0"},
-	}, nil
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return nil, err
+	}
+	var servers []wshrpc.McpServerInfo
+	for _, name := range manager.ListServers() {
+		server, ok := manager.GetServer(name)
+		if !ok {
+			continue
+		}
+		version := ""
+		if server.Info != nil {
+			version = server.Info.Version
+		}
+		servers = append(servers, wshrpc.McpServerInfo{Name: name, Status: string(server.Status), Version: version})
+	}
+	return servers, nil
 }
 
 func (ws *WshServer) McpConnectCommand(ctx context.Context, serverName string) error {
-	log.Printf("[mcp] connecting to server: %s\n", serverName)
-	return nil
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return err
+	}
+	return manager.ConnectServer(ctx, serverName)
 }
 
 func (ws *WshServer) McpDisconnectCommand(ctx context.Context, serverName string) error {
-	log.Printf("[mcp] disconnecting from server: %s\n", serverName)
-	return nil
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return err
+	}
+	return manager.DisconnectServer(serverName)
 }
 
 func (ws *WshServer) McpListToolsCommand(ctx context.Context, serverName string) ([]wshrpc.McpToolInfo, error) {
-	return []wshrpc.McpToolInfo{}, nil
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return nil, err
+	}
+	tools, err := manager.ListTools(serverName)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]wshrpc.McpToolInfo, 0, len(tools))
+	for _, tool := range tools {
+		inputSchema, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal MCP schema for %s: %w", tool.Name, err)
+		}
+		result = append(result, wshrpc.McpToolInfo{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: string(inputSchema),
+		})
+	}
+	return result, nil
 }
 
 func (ws *WshServer) McpCallToolCommand(ctx context.Context, data wshrpc.McpCallToolData) (*wshrpc.McpCallToolResult, error) {
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return nil, err
+	}
+	result, err := manager.CallTool(ctx, data.ServerName, data.ToolName, data.Arguments)
+	if err != nil {
+		return &wshrpc.McpCallToolResult{
+			ServerName: data.ServerName,
+			ToolName:   data.ToolName,
+			Success:    false,
+			Error:      err.Error(),
+		}, nil
+	}
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal MCP tool result: %w", err)
+	}
 	return &wshrpc.McpCallToolResult{
 		ServerName: data.ServerName,
 		ToolName:   data.ToolName,
-		Success:    false,
-		Error:      "not implemented",
+		Success:    true,
+		Result:     string(resultJSON),
 	}, nil
 }
 
 func (ws *WshServer) McpGetStatusCommand(ctx context.Context) (map[string]wshrpc.McpStatus, error) {
-	return map[string]wshrpc.McpStatus{
-		"ghost-os":       {Name: "ghost-os", Status: "disconnected"},
-		"automation-mcp": {Name: "automation-mcp", Status: "disconnected"},
-	}, nil
+	manager, err := syncMCPServersFromConfig()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]wshrpc.McpStatus)
+	for _, name := range manager.ListServers() {
+		server, ok := manager.GetServer(name)
+		if !ok {
+			continue
+		}
+		result[name] = wshrpc.McpStatus{Name: name, Status: string(server.Status), Error: server.LastError}
+	}
+	return result, nil
+}
+
+func syncMCPServersFromConfig() (*mcp.MCPClientManager, error) {
+	settings := wconfig.GetWatcher().GetFullConfig().Settings
+	configs := make(map[string]mcp.MCPConfig, len(settings.MCPClients))
+	for name, config := range settings.MCPClients {
+		enabled := settings.MCPEnabled && (config.Enabled == nil || *config.Enabled)
+		configType := config.Type
+		switch configType {
+		case "", "stdio", "local":
+			configType = "local"
+		case "http", "remote", "streamable-http":
+			configType = "streamable-http"
+		case "sse":
+			configType = "sse"
+		default:
+			return nil, fmt.Errorf("unsupported MCP server type %q for %s", config.Type, name)
+		}
+		configs[name] = mcp.MCPConfig{
+			Enabled: &enabled,
+			Type:    configType,
+			Command: config.Command,
+			URL:     config.URL,
+			Headers: config.Headers,
+			Timeout: config.Timeout,
+			Env:     config.Env,
+		}
+	}
+	manager := mcp.GetMCPManager()
+	if err := manager.SyncServers(configs); err != nil {
+		return nil, err
+	}
+	return manager, nil
 }
 
 func (ws *WshServer) SandboxStartCommand(ctx context.Context, data wshrpc.SandboxStartRequest) (wshrpc.SandboxStartResponse, error) {
@@ -1606,7 +1915,7 @@ func (ws *WshServer) SandboxStartCommand(ctx context.Context, data wshrpc.Sandbo
 		sshConn = fmt.Sprintf("ssh ubuntu@localhost -p %d", config.SSHPort)
 	}
 	vncWsURL := sandboxmanager.MakeVNCWsURL(session.SessionID)
-	if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
+	if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
 		vncWsURL = ""
 	}
 	return wshrpc.SandboxStartResponse{
@@ -1652,7 +1961,7 @@ func (ws *WshServer) SandboxStatusCommand(ctx context.Context, data wshrpc.Sandb
 
 	config := session.Config
 	vncWsURL := sandboxmanager.MakeVNCWsURL(session.SessionID)
-	if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
+	if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
 		vncWsURL = ""
 	}
 	if config == nil {

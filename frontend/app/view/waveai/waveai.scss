@@ -161,6 +161,72 @@
         }
     }
 
+    @keyframes statusCompletePop {
+        0% {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes statusPulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .tool-use-progress-bar {
+        height: 2px;
+        background: rgba(56, 189, 248, 0.2);
+        border-radius: 1px;
+        overflow: hidden;
+        position: relative;
+
+        .tool-use-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            border-radius: 1px;
+            animation: progressSlide 1.5s ease-in-out infinite;
+        }
+    }
+
+    @keyframes progressSlide {
+        0% {
+            width: 0%;
+            margin-left: 0;
+        }
+        50% {
+            width: 50%;
+        }
+        100% {
+            width: 0%;
+            margin-left: 100%;
+        }
+    }
+
+    .tool-type-icon {
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-size: 10px;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.4);
+    }
+
     .waveai-chat {
         flex: 1 1 auto;
         overflow: hidden;

@@ -1,5 +1,6 @@
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { getWSServerEndpoint } from "@/util/endpoints";
 import { base64ToArrayBuffer, fireAndForget } from "@/util/util";
 import RFB from "@novnc/novnc";
@@ -17,28 +18,28 @@ type SandboxStatusWithRuntime = SandboxStatusResponse & {
     mcpUrl?: string;
 };
 
-type BytebotScreenshotResponse = {
+type KrontermDesktopScreenshotResponse = {
     image?: string;
 };
 
-const bytebotDesktopUrl = "http://localhost:9990/novnc/vnc_lite.html?scale=true";
-const bytebotPreviewIntervalMs = 1000;
+const krontermDesktopDesktopUrl = "http://localhost:9990/novnc/vnc_lite.html?scale=true";
+const krontermDesktopPreviewIntervalMs = 1000;
 
-function makeBytebotComputerUseUrl(desktopUrl: string): string {
+function makeKrontermDesktopComputerUseUrl(desktopUrl: string): string {
     try {
-        const url = new URL(desktopUrl || bytebotDesktopUrl);
+        const url = new URL(desktopUrl || krontermDesktopDesktopUrl);
         return `${url.protocol}//${url.host}/computer-use`;
     } catch {
         return "http://localhost:9990/computer-use";
     }
 }
 
-function isBytebotDesktopUrl(desktopUrl: string, runtime: string): boolean {
-    if (runtime === "bytebot") {
+function isKrontermDesktopUrl(desktopUrl: string, runtime: string): boolean {
+    if (runtime === "kronterm-desktop") {
         return true;
     }
     try {
-        const url = new URL(desktopUrl || bytebotDesktopUrl);
+        const url = new URL(desktopUrl || krontermDesktopDesktopUrl);
         return (url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.port === "9990";
     } catch {
         return false;
@@ -136,11 +137,11 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     const [desktopStatus, setDesktopStatus] = useState<SandboxDesktopStatus>("disconnected");
     const [isBusy, setIsBusy] = useState(false);
     const vncContainerRef = useRef<HTMLDivElement>(null);
-    const bytebotImageRef = useRef<HTMLImageElement>(null);
+    const krontermDesktopImageRef = useRef<HTMLImageElement>(null);
     const rfbRef = useRef<RFB | null>(null);
     const autoStartRef = useRef(false);
-    const bytebotObjectUrlRef = useRef("");
-    const [bytebotScreenshotUrl, setBytebotScreenshotUrl] = useState("");
+    const krontermDesktopObjectUrlRef = useRef("");
+    const [krontermDesktopScreenshotUrl, setKrontermDesktopScreenshotUrl] = useState("");
 
     const effectiveMode = mode === "background" ? "background" : "desktop";
     const sessionId = sandboxStatus.sessionId || model.blockId;
@@ -150,12 +151,12 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     const sandboxRuntime = getSandboxRuntime(sandboxStatus);
     const desktopUrl = getSandboxDesktopUrl(sandboxStatus);
     const mcpUrl = getSandboxMcpUrl(sandboxStatus);
-    const previewDesktopUrl = desktopUrl || (isDesktopMode ? bytebotDesktopUrl : "");
-    const usesBytebotPreview =
-        isDesktopMode && Boolean(previewDesktopUrl) && isBytebotDesktopUrl(previewDesktopUrl, sandboxRuntime);
-    const bytebotComputerUseUrl = usesBytebotPreview ? makeBytebotComputerUseUrl(previewDesktopUrl) : "";
+    const previewDesktopUrl = desktopUrl || (isDesktopMode ? krontermDesktopDesktopUrl : "");
+    const usesKrontermDesktopPreview =
+        isDesktopMode && Boolean(previewDesktopUrl) && isKrontermDesktopUrl(previewDesktopUrl, sandboxRuntime);
+    const krontermDesktopComputerUseUrl = usesKrontermDesktopPreview ? makeKrontermDesktopComputerUseUrl(previewDesktopUrl) : "";
     const rfbWsUrl = previewDesktopUrl ? "" : normalizeVncWsUrl(sandboxStatus.vncWsUrl);
-    const usesEmbeddedRfb = isDesktopMode && !usesBytebotPreview && Boolean(rfbWsUrl);
+    const usesEmbeddedRfb = isDesktopMode && !usesKrontermDesktopPreview && Boolean(rfbWsUrl);
 
     const refreshStatus = async () => {
         try {
@@ -190,7 +191,7 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     }, [sandboxStatus.status, model.blockId, effectiveMode, browserUrl]);
 
     useEffect(() => {
-        if (usesBytebotPreview) {
+        if (usesKrontermDesktopPreview) {
             if (rfbRef.current) {
                 rfbRef.current.disconnect();
                 rfbRef.current = null;
@@ -262,7 +263,7 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
         };
     }, [
         previewDesktopUrl,
-        usesBytebotPreview,
+        usesKrontermDesktopPreview,
         usesEmbeddedRfb,
         isDesktopMode,
         isRunning,
@@ -271,11 +272,11 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     ]);
 
     useEffect(() => {
-        if (!usesBytebotPreview || !bytebotComputerUseUrl) {
-            setBytebotScreenshotUrl("");
-            if (bytebotObjectUrlRef.current) {
-                URL.revokeObjectURL(bytebotObjectUrlRef.current);
-                bytebotObjectUrlRef.current = "";
+        if (!usesKrontermDesktopPreview || !krontermDesktopComputerUseUrl) {
+            setKrontermDesktopScreenshotUrl("");
+            if (krontermDesktopObjectUrlRef.current) {
+                URL.revokeObjectURL(krontermDesktopObjectUrlRef.current);
+                krontermDesktopObjectUrlRef.current = "";
             }
             return;
         }
@@ -287,16 +288,16 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
         const loadScreenshot = async () => {
             controller = new AbortController();
             try {
-                const response = await fetch(bytebotComputerUseUrl, {
+                const response = await fetch(krontermDesktopComputerUseUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "screenshot" }),
                     signal: controller.signal,
                 });
                 if (!response.ok) {
-                    throw new Error(`Bytebot screenshot failed: ${response.status}`);
+                    throw new Error(`Kronterm Desktop screenshot failed: ${response.status}`);
                 }
-                const data = (await response.json()) as BytebotScreenshotResponse;
+                const data = (await response.json()) as KrontermDesktopScreenshotResponse;
                 if (disposed || !data.image) {
                     return;
                 }
@@ -306,9 +307,9 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
                     URL.revokeObjectURL(nextUrl);
                     return;
                 }
-                const previousUrl = bytebotObjectUrlRef.current;
-                bytebotObjectUrlRef.current = nextUrl;
-                setBytebotScreenshotUrl(nextUrl);
+                const previousUrl = krontermDesktopObjectUrlRef.current;
+                krontermDesktopObjectUrlRef.current = nextUrl;
+                setKrontermDesktopScreenshotUrl(nextUrl);
                 if (previousUrl) {
                     URL.revokeObjectURL(previousUrl);
                 }
@@ -319,7 +320,7 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
                 }
             } finally {
                 if (!disposed) {
-                    timeoutId = window.setTimeout(loadScreenshot, bytebotPreviewIntervalMs);
+                    timeoutId = window.setTimeout(loadScreenshot, krontermDesktopPreviewIntervalMs);
                 }
             }
         };
@@ -333,18 +334,18 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
             if (timeoutId != null) {
                 window.clearTimeout(timeoutId);
             }
-            if (bytebotObjectUrlRef.current) {
-                URL.revokeObjectURL(bytebotObjectUrlRef.current);
-                bytebotObjectUrlRef.current = "";
+            if (krontermDesktopObjectUrlRef.current) {
+                URL.revokeObjectURL(krontermDesktopObjectUrlRef.current);
+                krontermDesktopObjectUrlRef.current = "";
             }
         };
-    }, [usesBytebotPreview, bytebotComputerUseUrl]);
+    }, [usesKrontermDesktopPreview, krontermDesktopComputerUseUrl]);
 
-    const sendBytebotClick = async (event: MouseEvent<HTMLImageElement>) => {
-        if (!usesBytebotPreview || !bytebotComputerUseUrl || !bytebotImageRef.current) {
+    const sendKrontermDesktopClick = async (event: MouseEvent<HTMLImageElement>) => {
+        if (!usesKrontermDesktopPreview || !krontermDesktopComputerUseUrl || !krontermDesktopImageRef.current) {
             return;
         }
-        const image = bytebotImageRef.current;
+        const image = krontermDesktopImageRef.current;
         if (!image.naturalWidth || !image.naturalHeight) {
             return;
         }
@@ -359,8 +360,19 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
         if (x < 0 || y < 0 || x > image.naturalWidth || y > image.naturalHeight) {
             return;
         }
+        const blockRect = image.closest<HTMLElement>("div[data-blockid]")?.getBoundingClientRect();
+        reportDesktopPetActivity(
+            { kind: "tool", detail: "sandbox click" },
+            model.blockId,
+            blockRect
+                ? {
+                      x: Math.round(event.clientX - blockRect.left),
+                      y: Math.round(event.clientY - blockRect.top),
+                  }
+                : undefined
+        );
         try {
-            await fetch(bytebotComputerUseUrl, {
+            await fetch(krontermDesktopComputerUseUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -459,8 +471,8 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
             model.env.electron.openExternal(previewDesktopUrl);
             return;
         }
-        if (sandboxRuntime === "bytebot") {
-            model.env.electron.openExternal(bytebotDesktopUrl);
+        if (sandboxRuntime === "kronterm-desktop") {
+            model.env.electron.openExternal(krontermDesktopDesktopUrl);
             return;
         }
         if (!sandboxStatus.vncPort) {
@@ -482,18 +494,18 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     return (
         <div className="h-full min-h-0 bg-black">
             {isDesktopMode ? (
-                usesBytebotPreview ? (
+                usesKrontermDesktopPreview ? (
                     <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-black">
-                        {bytebotScreenshotUrl ? (
+                        {krontermDesktopScreenshotUrl ? (
                             <img
-                                ref={bytebotImageRef}
-                                src={bytebotScreenshotUrl}
+                                ref={krontermDesktopImageRef}
+                                src={krontermDesktopScreenshotUrl}
                                 alt="Sandbox desktop"
                                 className="block h-full w-full select-none"
                                 style={{ objectFit: "contain" }}
                                 draggable={false}
                                 onClick={(event) => {
-                                    void sendBytebotClick(event);
+                                    void sendKrontermDesktopClick(event);
                                 }}
                             />
                         ) : null}

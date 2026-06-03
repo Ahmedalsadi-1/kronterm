@@ -30,9 +30,12 @@ import {
 } from "./emain-activity";
 
 import {
+    getDesktopPetClickThroughStatus,
     notifyDesktopPetActivity,
     notifyDesktopPetNotification,
+    resumeDesktopPetContext,
     submitDesktopPetChat,
+    toggleDesktopPetClickThrough,
     updateDesktopPetOptions,
 } from "./emain-pet";
 import { callWithOriginalXdgCurrentDesktopAsync, unamePlatform } from "./emain-platform";
@@ -207,11 +210,24 @@ export function initIpcHandlers() {
         }
     });
 
+    electron.ipcMain.on("desktop-pet-resume", () => {
+        resumeDesktopPetContext();
+    });
+
+    electron.ipcMain.on("desktop-pet-clickthrough-toggle", () => {
+        toggleDesktopPetClickThrough();
+    });
+
+    electron.ipcMain.handle("desktop-pet-clickthrough-status", () => {
+        return getDesktopPetClickThroughStatus();
+    });
+
     electron.ipcMain.on("desktop-pet-activity", (event, notification) => {
         if (notification?.kind === "idle" || notification?.kind === "thinking" || notification?.kind === "tool") {
             const tabView = getWaveTabViewByWebContentsId(event.sender.id);
             const bounds = tabView?.getBounds();
             const localTarget = notification.target;
+            const localCursorPoint = notification.cursorPoint;
             const target =
                 bounds != null &&
                 localTarget != null &&
@@ -226,7 +242,19 @@ export function initIpcHandlers() {
                           height: localTarget.height,
                       }
                     : undefined;
-            notifyDesktopPetNotification({ ...notification, target });
+            const hasBlockLocalCoordinates = typeof notification.surfaceActivity?.blockid === "string";
+            const cursorPoint =
+                hasBlockLocalCoordinates &&
+                bounds != null &&
+                localCursorPoint != null &&
+                Number.isFinite(localCursorPoint.x) &&
+                Number.isFinite(localCursorPoint.y)
+                    ? {
+                          x: bounds.x + localCursorPoint.x,
+                          y: bounds.y + localCursorPoint.y,
+                      }
+                    : localCursorPoint;
+            notifyDesktopPetNotification({ ...notification, target, cursorPoint });
             const petActivityUrl = notification.petActivityUrl;
             if (
                 typeof petActivityUrl === "string" &&

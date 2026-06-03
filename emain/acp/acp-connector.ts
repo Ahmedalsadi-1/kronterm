@@ -21,8 +21,13 @@ export async function spawnAcpAgent(
 ): Promise<AcpSpawnResult> {
     const config = ACP_BACKENDS_ALL[backend];
     const acpArgs = customArgs ?? config?.acpArgs;
+    const runtimeEnv = { ...customEnv };
+    const bunBinary = path.join(process.env.HOME || "", ".bun", "bin", "bun");
+    if (!runtimeEnv.BUN_BINARY && !process.env.BUN_BINARY && isExecutablePath(bunBinary)) {
+        runtimeEnv.BUN_BINARY = bunBinary;
+    }
 
-    const cleanEnv = await prepareCleanEnv(customEnv);
+    const cleanEnv = await prepareCleanEnv(runtimeEnv);
     const spawnConfig = createSpawnConfig(cliPath, workingDir, acpArgs, cleanEnv as Record<string, string>);
 
     const detached = process.platform !== "win32";
@@ -53,6 +58,7 @@ function detectKronosCodeCli(defaultCliPath?: string): string | null {
         process.env.KRONTERM_KRONOSCODE_BIN,
         resourcesPath ? path.join(resourcesPath, "agents", "kronoscode", "bin", "kronoscode") : null,
         path.resolve(import.meta.dirname, "..", "..", "agents", "kronoscode", "bin", "kronoscode"),
+        path.join(process.cwd(), "kronoscoder", "packages", "kronoscode", "bin", "kronoscode"),
         path.join(process.cwd(), "kronoscode", "bin", "kronoscode"),
         defaultCliPath,
     ].filter((candidate): candidate is string => Boolean(candidate));

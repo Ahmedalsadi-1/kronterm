@@ -34,6 +34,9 @@ export function blockViewToIcon(view: string): string {
     if (view == "installedapps") {
         return "desktop";
     }
+    if (view == "kronsettings") {
+        return "sliders";
+    }
     return "square";
 }
 
@@ -61,6 +64,9 @@ export function blockViewToName(view: string): string {
     }
     if (view == "installedapps") {
         return "Installed Apps";
+    }
+    if (view == "kronsettings") {
+        return "Settings";
     }
     return view;
 }

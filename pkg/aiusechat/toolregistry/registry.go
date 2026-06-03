@@ -27,6 +27,7 @@ func MakeRegistry() *Registry {
 }
 
 func (r *Registry) Register(capability Capability) error {
+	capability = normalizeCapability(capability)
 	if err := validateCapability(capability); err != nil {
 		return err
 	}
@@ -42,6 +43,16 @@ func (r *Registry) Register(capability Capability) error {
 
 	r.capabilities[capability.ID] = capability
 	return nil
+}
+
+func normalizeCapability(capability Capability) Capability {
+	if capability.Availability == "" {
+		capability.Availability = ToolAvailabilityUnknown
+	}
+	if capability.Verification == "" {
+		capability.Verification = ToolVerificationResult
+	}
+	return capability
 }
 
 func (r *Registry) Lookup(id string) (Capability, bool) {
@@ -95,6 +106,34 @@ func (r *Registry) ListBySource(source ToolSource) []Capability {
 	return capabilities
 }
 
+func (r *Registry) ListByAvailability(availability ToolAvailability) []Capability {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var capabilities []Capability
+	for _, capability := range r.capabilities {
+		if capability.Availability == availability {
+			capabilities = append(capabilities, cloneCapability(capability))
+		}
+	}
+	sortCapabilities(capabilities)
+	return capabilities
+}
+
+func (r *Registry) ListByConnector(connectorID string) []Capability {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var capabilities []Capability
+	for _, capability := range r.capabilities {
+		if capability.ConnectorID == connectorID {
+			capabilities = append(capabilities, cloneCapability(capability))
+		}
+	}
+	sortCapabilities(capabilities)
+	return capabilities
+}
+
 func validateCapability(capability Capability) error {
 	if capability.ID == "" {
 		return fmt.Errorf("%w: id is required", ErrInvalidCapability)
@@ -121,6 +160,7 @@ func validateCapability(capability Capability) error {
 
 func cloneCapability(capability Capability) Capability {
 	capability.Packs = append([]ToolPack(nil), capability.Packs...)
+	capability.FallbackIDs = append([]string(nil), capability.FallbackIDs...)
 	return capability
 }
 

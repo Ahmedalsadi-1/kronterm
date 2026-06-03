@@ -39,6 +39,7 @@ import { getFileSubject, waveEventSubscribeSingle } from "./wps";
 import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 
 let globalPrimaryTabStartup: boolean = false;
+let removeDesktopPetSurfaceActivityListener: (() => void) | null = null;
 
 function initGlobal(initOpts: GlobalInitOptions) {
     globalPrimaryTabStartup = initOpts.primaryTabStartup ?? false;
@@ -47,6 +48,10 @@ function initGlobal(initOpts: GlobalInitOptions) {
     try {
         getApi().onMenuItemAbout(() => {
             modalsModel.pushModal("AboutModal");
+        });
+        removeDesktopPetSurfaceActivityListener?.();
+        removeDesktopPetSurfaceActivityListener = getApi().onDesktopPetSurfaceActivity((activity) => {
+            reportAgentSurfaceActivity(activity as AgentSurfaceActivity);
         });
     } catch (e) {
         console.log("failed to initialize onMenuItemAbout handler", e);

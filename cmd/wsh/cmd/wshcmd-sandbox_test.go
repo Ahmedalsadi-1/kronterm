@@ -8,7 +8,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 )
 
-func TestSandboxBytebotActionAcceptsEmptySuccessfulMutationResponse(t *testing.T) {
+func TestSandboxKrontermDesktopActionAcceptsEmptySuccessfulMutationResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/computer-use" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -17,8 +17,8 @@ func TestSandboxBytebotActionAcceptsEmptySuccessfulMutationResponse(t *testing.T
 	}))
 	defer server.Close()
 
-	result, err := sandboxBytebotAction(
-		wshrpc.SandboxStatusResponse{McpUrl: server.URL + "/mcp"},
+	result, err := sandboxKrontermDesktopAction(
+		wshrpc.SandboxStatusResponse{DesktopUrl: server.URL},
 		map[string]any{"action": "click_mouse"},
 	)
 	if err != nil {
@@ -30,15 +30,15 @@ func TestSandboxBytebotActionAcceptsEmptySuccessfulMutationResponse(t *testing.T
 	}
 }
 
-func TestSandboxBytebotActionPreservesScreenshotResponse(t *testing.T) {
+func TestSandboxKrontermDesktopActionPreservesScreenshotResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"success":true,"image":"pngdata"}`))
 	}))
 	defer server.Close()
 
-	result, err := sandboxBytebotAction(
-		wshrpc.SandboxStatusResponse{McpUrl: server.URL + "/mcp"},
+	result, err := sandboxKrontermDesktopAction(
+		wshrpc.SandboxStatusResponse{DesktopUrl: server.URL},
 		map[string]any{"action": "screenshot"},
 	)
 	if err != nil {

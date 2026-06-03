@@ -131,6 +131,8 @@ type SettingsType struct {
 	AppDisableCtrlShiftDisplay    bool   `json:"app:disablectrlshiftdisplay,omitempty"`
 	AppFocusFollowsCursor         string `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
+	AppLayoutMode                 string `json:"app:layoutmode,omitempty" jsonschema:"enum=widgets,enum=canvas"`
+	AppQuickComposer              *bool  `json:"app:quickcomposer,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
 
@@ -202,6 +204,7 @@ type SettingsType struct {
 	WebOpenLinksInternally bool   `json:"web:openlinksinternally,omitempty"`
 	WebDefaultUrl          string `json:"web:defaulturl,omitempty"`
 	WebDefaultSearch       string `json:"web:defaultsearch,omitempty"`
+	WebTabStripPosition    string `json:"web:tabstripposition,omitempty" jsonschema:"enum=top,enum=left"`
 
 	AutoUpdateClear         bool    `json:"autoupdate:*,omitempty"`
 	AutoUpdateEnabled       bool    `json:"autoupdate:enabled,omitempty"`

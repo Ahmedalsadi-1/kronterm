@@ -11,6 +11,7 @@
     --border-color: rgba(255, 255, 255, 0.16);
     --surface-base-color: rgba(18, 20, 18, 0.92);
     --surface-raised-color: rgba(31, 33, 31, 0.86);
+    --surface-overlay-color: rgba(35, 37, 35, 0.96);
     --surface-hover-color: rgba(255, 255, 255, 0.09);
     --surface-active-color: rgba(255, 255, 255, 0.14);
     --surface-selected-color: rgba(88, 193, 66, 0.16);
@@ -19,6 +20,7 @@
     --text-secondary-color: #c8cec7;
     --text-muted-color: #8b918a;
     --base-font: normal 14px / normal "Inter", sans-serif;
+    --font-default: "Inter", sans-serif;
     --fixed-font: normal 12px / normal "Hack", monospace;
     --accent-color: rgb(88, 193, 66);
     --panel-bg-color: var(--surface-raised-color);
@@ -62,6 +64,7 @@
     --zindex-typeahead-modal: 100;
     --zindex-typeahead-modal-backdrop: 90;
     --zindex-elem-modal: 100;
+    --zindex-popover: 1000;
     --zindex-window-drag: 100;
     --zindex-tab-name: 3;
     --zindex-layout-display-container: 0;
@@ -87,13 +90,13 @@
     // xterm-decoration-top: 2
 
     // modal colors
-    --modal-bg-color: #232323;
+    --modal-bg-color: var(--surface-overlay-color);
     --modal-header-bottom-border-color: rgba(241, 246, 243, 0.15);
     --modal-border-color: rgba(255, 255, 255, 0.12); /* toggle colors */
     --modal-border-radius: 6px;
     --toggle-bg-color: var(--border-color);
     --modal-shadow-color: rgba(0, 0, 0, 0.8);
-    --modal-box-shadow: box-shadow: 0px 8px 24px 0px var(--modal-shadow-color);
+    --modal-box-shadow: 0px 8px 24px 0px var(--modal-shadow-color);
 
     --toggle-thumb-color: var(--main-text-color);
     --toggle-checked-bg-color: var(--accent-color);
@@ -109,6 +112,7 @@
     --form-element-primary-color: var(--accent-color);
     --form-element-secondary-color: rgba(255, 255, 255, 0.2);
     --form-element-error-color: var(--error-color);
+    --form-element-placeholder-color: rgba(195, 200, 194, 0.58);
 
     --conn-icon-color: #53b4ea;
     --conn-icon-color-1: #53b4ea;

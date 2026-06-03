@@ -105,6 +105,36 @@ export function buildTabContextMenu(
         menu.push({ label: "Backgrounds", type: "submenu", submenu }, { type: "separator" });
     }
     menu.push(...buildTabBarContextMenu(env), { type: "separator" });
+    const currentGroup = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:group")) ?? null;
+    menu.push({
+        label: "Add to Group",
+        type: "submenu",
+        submenu: [
+            {
+                label: "New Group",
+                click: () => {
+                    const groupName = prompt("Group name:", "📁 Folder");
+                    if (groupName?.trim()) {
+                        fireAndForget(() =>
+                            env.rpc.SetMetaCommand(TabRpcClient, {
+                                oref: tabORef,
+                                meta: { "tab:group": groupName.trim(), "tab:groupcolor": "blue" },
+                            })
+                        );
+                    }
+                },
+            },
+            {
+                label: "No Group",
+                type: "checkbox",
+                checked: currentGroup == null,
+                click: () =>
+                    fireAndForget(() =>
+                        env.rpc.SetMetaCommand(TabRpcClient, { oref: tabORef, meta: { "tab:group": null, "tab:groupcolor": null } })
+                    ),
+            },
+        ],
+    }, { type: "separator" });
     menu.push({ label: "Close Tab", click: () => onClose(null) });
     return menu;
 }

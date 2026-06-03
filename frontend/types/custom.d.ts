@@ -59,6 +59,7 @@ declare global {
         primaryTabStartup?: boolean;
         builderId?: string;
         isPreview?: boolean;
+    };
 
     type ElectronApi = {
         getAuthKey(): string; // get-auth-key
@@ -126,22 +127,49 @@ declare global {
             thought?: string;
             target?: { x: number; y: number; width: number; height: number };
             cursorAction?: "idle" | "click" | "type" | "scroll" | "hover" | null;
+            cursorPoint?: { x: number; y: number } | null;
+            reasoningLog?: string[];
             previewImageUrl?: string;
             petActivityUrl?: string;
             surfaceActivity?: {
                 sessionid?: string;
-                source: "acp" | "kronoscode-tui";
-                phase: "start" | "update" | "finish" | "error";
+                source: "acp" | "kronoscode-tui" | "wave" | "mcp" | "plugin" | "surface-runtime";
+                phase:
+                    | "queued"
+                    | "awaiting-approval"
+                    | "running"
+                    | "verifying"
+                    | "succeeded"
+                    | "degraded"
+                    | "failed"
+                    | "cancelled"
+                    | "paused"
+                    | "start"
+                    | "update"
+                    | "finish"
+                    | "error";
                 blockid?: string;
-                surface: "browser" | "sandbox" | "terminal" | "file" | "panel";
+                surface: "browser" | "sandbox" | "desktop" | "terminal" | "file" | "panel";
                 action: string;
+                capabilityid?: string;
+                connectorid?: string;
                 detail?: string;
                 thought?: string;
+                reasoningSteps?: string[];
                 point?: { x: number; y: number };
+                target?: { x: number; y: number; width: number; height: number };
                 previewimageurl?: string;
+                petactivityurl?: string;
+                appname?: string;
+                presentationHints?: {
+                    cursorAction?: "idle" | "click" | "type" | "scroll" | "hover" | null;
+                    overlayAction?: string;
+                };
             };
         }) => void; // desktop-pet-activity
         onDesktopPetChat: (callback: (text: string) => void) => () => void; // desktop-pet-chat
+        onDesktopPetResume: (callback: () => void) => () => void; // desktop-pet-resume
+        onDesktopPetSurfaceActivity: (callback: (activity: Record<string, unknown>) => void) => () => void; // desktop-pet-surface-activity
         acpDetectAgents: () => Promise<
             Array<{
                 backend: string;

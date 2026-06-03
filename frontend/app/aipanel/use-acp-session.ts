@@ -1,6 +1,6 @@
 import { atoms, getBlockMetaKeyAtom, getFocusedBlockId, globalStore } from "@/app/store/global";
-import { getLayoutModelForStaticTab } from "@/layout/index";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
+import { getLayoutModelForStaticTab } from "@/layout/index";
 import { isLocalConnName } from "@/util/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { v7 as uuidv7 } from "uuid";
@@ -809,46 +809,93 @@ export function useAcpSession() {
             if (event.type === "status") {
                 const status = (event.data as { status?: string } | undefined)?.status;
                 if (status === "running" || status === "connecting") {
-                    reportDesktopPetActivity({ kind: "thinking", detail: "KronosCode working" });
+                    reportDesktopPetActivity({ kind: "thinking", detail: "KronosCode working" }, undefined, undefined, {
+                        phase: "running",
+                        surface: "panel",
+                        action: "thinking",
+                    });
                 } else {
-                    reportDesktopPetActivity({ kind: "idle" });
+                    reportDesktopPetActivity({ kind: "idle" }, undefined, undefined, {
+                        phase: status === "error" ? "failed" : "succeeded",
+                        surface: "panel",
+                        action: "focus",
+                    });
                 }
             }
             if (event.type === "agent_thought_chunk") {
-                reportDesktopPetActivity({
-                    kind: "thinking",
-                    detail: "Reasoning",
-                    thought: textFromAcpEvent(event.data),
-                });
+                reportDesktopPetActivity(
+                    {
+                        kind: "thinking",
+                        detail: "Reasoning",
+                        thought: textFromAcpEvent(event.data),
+                    },
+                    undefined,
+                    undefined,
+                    { phase: "running", surface: "panel", action: "thinking" }
+                );
             }
             if (event.type === "tool_call") {
-                const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | undefined;
+                const data = event.data as
+                    | { title?: string; rawInput?: Record<string, unknown>; status?: string }
+                    | undefined;
+                const blockId = blockIdFromToolInput(data?.rawInput);
                 reportDesktopPetActivity(
                     { kind: "tool", detail: data?.title ?? "Using tool" },
-                    blockIdFromToolInput(data?.rawInput),
-                    data?.rawInput
+                    blockId,
+                    data?.rawInput,
+                    {
+                        phase: data?.status === "pending" ? "queued" : "running",
+                        blockid: blockId,
+                    }
                 );
             }
             if (event.type === "tool_call_update") {
-                const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | undefined;
+                const data = event.data as
+                    | { title?: string; rawInput?: Record<string, unknown>; status?: string }
+                    | undefined;
                 const previewImageUrl = previewImageFromToolUpdate(data);
                 if (data?.title || previewImageUrl) {
+                    const blockId = blockIdFromToolInput(data?.rawInput);
                     reportDesktopPetActivity(
                         {
                             kind: "tool",
                             detail: previewImageUrl ? "Computer use screenshot" : (data?.title ?? "Using tool"),
                             previewImageUrl,
                         },
-                        blockIdFromToolInput(data?.rawInput),
-                        data?.rawInput
+                        blockId,
+                        data?.rawInput,
+                        {
+                            phase: data?.status === "failed" ? "failed" : "verifying",
+                            blockid: blockId,
+                        }
                     );
                 }
             }
+            if (event.type === "tool_permission") {
+                const data = event.data as
+                    | { confirmation?: { title?: string }; toolCall?: { title?: string } }
+                    | undefined;
+                reportDesktopPetActivity(
+                    { kind: "tool", detail: data?.confirmation?.title ?? data?.toolCall?.title ?? "Review required" },
+                    undefined,
+                    undefined,
+                    { phase: "awaiting-approval", surface: "panel", action: "wait" }
+                );
+            }
             if (event.type === "finish" || event.type === "error") {
-                reportDesktopPetActivity({
-                    kind: "idle",
-                    detail: event.type === "finish" ? "Task complete" : "Task ended",
-                });
+                reportDesktopPetActivity(
+                    {
+                        kind: "idle",
+                        detail: event.type === "finish" ? "Task complete" : "Task ended",
+                    },
+                    undefined,
+                    undefined,
+                    {
+                        phase: event.type === "finish" ? "succeeded" : "failed",
+                        surface: "panel",
+                        action: "focus",
+                    }
+                );
             }
             updateRuntime(event.conversationId, (runtime) => applyAcpEvent(runtime, event));
         });

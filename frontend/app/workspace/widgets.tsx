@@ -3,6 +3,7 @@
 
 import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { AppStreamCreatedEvent } from "@/app/view/appstream/computer-use-stream-manager";
 import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import { shouldIncludeWidgetForWorkspace } from "@/app/workspace/widgetfilter";
 import { modalsModel } from "@/store/modalmodel";
@@ -18,15 +19,15 @@ import {
 } from "@floating-ui/react";
 import clsx from "clsx";
 import { useAtomValue } from "jotai";
+import { Boxes, ChevronRight, Settings, TriangleAlert } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import "./widgets.scss";
 
 export type WidgetsEnv = WaveEnvSubset<{
     isDev: WaveEnv["isDev"];
-    electron: {
-        openBuilder: WaveEnv["electron"]["openBuilder"];
-    };
+    electron: {};
     rpc: {
-        ListAllAppsCommand: WaveEnv["rpc"]["ListAllAppsCommand"];
+        ListInstalledAppsCommand: WaveEnv["rpc"]["ListInstalledAppsCommand"];
     };
     atoms: {
         fullConfigAtom: WaveEnv["atoms"]["fullConfigAtom"];
@@ -47,6 +48,83 @@ function sortByDisplayOrder(wmap: { [key: string]: WidgetConfigType }): WidgetCo
         return (a["display:order"] ?? 0) - (b["display:order"] ?? 0);
     });
     return wlist;
+}
+
+type WidgetGroupKey = string;
+
+const DefaultWidgetGroups: Record<string, { label: string; order: number }> = {
+    terminal: { label: "Terminal", order: 0 },
+    browser: { label: "Browser", order: 1 },
+    ai: { label: "AI", order: 2 },
+    sandbox: { label: "Sandbox", order: 3 },
+    apps: { label: "Apps", order: 4 },
+    tools: { label: "Tools", order: 5 },
+};
+
+const WidgetGroupColors: Record<string, string> = {
+    terminal: "#4ade80",
+    browser: "#60a5fa",
+    ai: "#e8c47c",
+    sandbox: "#f472b6",
+    apps: "#a78bfa",
+    tools: "#94a3b8",
+};
+
+function widgetGroupKey(widget: WidgetConfigType): WidgetGroupKey {
+    const group = widget["display:group"];
+    if (group && DefaultWidgetGroups[group]) {
+        return group;
+    }
+    const view = widget.blockdef?.meta?.view ?? "";
+    if (view === "term" || view === "vdom") return "terminal";
+    if (view === "web") return "browser";
+    if (view === "sandbox") return "sandbox";
+    if (view === "waveai" || view === "waveconfig") return "ai";
+    if (view === "tsunami") return "apps";
+    return "tools";
+}
+
+function groupWidgets(widgets: WidgetConfigType[]): Map<WidgetGroupKey, WidgetConfigType[]> {
+    const groups = new Map<WidgetGroupKey, WidgetConfigType[]>();
+    for (const widget of widgets) {
+        const key = widgetGroupKey(widget);
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key)!.push(widget);
+    }
+    return groups;
+}
+
+const FoldStateStorageKey = "kronoscode:widget-groups:fold-state";
+const AppRecentStorageKey = "kronoscode:app-launcher:recents";
+
+function loadFoldState(): Record<string, boolean> {
+    try {
+        const stored = window.localStorage.getItem(FoldStateStorageKey);
+        if (stored) return JSON.parse(stored);
+    } catch {}
+    return {};
+}
+
+function saveFoldState(state: Record<string, boolean>): void {
+    try {
+        window.localStorage.setItem(FoldStateStorageKey, JSON.stringify(state));
+    } catch {}
+}
+
+function loadRecentApps(): string[] {
+    try {
+        const stored = window.localStorage.getItem(AppRecentStorageKey);
+        if (stored) return JSON.parse(stored);
+    } catch {}
+    return [];
+}
+
+function saveRecentApps(ids: string[]): void {
+    try {
+        window.localStorage.setItem(AppRecentStorageKey, JSON.stringify(ids.slice(0, 12)));
+    } catch {}
 }
 
 type WidgetPropsType = {
@@ -79,7 +157,7 @@ const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
             placement="left"
             disable={shouldDisableTooltip}
             divClassName={clsx(
-                "flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer",
+                "widget-rail-item",
                 mode === "supercompact" ? "text-sm" : "text-lg",
                 widget["display:hidden"] && "hidden"
             )}
@@ -130,9 +208,23 @@ type FloatingWindowPropsType = {
     hasConfigErrors?: boolean;
 };
 
+type LauncherAppInfo = {
+    appid: string;
+    manifest?: {
+        appmeta?: {
+            displayname?: string;
+            icon?: string;
+            iconcolor?: string;
+        };
+    };
+};
+
 const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: FloatingWindowPropsType) => {
-    const [apps, setApps] = useState<AppInfo[]>([]);
+    const [apps, setApps] = useState<LauncherAppInfo[]>([]);
+    const [desktopApps, setDesktopApps] = useState<InstalledAppInfo[]>([]);
     const [loading, setLoading] = useState(true);
+    const [query, setQuery] = useState("");
+    const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentApps());
     const env = useWaveEnv<WidgetsEnv>();
 
     const { refs, floatingStyles, context } = useFloating({
@@ -149,9 +241,17 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
     const dismiss = useDismiss(context);
     const { getFloatingProps } = useInteractions([dismiss]);
     const handleOpenBuilder = useCallback(() => {
-        env.electron.openBuilder(null);
+        (env.electron as { openBuilder?: (appId: string | null) => void }).openBuilder?.(null);
         onClose();
     }, [onClose, env]);
+
+    const rememberRecent = useCallback((id: string) => {
+        setRecentIds((prev) => {
+            const next = [id, ...prev.filter((item) => item !== id)].slice(0, 12);
+            saveRecentApps(next);
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -159,7 +259,16 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
         const fetchApps = async () => {
             setLoading(true);
             try {
-                const allApps = await env.rpc.ListAllAppsCommand(TabRpcClient);
+                const rpc = env.rpc as WidgetsEnv["rpc"] & {
+                    ListAllAppsCommand?: (client: typeof TabRpcClient) => Promise<LauncherAppInfo[]>;
+                };
+                const listWaveApps = rpc.ListAllAppsCommand;
+                const [waveAppsResult, desktopAppsResult] = await Promise.allSettled([
+                    typeof listWaveApps === "function" ? listWaveApps(TabRpcClient) : Promise.resolve([]),
+                    env.rpc.ListInstalledAppsCommand(TabRpcClient),
+                ]);
+                const allApps = waveAppsResult.status === "fulfilled" ? waveAppsResult.value : [];
+                const installedApps = desktopAppsResult.status === "fulfilled" ? desktopAppsResult.value : [];
                 const localApps = allApps
                     .filter((app) => !app.appid.startsWith("draft/"))
                     .sort((a, b) => {
@@ -168,9 +277,17 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
                         return aName.localeCompare(bName);
                     });
                 setApps(localApps);
+                setDesktopApps(installedApps.sort((a, b) => a.name.localeCompare(b.name)));
+                if (waveAppsResult.status === "rejected") {
+                    console.error("Failed to fetch WaveApps:", waveAppsResult.reason);
+                }
+                if (desktopAppsResult.status === "rejected") {
+                    console.error("Failed to fetch desktop apps:", desktopAppsResult.reason);
+                }
             } catch (error) {
                 console.error("Failed to fetch apps:", error);
                 setApps([]);
+                setDesktopApps([]);
             } finally {
                 setLoading(false);
             }
@@ -181,7 +298,68 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
 
     if (!isOpen) return null;
 
-    const gridSize = calculateGridSize(apps.length);
+    const normalizedQuery = query.trim().toLowerCase();
+    const filteredDesktopApps = normalizedQuery
+        ? desktopApps.filter((app) => `${app.name} ${app.appid} ${app.bundleid ?? ""}`.toLowerCase().includes(normalizedQuery))
+        : desktopApps;
+    const filteredApps = normalizedQuery
+        ? apps.filter((app) => `${app.appid} ${app.manifest?.appmeta?.displayname ?? ""}`.toLowerCase().includes(normalizedQuery))
+        : apps;
+    const allLaunchables = [
+        ...desktopApps.map((app) => ({ kind: "desktop" as const, id: `desktop:${app.appid}`, label: app.name, app })),
+        ...apps.map((app) => ({ kind: "wave" as const, id: `wave:${app.appid}`, label: app.appid.replace(/^local\//, ""), app })),
+    ];
+    const recentLaunchables = recentIds
+        .map((id) => allLaunchables.find((item) => item.id === id))
+        .filter(Boolean)
+        .slice(0, 8);
+    const gridSize = calculateGridSize(Math.max(filteredApps.length, filteredDesktopApps.length, recentLaunchables.length));
+
+    const renderIcon = (icon: string | undefined, fallback: string, color?: string) => {
+        if (icon?.startsWith("data:") || icon?.startsWith("file:") || icon?.startsWith("http")) {
+            return (
+                <img
+                    src={icon}
+                    alt=""
+                    className="h-8 w-8 rounded-lg object-contain"
+                    onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                    }}
+                />
+            );
+        }
+        return <i className={makeIconClass(icon || fallback, false)} style={{ color }}></i>;
+    };
+
+    const launchDesktopApp = (app: InstalledAppInfo) => {
+        const blockDef: BlockDef = {
+            meta: {
+                view: "appstream",
+                "appstream:appid": app.bundleid || app.appid,
+                "appstream:appname": app.name,
+            } as unknown as MetaType,
+        };
+        Promise.resolve(env.createBlock(blockDef)).then((blockId) => {
+            if (blockId) {
+                window.dispatchEvent(new CustomEvent(AppStreamCreatedEvent, { detail: { appName: app.name, blockId } }));
+            }
+        });
+        rememberRecent(`desktop:${app.appid}`);
+        onClose();
+    };
+
+    const launchWaveApp = (app: LauncherAppInfo) => {
+        const blockDef: BlockDef = {
+            meta: {
+                view: "tsunami",
+                controller: "tsunami",
+                "tsunami:appid": app.appid,
+            },
+        };
+        env.createBlock(blockDef);
+        rememberRecent(`wave:${app.appid}`);
+        onClose();
+    };
 
     return (
         <FloatingPortal>
@@ -189,54 +367,136 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}
-                className="bg-modalbg border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+                className="bg-modalbg border border-border rounded-xl shadow-xl z-50 overflow-hidden min-w-[360px]"
             >
+                <div className="border-b border-border/70 p-3">
+                    <div className="flex items-center gap-2 rounded-lg border border-border bg-black/20 px-3 py-2">
+                        <i className="fa-solid fa-magnifying-glass text-muted text-xs" />
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search apps, desktop streams, tools..."
+                            className="min-w-0 flex-1 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
+                        />
+                    </div>
+                </div>
                 <div className="p-4">
                     {loading ? (
                         <div className="flex items-center justify-center p-8">
                             <i className="fa fa-solid fa-spinner fa-spin text-2xl text-muted"></i>
                         </div>
-                    ) : apps.length === 0 ? (
-                        <div className="text-muted text-sm p-4 text-center">No local apps found</div>
+                    ) : apps.length === 0 && desktopApps.length === 0 ? (
+                        <div className="text-muted text-sm p-4 text-center">No desktop apps found</div>
+                    ) : filteredApps.length === 0 && filteredDesktopApps.length === 0 ? (
+                        <div className="text-muted text-sm p-4 text-center">No apps match “{query}”</div>
                     ) : (
-                        <div
-                            className="grid gap-3"
-                            style={{
-                                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                maxWidth: `${gridSize * 80}px`,
-                            }}
-                        >
-                            {apps.map((app) => {
-                                const appMeta = app.manifest?.appmeta;
-                                const displayName = app.appid.replace(/^local\//, "");
-                                const icon = appMeta?.icon || "cube";
-                                const iconColor = appMeta?.iconcolor || "white";
-
-                                return (
+                        <div className="max-h-[65vh] overflow-y-auto">
+                            {!normalizedQuery && recentLaunchables.length > 0 ? (
+                                <>
+                                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                        Recent
+                                    </div>
                                     <div
-                                        key={app.appid}
-                                        className="flex flex-col items-center justify-center p-2 rounded hover:bg-hoverbg cursor-pointer transition-colors"
-                                        onClick={() => {
-                                            const blockDef: BlockDef = {
-                                                meta: {
-                                                    view: "tsunami",
-                                                    controller: "tsunami",
-                                                    "tsunami:appid": app.appid,
-                                                },
-                                            };
-                                            env.createBlock(blockDef);
-                                            onClose();
+                                        className="grid gap-3 mb-4"
+                                        style={{
+                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                            maxWidth: `${gridSize * 88}px`,
                                         }}
                                     >
-                                        <div style={{ color: iconColor }} className="text-3xl mb-1">
-                                            <i className={makeIconClass(icon, false)}></i>
-                                        </div>
-                                        <div className="text-xxs text-center text-secondary break-words w-full px-1">
-                                            {displayName}
-                                        </div>
+                                        {recentLaunchables.map((item) => {
+                                            if (!item) return null;
+                                            const app = item.app as any;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={item.id}
+                                                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                    title={item.label}
+                                                    onClick={() =>
+                                                        item.kind === "desktop"
+                                                            ? launchDesktopApp(item.app as InstalledAppInfo)
+                                                            : launchWaveApp(item.app as LauncherAppInfo)
+                                                    }
+                                                >
+                                                    <div className="text-3xl mb-1 text-accent">
+                                                        {renderIcon(app.icon || app.manifest?.appmeta?.icon, "cube", app.manifest?.appmeta?.iconcolor)}
+                                                    </div>
+                                                    <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                        {item.label}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                );
-                            })}
+                                </>
+                            ) : null}
+                            {filteredDesktopApps.length > 0 ? (
+                                <>
+                                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                        Desktop Apps
+                                    </div>
+                                    <div
+                                        className="grid gap-3"
+                                        style={{
+                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                            maxWidth: `${gridSize * 88}px`,
+                                        }}
+                                    >
+                                        {filteredDesktopApps.map((app) => (
+                                            <button
+                                                type="button"
+                                                key={app.appid}
+                                                className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                title={`Stream ${app.name} in KronTerm`}
+                                                onClick={() => launchDesktopApp(app)}
+                                            >
+                                                <div className="text-3xl mb-1 text-accent">
+                                                    {renderIcon(app.icon, "cube")}
+                                                </div>
+                                                <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                    {app.name}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : null}
+                            {filteredApps.length > 0 ? (
+                                <>
+                                    <div className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                        WaveApps
+                                    </div>
+                                    <div
+                                        className="grid gap-3"
+                                        style={{
+                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                            maxWidth: `${gridSize * 88}px`,
+                                        }}
+                                    >
+                                        {filteredApps.map((app) => {
+                                            const appMeta = app.manifest?.appmeta;
+                                            const displayName = app.appid.replace(/^local\//, "");
+                                            const icon = appMeta?.icon || "cube";
+                                            const iconColor = appMeta?.iconcolor || "white";
+
+                                            return (
+                                                <div
+                                                    key={app.appid}
+                                                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                    onClick={() => launchWaveApp(app)}
+                                                >
+                                                    <div style={{ color: iconColor }} className="text-3xl mb-1">
+                                                        {renderIcon(icon, "cube", iconColor)}
+                                                    </div>
+                                                    <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                        {displayName}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            ) : null}
                         </div>
                     )}
                 </div>
@@ -280,7 +540,7 @@ const SettingsFloatingWindow = memo(
                 onClick: () => {
                     const blockDef: BlockDef = {
                         meta: {
-                            view: "waveconfig",
+                            view: "kronsettings",
                         },
                     };
                     env.createBlock(blockDef, false, true);
@@ -368,6 +628,110 @@ const SettingsFloatingWindow = memo(
 
 SettingsFloatingWindow.displayName = "SettingsFloatingWindow";
 
+const WidgetGroupHeader = memo(
+    ({
+        groupKey,
+        count,
+        isFolded,
+        onToggleFold,
+        mode,
+    }: {
+        groupKey: string;
+        count: number;
+        isFolded: boolean;
+        onToggleFold: () => void;
+        mode: "normal" | "compact" | "supercompact";
+    }) => {
+        const groupInfo = DefaultWidgetGroups[groupKey] ?? { label: groupKey, order: 99 };
+        const color = WidgetGroupColors[groupKey] ?? "#94a3b8";
+
+        if (mode === "supercompact") {
+            return (
+                <div className="flex items-center justify-center w-full py-0.5 cursor-pointer" onClick={onToggleFold}>
+                    <div
+                        className="w-3 h-1 rounded-full opacity-60"
+                        style={{ backgroundColor: color }}
+                        title={`${groupInfo.label}${isFolded ? ` (${count})` : ""}`}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div
+                className="flex items-center w-full px-1 py-0.5 cursor-pointer group hover:bg-hoverbg/30 rounded-sm transition-colors"
+                onClick={onToggleFold}
+            >
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <ChevronRight
+                        className={clsx("w-2.5 h-2.5 transition-transform duration-200", !isFolded && "rotate-90")}
+                        style={{ color }}
+                    />
+                    {mode === "normal" && (
+                        <span
+                            className="text-[9px] uppercase tracking-wider font-semibold whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ color: `${color}cc` }}
+                        >
+                            {groupInfo.label}
+                        </span>
+                    )}
+                    {isFolded && <span className="text-[9px] text-muted ml-0.5">{count}</span>}
+                </div>
+            </div>
+        );
+    }
+);
+WidgetGroupHeader.displayName = "WidgetGroupHeader";
+
+const WidgetGroupSection = memo(
+    ({
+        groupKey,
+        widgets,
+        isFolded,
+        mode,
+        env,
+        onToggleFold,
+    }: {
+        groupKey: string;
+        widgets: WidgetConfigType[];
+        isFolded: boolean;
+        mode: "normal" | "compact" | "supercompact";
+        env: WidgetsEnv;
+        onToggleFold: () => void;
+    }) => {
+        return (
+            <div className="widget-group-section">
+                <WidgetGroupHeader
+                    groupKey={groupKey}
+                    count={widgets.length}
+                    isFolded={isFolded}
+                    onToggleFold={onToggleFold}
+                    mode={mode}
+                />
+                <div
+                    className={clsx("widget-group-items overflow-hidden transition-all duration-200", {
+                        "max-h-0 opacity-0": isFolded,
+                        "max-h-[2000px] opacity-100": !isFolded,
+                    })}
+                >
+                    {mode === "supercompact" ? (
+                        <div className="grid grid-cols-2 gap-0 w-full">
+                            {widgets.map((data, idx) => (
+                                <Widget key={`widget-${groupKey}-${idx}`} widget={data} mode={mode} env={env} />
+                            ))}
+                        </div>
+                    ) : (
+                        widgets.map((data, idx) => (
+                            <Widget key={`widget-${groupKey}-${idx}`} widget={data} mode={mode} env={env} />
+                        ))
+                    )}
+                </div>
+            </div>
+        );
+    }
+);
+WidgetGroupSection.displayName = "WidgetGroupSection";
+
 const Widgets = memo(() => {
     const env = useWaveEnv<WidgetsEnv>();
     const fullConfig = useAtomValue(env.atoms.fullConfigAtom);
@@ -375,6 +739,7 @@ const Widgets = memo(() => {
     const workspaceId = useAtomValue(env.atoms.workspaceId);
     const hasCustomAIPresets = useAtomValue(env.atoms.hasCustomAIPresetsAtom);
     const [mode, setMode] = useState<"normal" | "compact" | "supercompact">("normal");
+    const [foldState, setFoldState] = useState<Record<string, boolean>>(() => loadFoldState());
     const containerRef = useRef<HTMLDivElement>(null);
     const measurementRef = useRef<HTMLDivElement>(null);
 
@@ -391,9 +756,9 @@ const Widgets = memo(() => {
     const widgets = sortByDisplayOrder(filteredWidgets);
 
     const [isAppsOpen, setIsAppsOpen] = useState(false);
-    const appsButtonRef = useRef<HTMLDivElement>(null);
+    const appsButtonRef = useRef<HTMLButtonElement>(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const settingsButtonRef = useRef<HTMLDivElement>(null);
+    const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
     const checkModeNeeded = useCallback(() => {
         if (!containerRef.current || !measurementRef.current) return;
@@ -457,43 +822,92 @@ const Widgets = memo(() => {
                     });
                 },
             },
+            {
+                label: "Expand All Groups",
+                click: () => {
+                    const expanded: Record<string, boolean> = {};
+                    saveFoldState(expanded);
+                    setFoldState(expanded);
+                },
+            },
+            {
+                label: "Collapse All Groups",
+                click: () => {
+                    const collapsed: Record<string, boolean> = {};
+                    const grouped = groupWidgets(widgets);
+                    for (const key of grouped.keys()) {
+                        collapsed[key] = true;
+                    }
+                    saveFoldState(collapsed);
+                    setFoldState(collapsed);
+                },
+            },
         ];
         env.showContextMenu(menu, e);
     };
+
+    const toggleGroupFold = useCallback((groupKey: string) => {
+        setFoldState((prev) => {
+            const next = { ...prev, [groupKey]: !prev[groupKey] };
+            saveFoldState(next);
+            return next;
+        });
+    }, []);
+
+    const groupedWidgets = groupWidgets(widgets);
+    const sortedGroupKeys = Array.from(groupedWidgets.keys()).sort((a, b) => {
+        const aOrder = DefaultWidgetGroups[a]?.order ?? 99;
+        const bOrder = DefaultWidgetGroups[b]?.order ?? 99;
+        return aOrder - bOrder;
+    });
 
     return (
         <>
             <div
                 ref={containerRef}
-                className="flex flex-col w-12 overflow-hidden py-1 -ml-1 select-none shrink-0"
+                className="widget-rail flex flex-col w-12 overflow-hidden py-1 -ml-1 select-none shrink-0"
                 onContextMenu={handleWidgetsBarContextMenu}
             >
                 {mode === "supercompact" ? (
                     <>
                         <div className="grid grid-cols-2 gap-0 w-full">
-                            {widgets?.map((data, idx) => (
-                                <Widget key={`widget-${idx}`} widget={data} mode={mode} env={env} />
-                            ))}
+                            {sortedGroupKeys.map((groupKey) => {
+                                const groupWidgetsList = groupedWidgets.get(groupKey) ?? [];
+                                const isFolded = !!foldState[groupKey];
+                                return (
+                                    <WidgetGroupSection
+                                        key={groupKey}
+                                        groupKey={groupKey}
+                                        widgets={groupWidgetsList}
+                                        isFolded={isFolded}
+                                        mode={mode}
+                                        env={env}
+                                        onToggleFold={() => toggleGroupFold(groupKey)}
+                                    />
+                                );
+                            })}
                         </div>
                         <div className="flex-grow" />
                         <div className="grid grid-cols-2 gap-0 w-full">
                             {env.isDev() || featureWaveAppBuilder ? (
-                                <div
+                                <button
+                                    type="button"
                                     ref={appsButtonRef}
-                                    className="flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary text-sm overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer"
+                                    className="widget-rail-action text-sm"
                                     onClick={() => setIsAppsOpen(!isAppsOpen)}
+                                    aria-label="Local WaveApps"
                                 >
                                     <Tooltip content="Local WaveApps" placement="left" disable={isAppsOpen}>
-                                        <div>
-                                            <i className={makeIconClass("cube", true)}></i>
-                                        </div>
+                                        <Boxes className="widget-rail-system-icon" />
                                     </Tooltip>
-                                </div>
+                                </button>
                             ) : null}
-                            <div
+                            <button
+                                type="button"
                                 ref={settingsButtonRef}
-                                className="flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary text-sm overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer"
+                                className="widget-rail-action text-sm"
                                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                aria-label="Settings and help"
                             >
                                 <Tooltip
                                     content={<SettingsTooltipContent hasConfigErrors={hasConfigErrors} />}
@@ -501,32 +915,42 @@ const Widgets = memo(() => {
                                     disable={isSettingsOpen}
                                 >
                                     <div className="relative">
-                                        <i className={makeIconClass("gear", true)}></i>
-                                        {hasConfigErrors && (
-                                            <i className="fa fa-solid fa-circle-exclamation text-error absolute top-0 right-0 text-[10px] pointer-events-none"></i>
-                                        )}
+                                        <Settings className="widget-rail-system-icon" />
+                                        {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
                                     </div>
                                 </Tooltip>
-                            </div>
+                            </button>
                         </div>
                     </>
                 ) : (
                     <>
-                        {widgets?.map((data, idx) => (
-                            <Widget key={`widget-${idx}`} widget={data} mode={mode} env={env} />
-                        ))}
+                        {sortedGroupKeys.map((groupKey) => {
+                            const groupWidgetsList = groupedWidgets.get(groupKey) ?? [];
+                            const isFolded = !!foldState[groupKey];
+                            return (
+                                <WidgetGroupSection
+                                    key={groupKey}
+                                    groupKey={groupKey}
+                                    widgets={groupWidgetsList}
+                                    isFolded={isFolded}
+                                    mode={mode}
+                                    env={env}
+                                    onToggleFold={() => toggleGroupFold(groupKey)}
+                                />
+                            );
+                        })}
                         <div className="flex-grow" />
                         {env.isDev() || featureWaveAppBuilder ? (
-                            <div
+                            <button
+                                type="button"
                                 ref={appsButtonRef}
-                                className="flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary text-lg overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer"
+                                className="widget-rail-action flex-col text-lg"
                                 onClick={() => setIsAppsOpen(!isAppsOpen)}
+                                aria-label="Local WaveApps"
                             >
                                 <Tooltip content="Local WaveApps" placement="left" disable={isAppsOpen}>
                                     <div className="flex flex-col items-center w-full">
-                                        <div>
-                                            <i className={makeIconClass("cube", true)}></i>
-                                        </div>
+                                        <Boxes className="widget-rail-system-icon" />
                                         {mode === "normal" && (
                                             <div className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis">
                                                 apps
@@ -534,12 +958,14 @@ const Widgets = memo(() => {
                                         )}
                                     </div>
                                 </Tooltip>
-                            </div>
+                            </button>
                         ) : null}
-                        <div
+                        <button
+                            type="button"
                             ref={settingsButtonRef}
-                            className="flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary text-lg overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer"
+                            className="widget-rail-action flex-col text-lg"
                             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                            aria-label="Settings and help"
                         >
                             <Tooltip
                                 content={<SettingsTooltipContent hasConfigErrors={hasConfigErrors} />}
@@ -548,12 +974,8 @@ const Widgets = memo(() => {
                             >
                                 <div className="flex flex-col items-center w-full">
                                     <div className="relative">
-                                        <i className={makeIconClass("gear", true)}></i>
-                                        {hasConfigErrors && (
-                                            <i
-                                                className={`fa fa-solid fa-circle-exclamation text-error absolute top-0 right-[-4px] pointer-events-none ${mode === "normal" ? "text-[14px]" : "text-[12px]"}`}
-                                            ></i>
-                                        )}
+                                        <Settings className="widget-rail-system-icon" />
+                                        {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
                                     </div>
                                     {mode === "normal" && (
                                         <div className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis">
@@ -562,7 +984,7 @@ const Widgets = memo(() => {
                                     )}
                                 </div>
                             </Tooltip>
-                        </div>
+                        </button>
                     </>
                 )}
                 {env.isDev() ? (

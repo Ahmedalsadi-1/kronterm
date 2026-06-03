@@ -3,19 +3,33 @@
 
 .workspace-switcher-button {
     display: flex;
-    height: 22px;
-    padding: 0px 12px;
+    height: 24px;
+    padding: 0 9px;
     justify-content: flex-end;
     align-items: center;
     gap: 12px;
     border-radius: 6px;
-    margin-right: 6px;
-    margin-bottom: 4px;
+    margin-right: 4px;
+    margin-bottom: 3px;
     box-sizing: border-box;
-    background-color: rgb(from var(--main-text-color) r g b / 0.1) !important;
+    border: 1px solid transparent !important;
+    outline: none;
+    background-color: transparent !important;
+    color: var(--text-secondary-color);
+    cursor: pointer;
+    font: inherit;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease;
 
     &:hover {
-        background-color: rgb(from var(--main-text-color) r g b / 0.14) !important;
+        background-color: var(--surface-hover-color) !important;
+    }
+
+    &:focus-visible {
+        border-color: var(--focus-ring-color) !important;
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.24);
     }
 
     .workspace-icon {
@@ -36,6 +50,7 @@
     align-items: center;
     border-radius: 8px;
     box-shadow: 0px 8px 24px 0px var(--modal-shadow-color);
+    outline: none;
 
     .icon-left,
     .icon-right {

@@ -352,8 +352,8 @@ func sandboxDesktopAction(payload map[string]any, qemuAction func(wshrpc.Sandbox
 		return fmt.Errorf("sandbox desktop: session %q is not running (status: %s)", sandboxSessionID, status.Status)
 	}
 	var result any
-	if status.Runtime == "bytebot" {
-		result, err = sandboxBytebotAction(status, payload)
+	if status.Runtime == "kronterm-desktop" {
+		result, err = sandboxKrontermDesktopAction(status, payload)
 	} else {
 		result, err = qemuAction(status)
 	}
@@ -376,10 +376,10 @@ func sandboxStatus() (wshrpc.SandboxStatusResponse, error) {
 	return status, nil
 }
 
-func sandboxBytebotAction(status wshrpc.SandboxStatusResponse, payload map[string]any) (any, error) {
-	baseURL := strings.TrimSuffix(strings.TrimRight(status.McpUrl, "/"), "/mcp")
-	if baseURL == "" || baseURL == status.McpUrl {
-		return nil, fmt.Errorf("sandbox desktop: Bytebot MCP URL is not configured")
+func sandboxKrontermDesktopAction(status wshrpc.SandboxStatusResponse, payload map[string]any) (any, error) {
+	baseURL := strings.TrimSuffix(status.DesktopUrl, "/computer-use")
+	if baseURL == "" || baseURL == status.DesktopUrl {
+		return nil, fmt.Errorf("sandbox desktop: KrontermDesktop URL is not configured")
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

@@ -10,6 +10,7 @@ import {
 import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
 import { blockViewToIcon, getViewIconElem } from "@/app/block/blockutil";
+import { BlockContextRibbon } from "@/app/block/block-context-ribbon";
 import { ConnStatusOverlay } from "@/app/block/connstatusoverlay";
 import { ChangeConnectionBlockModal } from "@/app/modals/conntypeahead";
 import { getBlockComponentModel, globalStore, useBlockAtom } from "@/app/store/global";
@@ -26,8 +27,11 @@ import { computeBgStyleFromMeta } from "@/util/waveutil";
 import clsx from "clsx";
 import * as jotai from "jotai";
 import * as React from "react";
+import { FlickeringGrid } from "@/app/element/flickering-grid";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
+import "./agent-aura.scss";
+import "./typing-keyboard.scss";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     const waveEnv = useWaveEnv<BlockEnv>();
@@ -98,6 +102,62 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     );
 });
 
+const keyboardRows = [
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+    ["z", "x", "c", "v", "b", "n", "m"],
+];
+
+const TypingKeyboard = React.memo(({ text }: { text: string }) => {
+    const [activeIndex, setActiveIndex] = React.useState(0);
+    const [charIndex, setCharIndex] = React.useState(0);
+
+    React.useEffect(() => {
+        if (charIndex >= text.length) {
+            return;
+        }
+        const timer = setTimeout(() => {
+            setCharIndex((i) => i + 1);
+            setActiveIndex((i) => (i + 1) % 30);
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [charIndex, text.length]);
+
+    const currentChar = text[charIndex - 1]?.toLowerCase() ?? "";
+
+    const getKeyClass = (key: string, idx: number): string => {
+        const classes = ["keyboard-key"];
+        if (key === " ") classes.push("key-space");
+        if (key.toLowerCase() === currentChar) classes.push("key-active");
+        return classes.join(" ");
+    };
+
+    return (
+        <div className="agent-typing-keyboard">
+            <div className="typing-text-preview">
+                {text.slice(0, charIndex)}
+                <span className="typing-cursor-blink" />
+                {text.slice(charIndex)}
+            </div>
+            <div className="keyboard-body">
+                {keyboardRows.map((row, rowIdx) => (
+                    <div key={rowIdx} className="keyboard-row">
+                        {row.map((key, keyIdx) => (
+                            <span key={keyIdx} className={getKeyClass(key, keyIdx)}>
+                                {key}
+                            </span>
+                        ))}
+                    </div>
+                ))}
+                <div className="keyboard-row">
+                    <span className="keyboard-key key-space">space</span>
+                </div>
+            </div>
+        </div>
+    );
+});
+TypingKeyboard.displayName = "TypingKeyboard";
+
 const AgentWidgetOverlay = React.memo(
     ({ activity, settings }: { activity: AgentWidgetActivity; settings: AgentWidgetVisualSettings }) => {
         const cursorStyle = activity.point
@@ -106,31 +166,76 @@ const AgentWidgetOverlay = React.memo(
                   top: activity.point.y,
               } as React.CSSProperties)
             : undefined;
+
+        const toolIconMap: Record<string, string> = {
+            typing: "⌨️",
+            cursor: "👆",
+            scroll: "📜",
+            browse: "🌐",
+            view: "📷",
+        };
+
+        const cursorClassMap: Record<string, string> = {
+            typing: "cursor-type",
+            cursor: "cursor-click",
+            scroll: "cursor-scroll",
+            browse: "cursor-hover",
+            view: "cursor-click",
+        };
+
+        const pointerStyle = settings.pointerStyle ?? "pixel";
+        const gridColor = pointerStyle === "pixel" ? "0, 255, 200" : "99, 102, 241";
+
+        const isTyping = activity.action === "typing";
+        const typingText = activity.typingText ?? (isTyping ? activity.detail : undefined);
+        const isSmoothCursor = settings.cursor && activity.action !== "view";
+
         return (
             <div className="agent-widget-overlay" aria-hidden="true">
+                {settings.aura && (
+                    <>
+                        <FlickeringGrid
+                            squareSize={3}
+                            gridGap={5}
+                            flickerChance={0.15}
+                            color={`rgb(${gridColor})`}
+                            maxOpacity={0.15}
+                            className="absolute inset-0 z-0"
+                        />
+                        <div className={clsx("agent-widget-aura", `aura-style-${pointerStyle}`)} />
+                    </>
+                )}
                 {settings.actionChip && (
                     <div className="agent-widget-chip">
                         <span className="agent-widget-dot" />
+                        <span className="agent-tool-icon">{toolIconMap[activity.action] ?? "🤖"}</span>
                         KronosCode {activity.action}
                     </div>
                 )}
-                {settings.cursor && activity.action === "typing" ? (
-                    <div className="agent-typing-indicator">
-                        <span />
-                        <span />
-                        <span />
+                {isSmoothCursor && (
+                    <div
+                        className={clsx(
+                            "agent-smooth-cursor",
+                            activity.action === "cursor" && "cursor-clicking",
+                            isTyping && "cursor-typing"
+                        )}
+                        style={cursorStyle}
+                    >
+                        <div className="cursor-trail" />
+                        <div className="cursor-ring" />
+                        <div className="cursor-dot" />
                     </div>
-                ) : settings.cursor && activity.action !== "view" ? (
-                    <div className="agent-pet-cursor" style={cursorStyle}>
-                        <span>K</span>
-                    </div>
-                ) : null}
+                )}
+                {isTyping && typingText && (
+                    <TypingKeyboard text={typingText} />
+                )}
                 {settings.screenshots && activity.previewImageUrl ? (
                     <figure className="agent-capture-preview">
                         <figcaption>Agent screenshot</figcaption>
                         <img src={activity.previewImageUrl} alt="" />
                     </figure>
                 ) : null}
+                <div className="agent-pulse-border" />
             </div>
         );
     }
@@ -152,6 +257,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const connModalOpen = jotai.useAtomValue(changeConnModalAtom);
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
+    const isFolded = jotai.useAtomValue(nodeModel.isFolded);
     const [magnifiedBlockBlurAtom] = React.useState(() =>
         waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx")
     );
@@ -168,7 +274,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const [agentSettings, setAgentSettings] = React.useState<AgentWidgetVisualSettings>(() =>
         loadAgentWidgetVisualSettings(nodeModel.blockId)
     );
-    const visualAgentSurface = metaView === "web" || metaView === "sandbox";
+    const visualAgentSurface = true;
 
     React.useEffect(() => {
         if (!visualAgentSurface) {
@@ -261,6 +367,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 "block-no-highlight": numBlocksInTab === 1 && !aiPanelVisible,
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
+                "block-folded": isFolded,
                 "agent-widget-active": agentActivity != null && agentSettings.glow,
             })}
             data-blockid={nodeModel.blockId}
@@ -287,6 +394,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
             )}
             <div className="block-frame-default-inner" style={innerStyle}>
                 {noHeader || <ErrorBoundary fallback={headerElemNoView}>{headerElem}</ErrorBoundary>}
+                {!noHeader && !preview && <BlockContextRibbon status="idle" blockType={metaView ?? "term"} />}
                 {preview ? previewElem : children}
             </div>
             {preview || viewModel == null || !connModalOpen ? null : (

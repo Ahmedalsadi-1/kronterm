@@ -18,6 +18,7 @@ import * as jotai from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useDrop } from "react-dnd";
 import { AcpChatPanel } from "./acp-chat-panel";
+import { AIPanelHeader } from "./aipanelheader";
 import { formatFileSizeError, isAcceptableFile, validateFileSize } from "./ai-utils";
 import { AIRateLimitStrip } from "./airatelimitstrip";
 import { WaveUIMessage } from "./aitypes";
@@ -483,9 +484,11 @@ ConfigChangeModeFixer.displayName = "ConfigChangeModeFixer";
 
 type AIPanelComponentInnerProps = {
     roundTopLeft: boolean;
+    onFloatingIsland?: () => void;
+    floatingIslandActive?: boolean;
 };
 
-const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps) => {
+const AIPanelComponentInner = memo(({ roundTopLeft, onFloatingIsland, floatingIslandActive }: AIPanelComponentInnerProps) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [isReactDndDragOver, setIsReactDndDragOver] = useState(false);
     const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -825,13 +828,14 @@ const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={handleClick}
-            inert={!isPanelVisible ? true : undefined}
+            inert={!isPanelVisible && !floatingIslandActive ? true : undefined}
         >
             <ConfigChangeModeFixer />
             {(isDragOver || isReactDndDragOver) && allowAccess && <AIDragOverlay />}
             {showBlockMask && <AIBlockMask />}
             <AIRateLimitStrip />
 
+            <AIPanelHeader onFloatingIsland={onFloatingIsland} />
             <div key="main-content" className="flex-1 flex flex-col min-h-0">
                 <AcpChatPanel />
             </div>
@@ -843,16 +847,18 @@ AIPanelComponentInner.displayName = "AIPanelInner";
 
 type AIPanelComponentProps = {
     roundTopLeft: boolean;
+    onFloatingIsland?: () => void;
+    floatingIslandActive?: boolean;
 };
 
-const AIPanelComponent = ({ roundTopLeft }: AIPanelComponentProps) => {
+const AIPanelComponent = ({ roundTopLeft, onFloatingIsland, floatingIslandActive }: AIPanelComponentProps) => {
     return (
         <ErrorBoundary>
-            <AIPanelComponentInner roundTopLeft={roundTopLeft} />
+            <AIPanelComponentInner roundTopLeft={roundTopLeft} onFloatingIsland={onFloatingIsland} floatingIslandActive={floatingIslandActive} />
         </ErrorBoundary>
     );
 };
 
 AIPanelComponent.displayName = "AIPanel";
 
-export { AIPanelComponent as AIPanel };
+export { AIPanelComponent as AIPanel, AIPanelComponentInner };
