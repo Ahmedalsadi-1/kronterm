@@ -662,7 +662,22 @@ export function initIpcHandlers() {
 
             try {
                 await manager.initialize(opts);
-                return { success: true, conversationId: opts.conversationId };
+                return {
+                    success: true,
+                    conversationId: opts.conversationId,
+                    state: {
+                        status: manager.status,
+                        sessionId: manager.sessionId,
+                        backend: manager.backend,
+                        error: manager.error,
+                        confirmations: manager.confirmations,
+                        modes: manager.modes,
+                        currentMode: manager.currentMode,
+                        configOptions: manager.configOptions,
+                        modelInfo: manager.modelInfo,
+                        capabilities: manager.capabilities,
+                    },
+                };
             } catch (err) {
                 return { success: false, error: err instanceof Error ? err.message : String(err) };
             }

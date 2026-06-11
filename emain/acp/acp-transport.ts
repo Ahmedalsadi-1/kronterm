@@ -39,6 +39,9 @@ const MaxPendingJsonLines = 256;
 const DefaultRequestTimeoutMs = 60_000;
 const InitializeRequestTimeoutMs = 180_000;
 const PromptRequestTimeoutMs = 300_000;
+const KeepaliveIntervalMs = 30_000;
+const KeepaliveTimeoutMs = 10_000;
+const MaxStderrBufferBytes = 50_000;
 
 export class NdjsonTransport extends EventEmitter {
     private child: ChildProcess;
@@ -51,6 +54,9 @@ export class NdjsonTransport extends EventEmitter {
     private initReject?: (error: Error) => void;
     private initPromise: Promise<AcpInitializeResult>;
     private stderrBuffer = "";
+    private stderrBufferTruncated = false;
+    private keepaliveTimer: NodeJS.Timeout | null = null;
+    private keepalivePending = false;
 
     constructor(child: ChildProcess, detached = false, workspace = process.cwd()) {
         super();
@@ -65,6 +71,68 @@ export class NdjsonTransport extends EventEmitter {
         this.setupStdout();
         this.setupStderr();
         this.setupChildHandlers();
+    }
+
+    /**
+     * Start periodic keepalive pings to detect hung or dead agent processes.
+     * Sends a lightweight "ping" ping and expects a response within KeepaliveTimeoutMs.
+     * Emits "disconnect" if the agent is unresponsive.
+     */
+    startKeepalive(): void {
+        this.stopKeepalive();
+        this.keepaliveTimer = setInterval(() => {
+            if (this.keepalivePending) {
+                this.emit("disconnect", {
+                    type: "disconnect",
+                    code: null,
+                    signal: "keepalive-timeout",
+                });
+                return;
+            }
+            this.keepalivePending = true;
+            const timeout = setTimeout(() => {
+                if (this.keepalivePending) {
+                    this.keepalivePending = false;
+                    this.emit("disconnect", {
+                        type: "disconnect",
+                        code: null,
+                        signal: "keepalive-timeout",
+                    });
+                }
+            }, KeepaliveTimeoutMs);
+            this.sendRequest("ping", {})
+                .then(() => {
+                    clearTimeout(timeout);
+                    this.keepalivePending = false;
+                })
+                .catch(() => {
+                    clearTimeout(timeout);
+                    this.keepalivePending = false;
+                });
+        }, KeepaliveIntervalMs);
+        this.keepaliveTimer.unref();
+    }
+
+    stopKeepalive(): void {
+        if (this.keepaliveTimer) {
+            clearInterval(this.keepaliveTimer);
+            this.keepaliveTimer = null;
+        }
+        this.keepalivePending = false;
+    }
+
+    /**
+     * Check if the child process is still alive (not exited and stdin writable).
+     */
+    isAlive(): boolean {
+        if (this.child.exitCode != null || this.child.signalCode != null) {
+            return false;
+        }
+        try {
+            return this.child.stdin?.writable === true;
+        } catch {
+            return false;
+        }
     }
 
     private setupStdout() {
@@ -138,7 +206,12 @@ export class NdjsonTransport extends EventEmitter {
     private setupStderr() {
         this.child.stderr?.on("data", (chunk: Buffer) => {
             const text = chunk.toString("utf-8");
-            this.stderrBuffer += text;
+            if (this.stderrBuffer.length < MaxStderrBufferBytes) {
+                this.stderrBuffer += text.slice(0, MaxStderrBufferBytes - this.stderrBuffer.length);
+            } else if (!this.stderrBufferTruncated) {
+                this.stderrBufferTruncated = true;
+                this.stderrBuffer += "\n...[stderr truncated]";
+            }
             this.emit("stderr", text);
         });
     }
@@ -409,7 +482,12 @@ export class NdjsonTransport extends EventEmitter {
         return null;
     }
 
+    getStderr(): string {
+        return this.stderrBuffer;
+    }
+
     kill() {
+        this.stopKeepalive();
         this.rejectAllPending(new Error("Transport closed"));
         try {
             this.child.stdin?.end();

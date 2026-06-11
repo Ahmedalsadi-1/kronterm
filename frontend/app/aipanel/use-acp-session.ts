@@ -466,7 +466,9 @@ export function useAcpSession() {
 
     useEffect(() => {
         let cancelled = false;
-        const hydrate = async () => {
+        const maxRetries = 3;
+        const baseDelay = 1000;
+        const hydrate = async (attempt = 1): Promise<void> => {
             const [storedSessions, liveRuntimes] = await Promise.all([
                 services.acp
                     .ListSessions()
@@ -475,6 +477,13 @@ export function useAcpSession() {
                 electron.acpListRuntimes().catch(() => []),
             ]);
             if (cancelled) {
+                return;
+            }
+            if (storedSessions.length === 0 && liveRuntimes.length === 0 && attempt <= maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)));
+                if (!cancelled) {
+                    return hydrate(attempt + 1);
+                }
                 return;
             }
             const sessionsById: Record<string, AcpRuntimeRecord> = {};
@@ -599,46 +608,34 @@ export function useAcpSession() {
                 }));
                 return { conversationId, success: false, error: result.error };
             }
-            const status = await electron.acpGetStatus({ conversationId }).catch((err) => ({
-                status: "connected",
-                error: err instanceof Error ? err.message : String(err),
-                sessionId: null,
-                backend: opts.backend,
-                found: true,
-                confirmations: [],
-                modelInfo: null,
-                configOptions: [],
-                modes: null,
-                currentMode: "default",
-                capabilities: null,
-            }));
-            const modelInfoResult = await electron.acpGetModelInfo({ conversationId }).catch(() => null);
-            const modelInfo = status.modelInfo ?? modelInfoResult?.data?.modelInfo ?? null;
-            updateRuntime(conversationId, (current) => ({
-                ...current,
-                status: status.status ?? current.status,
-                error: status.error ?? current.error,
-                sessionId: status.sessionId ?? current.sessionId,
-                configOptions: status.configOptions ?? current.configOptions,
-                modes: status.modes ?? current.modes,
-                currentMode: status.currentMode ?? current.currentMode,
-                modelInfo: modelInfo ?? current.modelInfo,
-                capabilities: status.capabilities ?? current.capabilities,
-            }));
-            if (
-                opts.profile?.mode &&
-                status.modes?.availableModes?.some((mode: any) => mode.id === opts.profile?.mode)
-            ) {
+            const initState = result.state;
+            if (initState) {
+                updateRuntime(conversationId, (current) => ({
+                    ...current,
+                    status: initState.status ?? current.status,
+                    error: initState.error ?? current.error,
+                    sessionId: initState.sessionId ?? current.sessionId,
+                    configOptions: initState.configOptions ?? current.configOptions,
+                    modes: initState.modes ?? current.modes,
+                    currentMode: initState.currentMode ?? current.currentMode,
+                    modelInfo: initState.modelInfo ?? current.modelInfo,
+                    capabilities: initState.capabilities ?? current.capabilities,
+                }));
+            }
+            const modeModes = initState?.modes ?? null;
+            const modeModelInfo = initState?.modelInfo ?? null;
+            if (opts.profile?.mode && modeModes?.availableModes?.some((mode: any) => mode.id === opts.profile?.mode)) {
                 await electron.acpSetMode({ conversationId, mode: opts.profile.mode }).catch(() => null);
             }
             if (
                 opts.profile?.model &&
-                status.modelInfo?.availableModels?.some((model: any) => model.id === opts.profile?.model)
+                modeModelInfo?.availableModels?.some((model: any) => model.id === opts.profile?.model)
             ) {
                 await electron.acpSetModel({ conversationId, modelId: opts.profile.model }).catch(() => null);
             }
+            const modeConfigOptions = initState?.configOptions ?? [];
             for (const [configId, value] of Object.entries(opts.profile?.configoptions ?? {})) {
-                if (status.configOptions?.some((option: any) => option.id === configId)) {
+                if (modeConfigOptions.some((option: any) => option.id === configId)) {
                     await electron.acpSetConfigOption({ conversationId, configId, value }).catch(() => null);
                 }
             }
@@ -896,7 +893,7 @@ export function useAcpSession() {
     );
 
     useEffect(() => {
-        return electron.onAcpEvent((event: AcpEvent) => {
+        const unsubscribe = electron.onAcpEvent((event: AcpEvent) => {
             if (event.type === "status") {
                 const status = (event.data as { status?: string } | undefined)?.status;
                 if (status === "running" || status === "connecting") {
@@ -990,6 +987,9 @@ export function useAcpSession() {
             }
             updateRuntime(event.conversationId, (runtime) => applyAcpEvent(runtime, event));
         });
+        return () => {
+            unsubscribe();
+        };
     }, [electron, updateRuntime]);
 
     const sessions = useMemo(

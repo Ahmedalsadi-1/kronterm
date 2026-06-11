@@ -212,7 +212,23 @@ declare global {
                 tabId: string;
                 blockId?: string;
             };
-        }) => Promise<{ success: boolean; error?: string }>;
+        }) => Promise<{
+            success: boolean;
+            error?: string;
+            conversationId?: string;
+            state?: {
+                status: string;
+                sessionId: string | null;
+                backend: string;
+                error: string | null;
+                confirmations: any[];
+                modes: any;
+                currentMode: string;
+                configOptions: any[];
+                modelInfo: any;
+                capabilities: any;
+            };
+        }>;
         acpSendMessage: (opts: {
             conversationId: string;
             content: string;

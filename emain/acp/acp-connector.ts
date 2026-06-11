@@ -63,11 +63,14 @@ function isExecutablePath(filePath: string): boolean {
 function detectKronosCodeCli(defaultCliPath?: string): string | null {
     const resourcesPath = (process as typeof process & { resourcesPath?: string }).resourcesPath;
     const candidates = [
+        process.env.KRONOSCODE_BIN,
         process.env.KRONTERM_KRONOSCODE_BIN,
         resourcesPath ? path.join(resourcesPath, "agents", "kronoscode", "bin", "kronoscode") : null,
         path.resolve(import.meta.dirname, "..", "..", "agents", "kronoscode", "bin", "kronoscode"),
         path.join(process.cwd(), "kronoscoder", "packages", "kronoscode", "bin", "kronoscode"),
         path.join(process.cwd(), "kronoscode", "bin", "kronoscode"),
+        process.env.HOME ? path.join(process.env.HOME, ".kronoscode", "bin", "kronoscode") : null,
+        process.env.HOME ? path.join(process.env.HOME, "bin", "kronoscode") : null,
         defaultCliPath,
     ].filter((candidate): candidate is string => Boolean(candidate));
     return candidates.find((candidate) => isExecutablePath(candidate)) ?? null;

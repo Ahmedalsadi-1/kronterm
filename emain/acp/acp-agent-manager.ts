@@ -41,7 +41,12 @@ interface AcpAgentManagerOptions {
         blockId?: string;
     };
     mcpServers?: AcpSessionMcpServer[];
+    maxReconnectAttempts?: number;
+    reconnectDelayMs?: number;
 }
+
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 3;
+const DEFAULT_RECONNECT_DELAY_MS = 2000;
 
 const waveSurfaceBootstrap = `[KronTerm Surface Capability]
 This chat is connected to the kron-term MCP server with a temporary Wave surface-session capability. Prefer Wave surface tools for Kronterm tabs, widgets, terminals, the in-app browser, and host-scoped file context; use other desktop or browser tools only when the Wave surface cannot perform the operation. Use surface_status before diagnosing failures, list_blocks before block operations, and widget_snapshot before interacting with block content. Full guidance is available from the MCP prompt "kron-term-guide" or resource "kron-term://skill".`;
@@ -89,6 +94,12 @@ export class AcpAgentManager extends EventEmitter {
     private hasReceivedUsageUpdate = false;
     private surfaceContext: { tabId: string; blockId?: string } | undefined;
     private requestedMcpServers: AcpSessionMcpServer[] = [];
+    private savedOpts: AcpAgentManagerOptions | null = null;
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts: number;
+    private reconnectDelayMs: number;
+    private reconnectTimer: NodeJS.Timeout | null = null;
+    private intentionalStop = false;
 
     constructor(opts: AcpAgentManagerOptions) {
         super();
@@ -97,10 +108,15 @@ export class AcpAgentManager extends EventEmitter {
         this.workspace = opts.workspace || process.cwd();
         this.surfaceContext = opts.surfaceContext;
         this.requestedMcpServers = opts.mcpServers ?? [];
+        this.maxReconnectAttempts = opts.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
+        this.reconnectDelayMs = opts.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS;
     }
 
     async initialize(opts: AcpAgentManagerOptions): Promise<void> {
         this.setStatus("connecting");
+        this.savedOpts = opts;
+        this.intentionalStop = false;
+        this.reconnectAttempts = 0;
 
         const cliPath = opts.cliPath || opts.backend;
         try {
@@ -134,6 +150,8 @@ export class AcpAgentManager extends EventEmitter {
                 });
             }
             await this.ensureSession(opts.resumeSessionId, opts.resumeSessionConversationId);
+
+            this.transport.startKeepalive();
             this.setStatus("connected");
         } catch (err) {
             this.transport?.kill();
@@ -185,6 +203,7 @@ export class AcpAgentManager extends EventEmitter {
             if (this.transport !== transport) {
                 return;
             }
+            const isKeepaliveTimeout = data.signal === "keepalive-timeout";
             const message = `ACP process exited unexpectedly (code=${data.code ?? "unknown"}, signal=${
                 data.signal ?? "none"
             })`;
@@ -196,6 +215,16 @@ export class AcpAgentManager extends EventEmitter {
             this.error = message;
             this.setStatus("error");
             this.emitEvent("error", { error: message });
+
+            if (!this.intentionalStop && this.reconnectAttempts < this.maxReconnectAttempts) {
+                const delay = this.reconnectDelayMs * Math.pow(2, this.reconnectAttempts);
+                this.reconnectAttempts++;
+                this.reconnectTimer = setTimeout(() => {
+                    this.reconnectTimer = null;
+                    void this.tryReconnect();
+                }, delay);
+                this.reconnectTimer.unref();
+            }
         });
     }
 
@@ -650,6 +679,11 @@ export class AcpAgentManager extends EventEmitter {
     }
 
     async stop(): Promise<void> {
+        this.intentionalStop = true;
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         if (this.transport) {
             if (this.sessionId && (this.status === "running" || this.confirmations.length > 0)) {
                 this.transport.sendNotification("session/cancel", {
@@ -684,6 +718,25 @@ export class AcpAgentManager extends EventEmitter {
         this.modelInfo = null;
         this.capabilities = null;
         this.setStatus("idle");
+    }
+
+    private async tryReconnect(): Promise<void> {
+        if (this.intentionalStop || !this.savedOpts) {
+            return;
+        }
+        this.setStatus("connecting");
+        this.emitEvent("status", { status: "connecting", reconnectAttempt: this.reconnectAttempts });
+        try {
+            await this.initialize(this.savedOpts);
+            if (this.status === "connected") {
+                this.emitEvent("status", { status: "connected", reconnected: true });
+                this.reconnectAttempts = 0;
+            }
+        } catch {
+            this.emitEvent("error", {
+                error: `Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} failed`,
+            });
+        }
     }
 
     private setStatus(status: AcpAgentStatus): void {
