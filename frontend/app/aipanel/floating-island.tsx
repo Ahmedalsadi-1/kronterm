@@ -5,6 +5,14 @@ import { AIPanelComponentInner } from "@/app/aipanel/aipanel";
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { focusedBlockId } from "@/util/focusutil";
 import { cn } from "@/util/util";
+import {
+    ChevronDown,
+    ChevronUp,
+    CircuitBoard,
+    GripHorizontal,
+    LogIn,
+    X,
+} from "lucide-react";
 import * as jotai from "jotai";
 import * as React from "react";
 
@@ -46,6 +54,13 @@ type FloatingIslandProps = {
     onClose: () => void;
     onReturnToPanel: () => void;
 };
+
+const BouncingDot = ({ delay }: { delay: number }) => (
+    <span
+        className="inline-block h-1 w-1 rounded-full bg-saturn animate-bounce"
+        style={{ animationDelay: `${delay}ms` }}
+    />
+);
 
 const FloatingIsland = React.memo(({ onClose, onReturnToPanel }: FloatingIslandProps) => {
     const model = WaveAIModel.getInstance();
@@ -135,10 +150,11 @@ const FloatingIsland = React.memo(({ onClose, onReturnToPanel }: FloatingIslandP
         <div
             ref={islandRef}
             className={cn(
-                "fixed z-[9999] flex flex-col overflow-hidden shadow-2xl border border-border",
-                "bg-panel backdrop-blur-xl",
+                "fixed z-[9999] flex flex-col overflow-hidden shadow-2xl shadow-black/50",
+                "bg-panel/95 backdrop-blur-xl border border-border",
                 isCollapsed ? "rounded-2xl" : "rounded-xl",
-                isStreaming && "ring-1 ring-saturn/40"
+                isStreaming && "ring-1 ring-saturn/40",
+                !isDragging && !isResizing && "transition-[width,height,border-radius] duration-200 ease-out"
             )}
             style={{
                 left: position.x,
@@ -147,52 +163,56 @@ const FloatingIsland = React.memo(({ onClose, onReturnToPanel }: FloatingIslandP
                 height: isCollapsed ? undefined : size.height,
                 maxWidth: "calc(100vw - 40px)",
                 maxHeight: "calc(100vh - 80px)",
-                transition: isDragging || isResizing ? "none" : "width 0.2s, height 0.2s",
             }}
         >
             <div
-                className="flex items-center gap-2 px-3 py-2 border-b border-border cursor-grab active:cursor-grabbing select-none shrink-0"
+                className="flex items-center gap-2 border-b border-border bg-surface-base/50 px-2.5 py-1.5 cursor-grab active:cursor-grabbing select-none shrink-0"
                 onMouseDown={handleDragStart}
             >
-                <div className="flex items-center gap-1.5">
-                    <i className="fa fa-circle-nodes text-saturn text-sm" />
-                    <span className="text-xs font-semibold text-primary">KronosCode</span>
-                    {isStreaming && (
-                        <span className="flex gap-0.5 ml-1">
-                            <span className="w-1 h-1 rounded-full bg-saturn animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-1 h-1 rounded-full bg-saturn animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-1 h-1 rounded-full bg-saturn animate-bounce" style={{ animationDelay: "300ms" }} />
-                        </span>
-                    )}
-                </div>
-                {blockContext && (
-                    <div className="flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded text-[10px] text-muted bg-hoverbg/50 max-w-[150px]">
-                        <i className="fa-solid fa-circle-nodes text-saturn/60" style={{ fontSize: 8 }} />
-                        <span className="truncate">{blockContext.label || blockContext.blockId.slice(0, 8)}</span>
-                    </div>
+                <GripHorizontal className="h-3 w-3 shrink-0 text-muted/50" />
+                <CircuitBoard className="h-3.5 w-3.5 shrink-0 text-saturn" />
+                <span className="text-xs font-semibold text-primary">KronosCode</span>
+                {isStreaming && (
+                    <span className="ml-0.5 flex items-center gap-0.5">
+                        <BouncingDot delay={0} />
+                        <BouncingDot delay={150} />
+                        <BouncingDot delay={300} />
+                    </span>
                 )}
-                <div className="flex-1" />
-                <button
-                    className="text-xs text-muted hover:text-primary cursor-pointer px-1.5 py-0.5 rounded hover:bg-hoverbg transition-colors"
-                    onClick={onReturnToPanel}
-                    title="Dock to side panel"
-                >
-                    <i className="fa-solid fa-arrow-right-to-bracket" />
-                </button>
-                <button
-                    className="text-xs text-muted hover:text-primary cursor-pointer px-1 py-0.5 rounded hover:bg-hoverbg transition-colors"
-                    onClick={() => handleModeChange(isCollapsed ? "expanded" : "collapsed")}
-                    title={isCollapsed ? "Expand" : "Collapse"}
-                >
-                    <i className={cn("fa-solid", isCollapsed ? "fa-chevron-down" : "fa-chevron-up")} />
-                </button>
-                <button
-                    className="text-xs text-muted hover:text-primary cursor-pointer px-1 py-0.5 rounded hover:bg-hoverbg transition-colors"
-                    onClick={onClose}
-                    title="Close"
-                >
-                    <i className="fa-solid fa-xmark" />
-                </button>
+                {blockContext && (
+                    <span className="ml-auto flex items-center gap-1 truncate rounded bg-hoverbg/50 px-1.5 py-0.5 text-[10px] text-muted max-w-[140px]">
+                        <CircuitBoard className="h-2.5 w-2.5 shrink-0 text-saturn/60" />
+                        <span className="truncate">{blockContext.label || blockContext.blockId.slice(0, 8)}</span>
+                    </span>
+                )}
+
+                <div className="ml-2 flex items-center gap-0.5">
+                    <button
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                        onClick={onReturnToPanel}
+                        title="Dock to side panel"
+                    >
+                        <LogIn className="h-3 w-3" />
+                    </button>
+                    <button
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                        onClick={() => handleModeChange(isCollapsed ? "expanded" : "collapsed")}
+                        title={isCollapsed ? "Expand" : "Collapse"}
+                    >
+                        {isCollapsed ? (
+                            <ChevronDown className="h-3 w-3" />
+                        ) : (
+                            <ChevronUp className="h-3 w-3" />
+                        )}
+                    </button>
+                    <button
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                        onClick={onClose}
+                        title="Close"
+                    >
+                        <X className="h-3 w-3" />
+                    </button>
+                </div>
             </div>
 
             {!isCollapsed && (
@@ -200,13 +220,15 @@ const FloatingIsland = React.memo(({ onClose, onReturnToPanel }: FloatingIslandP
                     <AIPanelComponentInner roundTopLeft={false} floatingIslandActive={true} />
                 </div>
             )}
+
             {!isCollapsed && (
                 <div
-                    className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-30 hover:opacity-100 transition-opacity"
+                    className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-se-resize items-center justify-center opacity-40 transition-opacity hover:opacity-100"
                     onMouseDown={handleResizeStart}
                 >
-                    <svg className="w-4 h-4 text-muted" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M14 14H10L14 10V14ZM14 14H12L14 12V14Z" />
+                    <svg className="h-3 w-3 text-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M14 14L10 10M14 14H12L14 12V14ZM14 14H12L14 12" strokeLinecap="round" />
+                        <path d="M14 14L10 10M14 14H12L14 12V14ZM14 14H12L14 12" strokeLinecap="round" opacity="0.5" />
                     </svg>
                 </div>
             )}

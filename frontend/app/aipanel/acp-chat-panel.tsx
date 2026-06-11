@@ -1818,7 +1818,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     return (
         <div
             className={cn(
-                "@container relative flex min-h-0 flex-1 overflow-hidden bg-[#111111] text-[#eeeeee]",
+                "@container relative flex min-h-0 flex-1 overflow-hidden bg-panel text-primary",
                 className
             )}
         >
@@ -1853,7 +1853,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 />
             ) : null}
             <div className="relative flex min-w-0 flex-1 flex-col">
-                <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-[#2a2a2a] bg-[#111111] px-4">
+                <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border bg-panel px-4">
                     <div className="flex min-w-0 items-center gap-3">
                         {sessionSidebarMode === "hidden" ? (
                             <button
@@ -2031,22 +2031,22 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
 
                 <AcpToolApproval confirmations={state.pendingConfirmations} onConfirm={confirmTool} />
 
-                <div className=\"min-h-0 flex-1 overflow-y-auto px-4 py-6 @lg:px-6\">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 @lg:px-6">
                     {hasMessages ? (
                         <>
                             <ChatMessageListV2
                                 messages={state.messages}
-                                isStreaming={state.status === \"running\"}
+                                isStreaming={state.status === "running"}
                                 canvasBlockId={
-                                    openWidgetMentions.find((widget) => widget.viewType === \"kronoscanvas\")?.id
+                                    openWidgetMentions.find((widget) => widget.viewType === "kronoscanvas")?.id
                                 }
                             />
-                            {state.status === \"running\" ? (
+                            {state.status === "running" ? (
                                 <TypingIndicator
-                                    agentBackend={selectedAgent?.backend ?? state.backend ?? \"kronoscode\"}
+                                    agentBackend={selectedAgent?.backend ?? state.backend ?? "kronoscode"}
                                     detail={
                                         liveSurfaceActivity?.detail ??
-                                        (liveSurfaceActivity?.action ? `${liveSurfaceActivity.action}` : \"Working\")
+                                        (liveSurfaceActivity?.action ? `${liveSurfaceActivity.action}` : "Working")
                                     }
                                 />
                             ) : null}
@@ -2070,7 +2070,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="shrink-0 border-t border-[#2a2a2a] bg-[#111111] px-3 pb-3 pt-2 @lg:px-5 @lg:pb-5">
+                <div className="shrink-0 border-t border-border bg-panel px-3 pb-3 pt-2 @lg:px-5 @lg:pb-5">
                     <ChatWidgetAppsStrip />
                     <div className="relative mx-auto w-full max-w-3xl">
                         <ImprovedChatInput

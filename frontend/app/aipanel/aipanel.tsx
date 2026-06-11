@@ -43,7 +43,10 @@ const AIBlockMask = memo(() => {
                     backgroundColor: "rgb(from var(--block-bg-color) r g b / 50%)",
                 }}
             >
-                <div className="font-bold opacity-70 mt-[-25%] text-[60px]">0</div>
+                <div className="flex flex-col items-center gap-2 opacity-60">
+                    <i className="fa fa-circle-nodes text-5xl" style={{ color: "var(--accent-color)" }}></i>
+                    <span className="text-xs font-mono text-muted">AI Block</span>
+                </div>
             </div>
         </div>
     );
@@ -474,8 +477,13 @@ const ConfigChangeModeFixer = memo(() => {
     const model = WaveAIModel.getInstance();
     const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
     const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
+    const initialized = useRef(false);
 
     useEffect(() => {
+        if (!initialized.current) {
+            initialized.current = true;
+            return;
+        }
         model.fixModeAfterConfigChange();
     }, [telemetryEnabled, aiModeConfigs, model]);
 
