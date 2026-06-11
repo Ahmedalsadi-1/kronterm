@@ -4,6 +4,7 @@
 import { getSettingsKeyAtom } from "@/app/store/global";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { VoiceModel } from "@/app/aipanel/voice-model";
 import { useAtomValue } from "jotai";
 import { memo, useEffect, useState } from "react";
 import type { KronSettingsViewModel } from "./kronsettings-model";
@@ -14,8 +15,8 @@ interface KronSettingsVoiceContentProps {
 
 const sectionClassName = "rounded-xl border border-border bg-panel px-5 py-4 mb-6";
 
-function useToggleField(key: Parameters<typeof getSettingsKeyAtom>[0]): [boolean, (v: boolean) => void] {
-    const stored = useAtomValue(getSettingsKeyAtom(key));
+function useToggleField(key: string): [boolean, (v: boolean) => void] {
+    const stored = useAtomValue(getSettingsKeyAtom(key as any));
     const [val, setVal] = useState(Boolean(stored));
     useEffect(() => { setVal(Boolean(stored)); }, [stored]);
     const save = (v: boolean) => {
@@ -34,10 +35,24 @@ const ToggleBtn = ({ checked, onChange }: { checked: boolean; onChange: (v: bool
     </button>
 );
 
-const KronSettingsVoiceContent = memo(({ _model }: KronSettingsVoiceContentProps) => {
+const KronSettingsVoiceContent = memo((_props: KronSettingsVoiceContentProps) => {
     const [voiceEnabled, setVoiceEnabled] = useToggleField("voice:enabled");
     const [autoDetect, setAutoDetect] = useToggleField("voice:autodetect");
     const [readAloud, setReadAloud] = useToggleField("voice:readaloud");
+
+    const voiceModel = VoiceModel.getInstance();
+
+    useEffect(() => {
+        if (voiceEnabled) {
+            voiceModel.startEngine();
+        } else {
+            voiceModel.disableEngine();
+        }
+    }, [voiceEnabled, voiceModel]);
+
+    useEffect(() => {
+        voiceModel.setWakeWord(autoDetect);
+    }, [autoDetect, voiceModel]);
 
     return (
         <div className="space-y-6">

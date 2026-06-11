@@ -77,6 +77,17 @@ export class VoiceModel {
         return result;
     }
 
+    disableEngine(): void {
+        const api = getApi();
+        if (globalStore.get(this.listeningAtom)) {
+            api?.audioStopListening?.();
+        }
+        api?.audioShutdown?.();
+        globalStore.set(this.engineReadyAtom, false);
+        globalStore.set(this.listeningAtom, false);
+        globalStore.set(this.statusAtom, "idle");
+    }
+
     toggleListening(): void {
         const api = getApi();
         if (api == null) return;

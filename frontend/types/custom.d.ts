@@ -337,6 +337,7 @@ declare global {
 
         // ── Audio / Voice Engine IPC ──────────────────────────────
         audioStart: () => Promise<boolean>;
+        audioShutdown: () => void;
         audioStartListening: () => void;
         audioStopListening: () => void;
         audioSpeak: (text: string) => void;
