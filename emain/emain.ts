@@ -10,6 +10,7 @@ import { initElectronWshrpc, shutdownWshrpc } from "../frontend/app/store/wshrpc
 import { fireAndForget, sleep } from "../frontend/util/util";
 import { stopAllAgentManagers } from "./acp";
 import { AuthKey, configureAuthKeyRequestInjection } from "./authkey";
+import { stopChatHubV2Server } from "./chathubv2-server";
 import {
     getActivityState,
     getAndClearTermCommandsDurable,
@@ -27,13 +28,10 @@ import {
     setWasInFg,
 } from "./emain-activity";
 import { initIpcHandlers } from "./emain-ipc";
-import {
-    getKrondesignProc,
-    getKrondesignReady,
-    runKrondesignDaemon,
-    stopKrondesignDaemon,
-} from "./emain-krondesign";
+import { runKrondesignDaemon, stopKrondesignDaemon } from "./emain-krondesign";
 import { log } from "./emain-log";
+import { stopAllLanguageServers } from "./emain-lsp";
+import { runAudioEngine, stopAudioEngine } from "./emain-audio";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
 import { createDesktopPetWindow } from "./emain-pet";
 import {
@@ -296,7 +294,10 @@ electronApp.on("before-quit", (e) => {
     }
     setGlobalIsQuitting(true);
     void stopAllAgentManagers();
+    stopChatHubV2Server();
+    stopAllLanguageServers();
     stopKrondesignDaemon();
+    stopAudioEngine();
     updater?.stop();
     if (unamePlatform == "win32") {
         // win32 doesn't have a SIGINT, so we just let electron die, which
@@ -399,9 +400,18 @@ async function appMain() {
     console.log("wavesrv ready signal received", ready, Date.now() - startTs, "ms");
     await electronApp.whenReady();
 
-    // Start the krondesign design daemon (non-blocking — it starts in background)
+    // Start background daemons (non-blocking)
     fireAndForget(async () => {
         await runKrondesignDaemon();
+    });
+    if (process.platform === "darwin") {
+        const micStatus = electron.systemPreferences.getMediaAccessStatus("microphone");
+        if (micStatus === "not-determined") {
+            electron.systemPreferences.askForMediaAccess("microphone");
+        }
+    }
+    fireAndForget(async () => {
+        await runAudioEngine();
     });
     configureAuthKeyRequestInjection(electron.session.defaultSession);
     initIpcHandlers();

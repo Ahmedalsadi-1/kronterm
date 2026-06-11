@@ -1,33 +1,25 @@
 #!/usr/bin/env python3
 """
-KronTerm Voice Engine — Phase 0: Foundation
-JSON-RPC over stdin/stdout protocol.
+KronTerm Voice Engine — Phase 1: Real audio pipeline.
+JSON-RPC over stdin/stdout.
 
-Protocol:
-  ->  {"id": 1, "method": "ping"}
-  <-  {"id": 1, "result": "pong"}
-
-  ->  {"id": 2, "method": "start_listening"}
-  <-  {"id": 2, "result": true}
-  <-  {"id": null, "method": "transcript", "params": {"text": "..."}}  (event)
-
-  ->  {"id": 3, "method": "stop_listening"}
-  <-  {"id": 3, "result": true}
-
-  ->  {"id": 4, "method": "speak", "params": {"text": "Hello"}}
-  <-  {"id": 4, "result": true}
-
-  ->  {"id": 5, "method": "set_wake_word", "params": {"enabled": true}}
-  <-  {"id": 5, "result": true}
-
-  ->  {"id": 6, "method": "shutdown"}
-  <-  {"id": 6, "result": true}
+Flow:
+  start_listening → AudioCapture.start() → VAD → silence-buffered utterance
+  → faster-whisper STT → transcript event
+  speak → edge-tts TTS → audio playback
 """
 
 import json
+import logging
 import sys
 import threading
+
 from audio_capture import AudioCapture
+from stt_engine import STTEngine
+from tts_engine import TTSEngine
+
+logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(name)s [%(levelname)s] %(message)s")
+log = logging.getLogger("voice-engine")
 
 
 class VoiceEngine:
@@ -35,8 +27,24 @@ class VoiceEngine:
         self.running = True
         self.listening = False
         self.wake_word_enabled = False
+        self._stt_ready = False
+        self._capture_thread: threading.Thread | None = None
+
         self.capture = AudioCapture()
-        self._callbacks = {}
+        self.stt = STTEngine()
+        self.tts = TTSEngine()
+
+    def _load_stt(self):
+        """Load STT model lazily (first start_listening)."""
+        if not self._stt_ready:
+            try:
+                self.stt.transcribe(b"")  # force model load
+                self._stt_ready = True
+            except Exception as e:
+                self._send_event("error", {"message": f"STT load failed: {e}"})
+                log.exception("stt load failed")
+
+    # ── Request handler ───────────────────────────────────────────
 
     def handle_request(self, request):
         method = request.get("method")
@@ -54,7 +62,7 @@ class VoiceEngine:
         except Exception as e:
             self._send_error(req_id, str(e))
 
-    # ── Commands ────────────────────────────────────────────────
+    # ── Commands ─────────────────────────────────────────────────
 
     def cmd_ping(self, params):
         return "pong"
@@ -62,72 +70,92 @@ class VoiceEngine:
     def cmd_start_listening(self, params):
         if self.listening:
             return True
+        self._load_stt()
         self.listening = True
-        threading.Thread(target=self._listen_loop, daemon=True).start()
+        self.capture.start()
+        self._capture_thread = threading.Thread(target=self._listen_loop, daemon=True)
+        self._capture_thread.start()
+        self._send_event("listening", {"listening": True})
         return True
 
     def cmd_stop_listening(self, params):
         self.listening = False
+        self.capture.stop()
+        self._send_event("listening", {"listening": False})
         return True
 
     def cmd_speak(self, params):
         text = params.get("text", "")
         if not text:
             return False
-        # Phase 2: delegate to TTS engine
         self._send_event("speaking", {"text": text})
+        threading.Thread(target=self._speak_loop, args=(text,), daemon=True).start()
         return True
 
     def cmd_set_wake_word(self, params):
         self.wake_word_enabled = params.get("enabled", False)
-        # Phase 3: wire up Porcupine
         return True
 
     def cmd_get_status(self, params):
         return {
             "listening": self.listening,
             "wake_word_enabled": self.wake_word_enabled,
-            "version": "0.1.0",
+            "stt_ready": self._stt_ready,
+            "version": "0.2.0",
         }
+
+    def cmd_get_devices(self, params):
+        return AudioCapture.list_devices()
+
+    def cmd_list_voices(self, params):
+        return self.tts.list_voices()
 
     def cmd_shutdown(self, params):
         self.running = False
         self.listening = False
         self.capture.close()
+        self.stt.close()
+        self.tts.close()
         return True
 
-    # ── Internal ─────────────────────────────────────────────────
+    # ── Internal loops ────────────────────────────────────────────
 
     def _listen_loop(self):
-        """Background thread: capture mic audio and process."""
         while self.running and self.listening:
-            try:
-                audio_data = self.capture.read_chunk()
-                if audio_data is None:
-                    continue
-                # Phase 1: send to STT engine
-                # Phase 3: check wake word first
-                pass
-            except Exception as e:
-                self._send_event("error", {"message": str(e)})
+            audio = self.capture.read_utterance(timeout=1.0)
+            if audio is None:
+                continue
+            if not self.listening:
                 break
-        self.listening = False
+            self._send_event("listening", {"listening": True})
+            try:
+                text = self.stt.transcribe(audio)
+                if text:
+                    self._send_event("transcript", {"text": text})
+            except Exception as e:
+                self._send_event("error", {"message": f"STT failed: {e}"})
+        self._send_event("listening", {"listening": False})
+
+    def _speak_loop(self, text: str):
+        ok = self.tts.speak(text)
+        if not ok:
+            self._send_event("error", {"message": "TTS playback failed"})
+        self._send_event("speaking", {"text": None})  # signal done
+
+    # ── Protocol helpers ──────────────────────────────────────────
 
     def _send_result(self, req_id, result):
         if req_id is None:
             return
-        msg = {"id": req_id, "result": result}
-        self._write_msg(msg)
+        self._write_msg({"id": req_id, "result": result})
 
     def _send_error(self, req_id, message):
-        if req_id is None:
-            return
-        msg = {"id": req_id, "error": {"message": message}}
-        self._write_msg(msg)
+        self._write_msg({"id": req_id, "error": {"message": message}})
 
     def _send_event(self, method, params):
-        msg = {"id": None, "method": method, "params": params}
-        self._write_msg(msg)
+        if isinstance(params, dict) and params.get("listening") is False:
+            pass
+        self._write_msg({"id": None, "method": method, "params": params})
 
     def _write_msg(self, msg):
         line = json.dumps(msg, ensure_ascii=False)
@@ -135,8 +163,7 @@ class VoiceEngine:
         sys.stdout.flush()
 
     def run(self):
-        """Main loop: read JSON-RPC requests from stdin."""
-        self._send_event("ready", {"version": "0.1.0"})
+        self._send_event("ready", {"version": "0.2.0"})
         for raw_line in sys.stdin:
             line = raw_line.strip()
             if not line:
