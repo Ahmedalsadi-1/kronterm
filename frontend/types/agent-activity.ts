@@ -75,6 +75,10 @@ export type TimedAgentActivityEvent = NormalizedAgentActivityEvent & {
     timestamp: number;
 };
 
+export type LiveAgentSurfaceActivity = TimedAgentActivityEvent;
+
+export const AgentSurfaceUiActivityEvent = "agent-surface-ui-activity";
+
 export type AgentActivityContext = "idle" | "terminal" | "browser" | "desktop" | "file" | "thinking";
 
 export function normalizeAgentActivityPhase(phase: AgentActivityEvent["phase"]): AgentActivityPhase {
@@ -123,6 +127,31 @@ export function createAgentActivityTimeline(maxEntries = 120) {
             entriesByRun.delete(runid);
         },
     };
+}
+
+export const agentActivityTimeline = createAgentActivityTimeline();
+
+export function publishAgentActivity(activity: AgentActivityEvent): LiveAgentSurfaceActivity {
+    const normalized = agentActivityTimeline.record(activity);
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(
+            new CustomEvent<LiveAgentSurfaceActivity>(AgentSurfaceUiActivityEvent, {
+                detail: normalized,
+            })
+        );
+    }
+    return normalized;
+}
+
+export function subscribeAgentActivityStream(callback: (activity: LiveAgentSurfaceActivity) => void): () => void {
+    if (typeof window === "undefined") {
+        return () => {};
+    }
+    const handleActivity = (event: Event) => {
+        callback((event as CustomEvent<LiveAgentSurfaceActivity>).detail);
+    };
+    window.addEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+    return () => window.removeEventListener(AgentSurfaceUiActivityEvent, handleActivity);
 }
 
 export function isAgentActivityActive(phase: AgentActivityEvent["phase"]): boolean {

@@ -53,8 +53,8 @@ declare global {
 function sortedFrames(images: Record<string, string>): string[] {
     return Object.entries(images)
         .sort(([a], [b]) => {
-            const first = Number(a.match(/-(\d+)\.png$/)?.[1] ?? 0);
-            const second = Number(b.match(/-(\d+)\.png$/)?.[1] ?? 0);
+            const first = Number(a.match(/-(\\d+)\\.png$/)?.[1] ?? 0);
+            const second = Number(b.match(/-(\\d+)\\.png$/)?.[1] ?? 0);
             return first - second;
         })
         .map(([, src]) => src);
@@ -74,64 +74,68 @@ const walkFrames = sortedFrames(
 );
 const root = document.getElementById("pet-root");
 const sprite = document.getElementById("pet-sprite") as HTMLImageElement;
+const spriteShell = document.querySelector(".sprite-shell") as HTMLElement;
 const thought = document.getElementById("thought");
 const action = document.getElementById("action");
 const context = document.getElementById("context");
 const detail = document.getElementById("detail");
 const menuToggle = document.getElementById("pet-menu-toggle");
 const menu = document.getElementById("pet-menu");
-const chatToggle = document.getElementById("chat-toggle");
+const chatToggle = document.getElementById("chat-toggle") as HTMLButtonElement;
 const chat = document.getElementById("pet-chat") as HTMLFormElement;
 const chatInput = document.getElementById("pet-chat-input") as HTMLInputElement;
-const optionControls = {
-    glow: document.getElementById("toggle-glow") as HTMLInputElement,
-    thoughts: document.getElementById("toggle-thoughts") as HTMLInputElement,
-    actions: document.getElementById("toggle-actions") as HTMLInputElement,
-    roam: document.getElementById("toggle-roam") as HTMLInputElement,
-    followUserCursor: document.getElementById("toggle-follow-cursor") as HTMLInputElement,
+
+// macOS menu mode items
+const modeItems = document.querySelectorAll<HTMLElement>(".pet-menu-mode-item");
+
+// Menu toggle items (checkmark-style)
+const optionMenuItems: Record<string, HTMLElement> = {
+    glow: document.getElementById("menu-toggle-glow"),
+    thoughts: document.getElementById("menu-toggle-thoughts"),
+    actions: document.getElementById("menu-toggle-actions"),
+    roam: document.getElementById("menu-toggle-roam"),
+    followUserCursor: document.getElementById("menu-toggle-follow-cursor"),
 };
-const modeControl = document.getElementById("pet-mode") as HTMLSelectElement;
+const clickthroughMenuItem = document.getElementById("menu-toggle-clickthrough");
 
-const clickThroughCheckbox = document.getElementById("toggle-clickthrough") as HTMLInputElement;
+const reasoningToggle = document.getElementById("reasoning-toggle") as HTMLButtonElement;
+const reasoningFeed = document.getElementById("reasoning-feed") as HTMLElement;
+const reasoningFeedBody = document.getElementById("reasoning-feed-body") as HTMLElement;
+const reasoningFeedClose = document.getElementById("reasoning-feed-close") as HTMLButtonElement;
 
-const petCursor = document.getElementById("pet-cursor");
-const petCursorIcon = document.getElementById("pet-cursor-icon");
-
-const reasoningToggle = document.getElementById("reasoning-toggle");
-const reasoningFeed = document.getElementById("reasoning-feed");
-const reasoningFeedBody = document.getElementById("reasoning-feed-body");
-const reasoningFeedClose = document.getElementById("reasoning-feed-close");
-
-const resizeHandle = document.getElementById("resize-handle");
-const capturePreview = document.getElementById("capture-preview");
+const resizeHandle = document.getElementById("resize-handle") as HTMLElement;
+const capturePreview = document.getElementById("capture-preview") as HTMLElement;
 const capturePreviewImage = document.getElementById("capture-preview-image") as HTMLImageElement;
+
+const petCursor = document.getElementById("pet-cursor") as HTMLElement;
+const petCursorRing = document.getElementById("pet-cursor-ring") as HTMLElement;
+const petCursorLabel = document.getElementById("pet-cursor-label") as HTMLElement;
 
 let clickThroughEnabled = false;
 
 window.petApi?.isClickThrough().then((enabled) => {
     clickThroughEnabled = enabled;
     root.classList.toggle("click-through", clickThroughEnabled);
+    updateCheckmark(clickthroughMenuItem, clickThroughEnabled);
 });
 window.petApi?.onClickThroughChange((enabled) => {
     clickThroughEnabled = enabled;
     root.classList.toggle("click-through", enabled);
-    if (clickThroughCheckbox) {
-        clickThroughCheckbox.checked = enabled;
-    }
+    updateCheckmark(clickthroughMenuItem, enabled);
     if (enabled) {
         const toast = document.createElement("div");
         toast.className = "click-through-toast";
-        toast.textContent = "🔍 Click-through ON — pet is transparent to clicks";
+        toast.textContent = "Click-through on — pet ignores pointer events";
         root.appendChild(toast);
         setTimeout(() => toast.remove(), 2000);
     }
 });
 
-const cursorIcons: Record<string, string> = {
-    click: "👆",
-    type: "⌨️",
-    scroll: "📜",
-    hover: "🖐️",
+const cursorActionLabels: Record<string, string> = {
+    click: "Click",
+    type: "Type",
+    scroll: "Scroll",
+    hover: "Hover",
 };
 
 let frame = 0;
@@ -158,6 +162,18 @@ let resizeStartX = 0;
 let resizeStartY = 0;
 let resizeStartW = 0;
 let resizeStartH = 0;
+// Cursor follow state for sprite
+let cursorFollowActive = false;
+let cursorTargetX = 0;
+let cursorTargetY = 0;
+
+function updateCheckmark(item: HTMLElement | null, enabled: boolean) {
+    if (!item) return;
+    const check = item.querySelector(".pet-menu-check") as HTMLElement;
+    if (check) {
+        check.style.visibility = enabled ? "visible" : "hidden";
+    }
+}
 
 function applyOptions() {
     root.classList.remove("mode-off", "mode-status-only", "mode-docked", "mode-expressive");
@@ -170,21 +186,88 @@ function applyOptions() {
         roam: options.roam,
         followUserCursor: options.followUserCursor,
     });
+    // Update mode items
+    modeItems.forEach((item) => {
+        item.classList.toggle("mode-selected", item.dataset.mode === options.mode);
+    });
+    // Update toggle checkmarks
+    Object.entries(optionMenuItems).forEach(([key, el]) => {
+        updateCheckmark(el, options[key as BooleanPetOption]);
+    });
     renderState(state);
 }
 
-function renderCursor(action: PetCursorAction, _point: { x: number; y: number } | null | undefined) {
-    if (options.mode !== "expressive" || action == null || action === "idle" || !petCursor || !petCursorIcon) {
+/** Map a screen-space point to the pet window's local coordinate space */
+function screenToPetWindow(point: { x: number; y: number }): { x: number; y: number } | null {
+    if (!root) return null;
+    const rect = root.getBoundingClientRect();
+    // The root is positioned relative to the window; we want coordinates
+    // relative to the root for the sprite-shell.
+    return {
+        x: point.x - rect.left,
+        y: point.y - rect.top,
+    };
+}
+
+function renderCursor(action: PetCursorAction, point: { x: number; y: number } | null | undefined) {
+    if (options.mode !== "expressive" || action == null || action === "idle" || !petCursor || !petCursorRing) {
         petCursor?.setAttribute("hidden", "");
+        clearCursorFollow();
         return;
     }
-    const icon = cursorIcons[action] ?? "👆";
-    petCursorIcon.textContent = icon;
-    petCursor.className = `pet-cursor cursor-${action}`;
 
+    // Show the ring cursor
+    petCursor.className = `pet-cursor cursor-${action}`;
+    if (petCursorLabel) {
+        petCursorLabel.textContent = cursorActionLabels[action] ?? "Act";
+    }
     petCursor.style.left = "";
     petCursor.style.top = "";
     petCursor.removeAttribute("hidden");
+
+    // CARRY THE CURSOR: move the pet sprite to the cursor position
+    if (point && spriteShell) {
+        const local = screenToPetWindow(point);
+        if (local) {
+            // Clamp to window bounds with some padding
+            const maxX = root.clientWidth - 60;
+            const maxY = root.clientHeight - 60;
+            cursorTargetX = Math.max(10, Math.min(maxX, local.x));
+            cursorTargetY = Math.max(10, Math.min(maxY, local.y));
+            startCursorFollow();
+        }
+    }
+}
+
+let cursorFollowAnimFrame: number | null = null;
+
+function startCursorFollow() {
+    if (!spriteShell) return;
+    cursorFollowActive = true;
+    spriteShell.classList.add("cursor-following");
+    // Use a transform to offset the sprite from its natural position
+    // We store the baseline position, then apply the cursor offset as a translate
+    const shellRect = spriteShell.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    // Natural position of the sprite center relative to root
+    const naturalCenterX = shellRect.left - rootRect.left + shellRect.width / 2;
+    const naturalCenterY = shellRect.top - rootRect.top + shellRect.height / 2;
+    // Offset to move the center of the sprite to the cursor point
+    const dx = cursorTargetX - naturalCenterX;
+    const dy = cursorTargetY - naturalCenterY;
+    spriteShell.style.transform = `translate(${dx}px, ${dy}px)`;
+    // Don't interfere with default flex layout
+}
+
+function clearCursorFollow() {
+    if (!spriteShell) return;
+    cursorFollowActive = false;
+    spriteShell.classList.remove("cursor-following");
+    spriteShell.style.transform = "";
+    if (cursorFollowAnimFrame != null) {
+        cancelAnimationFrame(cursorFollowAnimFrame);
+        cursorFollowAnimFrame = null;
+    }
 }
 
 function renderReasoningLog(log: string[] | undefined) {
@@ -275,7 +358,8 @@ function renderState(nextState: PetState) {
 }
 
 function animate() {
-    const frames = options.mode === "expressive" && state.moving ? walkFrames : idleFrames;
+    const isFollowingCursor = cursorFollowActive && state.cursorAction && state.cursorAction !== "idle";
+    const frames = isFollowingCursor ? walkFrames : (options.mode === "expressive" && state.moving ? walkFrames : idleFrames);
     if (frames.length > 0) {
         sprite.src = frames[frame % frames.length];
         frame++;
@@ -327,51 +411,69 @@ try {
     localStorage.removeItem("kronos-pet-options");
 }
 
-Object.entries(optionControls).forEach(([key, control]) => {
+// ─── Menu event handlers ───────────────────────────────────────────
+
+// Mode selection
+modeItems.forEach((item) => {
+    item.addEventListener("click", () => {
+        const mode = item.dataset.mode as PetMode;
+        if (mode && mode !== options.mode) {
+            options = { ...options, mode };
+            applyOptions();
+            menu.hidden = true;
+        }
+    });
+});
+
+// Toggle options (menu items with checkmarks)
+Object.entries(optionMenuItems).forEach(([key, el]) => {
     const option = key as BooleanPetOption;
-    control.checked = options[option];
-    control.addEventListener("change", () => {
-        options = { ...options, [option]: control.checked };
+    el.addEventListener("click", () => {
+        options = { ...options, [option]: !options[option] };
         applyOptions();
     });
 });
-modeControl.value = options.mode;
-modeControl.addEventListener("change", () => {
-    options = { ...options, mode: modeControl.value as PetMode };
-    applyOptions();
+
+// Click-through toggle
+clickthroughMenuItem?.addEventListener("click", () => {
+    window.petApi?.toggleClickThrough();
 });
-if (clickThroughCheckbox) {
-    clickThroughCheckbox.addEventListener("change", () => {
-        window.petApi?.toggleClickThrough();
-    });
-}
+
 menuToggle.addEventListener("click", () => {
     menu.hidden = !menu.hidden;
+    chat.hidden = true;
+    reasoningFeed.hidden = true;
 });
+
 root.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     menu.hidden = false;
     chat.hidden = true;
     reasoningFeed.hidden = true;
 });
+
 root.addEventListener("dblclick", (event) => {
     if ((event.target as HTMLElement).closest("input, button, form")) {
         return;
     }
     window.petApi?.toggleClickThrough();
 });
+
 root.addEventListener("click", (event) => {
     if ((event.target as HTMLElement).closest("input, button, select, form, .pet-menu")) {
         return;
     }
     window.petApi?.resumeContext();
 });
-chatToggle.addEventListener("click", () => {
+
+chatToggle?.addEventListener("click", () => {
     chat.hidden = !chat.hidden;
+    menu.hidden = true;
     if (!chat.hidden) {
         chatInput.focus();
     }
 });
+
 chat.addEventListener("submit", (event) => {
     event.preventDefault();
     const text = chatInput.value.trim();

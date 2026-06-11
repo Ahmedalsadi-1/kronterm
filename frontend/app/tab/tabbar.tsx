@@ -5,13 +5,21 @@ import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import {
+    KronchatProjectsChangedEvent,
+    readKronchatProjects,
+    requestOpenKronchatProject,
+    type KronchatProject,
+} from "@/app/aipanel/kronchat-projects";
 import { deleteLayoutModelForTab } from "@/layout/index";
 import { isMacOSTahoeOrLater } from "@/util/platformutil";
 import { fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { OverlayScrollbars } from "overlayscrollbars";
-import { createRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { createRef, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce } from "throttle-debounce";
+import { BrowserTabsBar } from "./browser-tabs-bar";
+import { FoldedWidgetsBar } from "./folded-widgets-bar";
 import { Tab } from "./tab";
 import "./tabbar.scss";
 import { TabBarEnv } from "./tabbarenv";
@@ -75,6 +83,40 @@ const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement
 });
 WaveAIButton.displayName = "WaveAIButton";
 
+const KronchatProjectPills = memo(({ projects }: { projects: KronchatProject[] }) => {
+    const visibleProjects = projects.slice(0, 3);
+    if (!visibleProjects.length) {
+        return null;
+    }
+
+    const handleOpenProject = (project: KronchatProject) => {
+        WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
+        requestOpenKronchatProject(project);
+    };
+
+    return (
+        <div className="kronchat-project-pills" aria-label="Kronchat projects">
+            {visibleProjects.map((project) => (
+                <button
+                    type="button"
+                    key={project.workspace || "focused"}
+                    className="kronchat-project-pill"
+                    title={`${project.name}${project.workspace ? ` - ${project.workspace}` : ""}`}
+                    onClick={() => handleOpenProject(project)}
+                >
+                    <i className="fa fa-folder-tree" />
+                    <span className="kronchat-project-pill-name">{project.name}</span>
+                    <span className="kronchat-project-pill-count">{project.sessionCount}</span>
+                </button>
+            ))}
+            {projects.length > visibleProjects.length ? (
+                <span className="kronchat-project-pill-more">+{projects.length - visibleProjects.length}</span>
+            ) : null}
+        </div>
+    );
+});
+KronchatProjectPills.displayName = "KronchatProjectPills";
+
 function strArrayIsEqual(a: string[], b: string[]) {
     // null check
     if (a == null && b == null) {
@@ -123,6 +165,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const rightContainerRef = useRef<HTMLDivElement>(null);
     const workspaceSwitcherRef = useRef<HTMLDivElement>(null);
     const waveAIButtonRef = useRef<HTMLDivElement>(null);
+    const projectPillsRef = useRef<HTMLDivElement>(null);
     const appMenuButtonRef = useRef<HTMLButtonElement>(null);
     const tabWidthRef = useRef<number>(TabDefaultWidth);
     const scrollableRef = useRef<boolean>(false);
@@ -134,6 +177,14 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
     const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
+    const [kronchatProjects, setKronchatProjects] = useState<KronchatProject[]>(() => readKronchatProjects());
+    const kronchatProjectLayoutKey = useMemo(
+        () =>
+            kronchatProjects
+                .map((project) => `${project.workspace}:${project.name}:${project.sessionCount}:${project.updatedTs}`)
+                .join("|"),
+        [kronchatProjects]
+    );
 
     let prevDelta: number;
     let prevDragDirection: string;
@@ -155,6 +206,20 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             setTabIds(newTabIdsArr);
         }
     }, [workspace, tabIds]);
+
+    useEffect(() => {
+        const refreshProjects = () => setKronchatProjects(readKronchatProjects());
+        const handleProjectsChanged = (event: Event) => {
+            const nextProjects = (event as CustomEvent<KronchatProject[]>).detail;
+            setKronchatProjects(Array.isArray(nextProjects) ? nextProjects : readKronchatProjects());
+        };
+        window.addEventListener(KronchatProjectsChangedEvent, handleProjectsChanged);
+        window.addEventListener("storage", refreshProjects);
+        return () => {
+            window.removeEventListener(KronchatProjectsChangedEvent, handleProjectsChanged);
+            window.removeEventListener("storage", refreshProjects);
+        };
+    }, []);
 
     const saveTabsPosition = useCallback(() => {
         const tabs = tabRefs.current;
@@ -190,6 +255,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         const appMenuButtonWidth = appMenuButtonRef.current?.getBoundingClientRect().width ?? 0;
         const workspaceSwitcherWidth = workspaceSwitcherRef.current?.getBoundingClientRect().width ?? 0;
         const waveAIButtonWidth = waveAIButtonRef.current != null ? getOuterWidth(waveAIButtonRef.current) : 0;
+        const projectPillsWidth = projectPillsRef.current != null ? getOuterWidth(projectPillsRef.current) : 0;
 
         const nonTabElementsWidth =
             windowDragLeftWidth +
@@ -197,7 +263,8 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             addBtnWidth +
             appMenuButtonWidth +
             workspaceSwitcherWidth +
-            waveAIButtonWidth;
+            waveAIButtonWidth +
+            projectPillsWidth;
         const spaceForTabs = tabbarWrapperWidth - nonTabElementsWidth;
 
         const numberOfTabs = tabIds.length;
@@ -282,7 +349,17 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 prevAllLoadedRef.current = true;
             }
         }
-    }, [tabIds, tabsLoaded, newTabId, saveTabsPosition, hideAiButton, appUpdateStatus, zoomFactor, showMenuBar]);
+    }, [
+        tabIds,
+        tabsLoaded,
+        newTabId,
+        saveTabsPosition,
+        hideAiButton,
+        appUpdateStatus,
+        zoomFactor,
+        showMenuBar,
+        kronchatProjectLayoutKey,
+    ]);
 
     const getDragDirection = (currentX: number) => {
         let dragDirection: string;
@@ -613,6 +690,11 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             >
                 <WorkspaceSwitcher />
             </Tooltip>
+            <FoldedWidgetsBar />
+            <div ref={projectPillsRef}>
+                <KronchatProjectPills projects={kronchatProjects} />
+            </div>
+            <BrowserTabsBar currentTabId={activeTabId} />
             <div className="tab-bar" ref={tabBarRef} data-overlayscrollbars-initialize>
                 <div
                     className="tabs-wrapper"

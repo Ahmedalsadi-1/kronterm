@@ -20,7 +20,7 @@ const previewAcpAgents = [
     {
         backend: "kronoscode",
         name: "KronosCode",
-        cliPath: "/Users/albsheralsadi/kronosfinal/kronoscoder/packages/kronoscode/bin/kronoscode",
+        cliPath: "/Users/albsheralsadi/kronterm/kronoscoder/packages/kronoscode/bin/kronoscode",
         available: true,
         avatar: "K",
         description: "Local KronosCode ACP agent",
@@ -147,12 +147,22 @@ const previewElectronApi: ElectronApi = {
         customArgs?: string[];
         customEnv?: Record<string, string>;
         resumeSessionId?: string;
-        mcpServers?: Array<{
-            name: string;
-            command: string;
-            args: string[];
-            env: Array<{ name: string; value: string }>;
-        }>;
+        resumeSessionConversationId?: string;
+        mcpServers?: Array<
+            | {
+                  type?: "stdio";
+                  name: string;
+                  command: string;
+                  args: string[];
+                  env: Array<{ name: string; value: string }>;
+              }
+            | {
+                  type: "http" | "sse";
+                  name: string;
+                  url: string;
+                  headers?: Array<{ name: string; value: string }>;
+              }
+        >;
     }) => {
         previewRuntimes.set(opts.conversationId, {
             conversationId: opts.conversationId,

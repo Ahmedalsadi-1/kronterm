@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/uctypes"
+	"github.com/wavetermdev/waveterm/pkg/waveobj"
 	"github.com/wavetermdev/waveterm/pkg/wcore"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc/wshclient"
 	"github.com/wavetermdev/waveterm/pkg/wshutil"
+	"github.com/wavetermdev/waveterm/pkg/wstore"
 )
 
 // =============================================================================
@@ -58,6 +60,74 @@ type WidgetGetStateOutput struct {
 	State      map[string]any `json:"state"`
 	Focused    bool           `json:"focused"`
 	Dimensions *Bounds        `json:"dimensions,omitempty"`
+}
+
+type OpenWidgetEntry struct {
+	WidgetId   string         `json:"widget_id"`
+	BlockId    string         `json:"block_id"`
+	ViewType   string         `json:"view_type"`
+	Title      string         `json:"title,omitempty"`
+	Controller string         `json:"controller,omitempty"`
+	Meta       map[string]any `json:"meta,omitempty"`
+}
+
+type OpenWidgetsOutput struct {
+	TabId     string            `json:"tab_id"`
+	Widgets   []OpenWidgetEntry `json:"widgets"`
+	Count     int               `json:"count"`
+	Timestamp int64             `json:"timestamp"`
+}
+
+func GetOpenWidgetsToolDefinition(tabId string) uctypes.ToolDefinition {
+	return uctypes.ToolDefinition{
+		Name:        "widget_list_open",
+		DisplayName: "List Open Widgets",
+		Description: "List currently open widgets in this workspace tab, including each widget_id prefix to use with widget_snapshot, widget_click, widget_drag, and other widget tools.",
+		ToolLogName: "human:widget_list_open",
+		Strict:      false,
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"properties":           map[string]any{},
+			"additionalProperties": false,
+		},
+		ToolCallDesc: func(input any, output any, toolUseData *uctypes.UIMessageDataToolUse) string {
+			return "listing open widgets"
+		},
+		ToolAnyCallback: func(input any, toolUseData *uctypes.UIMessageDataToolUse) (any, error) {
+			ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelFn()
+
+			tabObj, err := wstore.DBMustGet[*waveobj.Tab](ctx, tabId)
+			if err != nil {
+				return nil, fmt.Errorf("error getting tab: %w", err)
+			}
+
+			rtn := &OpenWidgetsOutput{TabId: tabId, Timestamp: time.Now().UnixMilli()}
+			for _, blockId := range tabObj.BlockIds {
+				block, err := wstore.DBGet[*waveobj.Block](ctx, blockId)
+				if err != nil || block == nil {
+					continue
+				}
+				viewType, _ := block.Meta["view"].(string)
+				title, _ := block.Meta["frame:title"].(string)
+				controller, _ := block.Meta["controller"].(string)
+				meta := make(map[string]any, len(block.Meta))
+				for key, val := range block.Meta {
+					meta[key] = val
+				}
+				rtn.Widgets = append(rtn.Widgets, OpenWidgetEntry{
+					WidgetId:   block.OID[:8],
+					BlockId:    block.OID,
+					ViewType:   viewType,
+					Title:      title,
+					Controller: controller,
+					Meta:       meta,
+				})
+			}
+			rtn.Count = len(rtn.Widgets)
+			return rtn, nil
+		},
+	}
 }
 
 // parseWidgetGetElementsInput parses the input for get_elements tool
@@ -1456,6 +1526,11 @@ func GetWidgetClickToolDefinition(tabId string) uctypes.ToolDefinition {
 				return nil, fmt.Errorf("widget_id is required")
 			}
 			elementRef := getStr(inputMap, "element_ref")
+			x, hasX := getOptionalInt(inputMap, "x")
+			y, hasY := getOptionalInt(inputMap, "y")
+			if elementRef == "" && (!hasX || !hasY) {
+				return nil, fmt.Errorf("either element_ref or x,y coordinates are required")
+			}
 			button := "left"
 			if v, ok := inputMap["button"].(string); ok {
 				button = v
@@ -1484,6 +1559,8 @@ func GetWidgetClickToolDefinition(tabId string) uctypes.ToolDefinition {
 				wshrpc.CommandWidgetClickData{
 					BlockId:    fullBlockId,
 					ElementRef: elementRef,
+					X:          x,
+					Y:          y,
 					Button:     button,
 					ClickType:  clickType,
 				},
@@ -1536,8 +1613,11 @@ func GetWidgetHoverToolDefinition(tabId string) uctypes.ToolDefinition {
 				return nil, fmt.Errorf("widget_id is required")
 			}
 			elementRef := getStr(inputMap, "element_ref")
-			x := getInt(inputMap, "x")
-			y := getInt(inputMap, "y")
+			x, hasX := getOptionalInt(inputMap, "x")
+			y, hasY := getOptionalInt(inputMap, "y")
+			if elementRef == "" && (!hasX || !hasY) {
+				return nil, fmt.Errorf("either element_ref or x,y coordinates are required")
+			}
 			ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancelFn()
 			fullBlockId, err := wcore.ResolveBlockIdFromPrefix(ctx, tabId, widgetId)
@@ -1601,8 +1681,11 @@ func GetWidgetLongPressToolDefinition(tabId string) uctypes.ToolDefinition {
 				return nil, fmt.Errorf("widget_id is required")
 			}
 			elementRef := getStr(inputMap, "element_ref")
-			x := getInt(inputMap, "x")
-			y := getInt(inputMap, "y")
+			x, hasX := getOptionalInt(inputMap, "x")
+			y, hasY := getOptionalInt(inputMap, "y")
+			if elementRef == "" && (!hasX || !hasY) {
+				return nil, fmt.Errorf("either element_ref or x,y coordinates are required")
+			}
 			duration := 1.0
 			if v, ok := inputMap["duration"].(float64); ok {
 				duration = v
@@ -1685,6 +1768,18 @@ func GetWidgetDragToolDefinition(tabId string) uctypes.ToolDefinition {
 			if v, ok := inputMap["button"].(string); ok {
 				button = v
 			}
+			startRef := getStr(inputMap, "start_ref")
+			endRef := getStr(inputMap, "end_ref")
+			startX, hasStartX := getOptionalInt(inputMap, "start_x")
+			startY, hasStartY := getOptionalInt(inputMap, "start_y")
+			endX, hasEndX := getOptionalInt(inputMap, "end_x")
+			endY, hasEndY := getOptionalInt(inputMap, "end_y")
+			if startRef == "" && (!hasStartX || !hasStartY) {
+				return nil, fmt.Errorf("either start_ref or start_x,start_y coordinates are required")
+			}
+			if endRef == "" && (!hasEndX || !hasEndY) {
+				return nil, fmt.Errorf("either end_ref or end_x,end_y coordinates are required")
+			}
 			ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancelFn()
 			fullBlockId, err := wcore.ResolveBlockIdFromPrefix(ctx, tabId, widgetId)
@@ -1696,12 +1791,12 @@ func GetWidgetDragToolDefinition(tabId string) uctypes.ToolDefinition {
 				rpcClient,
 				wshrpc.CommandWidgetDragData{
 					BlockId:  fullBlockId,
-					StartRef: getStr(inputMap, "start_ref"),
-					StartX:   getInt(inputMap, "start_x"),
-					StartY:   getInt(inputMap, "start_y"),
-					EndRef:   getStr(inputMap, "end_ref"),
-					EndX:     getInt(inputMap, "end_x"),
-					EndY:     getInt(inputMap, "end_y"),
+					StartRef: startRef,
+					StartX:   startX,
+					StartY:   startY,
+					EndRef:   endRef,
+					EndX:     endX,
+					EndY:     endY,
 					Button:   button,
 				},
 				&wshrpc.RpcOpts{Route: wshutil.MakeTabRouteId(tabId)},
@@ -2258,4 +2353,11 @@ func getInt(input map[string]any, key string) int {
 		return int(v)
 	}
 	return 0
+}
+
+func getOptionalInt(input map[string]any, key string) (int, bool) {
+	if v, ok := input[key].(float64); ok {
+		return int(v), true
+	}
+	return 0, false
 }

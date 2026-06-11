@@ -1,9 +1,11 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { BlockNodeModel } from "@/app/block/blocktypes";
-import { getSettingsKeyAtom } from "@/app/store/global";
+import { uxCloseBlock } from "@/app/store/keymodel";
 import { Search, useSearch } from "@/app/element/search";
+import { getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { getSimpleControlShiftAtom } from "@/app/store/keymodel";
 import type { TabModel } from "@/app/store/tab-model";
@@ -14,14 +16,26 @@ import {
     SuggestionControlNoData,
     SuggestionControlNoResults,
 } from "@/app/suggestion/suggestion";
+import { CURSOR_OVERLAY_SCRIPT, reportCursorToPet } from "@/app/view/cursor-overlay";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
+import { ActionMarker } from "@/app/view/action-marker";
+import { useAgentOverlays } from "@/app/view/use-agent-overlays";
 import { MockBoundary } from "@/app/waveenv/mockboundary";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { adaptFromReactOrNativeKeyEvent, checkKeyPressed } from "@/util/keyutil";
 import { fireAndForget, useAtomValueSafe } from "@/util/util";
+import {
+    AgentWidgetSettingsEvent,
+    type AgentWidgetVisualSettings,
+    loadAgentWidgetVisualSettings,
+    updateAgentWidgetVisualSetting,
+} from "@/app/block/agent-widget-settings";
+import { refocusNode } from "@/app/store/global";
 import clsx from "clsx";
 import { WebviewTag } from "electron";
 import { Atom, PrimitiveAtom, atom, useAtomValue, useSetAtom } from "jotai";
 import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { subscribeAgentActivityStream } from "../../../types/agent-activity";
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
 
@@ -102,6 +116,9 @@ export class WebViewModel implements ViewModel {
     endIconButtons?: Atom<IconButtonDecl[]>;
     mediaPlaying: PrimitiveAtom<boolean>;
     mediaMuted: PrimitiveAtom<boolean>;
+    canGoBack: PrimitiveAtom<boolean>;
+    canGoForward: PrimitiveAtom<boolean>;
+    settingsPanelOpen: PrimitiveAtom<boolean>;
     modifyExternalUrl?: (url: string) => string;
     domReady: PrimitiveAtom<boolean>;
     hideNav: Atom<boolean>;
@@ -143,6 +160,9 @@ export class WebViewModel implements ViewModel {
 
         this.mediaPlaying = atom(false);
         this.mediaMuted = atom(false);
+        this.canGoBack = atom(false);
+        this.canGoForward = atom(false);
+        this.settingsPanelOpen = atom(false);
 
         this.viewText = atom((get) => {
             const homepageUrl = get(this.homepageUrl);
@@ -152,23 +172,55 @@ export class WebViewModel implements ViewModel {
             const refreshIcon = get(this.refreshIcon);
             const mediaPlaying = get(this.mediaPlaying);
             const mediaMuted = get(this.mediaMuted);
+            const magnified = get(this.nodeModel.isMagnified);
+            const canGoBack = get(this.canGoBack);
+            const canGoForward = get(this.canGoForward);
             const url = currUrl ?? metaUrl ?? homepageUrl ?? "";
             const rtn: HeaderElem[] = [];
             if (get(this.hideNav)) {
                 return rtn;
             }
 
+            // Traffic light buttons (macOS Safari style) — functional window controls
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: "circle",
+                iconColor: "#ff5f57",
+                title: "Close Block",
+                click: () => uxCloseBlock(this.blockId),
+                className: "traffic-light-btn traffic-light-close",
+            });
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: "circle",
+                iconColor: "#febc2e",
+                title: "Minimize Block",
+                click: () => this.nodeModel.toggleFold(),
+                className: "traffic-light-btn traffic-light-minimize",
+            });
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: "circle",
+                iconColor: "#28c840",
+                title: "Expand Block",
+                click: () => {
+                    this.nodeModel.toggleMagnify();
+                    setTimeout(() => refocusNode(this.blockId), 50);
+                },
+                className: "traffic-light-btn traffic-light-zoom",
+            });
+
             rtn.push({
                 elemtype: "iconbutton",
                 icon: "chevron-left",
                 click: this.handleBack.bind(this),
-                disabled: this.shouldDisableBackButton(),
+                disabled: !canGoBack,
             });
             rtn.push({
                 elemtype: "iconbutton",
                 icon: "chevron-right",
                 click: this.handleForward.bind(this),
-                disabled: this.shouldDisableForwardButton(),
+                disabled: !canGoForward,
             });
             rtn.push({
                 elemtype: "iconbutton",
@@ -205,6 +257,27 @@ export class WebViewModel implements ViewModel {
                 onMouseOver: this.handleUrlWrapperMouseOver.bind(this),
                 onMouseOut: this.handleUrlWrapperMouseOut.bind(this),
                 children: divChildren,
+            });
+            // Expand (magnify) button — Safari header level (after URL bar)
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: magnified ? "compress" : "expand",
+                title: magnified ? "Minimize" : "Expand",
+                click: () => {
+                    this.nodeModel.toggleMagnify();
+                    setTimeout(() => refocusNode(this.blockId), 50);
+                },
+                className: "webview-nav-btn webview-nav-expand",
+            });
+            // Settings button — Safari header level (after URL bar)
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: "sliders",
+                title: "Widget Settings",
+                click: () => {
+                    globalStore.set(this.settingsPanelOpen, !globalStore.get(this.settingsPanelOpen));
+                },
+                className: "webview-nav-btn webview-nav-settings",
             });
             return rtn;
         });
@@ -358,6 +431,13 @@ export class WebViewModel implements ViewModel {
         this.webviewRef.current?.goForward();
     }
 
+    updateNavState() {
+        try {
+            globalStore.set(this.canGoBack, this.webviewRef.current?.canGoBack() ?? false);
+            globalStore.set(this.canGoForward, this.webviewRef.current?.canGoForward() ?? false);
+        } catch (_) {}
+    }
+
     handleRefresh(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
         e.preventDefault();
         e.stopPropagation();
@@ -456,7 +536,10 @@ export class WebViewModel implements ViewModel {
     addBrowserTab(url?: string, title?: string) {
         const blockData = globalStore.get(this.blockAtom);
         const defaultUrl = globalStore.get(this.homepageUrl) || "about:blank";
-        const nextUrl = this.ensureUrlScheme(url || defaultUrl, globalStore.get(this.env.getSettingsKeyAtom("web:defaultsearch")));
+        const nextUrl = this.ensureUrlScheme(
+            url || defaultUrl,
+            globalStore.get(this.env.getSettingsKeyAtom("web:defaultsearch"))
+        );
         const tabs = this.getBrowserTabs(blockData);
         const tab: BrowserTabRecord = {
             id: makeBrowserTabId(),
@@ -493,7 +576,9 @@ export class WebViewModel implements ViewModel {
         const nextTabs = tabs.filter((tab) => tab.id !== tabId);
         const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
         const nextActiveTab =
-            activeTabId === tabId ? nextTabs[Math.max(0, closeIndex - 1)] ?? nextTabs[0] : nextTabs.find((tab) => tab.id === activeTabId);
+            activeTabId === tabId
+                ? (nextTabs[Math.max(0, closeIndex - 1)] ?? nextTabs[0])
+                : nextTabs.find((tab) => tab.id === activeTabId);
         if (!nextActiveTab) {
             return;
         }
@@ -1140,6 +1225,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             if (e.isMainFrame) {
                 model.handleNavigate(e.url);
             }
+            model.updateNavState();
         };
         const newWindowHandler = (e: any) => {
             e.preventDefault();
@@ -1195,6 +1281,10 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         const handleDomReady = () => {
             globalStore.set(model.domReady, true);
             setBgColor();
+            // Inject cursor overlay (starts hidden, activated by agent activity events)
+            webview.executeJavaScript(CURSOR_OVERLAY_SCRIPT).catch((err: unknown) => {
+                console.warn("cursor overlay inject failed", err);
+            });
         };
         const handleMediaPlaying = () => {
             model.setMediaPlaying(true);
@@ -1239,6 +1329,48 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         };
     }, []);
 
+    // Listen for agent activity events to show/hide cursor overlay in webview
+    useEffect(() => {
+        const webview = model.webviewRef.current;
+        if (!webview) {
+            return;
+        }
+
+        const handleWidgetActivity = (e: Event) => {
+            const detail = (e as CustomEvent<AgentWidgetActivity>).detail;
+            if (detail.blockId !== model.blockId) {
+                return;
+            }
+            webview.executeJavaScript("window.__showKronCursor(true)").catch(() => {});
+            if (detail.point) {
+                reportCursorToPet(detail.point, "browser");
+            }
+        };
+
+        const unsubscribeSurfaceActivity = subscribeAgentActivityStream((detail) => {
+            if (detail.blockid !== model.blockId) {
+                return;
+            }
+            const phase = detail.phase;
+            if (phase === "succeeded" || phase === "failed" || phase === "cancelled") {
+                webview.executeJavaScript("window.__showKronCursor(false)").catch(() => {});
+            } else if (phase === "running") {
+                webview.executeJavaScript("window.__showKronCursor(true)").catch(() => {});
+            }
+        });
+
+        window.addEventListener("agent-widget-activity", handleWidgetActivity);
+
+        return () => {
+            window.removeEventListener("agent-widget-activity", handleWidgetActivity);
+            unsubscribeSurfaceActivity();
+        };
+    }, [model.blockId]);
+
+    const { waterflowActive, markers } = useAgentOverlays("browser");
+
+    const settingsPanelOpen = useAtomValue(model.settingsPanelOpen);
+
     const tabStrip = !hideNav ? (
         <div className={clsx("webview-tab-strip", tabStripPosition === "left" && "is-left")}>
             <div className="webview-tab-scroll">
@@ -1279,12 +1411,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
                     </button>
                 ))}
             </div>
-            <button
-                type="button"
-                className="webview-tab-add"
-                title="New tab"
-                onClick={() => model.addBrowserTab()}
-            >
+            <button type="button" className="webview-tab-add" title="New tab" onClick={() => model.addBrowserTab()}>
                 <i className="fa-solid fa-plus" />
             </button>
         </div>
@@ -1315,12 +1442,160 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
                             <div>{errorText}</div>
                         </div>
                     )}
+                    <WaterFlowOverlay active={waterflowActive} />
+                    {markers.map((m) => (
+                        <ActionMarker
+                            key={m.id}
+                            actionType={m.actionType}
+                            label={m.label}
+                            x={m.x}
+                            y={m.y}
+                            active={true}
+                        />
+                    ))}
                 </div>
             </div>
+            {settingsPanelOpen && (
+                <div className="webview-settings-wrapper">
+                    <WebViewSettingsPanel
+                        model={model}
+                        blockId={model.blockId}
+                        onClose={() => globalStore.set(model.settingsPanelOpen, false)}
+                    />
+                </div>
+            )}
             <Search {...searchProps} />
             <BookmarkTypeahead model={model} blockRef={blockRef} />
         </Fragment>
     );
 });
+
+const SETTINGS_LABELS: Record<string, string> = {
+    glow: "Glow",
+    aura: "Pixel Aura",
+    actionChip: "Action Chip",
+    cursor: "Agent Cursor",
+    screenshots: "Screenshot Preview",
+};
+
+const WebViewSettingsPanel = memo(
+    ({
+        model,
+        blockId,
+        onClose,
+    }: {
+        model: WebViewModel;
+        blockId: string;
+        onClose: () => void;
+    }) => {
+        const [settings, setSettings] = useState<AgentWidgetVisualSettings>(() =>
+            loadAgentWidgetVisualSettings(blockId)
+        );
+        const panelRef = useRef<HTMLDivElement>(null);
+
+        // Listen for settings updates from other components
+        useEffect(() => {
+            const handleSettings = (event: Event) => {
+                const detail = (event as CustomEvent<{ blockId: string; settings: AgentWidgetVisualSettings }>).detail;
+                if (detail.blockId === blockId) {
+                    setSettings(detail.settings);
+                }
+            };
+            window.addEventListener(AgentWidgetSettingsEvent, handleSettings);
+            setSettings(loadAgentWidgetVisualSettings(blockId));
+            return () => window.removeEventListener(AgentWidgetSettingsEvent, handleSettings);
+        }, [blockId]);
+
+        // Close on Escape
+        useEffect(() => {
+            const handleKey = (e: KeyboardEvent) => {
+                if (e.key === "Escape") {
+                    onClose();
+                }
+            };
+            window.addEventListener("keydown", handleKey);
+            return () => window.removeEventListener("keydown", handleKey);
+        }, [onClose]);
+
+        // Close on click outside
+        useEffect(() => {
+            if (!panelRef.current) return;
+            const handleClickOutside = (e: MouseEvent) => {
+                if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+                    onClose();
+                }
+            };
+            // Delay attaching to avoid immediately closing from the settings button click
+            const timer = setTimeout(() => {
+                document.addEventListener("mousedown", handleClickOutside);
+            }, 0);
+            return () => {
+                clearTimeout(timer);
+                document.removeEventListener("mousedown", handleClickOutside);
+            };
+        }, [onClose]);
+
+        const toggleSetting = (key: string) => {
+            const newVal = !(settings as any)[key];
+            updateAgentWidgetVisualSetting(blockId, key as any, newVal);
+            setSettings((prev) => ({ ...prev, [key]: newVal }));
+        };
+
+        const setPointer = (style: "pixel" | "smooth" | "minimal") => {
+            updateAgentWidgetVisualSetting(blockId, "pointerStyle", style);
+            setSettings((prev) => ({ ...prev, pointerStyle: style }));
+        };
+
+        const pointerStyles: { value: string; label: string }[] = [
+            { value: "pixel", label: "Pixel (Stepped)" },
+            { value: "smooth", label: "Smooth" },
+            { value: "minimal", label: "Minimal" },
+        ];
+
+        const booleanKeys = ["glow", "aura", "actionChip", "cursor", "screenshots"] as const;
+
+        return (
+            <div className="webview-settings-panel" ref={panelRef}>
+                <div className="webview-settings-header">
+                    <span>Agent Widget Settings</span>
+                    <button
+                        className="webview-settings-close"
+                        onClick={onClose}
+                        type="button"
+                        aria-label="Close settings"
+                    >
+                        <i className="fa-solid fa-xmark" />
+                    </button>
+                </div>
+                <div className="webview-settings-body">
+                    {booleanKeys.map((key) => (
+                        <label key={key} className="webview-settings-row">
+                            <input
+                                type="checkbox"
+                                checked={settings[key]}
+                                onChange={() => toggleSetting(key)}
+                            />
+                            <span>{SETTINGS_LABELS[key]}</span>
+                        </label>
+                    ))}
+                    <div className="webview-settings-divider" />
+                    <div className="webview-settings-row-label">Pointer Style</div>
+                    {pointerStyles.map(({ value, label }) => (
+                        <label key={value} className="webview-settings-row">
+                            <input
+                                type="radio"
+                                name="pointerStyle"
+                                checked={settings.pointerStyle === value}
+                                onChange={() => setPointer(value as any)}
+                            />
+                            <span>{label}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+);
+WebViewSettingsPanel.displayName = "WebViewSettingsPanel";
 
 export { WebView, WebViewPreviewFallback, getWebPreviewDisplayUrl };

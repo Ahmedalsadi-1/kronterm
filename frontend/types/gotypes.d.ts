@@ -181,6 +181,7 @@ declare global {
         target?: AgentSurfaceTarget;
         previewimageurl?: string;
         petactivityurl?: string;
+        appname?: string;
     };
 
     // wps.AgentSurfacePoint
@@ -375,6 +376,164 @@ declare global {
     type BlocksListRequest = {
         windowid?: string;
         workspaceid?: string;
+    };
+
+    // wshrpc.BookmarkCreateData
+    type BookmarkCreateData = {
+        title: string;
+        url: string;
+        parentId?: string;
+        "display:order"?: number;
+    };
+
+    // wshrpc.BookmarkMoveData
+    type BookmarkMoveData = {
+        id: string;
+        parentId?: string;
+        index?: number;
+    };
+
+    // wshrpc.BookmarkSearchResult
+    type BookmarkSearchResult = {
+        id: string;
+        title: string;
+        url: string;
+    };
+
+    // wshrpc.BookmarkUpdateData
+    type BookmarkUpdateData = {
+        id: string;
+        title?: string;
+        url?: string;
+        "display:order"?: number;
+    };
+
+    // wshrpc.BrowserOSInfo
+    type BrowserOSInfo = {
+        version: string;
+        capabilities: string[];
+        features: string[];
+    };
+
+    // wshrpc.CanvasAssetUploadRequest
+    type CanvasAssetUploadRequest = {
+        workspaceid: string;
+        blockid: string;
+        filename: string;
+        mimetype: string;
+        data64: string;
+    };
+
+    // wshrpc.CanvasAssetUploadResponse
+    type CanvasAssetUploadResponse = {
+        filename: string;
+        path: string;
+        mimetype: string;
+        dataurl: string;
+    };
+
+    // wshrpc.CanvasConnectNodesRequest
+    type CanvasConnectNodesRequest = {
+        workspaceid: string;
+        blockid: string;
+        fromnode: string;
+        tonode: string;
+        label?: string;
+    };
+
+    // wshrpc.CanvasDocument
+    type CanvasDocument = {
+        version: number;
+        snapshot?: {[key: string]: any};
+        shapetonode?: {[key: string]: string};
+        nodes?: CanvasNode[];
+        edges?: CanvasEdge[];
+        updatedts?: number;
+    };
+
+    // wshrpc.CanvasEdge
+    type CanvasEdge = {
+        id: string;
+        shapeid?: string;
+        fromnode: string;
+        tonode: string;
+        label?: string;
+    };
+
+    // wshrpc.CanvasLaunchNodeRequest
+    type CanvasLaunchNodeRequest = {
+        workspaceid: string;
+        blockid: string;
+        nodeid: string;
+    };
+
+    // wshrpc.CanvasLaunchNodeResponse
+    type CanvasLaunchNodeResponse = {
+        node: CanvasNode;
+    };
+
+    // wshrpc.CanvasLoadRequest
+    type CanvasLoadRequest = {
+        workspaceid: string;
+        blockid: string;
+    };
+
+    // wshrpc.CanvasLoadResponse
+    type CanvasLoadResponse = {
+        document: CanvasDocument;
+    };
+
+    // wshrpc.CanvasNode
+    type CanvasNode = {
+        id: string;
+        shapeid: string;
+        type: string;
+        title: string;
+        path?: string;
+        content?: string;
+        parentid?: string;
+        workspaceid?: string;
+        blockid?: string;
+        appid?: string;
+        appname?: string;
+        sessionid?: string;
+        status?: string;
+        meta?: {[key: string]: any};
+    };
+
+    // wshrpc.CanvasNodeIdRequest
+    type CanvasNodeIdRequest = {
+        workspaceid: string;
+        blockid: string;
+        nodeid: string;
+    };
+
+    // wshrpc.CanvasNodeMutationRequest
+    type CanvasNodeMutationRequest = {
+        workspaceid: string;
+        blockid: string;
+        node: CanvasNode;
+    };
+
+    // wshrpc.CanvasSaveRequest
+    type CanvasSaveRequest = {
+        workspaceid: string;
+        blockid: string;
+        document: CanvasDocument;
+    };
+
+    // wshrpc.CanvasSnapshotRequest
+    type CanvasSnapshotRequest = {
+        workspaceid: string;
+        blockid: string;
+        includecontent?: boolean;
+    };
+
+    // wshrpc.CanvasSnapshotResponse
+    type CanvasSnapshotResponse = {
+        summary: string;
+        nodes: CanvasNode[];
+        edges: CanvasEdge[];
     };
 
     // waveobj.Client
@@ -868,6 +1027,14 @@ declare global {
         streammeta: StreamMeta;
     };
 
+    // wshrpc.CommandWebEvalData
+    type CommandWebEvalData = {
+        workspaceid: string;
+        blockid: string;
+        tabid: string;
+        script: string;
+    };
+
     // wshrpc.CommandWebSelectorData
     type CommandWebSelectorData = {
         workspaceid: string;
@@ -1285,6 +1452,33 @@ declare global {
         configerrors: ConfigError[];
     };
 
+    // wshrpc.GroupTabsData
+    type GroupTabsData = {
+        tabIds: string[];
+        title?: string;
+    };
+
+    // wshrpc.HistoryDeleteRangeData
+    type HistoryDeleteRangeData = {
+        startTime: number;
+        endTime: number;
+    };
+
+    // wshrpc.HistoryEntry
+    type HistoryEntry = {
+        id: string;
+        url: string;
+        title?: string;
+        visitTime: number;
+        visitCount?: number;
+    };
+
+    // wshrpc.HistorySearchData
+    type HistorySearchData = {
+        query: string;
+        maxItems?: number;
+    };
+
     // wshrpc.InstalledAppInfo
     type InstalledAppInfo = {
         name: string;
@@ -1485,6 +1679,7 @@ declare global {
         "bg:bordercolor"?: string;
         "bg:activebordercolor"?: string;
         "layout:vtabbarwidth"?: number;
+        "layout:sidepanelmode"?: string;
         "waveai:panelopen"?: boolean;
         "waveai:panelwidth"?: number;
         "waveai:model"?: string;
@@ -1712,6 +1907,8 @@ declare global {
         "app:disablectrlshiftdisplay"?: boolean;
         "app:focusfollowscursor"?: string;
         "app:tabbar"?: string;
+        "app:layoutmode"?: string;
+        "app:quickcomposer"?: boolean;
         "feature:waveappbuilder"?: boolean;
         "mcp:*"?: boolean;
         "mcp:enabled"?: boolean;
@@ -1774,6 +1971,7 @@ declare global {
         "web:openlinksinternally"?: boolean;
         "web:defaulturl"?: string;
         "web:defaultsearch"?: string;
+        "web:tabstripposition"?: string;
         "autoupdate:*"?: boolean;
         "autoupdate:enabled"?: boolean;
         "autoupdate:intervalms"?: number;
@@ -1936,7 +2134,7 @@ declare global {
         "conn:errorcode"?: string;
         "conn:suberrorcode"?: string;
         "conn:contexterror"?: boolean;
-        "onboarding:feature"?: "waveai" | "durable" | "magnify" | "wsh";
+        "onboarding:feature"?: "waveai" | "durable" | "canvas" | "magnify" | "files" | "sandbox" | "apps" | "wsh";
         "onboarding:version"?: string;
         "onboarding:githubstar"?: "already" | "star" | "later";
         "onboarding:page"?: string;
@@ -2020,6 +2218,15 @@ declare global {
         blockids: string[];
     };
 
+    // wshrpc.TabGroupInfo
+    type TabGroupInfo = {
+        id: string;
+        title?: string;
+        color?: string;
+        tabIds?: string[];
+        collapsed: boolean;
+    };
+
     // waveobj.TermSize
     type TermSize = {
         rows: number;
@@ -2101,6 +2308,14 @@ declare global {
         id?: string;
         data?: any;
         providerMetadata?: {[key: string]: any};
+    };
+
+    // wshrpc.UpdateTabGroupData
+    type UpdateTabGroupData = {
+        id: string;
+        title?: string;
+        color?: string;
+        collapsed?: boolean;
     };
 
     // userinput.UserInputRequest
@@ -2670,6 +2885,25 @@ declare global {
     type WinSize = {
         width: number;
         height: number;
+    };
+
+    // wshrpc.WindowBounds
+    type WindowBounds = {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+
+    // wshrpc.WindowInfo
+    type WindowInfo = {
+        windowId: string;
+        workspaceId: string;
+        title?: string;
+        tabCount: number;
+        activeTabId?: string;
+        focused: boolean;
+        bounds?: WindowBounds;
     };
 
     // waveobj.Workspace

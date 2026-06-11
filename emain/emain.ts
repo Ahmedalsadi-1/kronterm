@@ -8,6 +8,7 @@ import { sprintf } from "sprintf-js";
 import * as services from "../frontend/app/store/services";
 import { initElectronWshrpc, shutdownWshrpc } from "../frontend/app/store/wshrpcutil-base";
 import { fireAndForget, sleep } from "../frontend/util/util";
+import { stopAllAgentManagers } from "./acp";
 import { AuthKey, configureAuthKeyRequestInjection } from "./authkey";
 import {
     getActivityState,
@@ -26,9 +27,15 @@ import {
     setWasInFg,
 } from "./emain-activity";
 import { initIpcHandlers } from "./emain-ipc";
-import { stopAllAgentManagers } from "./acp";
+import {
+    getKrondesignProc,
+    getKrondesignReady,
+    runKrondesignDaemon,
+    stopKrondesignDaemon,
+} from "./emain-krondesign";
 import { log } from "./emain-log";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
+import { createDesktopPetWindow } from "./emain-pet";
 import {
     checkIfRunningUnderARM64Translation,
     getElectronAppBasePath,
@@ -52,7 +59,6 @@ import {
     relaunchBrowserWindows,
     WaveBrowserWindow,
 } from "./emain-window";
-import { createDesktopPetWindow } from "./emain-pet";
 import { ElectronWshClient, initElectronWshClient } from "./emain-wsh";
 import { getLaunchSettings } from "./launchsettings";
 import { configureAutoUpdater, updater } from "./updater";
@@ -290,6 +296,7 @@ electronApp.on("before-quit", (e) => {
     }
     setGlobalIsQuitting(true);
     void stopAllAgentManagers();
+    stopKrondesignDaemon();
     updater?.stop();
     if (unamePlatform == "win32") {
         // win32 doesn't have a SIGINT, so we just let electron die, which
@@ -391,6 +398,11 @@ async function appMain() {
     const ready = await getWaveSrvReady();
     console.log("wavesrv ready signal received", ready, Date.now() - startTs, "ms");
     await electronApp.whenReady();
+
+    // Start the krondesign design daemon (non-blocking — it starts in background)
+    fireAndForget(async () => {
+        await runKrondesignDaemon();
+    });
     configureAuthKeyRequestInjection(electron.session.defaultSession);
     initIpcHandlers();
 

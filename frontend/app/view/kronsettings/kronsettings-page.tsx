@@ -22,6 +22,45 @@ import { KronSettingsSkillsContent } from "./kronsettings-skills";
 import { KronSettingsMcpContent } from "./kronsettings-mcp-panel";
 import { KronSettingsProvidersContent } from "./kronsettings-providers-panel";
 import { KronSettingsUsageContent } from "./kronsettings-usage";
+import {
+    RiPaletteLine,
+    RiChat3Line,
+    RiKeyboardLine,
+    RiHistoryLine,
+    RiGitBranchLine,
+    RiGithubFill,
+    RiNotification3Line,
+    RiMicLine,
+    RiComputerLine,
+    RiBrainLine,
+    RiTerminalBoxLine,
+    RiBookOpenLine,
+    RiPlugLine,
+    RiCloudLine,
+    RiBarChartLine,
+    RiInformationLine,
+    RiContrastDropLine,
+} from "@remixicon/react";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+    theme: RiContrastDropLine,
+    visual: RiPaletteLine,
+    chat: RiChat3Line,
+    shortcuts: RiKeyboardLine,
+    sessions: RiHistoryLine,
+    git: RiGitBranchLine,
+    github: RiGithubFill,
+    notifications: RiNotification3Line,
+    voice: RiMicLine,
+    desktop: RiComputerLine,
+    agents: RiBrainLine,
+    commands: RiTerminalBoxLine,
+    skills: RiBookOpenLine,
+    mcp: RiPlugLine,
+    providers: RiCloudLine,
+    usage: RiBarChartLine,
+    about: RiInformationLine,
+};
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {
     theme: "Choose a theme preset or define your own accent color.",
@@ -95,13 +134,21 @@ const KronSettingsPage = memo(({ model }: KronSettingsPageProps) => {
     const config = SETTINGS_SECTIONS.find((s) => s.id === selectedSection);
     const title = config?.label ?? selectedSection;
     const description = SECTION_DESCRIPTIONS[selectedSection] ?? "";
+    const Icon = ICON_MAP[selectedSection];
 
     return (
         <div className="kron-settings-content" key={selectedSection}>
             <div className="kron-settings-content-inner">
-                <h1 className="kron-settings-content-title">{title}</h1>
-                {description && <p className="kron-settings-content-subtitle">{description}</p>}
-                <PageRenderer model={model} section={selectedSection} />
+                <div className="kron-settings-content-header">
+                    <div className="flex items-center gap-3 mb-1">
+                        {Icon && <Icon className="w-6 h-6 text-accent" />}
+                        <h1 className="kron-settings-content-title">{title}</h1>
+                    </div>
+                    {description && <p className="kron-settings-content-subtitle">{description}</p>}
+                </div>
+                <div className="mt-8">
+                    <PageRenderer model={model} section={selectedSection} />
+                </div>
             </div>
         </div>
     );

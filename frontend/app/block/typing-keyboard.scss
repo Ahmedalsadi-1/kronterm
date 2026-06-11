@@ -8,9 +8,9 @@
     }
     30% {
         transform: scale(0.92);
-        background: rgba(99, 102, 241, 0.6);
-        border-color: rgba(99, 102, 241, 0.8);
-        box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+        background: rgba(232, 196, 124, 0.6);
+        border-color: rgba(232, 196, 124, 0.8);
+        box-shadow: 0 0 8px rgba(232, 196, 124, 0.4);
     }
     100% {
         transform: scale(1);
@@ -32,10 +32,10 @@
 
 @keyframes keyboard-glow {
     0%, 100% {
-        box-shadow: 0 2px 12px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 2px 12px rgba(232, 196, 124, 0.15);
     }
     50% {
-        box-shadow: 0 2px 20px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 20px rgba(232, 196, 124, 0.3);
     }
 }
 
@@ -54,7 +54,7 @@
         padding: 8px;
         background: rgb(from var(--block-bg-color, #1a1a2e) r g b / 0.9);
         backdrop-filter: blur(16px);
-        border: 1px solid rgba(99, 102, 241, 0.3);
+        border: 1px solid rgba(232, 196, 124, 0.3);
         border-radius: 10px;
         animation: keyboard-glow 2s ease-in-out infinite;
     }
@@ -83,9 +83,9 @@
         &.key-active {
             animation: keyboard-key-pop 0.2s ease-out;
             color: #fff;
-            background: rgba(99, 102, 241, 0.6);
-            border-color: rgba(99, 102, 241, 0.8);
-            box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+            background: rgba(232, 196, 124, 0.6);
+            border-color: rgba(232, 196, 124, 0.8);
+            box-shadow: 0 0 8px rgba(232, 196, 124, 0.4);
         }
 
         &.key-space {
@@ -113,7 +113,7 @@
             display: inline-block;
             width: 1px;
             height: 10px;
-            background: #6366f1;
+            background: #e8c47c;
             margin-left: 1px;
             animation: blink 0.8s step-end infinite;
             vertical-align: middle;

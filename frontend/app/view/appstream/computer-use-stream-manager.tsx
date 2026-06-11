@@ -1,10 +1,7 @@
-import {
-    AgentSurfaceUiActivityEvent,
-    type LiveAgentSurfaceActivity,
-} from "@/app/aipanel/desktop-pet-activity";
 import { createBlockSplitHorizontally, getFocusedBlockId } from "@/app/store/global";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { useEffect, useRef } from "react";
+import { subscribeAgentActivityStream } from "../../../types/agent-activity";
 
 export const AppStreamCreatedEvent = "kronterm:appstream-created";
 
@@ -25,8 +22,7 @@ export function ComputerUseStreamManager() {
             }
             appStreamBlocks.current.set(appStreamKey(detail.appName), detail.blockId);
         };
-        const handleActivity = (event: Event) => {
-            const activity = (event as CustomEvent<LiveAgentSurfaceActivity>).detail;
+        const unsubscribeActivity = subscribeAgentActivityStream((activity) => {
             const appName = activity.appname?.trim();
             const key = appName ? appStreamKey(appName) : "";
             if (activity.surface !== "desktop" || !appName || creatingApps.current.has(key)) {
@@ -58,13 +54,12 @@ export function ComputerUseStreamManager() {
                 .finally(() => {
                     creatingApps.current.delete(key);
                 });
-        };
+        });
 
         window.addEventListener(AppStreamCreatedEvent, handleRegisteredStream);
-        window.addEventListener(AgentSurfaceUiActivityEvent, handleActivity);
         return () => {
             window.removeEventListener(AppStreamCreatedEvent, handleRegisteredStream);
-            window.removeEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+            unsubscribeActivity();
         };
     }, [env]);
 

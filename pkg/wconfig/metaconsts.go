@@ -18,6 +18,8 @@ const (
 	ConfigKey_AppDisableCtrlShiftDisplay     = "app:disablectrlshiftdisplay"
 	ConfigKey_AppFocusFollowsCursor          = "app:focusfollowscursor"
 	ConfigKey_AppTabBar                      = "app:tabbar"
+	ConfigKey_AppLayoutMode                  = "app:layoutmode"
+	ConfigKey_AppQuickComposer               = "app:quickcomposer"
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 
@@ -89,6 +91,7 @@ const (
 	ConfigKey_WebOpenLinksInternally         = "web:openlinksinternally"
 	ConfigKey_WebDefaultUrl                  = "web:defaulturl"
 	ConfigKey_WebDefaultSearch               = "web:defaultsearch"
+	ConfigKey_WebTabStripPosition            = "web:tabstripposition"
 
 	ConfigKey_AutoUpdateClear                = "autoupdate:*"
 	ConfigKey_AutoUpdateEnabled              = "autoupdate:enabled"

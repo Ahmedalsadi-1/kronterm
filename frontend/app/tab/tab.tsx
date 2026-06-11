@@ -198,11 +198,12 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
                     style={{
                         backgroundColor: groupColor,
                         position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: "2px",
-                        borderRadius: "2px 2px 0 0",
+                        top: "4px",
+                        left: "2px",
+                        bottom: "4px",
+                        width: "3px",
+                        borderRadius: "2px",
+                        boxShadow: `0 0 4px ${groupColor}40`,
                     }}
                 />
             )}

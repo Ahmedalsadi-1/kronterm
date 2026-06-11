@@ -23,9 +23,9 @@ const kindIcons: Record<string, string> = {
 };
 
 const kindColors: Record<string, string> = {
-    allow_once: "border-[#414324] bg-[#242519] text-[#b1b955] hover:bg-[#30321e]",
-    allow_always: "border-[#303a40] bg-[#171e22] text-[#91aab7] hover:bg-[#202a30]",
-    reject_once: "border-[#302f2d] bg-[#181817] text-[#aba69e] hover:bg-[#242321]",
+    allow_once: "border-[#1e2a3a] bg-[#161c28] text-[#5b9ef5] hover:bg-[#1e2a3a]",
+    allow_always: "border-[#2a2a2a] bg-[#161616] text-[#9e9a93] hover:bg-[#1a1a1a]",
+    reject_once: "border-[#2a2a2a] bg-[#161616] text-[#9e9a93] hover:bg-[#1a1a1a]",
     reject_always: "border-[#522c29] bg-[#211716] text-[#dc7668] hover:bg-[#30201d]",
 };
 
@@ -37,16 +37,16 @@ export const AcpToolApproval = memo(({ confirmations, onConfirm, className }: Ac
             {confirmations.map((confirmation) => (
                 <div
                     key={confirmation.id}
-                    className="rounded-lg border border-[#42362a] bg-[#181716] p-4 shadow-sm shadow-black/20"
+                    className="rounded-lg border border-[#2a2a2a] bg-[#111111] p-4 shadow-sm shadow-black/20"
                 >
                     <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#42362a] bg-[#231d19] text-base">
-                            <i className="fa fa-shield-halved text-[#b39355]" />
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#1a1a1a] text-base">
+                            <i className="fa fa-shield-halved text-[#5b9ef5]" />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold text-[#ddd9d2]">{confirmation.title}</div>
+                            <div className="text-sm font-semibold text-[#eeeeee]">{confirmation.title}</div>
                             {confirmation.toolCall ? (
-                                <pre className="mt-2 max-h-[92px] overflow-auto rounded-md border border-[#292827] bg-[#101010] p-3 font-mono text-[10px] text-[#98938c]">
+                                <pre className="mt-2 max-h-[92px] overflow-auto rounded-md border border-[#2a2a2a] bg-[#101010] p-3 font-mono text-[10px] text-[#9e9a93]">
                                     {JSON.stringify(confirmation.toolCall, null, 2)}
                                 </pre>
                             ) : null}

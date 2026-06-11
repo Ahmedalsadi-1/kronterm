@@ -109,31 +109,33 @@ function getToolIcon(toolname: string): string {
 }
 
 function ToolStatusIcon({ status }: { status: string }) {
-    if (status === "running") {
+    if (status === "pending") {
         return (
-            <span className="relative inline-flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-sky-500" />
+            <span className="ai-tool-status-icon relative inline-flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent/60 opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-accent" />
             </span>
         );
     }
     if (status === "completed") {
         return (
-            <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-emerald-500/20 text-emerald-400"
-                style={{ animation: "statusCompletePop 0.3s ease-out" }}>
+            <span
+                className="ai-tool-status-icon inline-flex items-center justify-center h-4 w-4 rounded-full bg-success/20 text-success"
+                style={{ animation: "statusCompletePop 0.3s ease-out" }}
+            >
                 <i className="fa fa-check text-[10px]" />
             </span>
         );
     }
     if (status === "error") {
         return (
-            <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-red-500/20 text-red-400">
+            <span className="ai-tool-status-icon inline-flex items-center justify-center h-4 w-4 rounded-full bg-error/20 text-error">
                 <i className="fa fa-xmark text-[10px]" />
             </span>
         );
     }
     return (
-        <span className="inline-flex items-center justify-center h-4 w-4 text-gray-400">
+        <span className="ai-tool-status-icon inline-flex items-center justify-center h-4 w-4 text-secondary">
             <i className="fa fa-circle text-[6px]" />
         </span>
     );
@@ -215,19 +217,12 @@ const AIToolApprovalButtons = memo(({ count, onApprove, onDeny }: AIToolApproval
     }, [onApprove, onDeny]);
 
     return (
-        <div className="mt-2 flex gap-2 ai-approval-buttons" ref={containerRef} tabIndex={-1}>
-            <button
-                onClick={onApprove}
-                className="px-3 py-1 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white text-sm rounded cursor-pointer transition-colors"
-            >
-                {approveText}{" "}
-                <kbd className="ml-1 px-1 text-[10px] bg-zinc-700 border border-zinc-600 rounded">Enter</kbd>
+        <div className="ai-tool-approval" ref={containerRef} tabIndex={-1}>
+            <button onClick={onApprove} className="ai-tool-approval-btn approve">
+                {approveText} <kbd>Enter</kbd>
             </button>
-            <button
-                onClick={onDeny}
-                className="px-3 py-1 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white text-sm rounded cursor-pointer transition-colors"
-            >
-                {denyText} <kbd className="ml-1 px-1 text-[10px] bg-zinc-700 border border-zinc-600 rounded">Esc</kbd>
+            <button onClick={onDeny} className="ai-tool-approval-btn deny">
+                {denyText} <kbd>Esc</kbd>
             </button>
         </div>
     );
@@ -284,22 +279,20 @@ const AIToolUseBatch = memo(({ parts, isStreaming }: AIToolUseBatchProps) => {
     };
 
     return (
-        <div className="flex items-start gap-2 p-2 rounded bg-zinc-800/60 border border-zinc-700">
-            <div className="flex-1">
-                <div className="flex items-center gap-2">
-                    <i className="fa fa-book-open text-[10px] text-gray-500" />
-                    <div className="font-semibold">Reading Files</div>
-                    {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
-                </div>
-                <div className="mt-1 space-y-0.5">
-                    {parts.map((part, idx) => (
-                        <AIToolUseBatchItem key={idx} part={part} effectiveApproval={effectiveApproval} />
-                    ))}
-                </div>
-                {effectiveApproval === "needs-approval" && (
-                    <AIToolApprovalButtons count={parts.length} onApprove={handleApprove} onDeny={handleDeny} />
-                )}
+        <div className="ai-tool-card">
+            <div className="ai-tool-header">
+                <i className="ai-tool-icon fa fa-book-open" />
+                <div className="ai-tool-name">Reading Files</div>
+                {sourceBadge && <span className={cn("ai-tool-badge", sourceBadge.className)}>{sourceBadge.label}</span>}
             </div>
+            <div className="flex flex-col gap-1 pl-6">
+                {parts.map((part, idx) => (
+                    <AIToolUseBatchItem key={idx} part={part} effectiveApproval={effectiveApproval} />
+                ))}
+            </div>
+            {effectiveApproval === "needs-approval" && (
+                <AIToolApprovalButtons count={parts.length} onApprove={handleApprove} onDeny={handleDeny} />
+            )}
         </div>
     );
 });
@@ -386,29 +379,30 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
         fireAndForget(() => WaveAIModel.getInstance().openDiff(toolData.inputfilename, toolData.toolcallid));
     };
 
-    const borderColor =
+    const statusClass =
         toolData.status === "completed"
-            ? "border-emerald-700/40"
+            ? "tool-completed"
             : toolData.status === "error"
-              ? "border-red-700/40"
-              : "border-zinc-700/60";
+              ? "tool-error"
+              : toolData.status === "pending"
+                ? "tool-running"
+                : "";
 
     return (
         <div
-            className={cn("flex flex-col gap-1 p-2 rounded bg-zinc-800/60 border", borderColor)}
+            className={cn("ai-tool-card", statusClass)}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            <div className="flex items-center gap-2">
+            <div className="ai-tool-header">
                 <ToolStatusIcon status={toolData.status} />
-                <i className={cn("tool-type-icon fa", toolIcon)} />
-                <div className="font-semibold">{toolData.toolname}</div>
-                {sourceBadge && <ToolBadge label={sourceBadge.label} className={sourceBadge.className} />}
+                <i className={cn("ai-tool-icon fa", toolIcon)} />
+                <div className="ai-tool-name">{toolData.toolname}</div>
+                {sourceBadge && <span className={cn("ai-tool-badge", sourceBadge.className)}>{sourceBadge.label}</span>}
                 {toolData.actsonwidgets && (
-                    <ToolBadge
-                        label="Live widget"
-                        className="border-emerald-700/60 bg-emerald-500/10 text-emerald-200"
-                    />
+                    <span className="ai-tool-badge border-emerald-700/60 bg-emerald-500/10 text-emerald-200">
+                        Live widget
+                    </span>
                 )}
                 <div className="flex-1" />
                 {isFileWriteTool &&
@@ -421,32 +415,30 @@ const AIToolUse = memo(({ part, isStreaming }: AIToolUseProps) => {
                                 recordTEvent("waveai:revertfile", { "waveai:action": "revertfile:open" });
                                 model.openRestoreBackupModal(toolData.toolcallid);
                             }}
-                            className="flex-shrink-0 px-1.5 py-0.5 border border-zinc-600 hover:border-zinc-500 hover:bg-zinc-700 rounded cursor-pointer transition-colors flex items-center gap-1 text-zinc-400"
+                            className="flex-shrink-0 px-2 py-1 border border-border hover:border-border/80 hover:bg-surface-hover rounded cursor-pointer transition-colors flex items-center gap-1 text-secondary text-xs"
                             title="Restore backup file"
                         >
-                            <span className="text-xs">Revert File</span>
-                            <i className="fa fa-clock-rotate-left text-xs"></i>
+                            <span>Revert</span>
+                            <i className="fa fa-clock-rotate-left text-[10px]"></i>
                         </button>
                     )}
                 {isFileWriteTool && toolData.inputfilename && (
                     <button
                         onClick={handleOpenDiff}
-                        className="flex-shrink-0 px-1.5 py-0.5 border border-zinc-600 hover:border-zinc-500 hover:bg-zinc-700 rounded cursor-pointer transition-colors flex items-center gap-1 text-zinc-400"
+                        className="flex-shrink-0 px-2 py-1 border border-border hover:border-border/80 hover:bg-surface-hover rounded cursor-pointer transition-colors flex items-center gap-1 text-secondary text-xs"
                         title="Open in diff viewer"
                     >
-                        <span className="text-xs">Show Diff</span>
-                        <i className="fa fa-arrow-up-right-from-square text-xs"></i>
+                        <span>Diff</span>
+                        <i className="fa fa-arrow-up-right-from-square text-[10px]"></i>
                     </button>
                 )}
             </div>
-            {toolData.tooldesc && <ToolDesc text={toolData.tooldesc} className="text-sm text-gray-400 pl-6" />}
+            {toolData.tooldesc && <div className="ai-tool-description">{toolData.tooldesc}</div>}
             {(toolData.errormessage || effectiveApproval === "timeout") && (
-                <div className="text-sm text-red-300 pl-6">{toolData.errormessage || "Not approved"}</div>
+                <div className="ai-tool-error">{toolData.errormessage || "Not approved"}</div>
             )}
             {effectiveApproval === "needs-approval" && (
-                <div className="pl-6">
-                    <AIToolApprovalButtons count={1} onApprove={handleApprove} onDeny={handleDeny} />
-                </div>
+                <AIToolApprovalButtons count={1} onApprove={handleApprove} onDeny={handleDeny} />
             )}
             {showRestoreModal && <RestoreBackupModal part={part} />}
         </div>
@@ -464,19 +456,23 @@ const AIToolProgress = memo(({ part }: AIToolProgressProps) => {
     const toolIcon = getToolIcon(progressData.toolname);
 
     return (
-        <div className="flex flex-col gap-1.5 p-2 rounded bg-zinc-800/60 border border-sky-700/40">
-            <div className="flex items-center gap-2">
-                <ToolStatusIcon status="running" />
-                <i className={cn("tool-type-icon fa", toolIcon)} />
-                <div className="font-semibold text-sky-200">{progressData.toolname}</div>
+        <div className="ai-tool-card tool-running">
+            <div className="ai-tool-header">
+                <ToolStatusIcon status="pending" />
+                <i className={cn("ai-tool-icon fa", toolIcon)} />
+                <div className="ai-tool-name text-accent">{progressData.toolname}</div>
                 <div className="flex-1" />
-                <span className="text-[10px] text-sky-400/60 uppercase tracking-wide animate-pulse">Running</span>
+                <span className="text-[10px] text-accent/60 uppercase tracking-wide animate-pulse">Running</span>
             </div>
-            <div className="tool-use-progress-bar">
-                <div className="tool-use-progress-fill" />
+            <div className="ai-tool-progress-bar">
+                <div className="ai-tool-progress-fill" />
             </div>
             {progressData.statuslines && progressData.statuslines.length > 0 && (
-                <ToolDesc text={progressData.statuslines} className="text-sm text-gray-400 pl-6 space-y-0.5" />
+                <div className="ai-tool-description">
+                    {progressData.statuslines.map((line, idx) => (
+                        <ToolDescLine key={idx} text={line} />
+                    ))}
+                </div>
             )}
         </div>
     );

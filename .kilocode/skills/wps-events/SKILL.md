@@ -3,7 +3,7 @@ name: wps-events
 description: Guide for working with Wave Terminal's WPS (Wave PubSub) event system. Use when implementing new event types, publishing events, subscribing to events, or adding asynchronous communication between components.
 ---
 
-# WPS Events Guide
+# wps-events
 
 ## Overview
 

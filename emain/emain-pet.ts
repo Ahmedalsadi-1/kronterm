@@ -219,23 +219,12 @@ function startPetActivityServer() {
         request.on("end", () => {
             try {
                 const payload = JSON.parse(body) as DesktopPetNotification | AgentActivityEvent;
-                const activity = "kind" in payload ? null : normalizeAgentActivity(payload);
-                const notification =
-                    "kind" in payload
-                        ? payload
-                        : {
-                              kind:
-                                  activity?.phase === "succeeded" || activity?.phase === "failed"
-                                      ? ("idle" as const)
-                                      : ("tool" as const),
-                              detail: payload.detail ?? payload.action,
-                              thought: payload.thought,
-                              cursorPoint: payload.point,
-                              previewImageUrl: payload.previewimageurl,
-                              surfaceActivity: payload,
-                          };
-                notifyDesktopPetNotification(notification);
-                broadcastDesktopPetSurfaceActivity(notification);
+                if ("kind" in payload) {
+                    notifyDesktopPetNotification(payload);
+                    broadcastDesktopPetSurfaceActivity(payload);
+                } else {
+                    notifyDesktopPetSurfaceActivity(payload);
+                }
                 response.writeHead(204).end();
             } catch {
                 response.writeHead(400).end();
@@ -295,7 +284,15 @@ export function createDesktopPetWindow() {
         petWindow?.showInactive();
         sendState();
     });
+    // Fallback: if ready-to-show never fires (e.g., renderer error), force-show after 5s
+    const petShowFallback = setTimeout(() => {
+        if (petWindow && !petWindow.isVisible()) {
+            petWindow.showInactive();
+            sendState();
+        }
+    }, 5000);
     petWindow.on("closed", () => {
+        clearTimeout(petShowFallback);
         petWindow = null;
         if (followCursorTimer != null) {
             clearInterval(followCursorTimer);
@@ -431,6 +428,14 @@ function broadcastDesktopPetSurfaceActivity(notification: DesktopPetNotification
     target.send("desktop-pet-surface-activity", activity);
 }
 
+function broadcastAgentSurfaceActivity(activity: AgentActivityEvent) {
+    const target = focusedWaveWindow?.activeTabView?.webContents;
+    if (target == null || target.isDestroyed()) {
+        return;
+    }
+    target.send("desktop-pet-surface-activity", activity);
+}
+
 function pathFromToolInput(rawInput: Record<string, unknown> | undefined): Array<{ x: number; y: number }> | null {
     if (!rawInput) {
         return null;
@@ -440,6 +445,23 @@ function pathFromToolInput(rawInput: Record<string, unknown> | undefined): Array
         return path.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
     }
     return null;
+}
+
+function targetFromToolInput(rawInput: Record<string, unknown> | undefined): Electron.Rectangle | undefined {
+    if (
+        typeof rawInput?.x === "number" &&
+        typeof rawInput.y === "number" &&
+        typeof rawInput.width === "number" &&
+        typeof rawInput.height === "number"
+    ) {
+        return {
+            x: Math.round(rawInput.x),
+            y: Math.round(rawInput.y),
+            width: Math.round(rawInput.width),
+            height: Math.round(rawInput.height),
+        };
+    }
+    return undefined;
 }
 
 function overlayCommandFromAction(
@@ -509,9 +531,34 @@ function pointForNotification(notification: DesktopPetNotification): { x: number
 
 function overlayCommandFromNotification(notification: DesktopPetNotification): OverlayAnimationCommand | null {
     const activity = activityForNotification(notification);
-    const point = pointForNotification(notification);
-    const input = point ? { x: point.x, y: point.y } : undefined;
-    return overlayCommandFromAction(activity.action, input);
+    if (activity.point == null) {
+        const point = pointForNotification(notification);
+        if (point != null) {
+            return overlayCommandFromAction(activity.action, { x: point.x, y: point.y });
+        }
+    }
+    return overlayCommandFromActivity(activity);
+}
+
+function overlayCommandFromActivity(
+    activity: ReturnType<typeof normalizeAgentActivity>
+): OverlayAnimationCommand | null {
+    const point = activity.point ? { x: Math.round(activity.point.x), y: Math.round(activity.point.y) } : null;
+    if (activity.action === "screenshot" && activity.target != null) {
+        return {
+            type: "screenshot",
+            x: activity.target.x,
+            y: activity.target.y,
+            width: activity.target.width,
+            height: activity.target.height,
+        };
+    }
+    if (activity.path != null && activity.path.length > 0) {
+        return overlayCommandFromAction(activity.action, {
+            path: activity.path.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+        });
+    }
+    return overlayCommandFromAction(activity.action, point ? { x: point.x, y: point.y } : undefined);
 }
 
 function activityForNotification(notification: DesktopPetNotification): ReturnType<typeof normalizeAgentActivity> {
@@ -530,61 +577,81 @@ function activityForNotification(notification: DesktopPetNotification): ReturnTy
     });
 }
 
+function notificationKindForActivity(phase: AgentActivityPhase): DesktopPetNotification["kind"] {
+    return isAgentActivityActive(phase) ? "tool" : "idle";
+}
+
+function notificationForActivity(
+    activity: ReturnType<typeof normalizeAgentActivity>,
+    target?: Electron.Rectangle
+): DesktopPetNotification {
+    return {
+        kind:
+            activity.action === "thinking" && isAgentActivityActive(activity.phase)
+                ? "thinking"
+                : notificationKindForActivity(activity.phase),
+        detail: activity.detail ?? activity.action,
+        thought: activity.thought,
+        target: target ?? activity.target,
+        cursorAction: cursorActionForAgentActivity(activity),
+        cursorPoint: activity.point ?? null,
+        reasoningLog: activity.reasoningSteps ?? (activity.thought ? [activity.thought] : undefined),
+        previewImageUrl: activity.previewimageurl,
+        petActivityUrl: activity.petactivityurl,
+        surfaceActivity: activity,
+    };
+}
+
+export function notifyDesktopPetSurfaceActivity(activity: AgentActivityEvent, target?: Electron.Rectangle) {
+    const normalized = normalizeAgentActivity(activity);
+    const notification = notificationForActivity(normalized, target);
+    notifyDesktopPetNotification(notification);
+    broadcastAgentSurfaceActivity(normalized);
+}
+
 export function notifyDesktopPetActivity(event: AcpEvent) {
     if (event.type === "status") {
         const status = (event.data as { status?: string } | null)?.status;
         const active = status === "running" || status === "connecting";
-        updateState({
-            active,
-            context: active ? state.context : "idle",
-            lifecycle: active ? "running" : "idle",
+        notifyDesktopPetSurfaceActivity({
+            source: "acp",
+            phase: active ? "running" : status === "error" ? "failed" : "succeeded",
+            surface: "panel",
+            action: active ? "thinking" : "focus",
             detail: active ? "KronosCode working" : "KronosCode ready",
-            ...(active
-                ? {}
-                : { thought: undefined, cursorAction: "idle", cursorPoint: null, previewImageUrl: undefined }),
         });
         return;
     }
     if (event.type === "finish") {
         const previewImageUrl = state.previewImageUrl;
-        updateState({
-            active: false,
-            context: "idle",
-            lifecycle: "succeeded",
+        notifyDesktopPetSurfaceActivity({
+            source: "acp",
+            phase: "succeeded",
+            surface: "panel",
+            action: "focus",
             detail: "Task complete",
-            thought: undefined,
-            cursorAction: "idle",
-            cursorPoint: null,
-            previewImageUrl,
+            previewimageurl: previewImageUrl,
         });
-        sendOverlayAnimation({ type: "hide" });
-        scheduleIdleState("KronosCode ready", previewImageUrl ? PreviewStateMs : SuccessStateMs);
         return;
     }
     if (event.type === "error") {
-        updateState({
-            active: false,
-            context: "idle",
-            lifecycle: "failed",
+        notifyDesktopPetSurfaceActivity({
+            source: "acp",
+            phase: "failed",
+            surface: "panel",
+            action: "focus",
             detail: "Task failed",
-            thought: undefined,
-            cursorAction: "idle",
-            cursorPoint: null,
-            previewImageUrl: undefined,
         });
-        sendOverlayAnimation({ type: "hide" });
         return;
     }
     if (event.type === "tool_permission") {
         const data = event.data as { confirmation?: { title?: string }; toolCall?: { title?: string } } | null;
-        updateState({
-            active: true,
-            context: state.context,
-            lifecycle: "awaiting-approval",
+        notifyDesktopPetSurfaceActivity({
+            source: "acp",
+            phase: "awaiting-approval",
+            surface: "panel",
+            action: "wait",
             detail: data?.confirmation?.title ?? data?.toolCall?.title ?? "Review required",
-            thought: undefined,
-            cursorAction: "idle",
-            cursorPoint: null,
         });
         return;
     }
@@ -597,16 +664,14 @@ export function notifyDesktopPetActivity(event: AcpEvent) {
         if (log.length > ReasoningLogMax) {
             log.splice(0, log.length - ReasoningLogMax);
         }
-        updateState({
-            active: true,
-            context: "thinking",
-            lifecycle: "running",
+        notifyDesktopPetSurfaceActivity({
+            source: "acp",
+            phase: "running",
+            surface: "panel",
+            action: "thinking",
             detail: "Thinking",
             thought,
-            reasoningLog: log,
-            cursorAction: "idle",
-            cursorPoint: null,
-            previewImageUrl: undefined,
+            reasoningSteps: log,
         });
         if (thoughtTimer != null) {
             clearTimeout(thoughtTimer);
@@ -623,43 +688,16 @@ export function notifyDesktopPetActivity(event: AcpEvent) {
     if (event.type === "tool_call") {
         const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | null;
         const title = data?.title ?? "tool";
-        const activity = normalizeAgentActivity({
+        notifyDesktopPetSurfaceActivity({
             source: "acp",
             phase: "running",
             surface: inferAgentActivitySurface(title),
             action: inferAgentActivityAction(title),
             detail: title,
             point: pointFromAgentActivityInput(data?.rawInput),
+            path: pathFromToolInput(data?.rawInput) ?? undefined,
+            target: targetFromToolInput(data?.rawInput),
         });
-        const context = contextForAgentActivity(activity);
-        const cursorAction = cursorActionForAgentActivity(activity);
-        const cursorPoint = pointFromToolInput(data?.rawInput);
-        updateState({
-            active: true,
-            context,
-            lifecycle: activity.phase,
-            detail: title.slice(0, 48),
-            thought: undefined,
-            cursorAction,
-            cursorPoint,
-            previewImageUrl: undefined,
-        });
-        if (cursorAction != null && cursorAction !== "idle") {
-            if (cursorTimer != null) {
-                clearTimeout(cursorTimer);
-            }
-            cursorTimer = setTimeout(() => updateState({ cursorAction: "idle", cursorPoint: null }), 2500);
-        }
-        if (cursorPoint) {
-            moveToAgentTarget({ x: cursorPoint.x, y: cursorPoint.y, width: 1, height: 1 });
-        }
-        if (cursorAction != null && cursorAction !== "idle") {
-            startAgentCursorFollow();
-        }
-        const overlayCmd = overlayCommandFromAction(activity.action, data?.rawInput);
-        if (options.mode === "expressive" && overlayCmd) {
-            sendOverlayAnimation(overlayCmd);
-        }
         return;
     }
 }
@@ -675,11 +713,11 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
             thought: undefined,
             cursorAction: "idle",
             cursorPoint: null,
-            previewImageUrl: undefined,
+            previewImageUrl: notification.previewImageUrl,
         });
         sendOverlayAnimation({ type: "hide" });
         if (activity.phase === "succeeded") {
-            scheduleIdleState();
+            scheduleIdleState("KronosCode ready", notification.previewImageUrl ? PreviewStateMs : SuccessStateMs);
         } else {
             dockNearKronterm();
         }

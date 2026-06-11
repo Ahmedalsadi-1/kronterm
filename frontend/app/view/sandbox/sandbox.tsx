@@ -1,11 +1,15 @@
+import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
-import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
+import { CursorOverlay, reportCursorToPet } from "@/app/view/cursor-overlay";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
+import { ActionMarker } from "@/app/view/action-marker";
+import { useAgentOverlays } from "@/app/view/use-agent-overlays";
 import { getWSServerEndpoint } from "@/util/endpoints";
 import { base64ToArrayBuffer, fireAndForget } from "@/util/util";
 import RFB from "@novnc/novnc";
 import { useAtomValue } from "jotai";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { SandboxViewModel } from "./sandbox-model";
 
 type SandboxDesktopStatus = "disconnected" | "connecting" | "connected" | "error";
@@ -143,6 +147,48 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     const krontermDesktopObjectUrlRef = useRef("");
     const [krontermDesktopScreenshotUrl, setKrontermDesktopScreenshotUrl] = useState("");
 
+    // Agent overlay state from activity stream
+    const { waterflowActive, markers } = useAgentOverlays("sandbox");
+
+    // Cursor overlay for agent activity tracking
+    const cursorWrapperRef = useRef<HTMLDivElement>(null);
+    const [cursorPoint, setCursorPoint] = useState<{ x: number; y: number } | null>(null);
+    const [cursorContainerRect, setCursorContainerRect] = useState<DOMRect | null>(null);
+    const [clickFlashCount, setClickFlashCount] = useState(0);
+
+    const handleCursorMove = useCallback((e: globalThis.MouseEvent) => {
+        const wrapper = cursorWrapperRef.current;
+        if (!wrapper) {
+            return;
+        }
+        const rect = wrapper.getBoundingClientRect();
+        setCursorContainerRect(rect);
+        const point = {
+            x: Math.round(e.clientX - rect.left),
+            y: Math.round(e.clientY - rect.top),
+        };
+        setCursorPoint(point);
+        reportCursorToPet(point, "sandbox");
+    }, []);
+
+    const handleCursorClick = useCallback(() => {
+        setClickFlashCount((c) => c + 1);
+    }, []);
+
+    // Attach mouse event listeners to wrapper for cursor overlay positioning and pet tracking
+    useEffect(() => {
+        const wrapper = cursorWrapperRef.current;
+        if (!wrapper) {
+            return;
+        }
+        wrapper.addEventListener("mousemove", handleCursorMove, { passive: true });
+        wrapper.addEventListener("click", handleCursorClick, { passive: true });
+        return () => {
+            wrapper.removeEventListener("mousemove", handleCursorMove);
+            wrapper.removeEventListener("click", handleCursorClick);
+        };
+    }, [handleCursorMove, handleCursorClick]);
+
     const effectiveMode = mode === "background" ? "background" : "desktop";
     const sessionId = sandboxStatus.sessionId || model.blockId;
     const isRunning = sandboxStatus.status === "running";
@@ -154,7 +200,9 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
     const previewDesktopUrl = desktopUrl || (isDesktopMode ? krontermDesktopDesktopUrl : "");
     const usesKrontermDesktopPreview =
         isDesktopMode && Boolean(previewDesktopUrl) && isKrontermDesktopUrl(previewDesktopUrl, sandboxRuntime);
-    const krontermDesktopComputerUseUrl = usesKrontermDesktopPreview ? makeKrontermDesktopComputerUseUrl(previewDesktopUrl) : "";
+    const krontermDesktopComputerUseUrl = usesKrontermDesktopPreview
+        ? makeKrontermDesktopComputerUseUrl(previewDesktopUrl)
+        : "";
     const rfbWsUrl = previewDesktopUrl ? "" : normalizeVncWsUrl(sandboxStatus.vncWsUrl);
     const usesEmbeddedRfb = isDesktopMode && !usesKrontermDesktopPreview && Boolean(rfbWsUrl);
 
@@ -492,7 +540,7 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
                 : "desktop idle";
 
     return (
-        <div className="h-full min-h-0 bg-black">
+        <div ref={cursorWrapperRef} className="h-full min-h-0 bg-black" style={{ position: "relative" }}>
             {isDesktopMode ? (
                 usesKrontermDesktopPreview ? (
                     <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-black">
@@ -539,6 +587,23 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
                     </div>
                 )
             ) : null}
+            <CursorOverlay
+                cursorPoint={cursorPoint}
+                containerRect={cursorContainerRect}
+                active={true}
+                triggerClickFlash={clickFlashCount}
+            />
+            <WaterFlowOverlay active={waterflowActive} />
+            {markers.map((m) => (
+                <ActionMarker
+                    key={m.id}
+                    actionType={m.actionType}
+                    label={m.label}
+                    x={m.x}
+                    y={m.y}
+                    active={true}
+                />
+            ))}
         </div>
     );
 }

@@ -18,11 +18,14 @@ import (
 )
 
 var (
+	functionExpr string
+
 	rootCmd = &cobra.Command{
 		Use:          "wsh",
 		Short:        "CLI tool to control Wave Terminal",
 		Long:         `wsh is a small utility that lets you do cool things with Wave Terminal, right from the command line`,
 		SilenceUsage: true,
+		RunE:         rootRunE,
 	}
 )
 
@@ -223,6 +226,17 @@ func sendActivity(wshCmdName string, success bool) {
 	wshclient.WshActivityCommand(RpcClient, dataMap, nil)
 }
 
+// rootRunE handles direct root-level operations (like --function for JS eval).
+func rootRunE(cmd *cobra.Command, args []string) error {
+	if functionExpr == "" {
+		return cmd.Help()
+	}
+	if err := preRunSetupRpcClient(cmd, args); err != nil {
+		return err
+	}
+	return webEvalRun(cmd, []string{functionExpr})
+}
+
 // Execute executes the root command.
 func Execute() {
 	defer func() {
@@ -236,6 +250,8 @@ func Execute() {
 		}
 	}()
 	rootCmd.PersistentFlags().StringVarP(&blockArg, "block", "b", "", "for commands which require a block id")
+	rootCmd.PersistentFlags().StringVarP(&functionExpr, "function", "", "", "execute JavaScript expression in a web block")
+	rootCmd.PersistentFlags().MarkHidden("function")
 	err := rootCmd.Execute()
 	if err != nil {
 		wshutil.DoShutdown("", 1, true)

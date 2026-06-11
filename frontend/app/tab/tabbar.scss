@@ -17,7 +17,15 @@
         rgb(from var(--surface-base-color) r g b / 0.92),
         rgb(from var(--main-bg-color) r g b / 0.72)
     );
-    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.72);
+    border-bottom: 1px solid transparent;
+    border-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgb(from var(--border-color) r g b / 0.5) 15%,
+            rgb(from var(--border-color) r g b / 0.5) 85%,
+            transparent 100%
+        )
+        1;
     box-shadow: inset 0 -1px 0 rgb(from var(--main-bg-color) r g b / 0.38);
     flex-shrink: 0;
 
@@ -49,6 +57,23 @@
     .add-tab {
         margin-inline: 4px;
         width: 26px;
+        border: 1px dashed rgb(from var(--main-text-color) r g b / 0.2) !important;
+        border-radius: 50%;
+        color: var(--text-muted-color);
+        font-size: 11px;
+        transition:
+            border-color 180ms ease,
+            color 180ms ease,
+            background-color 180ms ease,
+            transform 180ms ease;
+
+        &:hover {
+            border-color: var(--accent-color) !important;
+            border-style: solid;
+            color: var(--accent-color);
+            background: rgb(from var(--accent-color) r g b / 0.08);
+            transform: scale(1.08);
+        }
     }
 
     // Customize scrollbar styles
@@ -116,4 +141,130 @@
     width: 28px;
     margin-right: 2px;
     font-size: 16px;
+}
+
+.kronchat-project-pills {
+    -webkit-app-region: no-drag;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    margin-bottom: 3px;
+    margin-inline: 2px 4px;
+    max-width: 360px;
+    overflow: hidden;
+}
+
+.kronchat-project-pill {
+    display: flex;
+    min-width: 0;
+    max-width: 116px;
+    height: 24px;
+    align-items: center;
+    gap: 5px;
+    padding: 0 7px;
+    border-radius: 7px;
+    border: 1px solid rgb(from var(--color-saturn) r g b / 0.28);
+    background: rgb(from var(--color-saturn) r g b / 0.08);
+    color: var(--text-secondary-color);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease;
+
+    &:hover {
+        border-color: rgb(from var(--color-saturn) r g b / 0.48);
+        background: rgb(from var(--color-saturn) r g b / 0.15);
+        color: var(--text-primary-color);
+    }
+
+    i {
+        flex-shrink: 0;
+        color: var(--color-saturn);
+        font-size: 10px;
+    }
+}
+
+.kronchat-project-pill-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kronchat-project-pill-count {
+    display: flex;
+    min-width: 15px;
+    height: 15px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgb(from var(--color-saturn) r g b / 0.18);
+    color: var(--color-saturn);
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.kronchat-project-pill-more {
+    color: var(--text-muted-color);
+    font-size: 10px;
+    line-height: 1;
+}
+
+// ── Folded widget pills in tab bar ─────────────────────────────
+.folded-widget-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.4);
+    background: rgb(from var(--surface-hover-color) r g b / 0.5);
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease;
+    -webkit-app-region: no-drag;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        border-color: rgb(from var(--border-color) r g b / 0.7);
+    }
+}
+
+// ── Browser tab pills in tab bar ───────────────────────────────
+.browser-tab-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.3);
+    background: rgb(from var(--surface-base-color) r g b / 0.4);
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease;
+    -webkit-app-region: no-drag;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        border-color: rgb(from var(--border-color) r g b / 0.6);
+    }
+
+    &.is-active {
+        border-color: rgb(from var(--accent-color) r g b / 0.5);
+        background: rgb(from var(--accent-color) r g b / 0.1);
+    }
+
+    .browser-tab-pill-favicon {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+    }
 }

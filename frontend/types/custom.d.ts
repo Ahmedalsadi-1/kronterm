@@ -192,12 +192,22 @@ declare global {
             customArgs?: string[];
             customEnv?: Record<string, string>;
             resumeSessionId?: string;
-            mcpServers?: Array<{
-                name: string;
-                command: string;
-                args: string[];
-                env: Array<{ name: string; value: string }>;
-            }>;
+            resumeSessionConversationId?: string;
+            mcpServers?: Array<
+                | {
+                      type?: "stdio";
+                      name: string;
+                      command: string;
+                      args: string[];
+                      env: Array<{ name: string; value: string }>;
+                  }
+                | {
+                      type: "http" | "sse";
+                      name: string;
+                      url: string;
+                      headers?: Array<{ name: string; value: string }>;
+                  }
+            >;
             surfaceContext?: {
                 tabId: string;
                 blockId?: string;
@@ -272,6 +282,10 @@ declare global {
                 timestamp: number;
             }) => void
         ) => () => void;
+
+        // ── Krondesign daemon ────────────────────────────────────────
+        krondesignStatus: () => Promise<{ running: boolean; url: string; pid: number | null }>;
+        krondesignStart: () => Promise<{ success: boolean; error?: string }>;
     };
 
     type ElectronContextMenuItem = {

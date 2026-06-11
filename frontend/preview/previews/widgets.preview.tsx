@@ -61,9 +61,9 @@ const mockWidgets: { [key: string]: WidgetConfigType } = {
     },
     "defwidget@ai": {
         icon: "sparkles",
-        color: "#a78bfa",
-        label: "AI",
-        description: "Open KronosCode",
+        color: "#e8c47c",
+        label: "KronosChat",
+        description: "AI chat with KronosCode agents",
         "display:order": 3,
         blockdef: { meta: { view: "waveai" } },
     },
@@ -225,7 +225,12 @@ export function WidgetsPreview() {
             <div key={mockVersion} className="flex flex-col gap-8">
                 <div className="flex flex-row gap-8 items-start flex-wrap">
                     <WidgetsScenario label="normal (with AI presets)" height={550} isDev={isDev} />
-                    <WidgetsScenario label="no custom AI presets" hasCustomAIPresets={false} height={550} isDev={isDev} />
+                    <WidgetsScenario
+                        label="no custom AI presets"
+                        hasCustomAIPresets={false}
+                        height={550}
+                        isDev={isDev}
+                    />
                     <WidgetsScenario label="dev mode (apps button)" height={550} isDev={isDev} apps={mockApps} />
                     <WidgetsScenario label="compact (200px)" height={200} isDev={isDev} apps={mockApps} />
                 </div>

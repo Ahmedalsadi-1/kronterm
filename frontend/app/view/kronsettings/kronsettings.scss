@@ -7,19 +7,19 @@
     flex-direction: row;
     width: 100%;
     height: 100%;
-    background: var(--main-bg-color);
+    background: color-mix(in srgb, var(--main-bg-color) 88%, #0f1115 12%);
 }
 
 .kron-settings-sidebar {
-    width: 240px;
-    min-width: 240px;
-    border-right: 1px solid var(--border-color);
+    width: 208px;
+    min-width: 208px;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
-    padding: 12px 0;
-    background: var(--surface-base-color);
+    padding: 14px 8px;
+    background: color-mix(in srgb, var(--surface-base-color) 82%, var(--main-bg-color) 18%);
 }
 
 .kron-settings-sidebar-group-label {
@@ -28,9 +28,9 @@
     letter-spacing: 0.08em;
     color: var(--text-muted-color);
     font-weight: 600;
-    padding: 16px 16px 4px 16px;
+    padding: 16px 8px 6px;
     &:first-child {
-        padding-top: 4px;
+        padding-top: 2px;
     }
 }
 
@@ -38,26 +38,30 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 16px;
-    margin: 1px 8px;
-    border-radius: 6px;
+    min-height: 34px;
+    padding: 7px 10px;
+    margin: 1px 0;
+    border-radius: 8px;
     cursor: pointer;
     color: var(--text-secondary-color);
     font-size: 13px;
     font-weight: 450;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
     user-select: none;
     position: relative;
 
     &:hover {
-        background: var(--surface-hover-color);
+        background: color-mix(in srgb, var(--surface-hover-color) 82%, transparent);
         color: var(--text-primary-color);
     }
 
     &--active {
-        background: var(--surface-selected-color);
+        background: color-mix(in srgb, var(--surface-selected-color) 88%, var(--accent-color) 12%);
         color: var(--text-primary-color);
         font-weight: 500;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 18%, transparent);
     }
 
     i {
@@ -77,20 +81,22 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    background: var(--main-bg-color);
+    background: transparent;
 }
 
 .kron-settings-content-inner {
-    max-width: 640px;
+    width: 100%;
+    max-width: 1024px;
     margin: 0 auto;
-    padding: 32px 32px 48px;
+    padding: 32px 40px 56px;
 }
 
 .kron-settings-content-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 600;
     color: var(--text-primary-color);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    line-height: 1.2;
 }
 
 .kron-settings-content-subtitle {
@@ -102,12 +108,17 @@
 
 // -- Cards --
 .kron-settings-card {
-    background: var(--surface-raised-color);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 20px;
+    background: color-mix(in srgb, var(--surface-raised-color) 92%, var(--main-bg-color) 8%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 8px;
+    padding: 18px 20px;
     margin-bottom: 16px;
-    transition: border-color 0.2s ease;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.02),
+        0 12px 28px rgba(0, 0, 0, 0.12);
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
 }
 
 // -- Section Headers --
@@ -143,8 +154,9 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    min-height: 42px;
+    padding: 11px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     &:last-child {
         border-bottom: none;
     }
@@ -182,15 +194,17 @@
 // -- Select --
 .kron-settings-select {
     appearance: none;
-    background: var(--main-bg-color);
-    border: 1px solid var(--border-color);
+    background-color: color-mix(in srgb, var(--main-bg-color) 88%, var(--surface-raised-color) 12%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 6px;
     color: var(--text-primary-color);
     font-size: 13px;
     padding: 5px 28px 5px 10px;
     cursor: pointer;
-    min-width: 120px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    min-width: 150px;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b918a' d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 8px center;
@@ -213,14 +227,16 @@
 
 // -- Input --
 .kron-settings-input {
-    background: var(--main-bg-color);
-    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--main-bg-color) 88%, var(--surface-raised-color) 12%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 6px;
     color: var(--text-primary-color);
     font-size: 13px;
     padding: 6px 10px;
-    width: 180px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    width: 220px;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
 
     &::placeholder {
         color: var(--text-muted-color);
@@ -264,7 +280,7 @@
 }
 
 .kron-settings-range {
-    width: 100px;
+    width: 132px;
     height: 4px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
@@ -300,7 +316,7 @@
     align-items: flex-start;
     gap: 8px;
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: 8px;
     background: rgba(88, 193, 66, 0.08);
     border: 1px solid rgba(88, 193, 66, 0.15);
     font-size: 12px;
@@ -334,7 +350,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 7px 10px;
-    border-radius: 5px;
+    border-radius: 8px;
     transition: background 0.12s ease;
 
     &:hover {
@@ -363,7 +379,9 @@
         height: 20px;
 
         .slider {
-            transition: background-color 0.2s ease, transform 0.2s ease;
+            transition:
+                background-color 0.2s ease,
+                transform 0.2s ease;
         }
 
         .slider:before {
@@ -490,5 +508,66 @@
     p {
         font-size: 13px;
         max-width: 260px;
+    }
+}
+
+@media (max-width: 767px) {
+    .kron-settings {
+        flex-direction: column;
+    }
+
+    .kron-settings-sidebar {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        max-height: 128px;
+        flex-direction: row;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+        padding: 10px 12px;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .kron-settings-sidebar > div {
+        display: contents;
+    }
+
+    .kron-settings-sidebar-group-label {
+        display: none;
+    }
+
+    .kron-settings-sidebar-item {
+        flex: 0 0 auto;
+        min-height: 36px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+        background: color-mix(in srgb, var(--surface-base-color) 86%, transparent);
+    }
+
+    .kron-settings-content-inner {
+        padding: 22px 16px 40px;
+    }
+
+    .kron-settings-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .kron-settings-row-control {
+        justify-content: flex-start;
+    }
+
+    .kron-settings-input,
+    .kron-settings-select {
+        width: 100%;
+        min-width: 0;
     }
 }

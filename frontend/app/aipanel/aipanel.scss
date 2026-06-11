@@ -1,0 +1,939 @@
+// Copyright 2026, Command Line Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// ── AI Panel Container ─────────────────────────────────────────
+.ai-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--panel-bg-color);
+}
+
+// ── Header ─────────────────────────────────────────────────────
+.ai-panel-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(
+        180deg,
+        rgb(from var(--surface-raised-color) r g b / 0.95),
+        rgb(from var(--surface-base-color) r g b / 0.85)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+
+    .ai-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary-color);
+
+        .ai-panel-title-icon {
+            color: #e8c47c;
+            font-size: 16px;
+        }
+    }
+
+    .ai-panel-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ai-panel-context-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-secondary-color);
+
+        .toggle-label {
+            opacity: 0.8;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 200ms ease;
+
+            &.is-on {
+                background: var(--accent-color);
+            }
+
+            &.is-off {
+                background: var(--surface-hover-color);
+            }
+
+            .toggle-knob {
+                position: absolute;
+                top: 2px;
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: white;
+                transition: transform 200ms ease;
+            }
+
+            &.is-on .toggle-knob {
+                transform: translateX(18px);
+            }
+
+            &.is-off .toggle-knob {
+                transform: translateX(2px);
+            }
+        }
+    }
+
+    .ai-panel-kebab {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: var(--text-secondary-color);
+        cursor: pointer;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+
+        &:hover {
+            background: var(--surface-hover-color);
+            color: var(--text-primary-color);
+        }
+    }
+}
+
+// ── Messages Container ─────────────────────────────────────────
+.ai-panel-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+// ── Message Bubbles ────────────────────────────────────────────
+.ai-message {
+    display: flex;
+    max-width: 100%;
+
+    &.ai-message-user {
+        justify-content: flex-end;
+
+        .ai-message-content {
+            background: linear-gradient(
+                135deg,
+                rgb(from var(--accent-color) r g b / 0.15),
+                rgb(from var(--accent-color) r g b / 0.08)
+            );
+            border: 1px solid rgb(from var(--accent-color) r g b / 0.3);
+            border-radius: 16px 16px 4px 16px;
+            color: var(--text-primary-color);
+            max-width: calc(100% - 40px);
+        }
+    }
+
+    &.ai-message-assistant {
+        justify-content: flex-start;
+
+        .ai-message-content {
+            background: var(--surface-raised-color);
+            border: 1px solid var(--border-color);
+            border-radius: 16px 16px 16px 4px;
+            color: var(--text-primary-color);
+            min-width: min(100%, 500px);
+        }
+    }
+
+    .ai-message-content {
+        padding: 10px 14px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+}
+
+// ── Thinking Indicator ─────────────────────────────────────────
+.ai-thinking {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .ai-thinking-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-secondary-color);
+
+        .ai-thinking-dots {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+
+            .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--accent-color);
+                animation: ai-thinking-pulse 1.4s ease-in-out infinite;
+
+                &:nth-child(2) {
+                    animation-delay: 0.2s;
+                }
+
+                &:nth-child(3) {
+                    animation-delay: 0.4s;
+                }
+            }
+        }
+
+        .ai-thinking-icon {
+            color: var(--warning-color);
+        }
+    }
+
+    .ai-thinking-reasoning {
+        font-size: 12px;
+        color: var(--text-muted-color);
+        max-height: 4.5em;
+        overflow-y: auto;
+        padding-left: 24px;
+    }
+}
+
+@keyframes ai-thinking-pulse {
+    0%,
+    100% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+// ── Tool Use Cards ─────────────────────────────────────────────
+.ai-tool-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-base-color);
+    border: 1px solid var(--border-color);
+    transition: border-color 200ms ease;
+
+    &.tool-completed {
+        border-color: rgb(from var(--success-color) r g b / 0.4);
+    }
+
+    &.tool-error {
+        border-color: rgb(from var(--error-color) r g b / 0.4);
+    }
+
+    &.tool-running {
+        border-color: rgb(from var(--accent-color) r g b / 0.4);
+    }
+
+    .ai-tool-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .ai-tool-status-icon {
+            flex-shrink: 0;
+        }
+
+        .ai-tool-icon {
+            font-size: 12px;
+            color: var(--text-secondary-color);
+        }
+
+        .ai-tool-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary-color);
+        }
+
+        .ai-tool-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    }
+
+    .ai-tool-description {
+        font-size: 12px;
+        color: var(--text-secondary-color);
+        padding-left: 24px;
+        line-height: 1.4;
+    }
+
+    .ai-tool-error {
+        font-size: 12px;
+        color: var(--error-color);
+        padding-left: 24px;
+    }
+
+    .ai-tool-progress-bar {
+        height: 3px;
+        background: var(--surface-hover-color);
+        border-radius: 2px;
+        overflow: hidden;
+        margin: 4px 0;
+
+        .ai-tool-progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 2px;
+            animation: ai-tool-progress-indeterminate 1.5s ease-in-out infinite;
+        }
+    }
+}
+
+@keyframes ai-tool-progress-indeterminate {
+    0% {
+        width: 0%;
+        margin-left: 0%;
+    }
+    50% {
+        width: 60%;
+        margin-left: 20%;
+    }
+    100% {
+        width: 0%;
+        margin-left: 100%;
+    }
+}
+
+// ── Tool Approval Buttons ──────────────────────────────────────
+.ai-tool-approval {
+    display: flex;
+    gap: 8px;
+    padding-left: 24px;
+    margin-top: 4px;
+
+    .ai-tool-approval-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease;
+
+        &.approve {
+            background: rgb(from var(--success-color) r g b / 0.15);
+            border: 1px solid rgb(from var(--success-color) r g b / 0.4);
+            color: var(--success-color);
+
+            &:hover {
+                background: rgb(from var(--success-color) r g b / 0.25);
+            }
+        }
+
+        &.deny {
+            background: rgb(from var(--error-color) r g b / 0.15);
+            border: 1px solid rgb(from var(--error-color) r g b / 0.4);
+            color: var(--error-color);
+
+            &:hover {
+                background: rgb(from var(--error-color) r g b / 0.25);
+            }
+        }
+
+        kbd {
+            font-size: 10px;
+            padding: 1px 4px;
+            background: var(--surface-hover-color);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            font-family: var(--font-mono);
+        }
+    }
+}
+
+// ── Input Area ─────────────────────────────────────────────────
+.ai-panel-input {
+    border-top: 1px solid var(--border-color);
+    padding: 12px;
+    background: var(--surface-base-color);
+    transition: border-color 200ms ease;
+
+    &.is-focused {
+        border-top-color: rgb(from var(--accent-color) r g b / 0.5);
+    }
+
+    .ai-input-wrapper {
+        position: relative;
+        background: var(--surface-raised-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        transition:
+            border-color 200ms ease,
+            box-shadow 200ms ease;
+
+        &:focus-within {
+            border-color: rgb(from var(--accent-color) r g b / 0.5);
+            box-shadow: 0 0 0 2px rgb(from var(--accent-color) r g b / 0.1);
+        }
+
+        .ai-input-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            padding-right: 40px;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-primary-color);
+            font-family: var(--font-default);
+
+            &::placeholder {
+                color: var(--text-muted-color);
+            }
+        }
+
+        .ai-input-actions {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .ai-input-btn {
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 6px;
+                color: var(--text-secondary-color);
+                cursor: pointer;
+                transition:
+                    background-color 150ms ease,
+                    color 150ms ease;
+
+                &:hover {
+                    background: var(--surface-hover-color);
+                    color: var(--text-primary-color);
+                }
+
+                &.send-btn {
+                    color: var(--accent-color);
+
+                    &:hover {
+                        background: rgb(from var(--accent-color) r g b / 0.15);
+                    }
+
+                    &:disabled {
+                        color: var(--text-muted-color);
+                        cursor: not-allowed;
+
+                        &:hover {
+                            background: transparent;
+                        }
+                    }
+                }
+
+                &.stop-btn {
+                    color: var(--success-color);
+
+                    &:hover {
+                        background: rgb(from var(--success-color) r g b / 0.15);
+                    }
+                }
+            }
+        }
+    }
+
+    .ai-input-file {
+        display: none;
+    }
+}
+
+// ── User File Attachments ──────────────────────────────────────
+.ai-user-files {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    overflow-x: auto;
+
+    .ai-user-file {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px;
+        background: var(--surface-base-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        min-width: 64px;
+        flex-shrink: 0;
+
+        .ai-user-file-preview {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-hover-color);
+            border-radius: 6px;
+            overflow: hidden;
+
+            img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            i {
+                font-size: 18px;
+                color: var(--text-secondary-color);
+            }
+        }
+
+        .ai-user-file-name {
+            font-size: 10px;
+            color: var(--text-secondary-color);
+            max-width: 56px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: center;
+        }
+    }
+}
+
+// ── Agents Panel ───────────────────────────────────────────────
+.ai-agents-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+
+    .ai-agents-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+
+        h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary-color);
+
+            i {
+                color: var(--accent-color);
+            }
+        }
+    }
+
+    .ai-agents-notice {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        background: rgb(from var(--warning-color) r g b / 0.1);
+        border: 1px solid rgb(from var(--warning-color) r g b / 0.3);
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--warning-color);
+    }
+
+    .ai-agents-section {
+        margin-bottom: 20px;
+
+        .ai-agents-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary-color);
+            margin-bottom: 8px;
+            padding: 0 4px;
+
+            &.available {
+                color: var(--accent-color);
+            }
+        }
+
+        .ai-agents-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+
+    .ai-agent-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        background: var(--surface-raised-color);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        transition:
+            border-color 200ms ease,
+            background-color 200ms ease;
+
+        &:hover {
+            border-color: rgb(from var(--accent-color) r g b / 0.3);
+        }
+
+        &.unavailable {
+            opacity: 0.6;
+        }
+
+        .ai-agent-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .ai-agent-info {
+            flex: 1;
+            min-width: 0;
+
+            .ai-agent-name-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+
+                .ai-agent-name {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--text-primary-color);
+                }
+
+                .ai-agent-kind {
+                    font-size: 10px;
+                    padding: 2px 6px;
+                    background: var(--surface-hover-color);
+                    border: 1px solid var(--border-color);
+                    border-radius: 4px;
+                    color: var(--text-secondary-color);
+                }
+            }
+
+            .ai-agent-description {
+                font-size: 12px;
+                color: var(--text-secondary-color);
+                margin-top: 4px;
+            }
+
+            .ai-agent-reason {
+                font-size: 11px;
+                color: var(--text-muted-color);
+                font-style: italic;
+                margin-top: 4px;
+            }
+
+            .ai-agent-install {
+                margin-top: 8px;
+                padding: 6px 8px;
+                background: var(--surface-base-color);
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                font-family: var(--font-mono);
+                font-size: 11px;
+                color: var(--accent-color);
+            }
+        }
+
+        .ai-agent-status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            flex-shrink: 0;
+
+            &.ready {
+                color: var(--success-color);
+            }
+
+            &.missing {
+                color: var(--warning-color);
+            }
+
+            &.auth-needed {
+                color: var(--error-color);
+            }
+
+            &.error {
+                color: var(--error-color);
+            }
+        }
+    }
+}
+
+// ── Welcome Message ────────────────────────────────────────────
+.ai-welcome {
+    padding: 24px 16px;
+    text-align: center;
+
+    .ai-welcome-icon {
+        font-size: 36px;
+        color: #e8c47c;
+        margin-bottom: 12px;
+    }
+
+    .ai-welcome-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary-color);
+        margin-bottom: 16px;
+    }
+
+    .ai-welcome-card {
+        background: var(--surface-raised-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        text-align: left;
+        max-width: 400px;
+        margin: 0 auto;
+
+        .ai-welcome-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 12px;
+        }
+
+        .ai-welcome-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ai-welcome-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+
+            .ai-welcome-item-icon {
+                width: 20px;
+                text-align: center;
+                color: var(--accent-color);
+                flex-shrink: 0;
+            }
+
+            .ai-welcome-item-text {
+                font-size: 12px;
+                color: var(--text-secondary-color);
+                line-height: 1.5;
+
+                code {
+                    font-family: var(--font-mono);
+                    font-size: 11px;
+                    padding: 1px 4px;
+                    background: var(--surface-hover-color);
+                    border-radius: 3px;
+                }
+            }
+        }
+    }
+}
+
+// ── Drag Overlay ───────────────────────────────────────────────
+.ai-drag-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(from var(--accent-color) r g b / 0.1);
+    border: 2px dashed var(--accent-color);
+    border-radius: 8px;
+    z-index: 10;
+
+    .ai-drag-content {
+        text-align: center;
+        color: var(--accent-color);
+
+        .ai-drag-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .ai-drag-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .ai-drag-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    }
+}
+
+// ── Rate Limit Strip ───────────────────────────────────────────
+.ai-rate-limit-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgb(from var(--warning-color) r g b / 0.1);
+    border-bottom: 1px solid rgb(from var(--warning-color) r g b / 0.2);
+    font-size: 12px;
+    color: var(--warning-color);
+
+    i {
+        font-size: 14px;
+    }
+}
+
+// ── Feedback Buttons ───────────────────────────────────────────
+.ai-feedback-buttons {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+
+    .ai-feedback-btn {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: var(--text-secondary-color);
+        cursor: pointer;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+
+        &:hover {
+            background: var(--surface-hover-color);
+            color: var(--text-primary-color);
+        }
+
+// ─── Agent Badge & Typography ─────────────────────────────────
+.agent-badge {
+    --agent-color: var(--status-success);
+    --agent-color-bg: var(--status-success);
+    color: var(--agent-color);
+    background: rgb(from var(--agent-color-bg) r g b / 0.1);
+    border: 1px solid rgb(from var(--agent-color-bg) r g b / 0.1);
+    white-space: nowrap;
+
+    &.agent-success {
+        --agent-color: var(--status-success);
+        --agent-color-bg: var(--status-success);
+    }
+    &.agent-keyword {
+        --agent-color: var(--syntax-keyword);
+        --agent-color-bg: var(--syntax-keyword);
+    }
+    &.agent-type {
+        --agent-color: var(--syntax-type);
+        --agent-color-bg: var(--syntax-type);
+    }
+    &.agent-function {
+        --agent-color: var(--syntax-function);
+        --agent-color-bg: var(--syntax-function);
+    }
+    &.agent-number {
+        --agent-color: var(--syntax-number);
+        --agent-color-bg: var(--syntax-number);
+    }
+    &.agent-info {
+        --agent-color: var(--status-info);
+        --agent-color-bg: var(--status-info);
+    }
+    &.agent-warning {
+        --agent-color: var(--status-warning);
+        --agent-color-bg: var(--status-warning);
+    }
+    &.agent-variable {
+        --agent-color: var(--syntax-variable);
+        --agent-color-bg: var(--syntax-variable);
+    }
+}
+
+.typography-ui-header {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.typography-meta {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.ai-panel-content-split {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    overflow: hidden;
+
+    .ai-panel-chat-pane {
+        flex: 1;
+        min-width: 320px;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-color);
+        background: var(--bg-panel);
+    }
+
+    .ai-panel-preview-pane {
+        flex: 1.2;
+        min-width: 400px;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-panel-darker);
+    }
+}
+
+.ai-panel-preview-header {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel-header);
+    
+    .title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary-color);
+    }
+}
+
+.ai-panel-preview-content {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+}

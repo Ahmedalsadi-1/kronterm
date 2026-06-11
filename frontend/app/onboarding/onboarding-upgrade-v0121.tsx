@@ -22,8 +22,8 @@ const UpgradeOnboardingModal_v0_12_1_Content = () => {
                     <div className="text-secondary leading-5">
                         <ul className="list-disc list-outside space-y-1 pl-5">
                             <li>
-                                <strong>OSC 7 Support</strong> - Wave now automatically tracks and restores your current
-                                directory across restarts for bash, zsh, fish, and pwsh shells
+                                <strong>OSC 7 Support</strong> - KronTerm now automatically tracks and restores your
+                                current directory across restarts for bash, zsh, fish, and pwsh shells
                             </li>
                             <li>
                                 <strong>Shell Context Tracking</strong> - Tracks when your shell is ready, last command

@@ -306,13 +306,20 @@ func initWidgetScreenshot() {
 	widgetCmd.AddCommand(widgetScreenshotCmd)
 }
 
+func getScreenshotOpts() *wshrpc.RpcOpts {
+	return &wshrpc.RpcOpts{
+		Route:   wshutil.MakeTabRouteId(getTabIdFromEnv()),
+		Timeout: 30000,
+	}
+}
+
 func widgetScreenshotRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	defer func() { sendActivity("widget", rtnErr == nil) }()
 	blockId, err := resolveWidgetBlockId()
 	if err != nil {
 		return err
 	}
-	result, err := wshclient.CaptureBlockScreenshotCommand(RpcClient, wshrpc.CommandCaptureBlockScreenshotData{BlockId: blockId}, getTabRouteOpts())
+	result, err := wshclient.CaptureBlockScreenshotCommand(RpcClient, wshrpc.CommandCaptureBlockScreenshotData{BlockId: blockId}, getScreenshotOpts())
 	if err != nil {
 		return fmt.Errorf("widget screenshot: %w", err)
 	}
@@ -354,7 +361,7 @@ func widgetScreenshotAnnotatedRun(cmd *cobra.Command, args []string) (rtnErr err
 	result, err := wshclient.WidgetScreenshotAnnotatedCommand(RpcClient, wshrpc.CommandWidgetScreenshotAnnotatedData{
 		BlockId:      blockId,
 		ShowElements: !widgetScreenshotAnnotNoElements,
-	}, getTabRouteOpts())
+	}, getScreenshotOpts())
 	if err != nil {
 		return fmt.Errorf("widget screenshot-annotated: %w", err)
 	}

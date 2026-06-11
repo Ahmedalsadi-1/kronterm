@@ -35,20 +35,38 @@ interface AcpAgentManagerOptions {
     customArgs?: string[];
     customEnv?: Record<string, string>;
     resumeSessionId?: string;
+    resumeSessionConversationId?: string;
     surfaceContext?: {
         tabId: string;
         blockId?: string;
     };
-    mcpServers?: Array<{
-        name: string;
-        command: string;
-        args: string[];
-        env: Array<{ name: string; value: string }>;
-    }>;
+    mcpServers?: AcpSessionMcpServer[];
 }
 
 const waveSurfaceBootstrap = `[KronTerm Surface Capability]
 This chat is connected to the kron-term MCP server with a temporary Wave surface-session capability. Prefer Wave surface tools for Kronterm tabs, widgets, terminals, the in-app browser, and host-scoped file context; use other desktop or browser tools only when the Wave surface cannot perform the operation. Use surface_status before diagnosing failures, list_blocks before block operations, and widget_snapshot before interacting with block content. Full guidance is available from the MCP prompt "kron-term-guide" or resource "kron-term://skill".`;
+
+type AcpSessionMcpNameValue = {
+    name: string;
+    value: string;
+};
+
+type AcpSessionMcpServerStdio = {
+    type?: "stdio";
+    name: string;
+    command: string;
+    args: string[];
+    env: AcpSessionMcpNameValue[];
+};
+
+type AcpSessionMcpServerHttpLike = {
+    type: "http" | "sse";
+    name: string;
+    url: string;
+    headers?: AcpSessionMcpNameValue[];
+};
+
+type AcpSessionMcpServer = AcpSessionMcpServerStdio | AcpSessionMcpServerHttpLike;
 
 export class AcpAgentManager extends EventEmitter {
     conversationId: string;
@@ -68,13 +86,9 @@ export class AcpAgentManager extends EventEmitter {
     private msgCounter = 0;
     private surfaceMcpAvailable = false;
     private surfaceInstructionsInjected = false;
+    private hasReceivedUsageUpdate = false;
     private surfaceContext: { tabId: string; blockId?: string } | undefined;
-    private requestedMcpServers: Array<{
-        name: string;
-        command: string;
-        args: string[];
-        env: Array<{ name: string; value: string }>;
-    }> = [];
+    private requestedMcpServers: AcpSessionMcpServer[] = [];
 
     constructor(opts: AcpAgentManagerOptions) {
         super();
@@ -98,7 +112,7 @@ export class AcpAgentManager extends EventEmitter {
                 opts.customEnv
             );
 
-            this.transport = new NdjsonTransport(child, isDetached);
+            this.transport = new NdjsonTransport(child, isDetached, this.workspace);
             this.setupTransportHandlers();
 
             const initResult = await this.transport.initialize();
@@ -119,9 +133,13 @@ export class AcpAgentManager extends EventEmitter {
                     configOptions: this.configOptions,
                 });
             }
-            await this.ensureSession(opts.resumeSessionId);
+            await this.ensureSession(opts.resumeSessionId, opts.resumeSessionConversationId);
             this.setStatus("connected");
         } catch (err) {
+            this.transport?.kill();
+            this.transport = null;
+            this.sessionId = null;
+            this.confirmations = [];
             this.error = err instanceof Error ? err.message : String(err);
             this.setStatus("error");
             throw err;
@@ -130,16 +148,17 @@ export class AcpAgentManager extends EventEmitter {
 
     private setupTransportHandlers(): void {
         if (!this.transport) return;
+        const transport = this.transport;
 
-        this.transport.on("session_update", (update: AcpSessionUpdate) => {
+        transport.on("session_update", (update: AcpSessionUpdate) => {
             this.handleSessionUpdate(update);
         });
 
-        this.transport.on("permission_request", (data: { id: number; params: AcpPermissionRequest }) => {
+        transport.on("permission_request", (data: { id: number; params: AcpPermissionRequest }) => {
             this.handlePermissionRequest(data.id, data.params);
         });
 
-        this.transport.on("notification", (data: { method: string; params: any }) => {
+        transport.on("notification", (data: { method: string; params: any }) => {
             if (data.method.includes("model") && data.params) {
                 this.modelInfo = data.params.modelInfo ?? data.params;
                 this.emitEvent("agent_info", {
@@ -149,17 +168,34 @@ export class AcpAgentManager extends EventEmitter {
             }
         });
 
-        this.transport.on("stderr", (data: string) => {
+        transport.on("stderr", (data: string) => {
             const message = data.trim();
             if (message) {
                 console.debug(`[acp:${this.backend}] ${message}`);
             }
         });
 
-        this.transport.on("error", (err: Error) => {
+        transport.on("error", (err: Error) => {
             this.error = err.message;
             this.setStatus("error");
             this.emitEvent("error", { error: err.message });
+        });
+
+        transport.on("disconnect", (data: { code: number | null; signal: NodeJS.Signals | string | null }) => {
+            if (this.transport !== transport) {
+                return;
+            }
+            const message = `ACP process exited unexpectedly (code=${data.code ?? "unknown"}, signal=${
+                data.signal ?? "none"
+            })`;
+            this.transport = null;
+            this.sessionId = null;
+            this.confirmations = [];
+            this.surfaceMcpAvailable = false;
+            this.surfaceInstructionsInjected = false;
+            this.error = message;
+            this.setStatus("error");
+            this.emitEvent("error", { error: message });
         });
     }
 
@@ -204,7 +240,25 @@ export class AcpAgentManager extends EventEmitter {
         }
 
         if (updateType === "usage_update") {
+            this.hasReceivedUsageUpdate = true;
             this.emitEvent("usage", update.update);
+            return;
+        }
+
+        if (updateType === "available_commands_update") {
+            const commands: Record<string, { name: string; description: string; hint?: string }> = {};
+            for (const command of update.update.availableCommands ?? []) {
+                const name = command.name?.trim();
+                if (!name) {
+                    continue;
+                }
+                commands[name] = {
+                    name,
+                    description: command.description?.trim() || name,
+                    hint: command.input?.hint?.trim(),
+                };
+            }
+            this.emitEvent("slash_commands", { commands });
             return;
         }
 
@@ -236,16 +290,28 @@ export class AcpAgentManager extends EventEmitter {
     }
 
     private setSessionModels(models: any): void {
-        if (!models || !Array.isArray(models.availableModels)) {
+        const rawModels =
+            models?.availableModels ??
+            models?.models ??
+            models?.items ??
+            models?.data ??
+            (Array.isArray(models) ? models : undefined);
+        if (!Array.isArray(rawModels)) {
             return;
         }
-        const availableModels = models.availableModels
+        const availableModels = rawModels
             .map((model: any) => ({
-                id: model?.id ?? model?.modelId ?? "",
-                label: model?.label ?? model?.name ?? model?.id ?? model?.modelId ?? "",
+                id: model?.id ?? model?.modelId ?? model?.name ?? model?.value ?? "",
+                label: model?.label ?? model?.displayName ?? model?.name ?? model?.id ?? model?.modelId ?? "",
             }))
             .filter((model: { id: string }) => model.id);
-        const currentModelId = models.currentModelId ?? null;
+        const currentModelId =
+            models?.currentModelId ??
+            models?.selectedModelId ??
+            models?.current ??
+            models?.selected ??
+            availableModels[0]?.id ??
+            null;
         const current = availableModels.find((model: { id: string }) => model.id === currentModelId);
         this.modelInfo = {
             currentModelId,
@@ -259,8 +325,36 @@ export class AcpAgentManager extends EventEmitter {
         });
     }
 
-    private supportsStdioMcp(): boolean {
-        return Boolean(this.capabilities?.mcpCapabilities?.stdio) || this.backend === "kronoscode";
+    private supportsMcpType(type: "stdio" | "http" | "sse"): boolean {
+        if (type === "stdio" && this.backend === "kronoscode") {
+            return true;
+        }
+        return Boolean(this.capabilities?.mcpCapabilities?.[type]);
+    }
+
+    private normalizeCwdForAgent(cwd?: string): string {
+        if (!cwd) {
+            return ".";
+        }
+        if (this.backend === "copilot" || this.backend === "codex") {
+            return path.resolve(cwd);
+        }
+        try {
+            const workspaceRoot = path.resolve(this.workspace);
+            const requested = path.resolve(cwd);
+            const relative = path.relative(workspaceRoot, requested);
+            if (!relative) {
+                return ".";
+            }
+            if (!relative.startsWith("..") && !path.isAbsolute(relative)) {
+                return relative;
+            }
+        } catch (err) {
+            console.warn(
+                `[acp:${this.backend}] failed to normalize cwd: ${err instanceof Error ? err.message : String(err)}`
+            );
+        }
+        return ".";
     }
 
     private resolveSurfaceServerPath(): string | null {
@@ -274,53 +368,141 @@ export class AcpAgentManager extends EventEmitter {
         return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
     }
 
-    private async ensureSession(resumeSessionId?: string): Promise<void> {
-        if (!this.transport || this.sessionId) {
-            return;
+    private normalizeMcpServers(servers: AcpSessionMcpServer[]): AcpSessionMcpServer[] {
+        const normalized: AcpSessionMcpServer[] = [];
+        for (const server of servers) {
+            const rawType = (server as { type?: string })?.type ?? "stdio";
+            const type = rawType === "streamable_http" ? "http" : rawType;
+            if (type === "http" || type === "sse") {
+                const httpServer = server as AcpSessionMcpServerHttpLike;
+                if (!this.supportsMcpType(type) || !httpServer?.name || !httpServer.url) {
+                    continue;
+                }
+                normalized.push({
+                    type,
+                    name: httpServer.name,
+                    url: httpServer.url,
+                    headers: Array.isArray(httpServer.headers)
+                        ? httpServer.headers.filter(
+                              (entry) => typeof entry?.name === "string" && typeof entry?.value === "string"
+                          )
+                        : undefined,
+                });
+                continue;
+            }
+            const stdioServer = server as AcpSessionMcpServerStdio;
+            if (!this.supportsMcpType("stdio") || !stdioServer?.name || !stdioServer.command) {
+                continue;
+            }
+            normalized.push({
+                type: "stdio",
+                name: stdioServer.name,
+                command: stdioServer.command,
+                args: Array.isArray(stdioServer.args) ? stdioServer.args.filter((arg) => typeof arg === "string") : [],
+                env: Array.isArray(stdioServer.env)
+                    ? stdioServer.env.filter(
+                          (entry) => typeof entry?.name === "string" && typeof entry?.value === "string"
+                      )
+                    : [],
+            });
         }
+        return normalized;
+    }
 
-        const supportsStdioMcp = this.supportsStdioMcp();
+    private async buildSessionMcpServers(): Promise<AcpSessionMcpServer[]> {
+        const mcpServers: AcpSessionMcpServer[] = [];
         const surfaceServerPath = this.resolveSurfaceServerPath();
-        const mcpServers: Array<{
-            name: string;
-            command: string;
-            args: string[];
-            env: Array<{ name: string; value: string }>;
-        }> = [];
-        if (supportsStdioMcp && surfaceServerPath) {
-            const surfaceEnv: Array<{ name: string; value: string }> = [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }];
+        if (this.supportsMcpType("stdio") && surfaceServerPath) {
+            const surfaceEnv: AcpSessionMcpNameValue[] = [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }];
             if (this.surfaceContext?.tabId) {
                 const sessionToken = await RpcApi.CreateSurfaceTokenCommand(ElectronWshClient, {
                     tabid: this.surfaceContext.tabId,
                     blockid: this.surfaceContext.blockId ?? "",
                 });
                 surfaceEnv.push({ name: "KRONTERM_JWT", value: sessionToken.token });
+                surfaceEnv.push({ name: "WAVETERM_JWT", value: sessionToken.token });
                 surfaceEnv.push({ name: "KRONTERM_TABID", value: sessionToken.tabid });
+                surfaceEnv.push({ name: "WAVETERM_TABID", value: sessionToken.tabid });
                 if (sessionToken.blockid) {
                     surfaceEnv.push({ name: "KRONTERM_BLOCKID", value: sessionToken.blockid });
+                    surfaceEnv.push({ name: "WAVETERM_BLOCKID", value: sessionToken.blockid });
                 }
             }
             if (process.env.KRONTERM_WSH) {
                 surfaceEnv.push({ name: "KRONTERM_WSH", value: process.env.KRONTERM_WSH });
             }
+            if (process.env.WAVETERM_WSH) {
+                surfaceEnv.push({ name: "WAVETERM_WSH", value: process.env.WAVETERM_WSH });
+            }
             mcpServers.push({
+                type: "stdio",
                 name: "kron-term",
                 command: process.execPath,
                 args: [surfaceServerPath],
                 env: surfaceEnv,
             });
             this.surfaceMcpAvailable = true;
+        } else {
+            this.surfaceMcpAvailable = false;
         }
-        if (supportsStdioMcp) {
-            mcpServers.push(...this.requestedMcpServers);
-        }
-        const canLoad = Boolean(resumeSessionId && this.capabilities?.loadSession);
-        const sessionResult = await this.transport.sendRequest(canLoad ? "session/load" : "session/new", {
-            ...(canLoad ? { sessionId: resumeSessionId } : {}),
-            cwd: this.workspace,
+
+        mcpServers.push(...this.normalizeMcpServers(this.requestedMcpServers));
+        return mcpServers;
+    }
+
+    private buildNewSessionParams(resumeSessionId: string | undefined, mcpServers: AcpSessionMcpServer[]) {
+        const useMetaResume = Boolean(
+            resumeSessionId && (this.backend === "claude" || (this.capabilities as any)?._meta?.claudeCode)
+        );
+        return {
+            cwd: this.normalizeCwdForAgent(this.workspace),
             mcpServers,
-        });
-        this.sessionId = sessionResult?.sessionId || sessionResult?.id || uuidv4();
+            ...(useMetaResume
+                ? { _meta: { claudeCode: { options: { resume: resumeSessionId } } } }
+                : resumeSessionId
+                  ? { resumeSessionId, forkSession: false }
+                  : {}),
+        };
+    }
+
+    private async ensureSession(resumeSessionId?: string, resumeSessionConversationId?: string): Promise<void> {
+        if (!this.transport || this.sessionId) {
+            return;
+        }
+
+        const mcpServers = await this.buildSessionMcpServers();
+        let sessionResult: any;
+        let usableResumeSessionId = resumeSessionId;
+        if (resumeSessionId && resumeSessionConversationId && resumeSessionConversationId !== this.conversationId) {
+            console.warn(
+                `[acp:${this.backend}] skipping stale session ${resumeSessionId}; it belongs to ${resumeSessionConversationId}, not ${this.conversationId}`
+            );
+            usableResumeSessionId = undefined;
+        }
+
+        if (usableResumeSessionId && this.capabilities?.loadSession) {
+            try {
+                sessionResult = await this.transport.sendRequest("session/load", {
+                    sessionId: usableResumeSessionId,
+                    cwd: this.normalizeCwdForAgent(this.workspace),
+                    mcpServers,
+                });
+            } catch (err) {
+                console.warn(
+                    `[acp:${this.backend}] session/load failed, falling back to session/new resume: ${
+                        err instanceof Error ? err.message : String(err)
+                    }`
+                );
+            }
+        }
+        if (!sessionResult) {
+            sessionResult = await this.transport.sendRequest(
+                "session/new",
+                this.buildNewSessionParams(usableResumeSessionId, mcpServers)
+            );
+        }
+
+        this.sessionId = sessionResult?.sessionId || sessionResult?.id || usableResumeSessionId || uuidv4();
         this.emitEvent("session_id", { sessionId: this.sessionId });
         this.modes = sessionResult?.modes ?? this.modes;
         this.configOptions = sessionResult?.configOptions ?? this.configOptions;
@@ -339,7 +521,13 @@ export class AcpAgentManager extends EventEmitter {
                     sessionId: this.sessionId,
                     modeId: this.currentMode,
                 });
-            } catch {}
+            } catch (err) {
+                console.debug(
+                    `[acp:${this.backend}] failed to restore mode ${this.currentMode}: ${
+                        err instanceof Error ? err.message : String(err)
+                    }`
+                );
+            }
         }
     }
 
@@ -360,6 +548,9 @@ export class AcpAgentManager extends EventEmitter {
             sessionId: this.sessionId,
             prompt: [{ type: "text", text: content }],
         });
+        if (!this.hasReceivedUsageUpdate && typeof promptResult?.usage?.totalTokens === "number") {
+            this.emitEvent("usage", promptResult.usage);
+        }
         if (this.status === "running") {
             this.setStatus("finished");
             this.emitEvent("finish", { stopReason: promptResult?.stopReason });
@@ -415,7 +606,7 @@ export class AcpAgentManager extends EventEmitter {
         return { modelInfo: this.modelInfo };
     }
 
-    async setModel(opts: AcpIpcSetModelRequest): Promise<void> {
+    async setModel(opts: AcpIpcSetModelRequest): Promise<{ modelInfo: AcpModelInfo | null }> {
         if (this.transport?.isInitialized()) {
             await this.transport.sendRequest("session/set_model", {
                 sessionId: this.sessionId,
@@ -430,6 +621,11 @@ export class AcpAgentManager extends EventEmitter {
                 currentModelLabel: selected?.label ?? opts.modelId,
             };
         }
+        this.emitEvent("agent_info", {
+            agentInfo: this.agentInfo,
+            modelInfo: this.modelInfo,
+        });
+        return { modelInfo: this.modelInfo };
     }
 
     async confirmTool(opts: AcpIpcConfirmToolRequest): Promise<void> {
@@ -464,6 +660,17 @@ export class AcpAgentManager extends EventEmitter {
                 this.transport.sendResponse(confirmation.requestId, {
                     outcome: { outcome: "cancelled" },
                 });
+            }
+            if (this.sessionId && this.capabilities?.sessionCapabilities?.close) {
+                const closeRequest = this.transport
+                    .sendRequest("session/close", { sessionId: this.sessionId })
+                    .catch(() => undefined);
+                await Promise.race([
+                    closeRequest,
+                    new Promise((resolve) => {
+                        setTimeout(resolve, 2000);
+                    }),
+                ]);
             }
             this.transport.kill();
             this.transport = null;

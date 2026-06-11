@@ -1,0 +1,133 @@
+.kronos-canvas-view {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--background);
+}
+
+.kronos-canvas-view .tl-watermark_SEE-LICENSE {
+    display: none;
+}
+
+.kronos-canvas-toolbar,
+.kronos-canvas-outline,
+.kronos-canvas-selection {
+    position: absolute;
+    z-index: 50;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 86%, transparent);
+    box-shadow: 0 18px 45px rgb(0 0 0 / 25%);
+    backdrop-filter: blur(18px);
+}
+
+.kronos-canvas-toolbar {
+    top: 12px;
+    left: 12px;
+    display: flex;
+    max-width: calc(100% - 24px);
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.kronos-canvas-toolbar select,
+.kronos-canvas-toolbar button,
+.kronos-canvas-selection button {
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 12px;
+}
+
+.kronos-canvas-toolbar button,
+.kronos-canvas-selection button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    cursor: pointer;
+}
+
+.kronos-canvas-toolbar button:hover,
+.kronos-canvas-selection button:hover {
+    background: var(--interactive-hover);
+}
+
+.kronos-canvas-outline {
+    top: 62px;
+    left: 12px;
+    width: 240px;
+    max-width: min(240px, calc(100% - 24px));
+    max-height: min(420px, calc(100% - 92px));
+    overflow: auto;
+    border-radius: 8px;
+}
+
+.kronos-canvas-outline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    padding: 9px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.kronos-canvas-outline-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 8px 10px;
+    color: var(--foreground);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+}
+
+.kronos-canvas-outline-item:hover {
+    background: var(--interactive-hover);
+}
+
+.kronos-canvas-outline-empty {
+    padding: 18px 10px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    text-align: center;
+}
+
+.kronos-canvas-selection {
+    right: 12px;
+    bottom: 12px;
+    width: min(320px, calc(100% - 24px));
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.kronos-canvas-selection-title {
+    margin-bottom: 4px;
+    overflow: hidden;
+    color: var(--foreground);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kronos-canvas-selection-meta {
+    color: var(--muted-foreground);
+    font-size: 11px;
+}
+
+.kronos-canvas-save-state {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    white-space: nowrap;
+}

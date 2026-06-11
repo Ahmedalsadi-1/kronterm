@@ -18,7 +18,10 @@ type BrowserInteractionResult = {
     message: string;
 };
 
-export function buildBrowserInteractionScript(action: BrowserInteractionAction, payload: Record<string, unknown>): string {
+export function buildBrowserInteractionScript(
+    action: BrowserInteractionAction,
+    payload: Record<string, unknown>
+): string {
     return `
         (async function() {
             const action = ${JSON.stringify(action)};
@@ -49,6 +52,25 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 };
             }
 
+            function pointerEvent(element, type, x, y, buttons) {
+                if (typeof PointerEvent !== "function") {
+                    return;
+                }
+                const point = pointFor(element, x, y);
+                element.dispatchEvent(new PointerEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    pointerId: 1,
+                    pointerType: "mouse",
+                    isPrimary: true,
+                    clientX: point.clientX,
+                    clientY: point.clientY,
+                    button,
+                    buttons,
+                }));
+            }
+
             function mouseEvent(element, type, x, y, detail, buttons) {
                 const point = pointFor(element, x, y);
                 element.dispatchEvent(new MouseEvent(type, {
@@ -60,6 +82,21 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                     button,
                     buttons,
                     detail,
+                }));
+            }
+
+            function dragEvent(element, type, x, y, dataTransfer) {
+                if (typeof DragEvent !== "function") {
+                    return;
+                }
+                const point = pointFor(element, x, y);
+                element.dispatchEvent(new DragEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    clientX: point.clientX,
+                    clientY: point.clientY,
+                    dataTransfer,
                 }));
             }
 
@@ -119,7 +156,13 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 target.focus({ preventScroll: true });
                 const count = payload.clickCount ?? (payload.clicktype === "triple" ? 3 : payload.clicktype === "double" ? 2 : 1);
                 for (let index = 1; index <= count; index++) {
+                    pointerEvent(target, "pointerover", payload.x, payload.y, 0);
+                    pointerEvent(target, "pointerenter", payload.x, payload.y, 0);
+                    mouseEvent(target, "mouseover", payload.x, payload.y, index, 0);
+                    mouseEvent(target, "mouseenter", payload.x, payload.y, index, 0);
+                    pointerEvent(target, "pointerdown", payload.x, payload.y, 1 << button);
                     mouseEvent(target, "mousedown", payload.x, payload.y, index, 1 << button);
+                    pointerEvent(target, "pointerup", payload.x, payload.y, 0);
                     mouseEvent(target, "mouseup", payload.x, payload.y, index, 0);
                     if (button === 0) {
                         target.click();
@@ -202,24 +245,33 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
             }
 
             if (action === "scroll") {
-                const pointed = payload.originX != null && payload.originY != null
-                    ? document.elementFromPoint(payload.originX, payload.originY)
-                    : document.scrollingElement;
-                const target = scrollContainer(pointed);
-                const before = target.scrollTop;
                 const amount = Number(payload.amount ?? 0);
-                target.dispatchEvent(new WheelEvent("wheel", {
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true,
+                const hasOrigin = payload.originX != null && payload.originY != null;
+                if (hasOrigin) {
+                    const pointed = document.elementFromPoint(payload.originX, payload.originY);
+                    const target = scrollContainer(pointed);
+                    const before = target.scrollTop;
+                    target.dispatchEvent(new WheelEvent("wheel", {
+                        bubbles: true, cancelable: true, composed: true,
+                        deltaY: amount,
+                        clientX: payload.originX, clientY: payload.originY,
+                    }));
+                    target.scrollTop += amount;
+                    return {
+                        success: target.scrollTop !== before || amount === 0,
+                        message: "Scrolled from " + before + " to " + target.scrollTop,
+                    };
+                }
+                const before = window.scrollY;
+                window.dispatchEvent(new WheelEvent("wheel", {
+                    bubbles: true, cancelable: true, composed: true,
                     deltaY: amount,
-                    clientX: payload.originX ?? 0,
-                    clientY: payload.originY ?? 0,
+                    clientX: 0, clientY: 0,
                 }));
-                target.scrollTop += amount;
+                window.scrollBy(0, amount);
                 return {
-                    success: target.scrollTop !== before || amount === 0,
-                    message: "Scrolled from " + before + " to " + target.scrollTop,
+                    success: true,
+                    message: "Scrolled from " + before + " to " + window.scrollY,
                 };
             }
 
@@ -238,8 +290,31 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 if (!(start instanceof HTMLElement) || !(end instanceof HTMLElement)) {
                     return { success: false, message: "Drag target not found" };
                 }
+                start.scrollIntoView({ block: "nearest", inline: "nearest" });
+                const startPoint = pointFor(start, payload.startx, payload.starty);
+                const endPoint = pointFor(end, payload.endx, payload.endy);
+                const dataTransfer = typeof DataTransfer === "function" ? new DataTransfer() : undefined;
+                pointerEvent(start, "pointerover", payload.startx, payload.starty, 0);
+                pointerEvent(start, "pointerenter", payload.startx, payload.starty, 0);
+                mouseEvent(start, "mouseover", payload.startx, payload.starty, 1, 0);
+                mouseEvent(start, "mouseenter", payload.startx, payload.starty, 1, 0);
+                pointerEvent(start, "pointerdown", payload.startx, payload.starty, 1 << button);
                 mouseEvent(start, "mousedown", payload.startx, payload.starty, 1, 1 << button);
-                mouseEvent(end, "mousemove", payload.endx, payload.endy, 1, 1 << button);
+                dragEvent(start, "dragstart", payload.startx, payload.starty, dataTransfer);
+                for (let step = 1; step <= 8; step++) {
+                    const ratio = step / 8;
+                    const x = startPoint.clientX + (endPoint.clientX - startPoint.clientX) * ratio;
+                    const y = startPoint.clientY + (endPoint.clientY - startPoint.clientY) * ratio;
+                    const current = document.elementFromPoint(x, y) || end;
+                    if (current instanceof HTMLElement) {
+                        pointerEvent(current, "pointermove", x, y, 1 << button);
+                        mouseEvent(current, "mousemove", x, y, 1, 1 << button);
+                        dragEvent(current, "dragover", x, y, dataTransfer);
+                    }
+                }
+                dragEvent(end, "drop", payload.endx, payload.endy, dataTransfer);
+                dragEvent(start, "dragend", payload.endx, payload.endy, dataTransfer);
+                pointerEvent(end, "pointerup", payload.endx, payload.endy, 0);
                 mouseEvent(end, "mouseup", payload.endx, payload.endy, 1, 0);
                 return { success: true, message: "Drag events dispatched" };
             }
@@ -784,7 +859,12 @@ export class TabClient extends WshClient {
                     return result;
                 })()
             `);
-            return { blockid: data.blockid, elements: elements || [], count: (elements || []).length, timestamp: Date.now() };
+            return {
+                blockid: data.blockid,
+                elements: elements || [],
+                count: (elements || []).length,
+                timestamp: Date.now(),
+            };
         } catch (e) {
             return { blockid: data.blockid, elements: [], count: 0, timestamp: Date.now() };
         }
@@ -805,10 +885,10 @@ export class TabClient extends WshClient {
         }
         try {
             const maxCount = data.maxcount || 10;
-            const roleFilter = data.role || '';
-            const nameFilter = data.name || '';
-            const valueFilter = data.value || '';
-            const textFilter = data.text || '';
+            const roleFilter = data.role || "";
+            const nameFilter = data.name || "";
+            const valueFilter = data.value || "";
+            const textFilter = data.text || "";
             const elements = await webview.executeJavaScript(`
                 (function() {
                     var maxCount = ${maxCount};
@@ -895,7 +975,7 @@ export class TabClient extends WshClient {
             };
         }
         try {
-            const ref = data.elementref || '';
+            const ref = data.elementref || "";
             const result = await webview.executeJavaScript(`
                 (function() {
                     var ref = ${JSON.stringify(ref)};
@@ -1007,7 +1087,15 @@ export class TabClient extends WshClient {
             if (!result) {
                 return { blockid: data.blockid, x: data.x, y: data.y, found: false };
             }
-            return { blockid: data.blockid, x: data.x, y: data.y, found: true, elementref: result.ref, role: result.role, name: result.name };
+            return {
+                blockid: data.blockid,
+                x: data.x,
+                y: data.y,
+                found: true,
+                elementref: result.ref,
+                role: result.role,
+                name: result.name,
+            };
         } catch (e) {
             return { blockid: data.blockid, x: data.x, y: data.y, found: false };
         }
@@ -1143,7 +1231,7 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, elementref: data.elementref, value: "" };
         }
         try {
-            const ref = data.elementref || '';
+            const ref = data.elementref || "";
             const value = await webview.executeJavaScript(`
                 (function() {
                     var ref = ${JSON.stringify(ref)};
@@ -1157,7 +1245,7 @@ export class TabClient extends WshClient {
                     return el.textContent || '';
                 })()
             `);
-            return { blockid: data.blockid, elementref: data.elementref, value: value || '' };
+            return { blockid: data.blockid, elementref: data.elementref, value: value || "" };
         } catch (e) {
             return { blockid: data.blockid, elementref: data.elementref, value: "" };
         }
@@ -1197,7 +1285,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Value set' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to set value" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to set value",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to set value: ${e}` };
         }
@@ -1256,7 +1348,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Select executed' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to select" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to select",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to select: ${e}` };
         }
@@ -1291,7 +1387,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Toggle executed' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to toggle" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to toggle",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to toggle: ${e}` };
         }

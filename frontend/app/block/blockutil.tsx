@@ -22,7 +22,7 @@ export function blockViewToIcon(view: string): string {
     if (view == "web") {
         return "globe";
     }
-    if (view == "waveai") {
+    if (view == "waveai" || view == "kronoschat") {
         return "sparkles";
     }
     if (view == "help") {
@@ -34,8 +34,14 @@ export function blockViewToIcon(view: string): string {
     if (view == "installedapps") {
         return "desktop";
     }
-    if (view == "kronsettings") {
+    if (view == "kronsettings" || view == "kronoschamber") {
         return "sliders";
+    }
+    if (view == "kronoscanvas") {
+        return "diagram-project";
+    }
+    if (view == "design") {
+        return "palette";
     }
     return "square";
 }
@@ -53,8 +59,8 @@ export function blockViewToName(view: string): string {
     if (view == "web") {
         return "Web";
     }
-    if (view == "waveai") {
-        return "WaveAI";
+    if (view == "waveai" || view == "kronoschat") {
+        return "KronosChat";
     }
     if (view == "help") {
         return "Help";
@@ -67,6 +73,15 @@ export function blockViewToName(view: string): string {
     }
     if (view == "kronsettings") {
         return "Settings";
+    }
+    if (view == "kronoschamber") {
+        return "KronosChamber";
+    }
+    if (view == "kronoscanvas") {
+        return "Canvas";
+    }
+    if (view == "design") {
+        return "Design";
     }
     return view;
 }

@@ -53,3 +53,13 @@ kronoscode/*.bun-build
 # Embedded repositories
 kronoscoder/
 packages/kronbotd/
+.reference-repos/
+UI-TARS-desktop/
+krondesign/
+open-design/
+flux/
+memory-connectors-test/
+.hermes/
+
+# Build output
+website/.next/

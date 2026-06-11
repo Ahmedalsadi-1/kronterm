@@ -18,6 +18,12 @@ export class RpcApiType {
         this.mockClient = client;
     }
 
+    // command "activatewindow" [call]
+    ActivateWindowCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "activatewindow", data, opts);
+        return client.wshRpcCall("activatewindow", data, opts);
+    }
+
     // command "activity" [call]
     ActivityCommand(client: WshClient, data: ActivityUpdate, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "activity", data, opts);
@@ -108,10 +114,118 @@ export class RpcApiType {
         return client.wshRpcCall("blockslist", data, opts);
     }
 
+    // command "bookmarkcreate" [call]
+    BookmarkCreateCommand(client: WshClient, data: BookmarkCreateData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarkcreate", data, opts);
+        return client.wshRpcCall("bookmarkcreate", data, opts);
+    }
+
+    // command "bookmarklist" [call]
+    BookmarkListCommand(client: WshClient, opts?: RpcOpts): Promise<{[key: string]: WebBookmark}> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarklist", null, opts);
+        return client.wshRpcCall("bookmarklist", null, opts);
+    }
+
+    // command "bookmarkmove" [call]
+    BookmarkMoveCommand(client: WshClient, data: BookmarkMoveData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarkmove", data, opts);
+        return client.wshRpcCall("bookmarkmove", data, opts);
+    }
+
+    // command "bookmarkremove" [call]
+    BookmarkRemoveCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarkremove", data, opts);
+        return client.wshRpcCall("bookmarkremove", data, opts);
+    }
+
+    // command "bookmarksearch" [call]
+    BookmarkSearchCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BookmarkSearchResult[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarksearch", data, opts);
+        return client.wshRpcCall("bookmarksearch", data, opts);
+    }
+
+    // command "bookmarkupdate" [call]
+    BookmarkUpdateCommand(client: WshClient, data: BookmarkUpdateData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "bookmarkupdate", data, opts);
+        return client.wshRpcCall("bookmarkupdate", data, opts);
+    }
+
+    // command "browserosinfo" [call]
+    BrowserOSInfoCommand(client: WshClient, opts?: RpcOpts): Promise<BrowserOSInfo> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "browserosinfo", null, opts);
+        return client.wshRpcCall("browserosinfo", null, opts);
+    }
+
+    // command "canvasassetupload" [call]
+    CanvasAssetUploadCommand(client: WshClient, data: CanvasAssetUploadRequest, opts?: RpcOpts): Promise<CanvasAssetUploadResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvasassetupload", data, opts);
+        return client.wshRpcCall("canvasassetupload", data, opts);
+    }
+
+    // command "canvasconnectnodes" [call]
+    CanvasConnectNodesCommand(client: WshClient, data: CanvasConnectNodesRequest, opts?: RpcOpts): Promise<CanvasEdge> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvasconnectnodes", data, opts);
+        return client.wshRpcCall("canvasconnectnodes", data, opts);
+    }
+
+    // command "canvascreatenode" [call]
+    CanvasCreateNodeCommand(client: WshClient, data: CanvasNodeMutationRequest, opts?: RpcOpts): Promise<CanvasNode> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvascreatenode", data, opts);
+        return client.wshRpcCall("canvascreatenode", data, opts);
+    }
+
+    // command "canvasdeletenode" [call]
+    CanvasDeleteNodeCommand(client: WshClient, data: CanvasNodeIdRequest, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvasdeletenode", data, opts);
+        return client.wshRpcCall("canvasdeletenode", data, opts);
+    }
+
+    // command "canvaslaunchnode" [call]
+    CanvasLaunchNodeCommand(client: WshClient, data: CanvasLaunchNodeRequest, opts?: RpcOpts): Promise<CanvasLaunchNodeResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvaslaunchnode", data, opts);
+        return client.wshRpcCall("canvaslaunchnode", data, opts);
+    }
+
+    // command "canvasload" [call]
+    CanvasLoadCommand(client: WshClient, data: CanvasLoadRequest, opts?: RpcOpts): Promise<CanvasLoadResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvasload", data, opts);
+        return client.wshRpcCall("canvasload", data, opts);
+    }
+
+    // command "canvassave" [call]
+    CanvasSaveCommand(client: WshClient, data: CanvasSaveRequest, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvassave", data, opts);
+        return client.wshRpcCall("canvassave", data, opts);
+    }
+
+    // command "canvassnapshot" [call]
+    CanvasSnapshotCommand(client: WshClient, data: CanvasSnapshotRequest, opts?: RpcOpts): Promise<CanvasSnapshotResponse> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvassnapshot", data, opts);
+        return client.wshRpcCall("canvassnapshot", data, opts);
+    }
+
+    // command "canvasupdatenode" [call]
+    CanvasUpdateNodeCommand(client: WshClient, data: CanvasNodeMutationRequest, opts?: RpcOpts): Promise<CanvasNode> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "canvasupdatenode", data, opts);
+        return client.wshRpcCall("canvasupdatenode", data, opts);
+    }
+
     // command "captureblockscreenshot" [call]
     CaptureBlockScreenshotCommand(client: WshClient, data: CommandCaptureBlockScreenshotData, opts?: RpcOpts): Promise<string> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "captureblockscreenshot", data, opts);
         return client.wshRpcCall("captureblockscreenshot", data, opts);
+    }
+
+    // command "closetabgroup" [call]
+    CloseTabGroupCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "closetabgroup", data, opts);
+        return client.wshRpcCall("closetabgroup", data, opts);
+    }
+
+    // command "closewindow" [call]
+    CloseWindowCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "closewindow", data, opts);
+        return client.wshRpcCall("closewindow", data, opts);
     }
 
     // command "connconnect" [call]
@@ -208,6 +322,12 @@ export class RpcApiType {
     CreateSurfaceTokenCommand(client: WshClient, data: CommandCreateSurfaceTokenData, opts?: RpcOpts): Promise<CommandCreateSurfaceTokenRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "createsurfacetoken", data, opts);
         return client.wshRpcCall("createsurfacetoken", data, opts);
+    }
+
+    // command "createwindow" [call]
+    CreateWindowCommand(client: WshClient, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "createwindow", null, opts);
+        return client.wshRpcCall("createwindow", null, opts);
     }
 
     // command "debugterm" [call]
@@ -514,6 +634,36 @@ export class RpcApiType {
     GetWaveAIRateLimitCommand(client: WshClient, opts?: RpcOpts): Promise<RateLimitInfo> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getwaveairatelimit", null, opts);
         return client.wshRpcCall("getwaveairatelimit", null, opts);
+    }
+
+    // command "grouptabs" [call]
+    GroupTabsCommand(client: WshClient, data: GroupTabsData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "grouptabs", data, opts);
+        return client.wshRpcCall("grouptabs", data, opts);
+    }
+
+    // command "historydeleterange" [call]
+    HistoryDeleteRangeCommand(client: WshClient, data: HistoryDeleteRangeData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "historydeleterange", data, opts);
+        return client.wshRpcCall("historydeleterange", data, opts);
+    }
+
+    // command "historydeleteurl" [call]
+    HistoryDeleteUrlCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "historydeleteurl", data, opts);
+        return client.wshRpcCall("historydeleteurl", data, opts);
+    }
+
+    // command "historyrecent" [call]
+    HistoryRecentCommand(client: WshClient, data: number, opts?: RpcOpts): Promise<HistoryEntry[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "historyrecent", data, opts);
+        return client.wshRpcCall("historyrecent", data, opts);
+    }
+
+    // command "historysearch" [call]
+    HistorySearchCommand(client: WshClient, data: HistorySearchData, opts?: RpcOpts): Promise<HistoryEntry[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "historysearch", data, opts);
+        return client.wshRpcCall("historysearch", data, opts);
     }
 
     // command "jobcmdexited" [call]
@@ -936,6 +1086,12 @@ export class RpcApiType {
         return client.wshRpcStream("streamwaveai", data, opts);
     }
 
+    // command "tabgrouplist" [call]
+    TabGroupListCommand(client: WshClient, opts?: RpcOpts): Promise<TabGroupInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "tabgrouplist", null, opts);
+        return client.wshRpcCall("tabgrouplist", null, opts);
+    }
+
     // command "termgetscrollbacklines" [call]
     TermGetScrollbackLinesCommand(client: WshClient, data: CommandTermGetScrollbackLinesData, opts?: RpcOpts): Promise<CommandTermGetScrollbackLinesRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "termgetscrollbacklines", data, opts);
@@ -952,6 +1108,18 @@ export class RpcApiType {
     TestMultiArgCommand(client: WshClient, arg1: string, arg2: number, arg3: boolean, opts?: RpcOpts): Promise<string> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "testmultiarg", { args: [arg1, arg2, arg3] }, opts);
         return client.wshRpcCall("testmultiarg", { args: [arg1, arg2, arg3] }, opts);
+    }
+
+    // command "ungrouptabs" [call]
+    UngroupTabsCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "ungrouptabs", data, opts);
+        return client.wshRpcCall("ungrouptabs", data, opts);
+    }
+
+    // command "updatetabgroup" [call]
+    UpdateTabGroupCommand(client: WshClient, data: UpdateTabGroupData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "updatetabgroup", data, opts);
+        return client.wshRpcCall("updatetabgroup", data, opts);
     }
 
     // command "updatetabname" [call]
@@ -1030,6 +1198,12 @@ export class RpcApiType {
     WaveInfoCommand(client: WshClient, opts?: RpcOpts): Promise<WaveInfoData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "waveinfo", null, opts);
         return client.wshRpcCall("waveinfo", null, opts);
+    }
+
+    // command "webeval" [call]
+    WebEvalCommand(client: WshClient, data: CommandWebEvalData, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "webeval", data, opts);
+        return client.wshRpcCall("webeval", data, opts);
     }
 
     // command "webselector" [call]
@@ -1192,6 +1366,12 @@ export class RpcApiType {
     WidgetWaitForElementCommand(client: WshClient, data: CommandWidgetWaitForElementData, opts?: RpcOpts): Promise<WidgetWaitForElementRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "widgetwaitforelement", data, opts);
         return client.wshRpcCall("widgetwaitforelement", data, opts);
+    }
+
+    // command "windowlist" [call]
+    WindowListCommand(client: WshClient, opts?: RpcOpts): Promise<WindowInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "windowlist", null, opts);
+        return client.wshRpcCall("windowlist", null, opts);
     }
 
     // command "workspacelist" [call]

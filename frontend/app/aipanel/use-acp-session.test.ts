@@ -17,6 +17,7 @@ function makeRuntime(conversationId: string): AcpRuntimeRecord {
         usage: null,
         agentInfo: null,
         capabilities: null,
+        slashCommands: {},
         agentName: "KronosCode",
         workspace: "/tmp/workspace",
         title: "New chat",

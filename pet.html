@@ -13,9 +13,11 @@
       </div>
 
       <div id="pet-cursor" class="pet-cursor" hidden>
-        <div id="pet-cursor-pointer" class="pet-cursor-pointer">
-          <span id="pet-cursor-icon" class="pet-cursor-icon">👆</span>
+        <div id="pet-cursor-ring" class="pet-cursor-ring">
+          <div class="pet-cursor-dot"></div>
+          <div class="pet-cursor-flash"></div>
         </div>
+        <span id="pet-cursor-label" class="pet-cursor-label"></span>
       </div>
 
       <div id="thought" class="thought" hidden></div>
@@ -42,28 +44,67 @@
         <span id="detail" class="detail">KronosCode ready</span>
       </div>
 
+      <!-- macOS-style menu -->
       <section id="pet-menu" class="pet-menu no-drag" hidden>
         <div class="pet-menu-title">
           <span class="pet-menu-app-icon">K</span>
           <span><strong>KronosCode</strong><small>Computer use controls</small></span>
         </div>
-        <label
-          >Presentation
-          <select id="pet-mode">
-            <option value="off">Off</option>
-            <option value="status-only">Status only</option>
-            <option value="docked" selected>Docked</option>
-            <option value="expressive">Expressive</option>
-          </select>
-        </label>
-        <label><input id="toggle-glow" type="checkbox" checked /> Activity glow</label>
-        <label><input id="toggle-thoughts" type="checkbox" checked /> Thought bubbles</label>
-        <label><input id="toggle-actions" type="checkbox" checked /> Action bubbles</label>
-        <label><input id="toggle-roam" type="checkbox" /> Dock near Kronterm when idle</label>
-        <label><input id="toggle-follow-cursor" type="checkbox" /> Follow physical cursor during tool use</label>
-        <label><input id="toggle-clickthrough" type="checkbox" /> Click-through mode (see-through)</label>
-        <button id="reasoning-toggle" class="reasoning-toggle" type="button">Reasoning log</button>
-        <button id="chat-toggle" class="chat-toggle" type="button">Mini chat</button>
+
+        <!-- Mode group -->
+        <div class="pet-menu-mode-group" id="pet-mode-group">
+          <div class="pet-menu-mode-item mode-selected" data-mode="off">Off</div>
+          <div class="pet-menu-mode-item" data-mode="status-only">Status only</div>
+          <div class="pet-menu-mode-item" data-mode="docked">Docked</div>
+          <div class="pet-menu-mode-item" data-mode="expressive">Expressive</div>
+        </div>
+
+        <div class="pet-menu-separator"></div>
+
+        <!-- Toggle items -->
+        <div class="pet-menu-item" id="menu-toggle-glow" data-option="glow">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Activity glow
+          </span>
+        </div>
+        <div class="pet-menu-item" id="menu-toggle-thoughts" data-option="thoughts">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Thought bubbles
+          </span>
+        </div>
+        <div class="pet-menu-item" id="menu-toggle-actions" data-option="actions">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Action bubbles
+          </span>
+        </div>
+        <div class="pet-menu-item" id="menu-toggle-roam" data-option="roam">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Dock near Kronterm when idle
+          </span>
+        </div>
+        <div class="pet-menu-item" id="menu-toggle-follow-cursor" data-option="followUserCursor">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Follow cursor during tool use
+          </span>
+          <span class="pet-menu-shortcut">⌘⇧F</span>
+        </div>
+        <div class="pet-menu-item" id="menu-toggle-clickthrough" data-option="clickthrough">
+          <span class="pet-menu-label">
+            <span class="pet-menu-check">✓</span>
+            Click-through mode
+          </span>
+        </div>
+
+        <div class="pet-menu-separator"></div>
+
+        <!-- Action items -->
+        <button class="pet-menu-action" id="reasoning-toggle" type="button">Reasoning Log</button>
+        <button class="pet-menu-action" id="chat-toggle" type="button">Mini Chat</button>
       </section>
 
       <figure id="capture-preview" class="capture-preview no-drag" hidden>
@@ -72,7 +113,7 @@
       </figure>
 
       <form id="pet-chat" class="pet-chat no-drag" hidden>
-        <input id="pet-chat-input" aria-label="Message KronosCode" placeholder="Ask KronosCode..." autocomplete="off" />
+        <input id="pet-chat-input" aria-label="Message KronosCode" placeholder="> message kronoscode" autocomplete="off" />
         <button type="submit">Send</button>
       </form>
 

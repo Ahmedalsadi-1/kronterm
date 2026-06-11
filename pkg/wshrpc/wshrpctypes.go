@@ -133,6 +133,7 @@ type WshRpcInterface interface {
 
 	// emain
 	WebSelectorCommand(ctx context.Context, data CommandWebSelectorData) ([]string, error)
+	WebEvalCommand(ctx context.Context, data CommandWebEvalData) (string, error)
 	NotifyCommand(ctx context.Context, notificationOptions WaveNotificationOptions) error
 	FocusWindowCommand(ctx context.Context, windowId string) error
 	ElectronEncryptCommand(ctx context.Context, data CommandElectronEncryptData) (*CommandElectronEncryptRtnData, error)
@@ -165,6 +166,15 @@ type WshRpcInterface interface {
 	AppStreamStartCommand(ctx context.Context, data AppStreamStartRequest) (AppStreamStartResponse, error)
 	AppStreamStopCommand(ctx context.Context, data AppStreamStopRequest) error
 	AppStreamActionCommand(ctx context.Context, data AppStreamActionRequest) error
+	CanvasLoadCommand(ctx context.Context, data CanvasLoadRequest) (*CanvasLoadResponse, error)
+	CanvasSaveCommand(ctx context.Context, data CanvasSaveRequest) error
+	CanvasSnapshotCommand(ctx context.Context, data CanvasSnapshotRequest) (*CanvasSnapshotResponse, error)
+	CanvasAssetUploadCommand(ctx context.Context, data CanvasAssetUploadRequest) (*CanvasAssetUploadResponse, error)
+	CanvasCreateNodeCommand(ctx context.Context, data CanvasNodeMutationRequest) (*CanvasNode, error)
+	CanvasUpdateNodeCommand(ctx context.Context, data CanvasNodeMutationRequest) (*CanvasNode, error)
+	CanvasDeleteNodeCommand(ctx context.Context, data CanvasNodeIdRequest) error
+	CanvasConnectNodesCommand(ctx context.Context, data CanvasConnectNodesRequest) (*CanvasEdge, error)
+	CanvasLaunchNodeCommand(ctx context.Context, data CanvasLaunchNodeRequest) (*CanvasLaunchNodeResponse, error)
 
 	WorkspaceListCommand(ctx context.Context) ([]WorkspaceInfoData, error)
 	GetUpdateChannelCommand(ctx context.Context) (string, error)
@@ -257,6 +267,36 @@ type WshRpcInterface interface {
 	JobControllerDetachJobCommand(ctx context.Context, jobId string) error
 	JobControllerGetAllJobManagerStatusCommand(ctx context.Context) ([]*JobManagerStatusUpdate, error)
 	BlockJobStatusCommand(ctx context.Context, blockId string) (*BlockJobStatusData, error)
+
+	// window management
+	WindowListCommand(ctx context.Context) ([]WindowInfo, error)
+	CreateWindowCommand(ctx context.Context) (string, error)
+	CloseWindowCommand(ctx context.Context, windowId string) error
+	ActivateWindowCommand(ctx context.Context, windowId string) error
+
+	// bookmark management
+	BookmarkListCommand(ctx context.Context) (map[string]wconfig.WebBookmark, error)
+	BookmarkCreateCommand(ctx context.Context, data BookmarkCreateData) error
+	BookmarkRemoveCommand(ctx context.Context, bookmarkId string) error
+	BookmarkUpdateCommand(ctx context.Context, data BookmarkUpdateData) error
+	BookmarkMoveCommand(ctx context.Context, data BookmarkMoveData) error
+	BookmarkSearchCommand(ctx context.Context, query string) ([]BookmarkSearchResult, error)
+
+	// history management
+	HistorySearchCommand(ctx context.Context, data HistorySearchData) ([]HistoryEntry, error)
+	HistoryRecentCommand(ctx context.Context, maxItems int) ([]HistoryEntry, error)
+	HistoryDeleteUrlCommand(ctx context.Context, url string) error
+	HistoryDeleteRangeCommand(ctx context.Context, data HistoryDeleteRangeData) error
+
+	// tab group management
+	TabGroupListCommand(ctx context.Context) ([]TabGroupInfo, error)
+	GroupTabsCommand(ctx context.Context, data GroupTabsData) error
+	UpdateTabGroupCommand(ctx context.Context, data UpdateTabGroupData) error
+	UngroupTabsCommand(ctx context.Context, tabGroupId string) error
+	CloseTabGroupCommand(ctx context.Context, tabGroupId string) error
+
+	// browseros info
+	BrowserOSInfoCommand(ctx context.Context) (*BrowserOSInfo, error)
 }
 
 // for frontend
@@ -541,6 +581,13 @@ type CommandWebSelectorData struct {
 	Opts        *WebSelectorOpts `json:"opts,omitempty"`
 }
 
+type CommandWebEvalData struct {
+	WorkspaceId string `json:"workspaceid"`
+	BlockId     string `json:"blockid"`
+	TabId       string `json:"tabid"`
+	Script      string `json:"script"`
+}
+
 type BlockInfoData struct {
 	BlockId     string          `json:"blockid"`
 	TabId       string          `json:"tabid"`
@@ -550,32 +597,32 @@ type BlockInfoData struct {
 }
 
 type BlockContentTermData struct {
-	Cwd             string `json:"cwd,omitempty"`
-	RunningProcess  string `json:"runningprocess,omitempty"`
-	ShellType       string `json:"shelltype,omitempty"`
-	ExitCode        int    `json:"exitcode,omitempty"`
-	HasShellIntegration bool `json:"hasshellintegration,omitempty"`
-	JobId           string `json:"jobid,omitempty"`
-	JobRunning      bool   `json:"jobrunning,omitempty"`
-	ControllerType  string `json:"controllertype,omitempty"`
-	TotalLines      int    `json:"totallines,omitempty"`
-	ConnectionName  string `json:"connectionname,omitempty"`
+	Cwd                 string `json:"cwd,omitempty"`
+	RunningProcess      string `json:"runningprocess,omitempty"`
+	ShellType           string `json:"shelltype,omitempty"`
+	ExitCode            int    `json:"exitcode,omitempty"`
+	HasShellIntegration bool   `json:"hasshellintegration,omitempty"`
+	JobId               string `json:"jobid,omitempty"`
+	JobRunning          bool   `json:"jobrunning,omitempty"`
+	ControllerType      string `json:"controllertype,omitempty"`
+	TotalLines          int    `json:"totallines,omitempty"`
+	ConnectionName      string `json:"connectionname,omitempty"`
 }
 
 type BlockContentWebData struct {
-	Url              string   `json:"url,omitempty"`
-	Title            string   `json:"title,omitempty"`
-	Loading          bool     `json:"loading,omitempty"`
-	PinnedUrl        string   `json:"pinnedurl,omitempty"`
-	ElementCount     int      `json:"elementcount,omitempty"`
+	Url          string `json:"url,omitempty"`
+	Title        string `json:"title,omitempty"`
+	Loading      bool   `json:"loading,omitempty"`
+	PinnedUrl    string `json:"pinnedurl,omitempty"`
+	ElementCount int    `json:"elementcount,omitempty"`
 }
 
 type BlockContentEditorData struct {
-	FilePath     string `json:"filepath,omitempty"`
-	Language     string `json:"language,omitempty"`
-	Modified     bool   `json:"modified,omitempty"`
-	LineCount    int    `json:"linecount,omitempty"`
-	PreviewType  string `json:"previewtype,omitempty"`
+	FilePath    string `json:"filepath,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Modified    bool   `json:"modified,omitempty"`
+	LineCount   int    `json:"linecount,omitempty"`
+	PreviewType string `json:"previewtype,omitempty"`
 }
 
 type BlockContentPreviewData struct {
@@ -591,20 +638,20 @@ type BlockContentSandboxData struct {
 }
 
 type BlockContentAIData struct {
-	Model       string `json:"model,omitempty"`
-	Provider    string `json:"provider,omitempty"`
-	MessageCount int   `json:"messagecount,omitempty"`
+	Model        string `json:"model,omitempty"`
+	Provider     string `json:"provider,omitempty"`
+	MessageCount int    `json:"messagecount,omitempty"`
 }
 
 type CommandGetBlockContentRtnData struct {
-	BlockId   string                  `json:"blockid"`
-	ViewType  string                  `json:"viewtype"`
-	Terminal  *BlockContentTermData   `json:"terminal,omitempty"`
-	Web       *BlockContentWebData    `json:"web,omitempty"`
-	Editor    *BlockContentEditorData `json:"editor,omitempty"`
-	Preview   *BlockContentPreviewData `json:"preview,omitempty"`
-	Sandbox   *BlockContentSandboxData `json:"sandbox,omitempty"`
-	AI        *BlockContentAIData     `json:"ai,omitempty"`
+	BlockId  string                   `json:"blockid"`
+	ViewType string                   `json:"viewtype"`
+	Terminal *BlockContentTermData    `json:"terminal,omitempty"`
+	Web      *BlockContentWebData     `json:"web,omitempty"`
+	Editor   *BlockContentEditorData  `json:"editor,omitempty"`
+	Preview  *BlockContentPreviewData `json:"preview,omitempty"`
+	Sandbox  *BlockContentSandboxData `json:"sandbox,omitempty"`
+	AI       *BlockContentAIData      `json:"ai,omitempty"`
 }
 
 type WaveNotificationOptions struct {
@@ -1416,4 +1463,101 @@ type AppStreamActionRequest struct {
 	Keys        string `json:"keys,omitempty"`
 	Direction   string `json:"direction,omitempty"`
 	ScrollCount int    `json:"scrollCount,omitempty"`
+}
+
+// --- Window Management ---
+
+type WindowInfo struct {
+	WindowId    string        `json:"windowId"`
+	WorkspaceId string        `json:"workspaceId"`
+	Title       string        `json:"title,omitempty"`
+	TabCount    int           `json:"tabCount"`
+	ActiveTabId string        `json:"activeTabId,omitempty"`
+	Focused     bool          `json:"focused"`
+	Bounds      *WindowBounds `json:"bounds,omitempty"`
+}
+
+type WindowBounds struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+// --- Bookmark Management ---
+
+type BookmarkCreateData struct {
+	Title        string  `json:"title"`
+	Url          string  `json:"url"`
+	ParentId     string  `json:"parentId,omitempty"`
+	DisplayOrder float64 `json:"display:order,omitempty"`
+}
+
+type BookmarkUpdateData struct {
+	Id           string  `json:"id"`
+	Title        string  `json:"title,omitempty"`
+	Url          string  `json:"url,omitempty"`
+	DisplayOrder float64 `json:"display:order,omitempty"`
+}
+
+type BookmarkMoveData struct {
+	Id       string `json:"id"`
+	ParentId string `json:"parentId,omitempty"`
+	Index    int    `json:"index,omitempty"`
+}
+
+type BookmarkSearchResult struct {
+	Id    string `json:"id"`
+	Title string `json:"title"`
+	Url   string `json:"url"`
+}
+
+// --- History Management ---
+
+type HistoryEntry struct {
+	Id         string `json:"id"`
+	Url        string `json:"url"`
+	Title      string `json:"title,omitempty"`
+	VisitTime  int64  `json:"visitTime"`
+	VisitCount int    `json:"visitCount,omitempty"`
+}
+
+type HistorySearchData struct {
+	Query    string `json:"query"`
+	MaxItems int    `json:"maxItems,omitempty"`
+}
+
+type HistoryDeleteRangeData struct {
+	StartTime int64 `json:"startTime"`
+	EndTime   int64 `json:"endTime"`
+}
+
+// --- Tab Group Management ---
+
+type TabGroupInfo struct {
+	Id        string   `json:"id"`
+	Title     string   `json:"title,omitempty"`
+	Color     string   `json:"color,omitempty"`
+	TabIds    []string `json:"tabIds,omitempty"`
+	Collapsed bool     `json:"collapsed"`
+}
+
+type GroupTabsData struct {
+	TabIds []string `json:"tabIds"`
+	Title  string   `json:"title,omitempty"`
+}
+
+type UpdateTabGroupData struct {
+	Id        string `json:"id"`
+	Title     string `json:"title,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Collapsed *bool  `json:"collapsed,omitempty"`
+}
+
+// --- BrowserOS Info ---
+
+type BrowserOSInfo struct {
+	Version      string   `json:"version"`
+	Capabilities []string `json:"capabilities"`
+	Features     []string `json:"features"`
 }

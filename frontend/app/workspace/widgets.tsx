@@ -5,6 +5,7 @@ import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { AppStreamCreatedEvent } from "@/app/view/appstream/computer-use-stream-manager";
 import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
+import { updateFoldState, widgetFoldStateAtom } from "@/app/workspace/widget-fold-state";
 import { shouldIncludeWidgetForWorkspace } from "@/app/workspace/widgetfilter";
 import { modalsModel } from "@/store/modalmodel";
 import { fireAndForget, isBlank, makeIconClass } from "@/util/util";
@@ -18,7 +19,7 @@ import {
     useInteractions,
 } from "@floating-ui/react";
 import clsx from "clsx";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { Boxes, ChevronRight, Settings, TriangleAlert } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import "./widgets.scss";
@@ -33,7 +34,6 @@ export type WidgetsEnv = WaveEnvSubset<{
         fullConfigAtom: WaveEnv["atoms"]["fullConfigAtom"];
         hasConfigErrors: WaveEnv["atoms"]["hasConfigErrors"];
         workspaceId: WaveEnv["atoms"]["workspaceId"];
-        hasCustomAIPresetsAtom: WaveEnv["atoms"]["hasCustomAIPresetsAtom"];
     };
     createBlock: WaveEnv["createBlock"];
     showContextMenu: WaveEnv["showContextMenu"];
@@ -57,8 +57,9 @@ const DefaultWidgetGroups: Record<string, { label: string; order: number }> = {
     browser: { label: "Browser", order: 1 },
     ai: { label: "AI", order: 2 },
     sandbox: { label: "Sandbox", order: 3 },
-    apps: { label: "Apps", order: 4 },
-    tools: { label: "Tools", order: 5 },
+    design: { label: "Design", order: 4 },
+    apps: { label: "Apps", order: 5 },
+    tools: { label: "Tools", order: 6 },
 };
 
 const WidgetGroupColors: Record<string, string> = {
@@ -66,6 +67,7 @@ const WidgetGroupColors: Record<string, string> = {
     browser: "#60a5fa",
     ai: "#e8c47c",
     sandbox: "#f472b6",
+    design: "#38bdf8",
     apps: "#a78bfa",
     tools: "#94a3b8",
 };
@@ -79,6 +81,7 @@ function widgetGroupKey(widget: WidgetConfigType): WidgetGroupKey {
     if (view === "term" || view === "vdom") return "terminal";
     if (view === "web") return "browser";
     if (view === "sandbox") return "sandbox";
+    if (view === "design") return "design";
     if (view === "waveai" || view === "waveconfig") return "ai";
     if (view === "tsunami") return "apps";
     return "tools";
@@ -96,22 +99,7 @@ function groupWidgets(widgets: WidgetConfigType[]): Map<WidgetGroupKey, WidgetCo
     return groups;
 }
 
-const FoldStateStorageKey = "kronoscode:widget-groups:fold-state";
 const AppRecentStorageKey = "kronoscode:app-launcher:recents";
-
-function loadFoldState(): Record<string, boolean> {
-    try {
-        const stored = window.localStorage.getItem(FoldStateStorageKey);
-        if (stored) return JSON.parse(stored);
-    } catch {}
-    return {};
-}
-
-function saveFoldState(state: Record<string, boolean>): void {
-    try {
-        window.localStorage.setItem(FoldStateStorageKey, JSON.stringify(state));
-    } catch {}
-}
 
 function loadRecentApps(): string[] {
     try {
@@ -134,6 +122,11 @@ type WidgetPropsType = {
 };
 
 async function handleWidgetSelect(widget: WidgetConfigType, env: WidgetsEnv) {
+    // Redirect the old deprecated WaveAI block widget to the new kronoschat widget
+    if (widget.blockdef?.meta?.view === "waveai") {
+        env.createBlock({ meta: { view: "kronoschat" } }, widget.magnified);
+        return;
+    }
     const blockDef = widget.blockdef;
     env.createBlock(blockDef, widget.magnified);
 }
@@ -300,20 +293,31 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
 
     const normalizedQuery = query.trim().toLowerCase();
     const filteredDesktopApps = normalizedQuery
-        ? desktopApps.filter((app) => `${app.name} ${app.appid} ${app.bundleid ?? ""}`.toLowerCase().includes(normalizedQuery))
+        ? desktopApps.filter((app) =>
+              `${app.name} ${app.appid} ${app.bundleid ?? ""}`.toLowerCase().includes(normalizedQuery)
+          )
         : desktopApps;
     const filteredApps = normalizedQuery
-        ? apps.filter((app) => `${app.appid} ${app.manifest?.appmeta?.displayname ?? ""}`.toLowerCase().includes(normalizedQuery))
+        ? apps.filter((app) =>
+              `${app.appid} ${app.manifest?.appmeta?.displayname ?? ""}`.toLowerCase().includes(normalizedQuery)
+          )
         : apps;
     const allLaunchables = [
         ...desktopApps.map((app) => ({ kind: "desktop" as const, id: `desktop:${app.appid}`, label: app.name, app })),
-        ...apps.map((app) => ({ kind: "wave" as const, id: `wave:${app.appid}`, label: app.appid.replace(/^local\//, ""), app })),
+        ...apps.map((app) => ({
+            kind: "wave" as const,
+            id: `wave:${app.appid}`,
+            label: app.appid.replace(/^local\//, ""),
+            app,
+        })),
     ];
     const recentLaunchables = recentIds
         .map((id) => allLaunchables.find((item) => item.id === id))
         .filter(Boolean)
         .slice(0, 8);
-    const gridSize = calculateGridSize(Math.max(filteredApps.length, filteredDesktopApps.length, recentLaunchables.length));
+    const gridSize = calculateGridSize(
+        Math.max(filteredApps.length, filteredDesktopApps.length, recentLaunchables.length)
+    );
 
     const renderIcon = (icon: string | undefined, fallback: string, color?: string) => {
         if (icon?.startsWith("data:") || icon?.startsWith("file:") || icon?.startsWith("http")) {
@@ -341,7 +345,9 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
         };
         Promise.resolve(env.createBlock(blockDef)).then((blockId) => {
             if (blockId) {
-                window.dispatchEvent(new CustomEvent(AppStreamCreatedEvent, { detail: { appName: app.name, blockId } }));
+                window.dispatchEvent(
+                    new CustomEvent(AppStreamCreatedEvent, { detail: { appName: app.name, blockId } })
+                );
             }
         });
         rememberRecent(`desktop:${app.appid}`);
@@ -419,7 +425,11 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
                                                     }
                                                 >
                                                     <div className="text-3xl mb-1 text-accent">
-                                                        {renderIcon(app.icon || app.manifest?.appmeta?.icon, "cube", app.manifest?.appmeta?.iconcolor)}
+                                                        {renderIcon(
+                                                            app.icon || app.manifest?.appmeta?.icon,
+                                                            "cube",
+                                                            app.manifest?.appmeta?.iconcolor
+                                                        )}
                                                     </div>
                                                     <div className="text-xxs text-center text-secondary break-words w-full px-1">
                                                         {item.label}
@@ -537,15 +547,15 @@ const SettingsFloatingWindow = memo(
                 icon: "gear",
                 label: "Settings",
                 hasError: hasConfigErrors,
-                onClick: () => {
-                    const blockDef: BlockDef = {
-                        meta: {
-                            view: "kronsettings",
-                        },
-                    };
-                    env.createBlock(blockDef, false, true);
-                    onClose();
-                },
+                    onClick: () => {
+                        const blockDef: BlockDef = {
+                            meta: {
+                                view: "kronsettings",
+                            },
+                        };
+                        env.createBlock(blockDef, false, true);
+                        onClose();
+                    },
             },
             {
                 icon: "lightbulb",
@@ -699,6 +709,9 @@ const WidgetGroupSection = memo(
         env: WidgetsEnv;
         onToggleFold: () => void;
     }) => {
+        // When folded, render nothing — the group completely disappears from the
+        // sidebar and reclaims all vertical space. Unfold via FoldedWidgetsBar pill.
+        if (isFolded) return null;
         return (
             <div className="widget-group-section">
                 <WidgetGroupHeader
@@ -708,12 +721,7 @@ const WidgetGroupSection = memo(
                     onToggleFold={onToggleFold}
                     mode={mode}
                 />
-                <div
-                    className={clsx("widget-group-items overflow-hidden transition-all duration-200", {
-                        "max-h-0 opacity-0": isFolded,
-                        "max-h-[2000px] opacity-100": !isFolded,
-                    })}
-                >
+                <div className="widget-group-items overflow-hidden transition-all duration-200 max-h-[2000px] opacity-100">
                     {mode === "supercompact" ? (
                         <div className="grid grid-cols-2 gap-0 w-full">
                             {widgets.map((data, idx) => (
@@ -732,14 +740,13 @@ const WidgetGroupSection = memo(
 );
 WidgetGroupSection.displayName = "WidgetGroupSection";
 
-const Widgets = memo(() => {
+const Widgets = memo(({ position = "right", compact = false }: { position?: "left" | "right"; compact?: boolean }) => {
     const env = useWaveEnv<WidgetsEnv>();
     const fullConfig = useAtomValue(env.atoms.fullConfigAtom);
     const hasConfigErrors = useAtomValue(env.atoms.hasConfigErrors);
     const workspaceId = useAtomValue(env.atoms.workspaceId);
-    const hasCustomAIPresets = useAtomValue(env.atoms.hasCustomAIPresetsAtom);
     const [mode, setMode] = useState<"normal" | "compact" | "supercompact">("normal");
-    const [foldState, setFoldState] = useState<Record<string, boolean>>(() => loadFoldState());
+    const [foldState, setFoldState] = useAtom(widgetFoldStateAtom);
     const containerRef = useRef<HTMLDivElement>(null);
     const measurementRef = useRef<HTMLDivElement>(null);
 
@@ -747,9 +754,6 @@ const Widgets = memo(() => {
     const widgetsMap = fullConfig?.widgets ?? {};
     const filteredWidgets = Object.fromEntries(
         Object.entries(widgetsMap).filter(([key, widget]) => {
-            if (!hasCustomAIPresets && key === "defwidget@ai") {
-                return false;
-            }
             return shouldIncludeWidgetForWorkspace(widget, workspaceId);
         })
     );
@@ -825,34 +829,35 @@ const Widgets = memo(() => {
             {
                 label: "Expand All Groups",
                 click: () => {
-                    const expanded: Record<string, boolean> = {};
-                    saveFoldState(expanded);
-                    setFoldState(expanded);
+                    setFoldState(updateFoldState(foldState, () => ({})));
                 },
             },
             {
                 label: "Collapse All Groups",
                 click: () => {
-                    const collapsed: Record<string, boolean> = {};
                     const grouped = groupWidgets(widgets);
-                    for (const key of grouped.keys()) {
-                        collapsed[key] = true;
-                    }
-                    saveFoldState(collapsed);
-                    setFoldState(collapsed);
+                    const keys = Array.from(grouped.keys());
+                    setFoldState(
+                        updateFoldState(foldState, () => {
+                            const collapsed: Record<string, boolean> = {};
+                            for (const key of keys) {
+                                collapsed[key] = true;
+                            }
+                            return collapsed;
+                        })
+                    );
                 },
             },
         ];
         env.showContextMenu(menu, e);
     };
 
-    const toggleGroupFold = useCallback((groupKey: string) => {
-        setFoldState((prev) => {
-            const next = { ...prev, [groupKey]: !prev[groupKey] };
-            saveFoldState(next);
-            return next;
-        });
-    }, []);
+    const toggleGroupFold = useCallback(
+        (groupKey: string) => {
+            setFoldState(updateFoldState(foldState, (prev) => ({ ...prev, [groupKey]: !prev[groupKey] })));
+        },
+        [foldState]
+    );
 
     const groupedWidgets = groupWidgets(widgets);
     const sortedGroupKeys = Array.from(groupedWidgets.keys()).sort((a, b) => {
@@ -861,11 +866,88 @@ const Widgets = memo(() => {
         return aOrder - bOrder;
     });
 
+    // Compact mode: vertical column at bottom of sidebar, no labels
+    if (compact) {
+        return (
+            <>
+                <div
+                    ref={containerRef}
+                    className="widget-rail-compact flex flex-col items-center justify-center gap-1 px-2 py-2 border-t border-border/30 shrink-0"
+                    onContextMenu={handleWidgetsBarContextMenu}
+                >
+                    {widgets?.map((widget, idx) => (
+                        <Tooltip
+                            key={`compact-widget-${idx}`}
+                            content={widget.description || widget.label}
+                            placement="right"
+                            disable={false}
+                            divClassName="widget-rail-compact-item"
+                            divOnClick={() => handleWidgetSelect(widget, env)}
+                        >
+                            <div style={{ color: widget.color }} className="text-sm">
+                                <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
+                            </div>
+                        </Tooltip>
+                    ))}
+                    {(env.isDev() || featureWaveAppBuilder) && (
+                        <button
+                            type="button"
+                            ref={appsButtonRef}
+                            className="widget-rail-compact-item"
+                            onClick={() => setIsAppsOpen(!isAppsOpen)}
+                            aria-label="Local WaveApps"
+                        >
+                            <Tooltip content="Local WaveApps" placement="right" disable={isAppsOpen}>
+                                <Boxes className="widget-rail-compact-icon" />
+                            </Tooltip>
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        ref={settingsButtonRef}
+                        className="widget-rail-compact-item"
+                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                        aria-label="Settings and help"
+                    >
+                        <Tooltip
+                            content={<SettingsTooltipContent hasConfigErrors={hasConfigErrors} />}
+                            placement="right"
+                            disable={isSettingsOpen}
+                        >
+                            <div className="relative">
+                                <Settings className="widget-rail-compact-icon" />
+                                {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
+                            </div>
+                        </Tooltip>
+                    </button>
+                </div>
+                {(env.isDev() || featureWaveAppBuilder) && appsButtonRef.current && (
+                    <AppsFloatingWindow
+                        isOpen={isAppsOpen}
+                        onClose={() => setIsAppsOpen(false)}
+                        referenceElement={appsButtonRef.current}
+                    />
+                )}
+                {settingsButtonRef.current && (
+                    <SettingsFloatingWindow
+                        isOpen={isSettingsOpen}
+                        onClose={() => setIsSettingsOpen(false)}
+                        referenceElement={settingsButtonRef.current}
+                        hasConfigErrors={hasConfigErrors}
+                    />
+                )}
+            </>
+        );
+    }
+
     return (
         <>
             <div
                 ref={containerRef}
-                className="widget-rail flex flex-col w-12 overflow-hidden py-1 -ml-1 select-none shrink-0"
+                className={clsx(
+                    "widget-rail flex flex-col w-12 overflow-hidden py-1 select-none shrink-0",
+                    position === "left" ? "widget-rail-left -mr-1" : "widget-rail-right -ml-1"
+                )}
                 onContextMenu={handleWidgetsBarContextMenu}
             >
                 {mode === "supercompact" ? (
@@ -1014,7 +1096,10 @@ const Widgets = memo(() => {
 
             <div
                 ref={measurementRef}
-                className="flex flex-col w-12 py-1 -ml-1 select-none absolute -z-10 opacity-0 pointer-events-none"
+                className={clsx(
+                    "flex flex-col w-12 py-1 select-none absolute -z-10 opacity-0 pointer-events-none",
+                    position === "left" ? "widget-rail-left -mr-1" : "widget-rail-right -ml-1"
+                )}
             >
                 {widgets?.map((data, idx) => (
                     <Widget key={`measurement-widget-${idx}`} widget={data} mode="normal" env={env} />

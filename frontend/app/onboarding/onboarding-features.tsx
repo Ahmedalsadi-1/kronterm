@@ -11,13 +11,24 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { isMacOS } from "@/util/platformutil";
 import { useEffect, useState } from "react";
 import { FakeChat } from "./fakechat";
+import { AppsPage } from "./onboarding-apps";
+import { CanvasPage } from "./onboarding-canvas";
 import { EditBashrcCommand, ViewLogoCommand, ViewShortcutsCommand } from "./onboarding-command";
-import { CurrentOnboardingVersion } from "./onboarding-common";
+import { CurrentOnboardingVersion, FeatureBadge, FeatureBullet, FeaturePageLayout } from "./onboarding-common";
 import { DurableSessionPage } from "./onboarding-durable";
 import { OnboardingFooter } from "./onboarding-features-footer";
 import { FakeLayout } from "./onboarding-layout";
+import { SandboxPage } from "./onboarding-sandbox";
 
-type FeaturePageName = "waveai" | "durable" | "magnify" | "files";
+type FeaturePageName = "waveai" | "durable" | "canvas" | "magnify" | "files" | "sandbox" | "apps";
+
+const TOTAL_STEPS = 7;
+
+const PAGE_ORDER: FeaturePageName[] = ["waveai", "durable", "canvas", "magnify", "files", "sandbox", "apps"];
+
+function getPageStep(page: FeaturePageName): number {
+    return PAGE_ORDER.indexOf(page) + 1;
+}
 
 export const WaveAIPage = ({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) => {
     const isMac = isMacOS();
@@ -45,63 +56,53 @@ export const WaveAIPage = ({ onNext, onSkip }: { onNext: () => void; onSkip: () 
                 </div>
                 <div className="text-[25px] font-normal text-foreground">KronosCode</div>
             </header>
-            <div className="flex-1 flex flex-row gap-0 min-h-0">
-                <div className="flex-1 flex flex-col items-center justify-center gap-8 pr-6 unselectable">
-                    <div className="flex flex-col items-start gap-6 max-w-md">
-                        <div className="flex h-[52px] px-3 items-center rounded-lg bg-hover text-accent text-[24px]">
-                            <i className="fa fa-sparkles" />
-                            <span className="font-bold ml-2 font-mono">AI</span>
-                        </div>
-
-                        <div className="flex flex-col items-start gap-4 text-secondary">
-                            <p>
-                                KronosCode is your terminal assistant with context. I can read your terminal output,
-                                analyze widgets, read/write files, and help you solve problems faster.
-                            </p>
-
-                            <div className="flex items-start gap-3 w-full">
-                                <i className="fa fa-sparkles text-accent text-lg mt-1 flex-shrink-0" />
-                                <p>
-                                    Toggle the KronosCode panel with the{" "}
-                                    <span className="inline-flex h-[26px] px-1.5 items-center rounded-md box-border bg-hover text-accent text-[12px] align-middle">
-                                        <i className="fa fa-sparkles" />
-                                        <span className="font-bold ml-1 font-mono">AI</span>
-                                    </span>{" "}
-                                    button in the header (top left)
-                                </p>
-                            </div>
-
-                            <div className="flex items-start gap-3 w-full">
-                                <i className="fa fa-keyboard text-accent text-lg mt-1 flex-shrink-0" />
-                                <p>
-                                    Or use the keyboard shortcut{" "}
-                                    <span className="font-mono font-semibold text-foreground whitespace-nowrap">
-                                        {shortcutKey}
-                                    </span>{" "}
-                                    to quickly toggle
-                                </p>
-                            </div>
-
-                            <div className="flex items-start gap-3 w-full">
-                                <i className="fa fa-key text-accent text-lg mt-1 flex-shrink-0" />
-                                <p>
-                                    Bring your own API keys or run local models with Ollama, LM Studio, and other
-                                    OpenAI-compatible providers
-                                </p>
-                            </div>
-
-                            <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
-                        </div>
-                    </div>
-                </div>
-                <div className="w-[2px] bg-border flex-shrink-0"></div>
-                <div className="flex items-center justify-center pl-6 flex-shrink-0 w-[400px]">
-                    <div className="w-full h-[400px] bg-background rounded border border-border/50 overflow-hidden">
+            <FeaturePageLayout
+                title="KronosCode"
+                demo={
+                    <div className="w-full h-[400px] bg-background rounded-xl border border-border/50 overflow-hidden">
                         <FakeChat />
                     </div>
+                }
+            >
+                <FeatureBadge icon="fa fa-sparkles">
+                    <span className="font-mono">AI Assistant</span>
+                </FeatureBadge>
+
+                <div className="flex flex-col items-start gap-4 text-secondary">
+                    <p>
+                        KronosCode is your terminal assistant with context. I can read your terminal output, analyze
+                        widgets, read/write files, and help you solve problems faster.
+                    </p>
                 </div>
-            </div>
-            <OnboardingFooter currentStep={1} totalSteps={4} onNext={onNext} onSkip={onSkip} />
+
+                <FeatureBullet icon="fa fa-sparkles">
+                    Toggle the KronosCode panel with the{" "}
+                    <span className="inline-flex h-[22px] px-1.5 items-center rounded-md box-border bg-surface-hover text-accent text-[11px] align-middle">
+                        <i className="fa fa-sparkles" />
+                        <span className="font-bold ml-1 font-mono">AI</span>
+                    </span>{" "}
+                    button in the header (top left)
+                </FeatureBullet>
+
+                <FeatureBullet icon="fa fa-keyboard">
+                    Or use{" "}
+                    <span className="font-mono font-semibold text-foreground whitespace-nowrap">{shortcutKey}</span> to
+                    quickly toggle
+                </FeatureBullet>
+
+                <FeatureBullet icon="fa fa-key">
+                    Bring your own API keys or run local models with Ollama, LM Studio, and other OpenAI-compatible
+                    providers
+                </FeatureBullet>
+
+                <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
+            </FeaturePageLayout>
+            <OnboardingFooter
+                currentStep={getPageStep("waveai")}
+                totalSteps={TOTAL_STEPS}
+                onNext={onNext}
+                onSkip={onSkip}
+            />
         </div>
     );
 };
@@ -140,39 +141,52 @@ export const MagnifyBlocksPage = ({
                 </div>
                 <div className="text-[25px] font-normal text-foreground">Magnify Blocks</div>
             </header>
-            <div className="flex-1 flex flex-row gap-0 min-h-0">
-                <div className="flex-1 flex flex-col items-center justify-center gap-8 pr-6 unselectable">
-                    <div className="text-6xl font-semibold text-foreground">{shortcutKey}-M</div>
-                    <div className="flex flex-col items-start gap-4 text-secondary max-w-md">
-                        <p>
-                            Magnify any block to focus on what matters. Expand terminals, editors, and previews for a
-                            better view.
-                        </p>
-                        <p>Use the magnify feature to work with complex outputs and large files more efficiently.</p>
-                        <div>
-                            You can also magnify a block by clicking on the{" "}
-                            <span className="inline-block align-middle [&_svg_path]:!fill-foreground">
-                                <MagnifyIcon enabled={false} />
-                            </span>{" "}
-                            icon in the block header.
-                        </div>
-                        <p>
-                            A quick {shortcutKey}-M to magnify and another {shortcutKey}-M to unmagnify
-                        </p>
-                        <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
-                    </div>
+            <FeaturePageLayout title="Magnify Blocks" demo={<FakeLayout />}>
+                <div className="text-5xl font-semibold text-foreground tracking-tight">{shortcutKey}-M</div>
+
+                <FeatureBadge icon="fa-solid fa-up-right-and-down-left-from-center">Focus on What Matters</FeatureBadge>
+
+                <div className="flex flex-col items-start gap-4 text-secondary">
+                    <p>
+                        Magnify any block to focus on what matters. Expand terminals, editors, and previews for a better
+                        view.
+                    </p>
                 </div>
-                <div className="w-[2px] bg-border flex-shrink-0"></div>
-                <div className="flex items-center justify-center pl-6 flex-shrink-0 w-[400px]">
-                    <FakeLayout />
-                </div>
-            </div>
-            <OnboardingFooter currentStep={3} totalSteps={4} onNext={onNext} onPrev={onPrev} onSkip={onSkip} />
+
+                <FeatureBullet icon="fa-solid fa-maximize">
+                    Click the{" "}
+                    <span className="inline-block align-middle [&_svg_path]:!fill-foreground">
+                        <MagnifyIcon enabled={false} />
+                    </span>{" "}
+                    icon in the block header, or press {shortcutKey}-M to toggle
+                </FeatureBullet>
+
+                <FeatureBullet icon="fa-solid fa-arrows-to-dot">
+                    Works with terminals, editors, previews, and any other block type
+                </FeatureBullet>
+
+                <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
+            </FeaturePageLayout>
+            <OnboardingFooter
+                currentStep={getPageStep("magnify")}
+                totalSteps={TOTAL_STEPS}
+                onNext={onNext}
+                onPrev={onPrev}
+                onSkip={onSkip}
+            />
         </div>
     );
 };
 
-export const FilesPage = ({ onFinish, onPrev }: { onFinish: () => void; onPrev?: () => void }) => {
+export const FilesPage = ({
+    onNext,
+    onSkip,
+    onPrev,
+}: {
+    onNext: () => void;
+    onSkip: () => void;
+    onPrev?: () => void;
+}) => {
     const [fireClicked, setFireClicked] = useState(false);
     const isMac = isMacOS();
     const [commandIndex, setCommandIndex] = useState(0);
@@ -208,58 +222,45 @@ export const FilesPage = ({ onFinish, onPrev }: { onFinish: () => void; onPrev?:
                 <div>
                     <Logo />
                 </div>
-                <div className="text-[25px] font-normal text-foreground">Viewing/Editing Files</div>
+                <div className="text-[25px] font-normal text-foreground">Viewing & Editing Files</div>
             </header>
-            <div className="flex-1 flex flex-row gap-0 min-h-0">
-                <div className="flex-1 flex flex-col items-center justify-center gap-8 pr-6 unselectable">
-                    <div className="flex flex-col items-start gap-6 max-w-md">
-                        <div className="flex flex-col items-start gap-4 text-secondary">
-                            <p>
-                                Wave can preview markdown, images, and video files on both local <i>and remote</i>{" "}
-                                machines.
-                            </p>
+            <FeaturePageLayout
+                title="Viewing & Editing Files"
+                demo={<div className="w-full">{commands[commandIndex](handleCommandComplete)}</div>}
+            >
+                <FeatureBadge icon="fa-solid fa-file-pen" iconColor="text-purple-400">
+                    Built-in Viewer & Editor
+                </FeatureBadge>
 
-                            <div className="flex items-start gap-3 w-full">
-                                <i className="fa fa-eye text-accent text-lg mt-1 flex-shrink-0" />
-                                <div>
-                                    <p className="mb-2">
-                                        Use{" "}
-                                        <span className="font-mono font-semibold text-foreground">
-                                            wsh view [filename]
-                                        </span>{" "}
-                                        to preview files in Wave's graphical viewer
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3 w-full">
-                                <i className="fa fa-pen-to-square text-accent text-lg mt-1 flex-shrink-0" />
-                                <div>
-                                    <p className="mb-2">
-                                        Use{" "}
-                                        <span className="font-mono font-semibold text-foreground">
-                                            wsh edit [filename]
-                                        </span>{" "}
-                                        to open config files or code files in Wave's graphical editor
-                                    </p>
-                                </div>
-                            </div>
-
-                            <p>
-                                These commands work seamlessly on both local and remote machines, making it easy to view
-                                and edit files wherever they are.
-                            </p>
-
-                            <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
-                        </div>
-                    </div>
+                <div className="flex flex-col items-start gap-4 text-secondary">
+                    <p>
+                        KronTerm can preview markdown, images, and video files on both local <i>and remote</i> machines.
+                    </p>
                 </div>
-                <div className="w-[2px] bg-border flex-shrink-0"></div>
-                <div className="flex items-center justify-center pl-6 flex-shrink-0 w-[400px]">
-                    {commands[commandIndex](handleCommandComplete)}
-                </div>
-            </div>
-            <OnboardingFooter currentStep={4} totalSteps={4} onNext={onFinish} onPrev={onPrev} />
+
+                <FeatureBullet icon="fa fa-eye">
+                    <span className="font-mono font-semibold text-foreground">wsh view [filename]</span> — preview files
+                    in KronTerm's graphical viewer
+                </FeatureBullet>
+
+                <FeatureBullet icon="fa fa-pen-to-square">
+                    <span className="font-mono font-semibold text-foreground">wsh edit [filename]</span> — open config
+                    files or code in KronTerm's graphical editor
+                </FeatureBullet>
+
+                <p className="text-secondary leading-relaxed italic">
+                    Works seamlessly on both local and remote machines.
+                </p>
+
+                <EmojiButton emoji="🔥" isClicked={fireClicked} onClick={handleFireClick} />
+            </FeaturePageLayout>
+            <OnboardingFooter
+                currentStep={getPageStep("files")}
+                totalSteps={TOTAL_STEPS}
+                onNext={onNext}
+                onPrev={onPrev}
+                onSkip={onSkip}
+            />
         </div>
     );
 };
@@ -281,23 +282,17 @@ export const OnboardingFeatures = ({ onComplete }: { onComplete: () => void }) =
         });
     }, []);
 
+    const currentIndex = PAGE_ORDER.indexOf(currentPage);
+
     const handleNext = () => {
-        if (currentPage === "waveai") {
-            setCurrentPage("durable");
-        } else if (currentPage === "durable") {
-            setCurrentPage("magnify");
-        } else if (currentPage === "magnify") {
-            setCurrentPage("files");
+        if (currentIndex < PAGE_ORDER.length - 1) {
+            setCurrentPage(PAGE_ORDER[currentIndex + 1]);
         }
     };
 
     const handlePrev = () => {
-        if (currentPage === "durable") {
-            setCurrentPage("waveai");
-        } else if (currentPage === "magnify") {
-            setCurrentPage("durable");
-        } else if (currentPage === "files") {
-            setCurrentPage("magnify");
+        if (currentIndex > 0) {
+            setCurrentPage(PAGE_ORDER[currentIndex - 1]);
         }
     };
 
@@ -319,13 +314,53 @@ export const OnboardingFeatures = ({ onComplete }: { onComplete: () => void }) =
             pageComp = <WaveAIPage onNext={handleNext} onSkip={handleSkip} />;
             break;
         case "durable":
-            pageComp = <DurableSessionPage onNext={handleNext} onSkip={handleSkip} onPrev={handlePrev} />;
+            pageComp = (
+                <DurableSessionPage
+                    onNext={handleNext}
+                    onSkip={handleSkip}
+                    onPrev={handlePrev}
+                    currentStep={getPageStep("durable")}
+                    totalSteps={TOTAL_STEPS}
+                />
+            );
+            break;
+        case "canvas":
+            pageComp = (
+                <CanvasPage
+                    onNext={handleNext}
+                    onSkip={handleSkip}
+                    onPrev={handlePrev}
+                    currentStep={getPageStep("canvas")}
+                    totalSteps={TOTAL_STEPS}
+                />
+            );
             break;
         case "magnify":
             pageComp = <MagnifyBlocksPage onNext={handleNext} onSkip={handleSkip} onPrev={handlePrev} />;
             break;
         case "files":
-            pageComp = <FilesPage onFinish={handleFinish} onPrev={handlePrev} />;
+            pageComp = <FilesPage onNext={handleNext} onSkip={handleSkip} onPrev={handlePrev} />;
+            break;
+        case "sandbox":
+            pageComp = (
+                <SandboxPage
+                    onNext={handleNext}
+                    onSkip={handleSkip}
+                    onPrev={handlePrev}
+                    currentStep={getPageStep("sandbox")}
+                    totalSteps={TOTAL_STEPS}
+                />
+            );
+            break;
+        case "apps":
+            pageComp = (
+                <AppsPage
+                    onFinish={handleFinish}
+                    onPrev={handlePrev}
+                    currentStep={getPageStep("apps")}
+                    totalSteps={TOTAL_STEPS}
+                />
+            );
             break;
     }
 

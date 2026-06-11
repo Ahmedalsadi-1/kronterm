@@ -1,7 +1,11 @@
 import { cn } from "@/util/util";
 import { memo, useEffect, useRef, useState } from "react";
-import { isAgentActivityActive, type AgentActivityPhase } from "../../types/agent-activity";
-import { AgentSurfaceUiActivityEvent, type LiveAgentSurfaceActivity } from "./desktop-pet-activity";
+import {
+    isAgentActivityActive,
+    subscribeAgentActivityStream,
+    type AgentActivityPhase,
+    type LiveAgentSurfaceActivity,
+} from "../../types/agent-activity";
 import { WaveAIModel } from "./waveai-model";
 
 const TerminalPhaseDisplayMs = 2400;
@@ -23,8 +27,7 @@ export const AgentRunStrip = memo(({ onInspect }: { onInspect: () => void }) => 
     const clearTimer = useRef<number>(null);
 
     useEffect(() => {
-        const handleActivity = (event: Event) => {
-            const nextActivity = (event as CustomEvent<LiveAgentSurfaceActivity>).detail;
+        const unsubscribe = subscribeAgentActivityStream((nextActivity) => {
             setActivity(nextActivity);
             if (clearTimer.current != null) {
                 window.clearTimeout(clearTimer.current);
@@ -33,10 +36,9 @@ export const AgentRunStrip = memo(({ onInspect }: { onInspect: () => void }) => 
             if (!isAgentActivityActive(nextActivity.phase)) {
                 clearTimer.current = window.setTimeout(() => setActivity(null), TerminalPhaseDisplayMs);
             }
-        };
-        window.addEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+        });
         return () => {
-            window.removeEventListener(AgentSurfaceUiActivityEvent, handleActivity);
+            unsubscribe();
             if (clearTimer.current != null) {
                 window.clearTimeout(clearTimer.current);
             }

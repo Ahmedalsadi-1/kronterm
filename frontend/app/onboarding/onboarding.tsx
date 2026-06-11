@@ -61,9 +61,6 @@ const InitPage = ({
         if (!clientData?.tosagreed) {
             fireAndForget(() => services.ClientService.AgreeTos());
         }
-        if (telemetryEnabled) {
-            WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
-        }
         setPageName(telemetryEnabled ? "features" : "notelemetrystar");
     };
 
@@ -144,7 +141,7 @@ const InitPage = ({
                                     rel="noopener"
                                     className="text-accent"
                                 >
-                                    Join the Wave&nbsp;Discord&nbsp;Channel
+                                    Join the KronTerm&nbsp;Discord&nbsp;Channel
                                 </a>
                             </div>
                         </div>
@@ -244,8 +241,8 @@ const NoTelemetryStarPage = ({ isCompact }: { isCompact: boolean }) => {
                     <div className="text-center text-secondary leading-relaxed max-w-md">
                         <p className="mb-4">No problem, we respect your privacy.</p>
                         <p className="mb-4">
-                            But, without usage data, we're flying blind. A GitHub star helps us know Wave is useful and
-                            worth maintaining.
+                            But, without usage data, we're flying blind. A GitHub star helps us know KronTerm is useful
+                            and worth maintaining.
                         </p>
                     </div>
                 </div>
@@ -325,7 +322,12 @@ const NewInstallOnboardingModal = () => {
     let pageComp: React.JSX.Element = null;
     switch (pageName) {
         case "init":
-            pageComp = <InitPage isCompact={isCompact} telemetryUpdateFn={(value) => services.ClientService.TelemetryUpdate(value)} />;
+            pageComp = (
+                <InitPage
+                    isCompact={isCompact}
+                    telemetryUpdateFn={(value) => services.ClientService.TelemetryUpdate(value)}
+                />
+            );
             break;
         case "notelemetrystar":
             pageComp = <NoTelemetryStarPage isCompact={isCompact} />;
@@ -339,7 +341,7 @@ const NewInstallOnboardingModal = () => {
     }
 
     const paddingClass = isCompact ? "!py-3 !px-[30px]" : "!p-[30px]";
-    const widthClass = pageName === "features" ? "w-[800px]" : "w-[560px]";
+    const widthClass = pageName === "features" ? "w-[860px]" : "w-[560px]";
 
     return (
         <FlexiModal className={`${widthClass} rounded-[10px] ${paddingClass} relative overflow-hidden`} ref={modalRef}>

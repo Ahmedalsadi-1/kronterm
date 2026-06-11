@@ -3,7 +3,7 @@ name: create-view
 description: Guide for implementing a new view type in Wave Terminal. Use when creating a new view component, implementing the ViewModel interface, registering a new view type in BlockRegistry, or adding a new content type to display within blocks.
 ---
 
-# Creating a New View in Wave Terminal
+# create-view
 
 This guide explains how to implement a new view type in Wave Terminal. Views are the core content components displayed within blocks in the terminal interface.
 

@@ -53,4 +53,23 @@ describe("ACP composer suggestions", () => {
         expect(runtimeSuggestions[1].available).toBe(false);
         expect(fileSuggestions.map((item) => item.label)).toEqual(["session.ts"]);
     });
+
+    it("includes open widget mentions", () => {
+        const widgetSuggestions = getComposerSuggestions("mentions", "term", {}, {}, agents, [], "widgets", [
+            {
+                id: "12345678-aaaa-bbbb-cccc-123456789abc",
+                label: "term:12345678",
+                viewType: "term",
+                title: "Shell",
+            },
+        ]);
+
+        expect(widgetSuggestions).toMatchObject([
+            {
+                kind: "widget",
+                label: "term:12345678",
+                badge: "term",
+            },
+        ]);
+    });
 });

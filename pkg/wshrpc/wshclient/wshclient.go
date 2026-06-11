@@ -17,6 +17,12 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wshutil"
 )
 
+// command "activatewindow", wshserver.ActivateWindowCommand
+func ActivateWindowCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "activatewindow", data, opts)
+	return err
+}
+
 // command "activity", wshserver.ActivityCommand
 func ActivityCommand(w *wshutil.WshRpc, data wshrpc.ActivityUpdate, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "activity", data, opts)
@@ -107,10 +113,118 @@ func BlocksListCommand(w *wshutil.WshRpc, data wshrpc.BlocksListRequest, opts *w
 	return resp, err
 }
 
+// command "bookmarkcreate", wshserver.BookmarkCreateCommand
+func BookmarkCreateCommand(w *wshutil.WshRpc, data wshrpc.BookmarkCreateData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "bookmarkcreate", data, opts)
+	return err
+}
+
+// command "bookmarklist", wshserver.BookmarkListCommand
+func BookmarkListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (map[string]wconfig.WebBookmark, error) {
+	resp, err := sendRpcRequestCallHelper[map[string]wconfig.WebBookmark](w, "bookmarklist", nil, opts)
+	return resp, err
+}
+
+// command "bookmarkmove", wshserver.BookmarkMoveCommand
+func BookmarkMoveCommand(w *wshutil.WshRpc, data wshrpc.BookmarkMoveData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "bookmarkmove", data, opts)
+	return err
+}
+
+// command "bookmarkremove", wshserver.BookmarkRemoveCommand
+func BookmarkRemoveCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "bookmarkremove", data, opts)
+	return err
+}
+
+// command "bookmarksearch", wshserver.BookmarkSearchCommand
+func BookmarkSearchCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) ([]wshrpc.BookmarkSearchResult, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.BookmarkSearchResult](w, "bookmarksearch", data, opts)
+	return resp, err
+}
+
+// command "bookmarkupdate", wshserver.BookmarkUpdateCommand
+func BookmarkUpdateCommand(w *wshutil.WshRpc, data wshrpc.BookmarkUpdateData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "bookmarkupdate", data, opts)
+	return err
+}
+
+// command "browserosinfo", wshserver.BrowserOSInfoCommand
+func BrowserOSInfoCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.BrowserOSInfo, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.BrowserOSInfo](w, "browserosinfo", nil, opts)
+	return resp, err
+}
+
+// command "canvasassetupload", wshserver.CanvasAssetUploadCommand
+func CanvasAssetUploadCommand(w *wshutil.WshRpc, data wshrpc.CanvasAssetUploadRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasAssetUploadResponse, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasAssetUploadResponse](w, "canvasassetupload", data, opts)
+	return resp, err
+}
+
+// command "canvasconnectnodes", wshserver.CanvasConnectNodesCommand
+func CanvasConnectNodesCommand(w *wshutil.WshRpc, data wshrpc.CanvasConnectNodesRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasEdge, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasEdge](w, "canvasconnectnodes", data, opts)
+	return resp, err
+}
+
+// command "canvascreatenode", wshserver.CanvasCreateNodeCommand
+func CanvasCreateNodeCommand(w *wshutil.WshRpc, data wshrpc.CanvasNodeMutationRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasNode, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasNode](w, "canvascreatenode", data, opts)
+	return resp, err
+}
+
+// command "canvasdeletenode", wshserver.CanvasDeleteNodeCommand
+func CanvasDeleteNodeCommand(w *wshutil.WshRpc, data wshrpc.CanvasNodeIdRequest, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "canvasdeletenode", data, opts)
+	return err
+}
+
+// command "canvaslaunchnode", wshserver.CanvasLaunchNodeCommand
+func CanvasLaunchNodeCommand(w *wshutil.WshRpc, data wshrpc.CanvasLaunchNodeRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasLaunchNodeResponse, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasLaunchNodeResponse](w, "canvaslaunchnode", data, opts)
+	return resp, err
+}
+
+// command "canvasload", wshserver.CanvasLoadCommand
+func CanvasLoadCommand(w *wshutil.WshRpc, data wshrpc.CanvasLoadRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasLoadResponse, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasLoadResponse](w, "canvasload", data, opts)
+	return resp, err
+}
+
+// command "canvassave", wshserver.CanvasSaveCommand
+func CanvasSaveCommand(w *wshutil.WshRpc, data wshrpc.CanvasSaveRequest, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "canvassave", data, opts)
+	return err
+}
+
+// command "canvassnapshot", wshserver.CanvasSnapshotCommand
+func CanvasSnapshotCommand(w *wshutil.WshRpc, data wshrpc.CanvasSnapshotRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasSnapshotResponse, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasSnapshotResponse](w, "canvassnapshot", data, opts)
+	return resp, err
+}
+
+// command "canvasupdatenode", wshserver.CanvasUpdateNodeCommand
+func CanvasUpdateNodeCommand(w *wshutil.WshRpc, data wshrpc.CanvasNodeMutationRequest, opts *wshrpc.RpcOpts) (*wshrpc.CanvasNode, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CanvasNode](w, "canvasupdatenode", data, opts)
+	return resp, err
+}
+
 // command "captureblockscreenshot", wshserver.CaptureBlockScreenshotCommand
 func CaptureBlockScreenshotCommand(w *wshutil.WshRpc, data wshrpc.CommandCaptureBlockScreenshotData, opts *wshrpc.RpcOpts) (string, error) {
 	resp, err := sendRpcRequestCallHelper[string](w, "captureblockscreenshot", data, opts)
 	return resp, err
+}
+
+// command "closetabgroup", wshserver.CloseTabGroupCommand
+func CloseTabGroupCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "closetabgroup", data, opts)
+	return err
+}
+
+// command "closewindow", wshserver.CloseWindowCommand
+func CloseWindowCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "closewindow", data, opts)
+	return err
 }
 
 // command "connconnect", wshserver.ConnConnectCommand
@@ -206,6 +320,12 @@ func CreateSubBlockCommand(w *wshutil.WshRpc, data wshrpc.CommandCreateSubBlockD
 // command "createsurfacetoken", wshserver.CreateSurfaceTokenCommand
 func CreateSurfaceTokenCommand(w *wshutil.WshRpc, data wshrpc.CommandCreateSurfaceTokenData, opts *wshrpc.RpcOpts) (*wshrpc.CommandCreateSurfaceTokenRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandCreateSurfaceTokenRtnData](w, "createsurfacetoken", data, opts)
+	return resp, err
+}
+
+// command "createwindow", wshserver.CreateWindowCommand
+func CreateWindowCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "createwindow", nil, opts)
 	return resp, err
 }
 
@@ -510,6 +630,36 @@ func GetWaveAIModeConfigCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (wconfi
 // command "getwaveairatelimit", wshserver.GetWaveAIRateLimitCommand
 func GetWaveAIRateLimitCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*uctypes.RateLimitInfo, error) {
 	resp, err := sendRpcRequestCallHelper[*uctypes.RateLimitInfo](w, "getwaveairatelimit", nil, opts)
+	return resp, err
+}
+
+// command "grouptabs", wshserver.GroupTabsCommand
+func GroupTabsCommand(w *wshutil.WshRpc, data wshrpc.GroupTabsData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "grouptabs", data, opts)
+	return err
+}
+
+// command "historydeleterange", wshserver.HistoryDeleteRangeCommand
+func HistoryDeleteRangeCommand(w *wshutil.WshRpc, data wshrpc.HistoryDeleteRangeData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "historydeleterange", data, opts)
+	return err
+}
+
+// command "historydeleteurl", wshserver.HistoryDeleteUrlCommand
+func HistoryDeleteUrlCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "historydeleteurl", data, opts)
+	return err
+}
+
+// command "historyrecent", wshserver.HistoryRecentCommand
+func HistoryRecentCommand(w *wshutil.WshRpc, data int, opts *wshrpc.RpcOpts) ([]wshrpc.HistoryEntry, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.HistoryEntry](w, "historyrecent", data, opts)
+	return resp, err
+}
+
+// command "historysearch", wshserver.HistorySearchCommand
+func HistorySearchCommand(w *wshutil.WshRpc, data wshrpc.HistorySearchData, opts *wshrpc.RpcOpts) ([]wshrpc.HistoryEntry, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.HistoryEntry](w, "historysearch", data, opts)
 	return resp, err
 }
 
@@ -927,6 +1077,12 @@ func StreamWaveAiCommand(w *wshutil.WshRpc, data wshrpc.WaveAIStreamRequest, opt
 	return sendRpcRequestResponseStreamHelper[wshrpc.WaveAIPacketType](w, "streamwaveai", data, opts)
 }
 
+// command "tabgrouplist", wshserver.TabGroupListCommand
+func TabGroupListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.TabGroupInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.TabGroupInfo](w, "tabgrouplist", nil, opts)
+	return resp, err
+}
+
 // command "termgetscrollbacklines", wshserver.TermGetScrollbackLinesCommand
 func TermGetScrollbackLinesCommand(w *wshutil.WshRpc, data wshrpc.CommandTermGetScrollbackLinesData, opts *wshrpc.RpcOpts) (*wshrpc.CommandTermGetScrollbackLinesRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandTermGetScrollbackLinesRtnData](w, "termgetscrollbacklines", data, opts)
@@ -943,6 +1099,18 @@ func TestCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
 func TestMultiArgCommand(w *wshutil.WshRpc, arg1 string, arg2 int, arg3 bool, opts *wshrpc.RpcOpts) (string, error) {
 	resp, err := sendRpcRequestCallHelper[string](w, "testmultiarg", wshrpc.MultiArg{Args: []any{arg1, arg2, arg3}}, opts)
 	return resp, err
+}
+
+// command "ungrouptabs", wshserver.UngroupTabsCommand
+func UngroupTabsCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "ungrouptabs", data, opts)
+	return err
+}
+
+// command "updatetabgroup", wshserver.UpdateTabGroupCommand
+func UpdateTabGroupCommand(w *wshutil.WshRpc, data wshrpc.UpdateTabGroupData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "updatetabgroup", data, opts)
+	return err
 }
 
 // command "updatetabname", wshserver.UpdateTabNameCommand
@@ -1018,6 +1186,12 @@ func WaveFileReadStreamCommand(w *wshutil.WshRpc, data wshrpc.CommandWaveFileRea
 // command "waveinfo", wshserver.WaveInfoCommand
 func WaveInfoCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.WaveInfoData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.WaveInfoData](w, "waveinfo", nil, opts)
+	return resp, err
+}
+
+// command "webeval", wshserver.WebEvalCommand
+func WebEvalCommand(w *wshutil.WshRpc, data wshrpc.CommandWebEvalData, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "webeval", data, opts)
 	return resp, err
 }
 
@@ -1180,6 +1354,12 @@ func WidgetWaitConditionCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetWait
 // command "widgetwaitforelement", wshserver.WidgetWaitForElementCommand
 func WidgetWaitForElementCommand(w *wshutil.WshRpc, data wshrpc.CommandWidgetWaitForElementData, opts *wshrpc.RpcOpts) (*wshrpc.WidgetWaitForElementRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.WidgetWaitForElementRtnData](w, "widgetwaitforelement", data, opts)
+	return resp, err
+}
+
+// command "windowlist", wshserver.WindowListCommand
+func WindowListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.WindowInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.WindowInfo](w, "windowlist", nil, opts)
 	return resp, err
 }
 

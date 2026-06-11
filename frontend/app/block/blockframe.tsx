@@ -7,11 +7,12 @@ import {
     type AgentWidgetVisualSettings,
     loadAgentWidgetVisualSettings,
 } from "@/app/block/agent-widget-settings";
+import { BlockContextRibbon } from "@/app/block/block-context-ribbon";
 import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
 import { blockViewToIcon, getViewIconElem } from "@/app/block/blockutil";
-import { BlockContextRibbon } from "@/app/block/block-context-ribbon";
 import { ConnStatusOverlay } from "@/app/block/connstatusoverlay";
+import { FlickeringGrid } from "@/app/element/flickering-grid";
 import { ChangeConnectionBlockModal } from "@/app/modals/conntypeahead";
 import { getBlockComponentModel, globalStore, useBlockAtom } from "@/app/store/global";
 import { useTabModel } from "@/app/store/tab-model";
@@ -27,10 +28,9 @@ import { computeBgStyleFromMeta } from "@/util/waveutil";
 import clsx from "clsx";
 import * as jotai from "jotai";
 import * as React from "react";
-import { FlickeringGrid } from "@/app/element/flickering-grid";
+import "./agent-aura.scss";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
-import "./agent-aura.scss";
 import "./typing-keyboard.scss";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
@@ -71,7 +71,7 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     }
 
     if (blockHighlight && !style.borderColor) {
-        style.borderColor = "rgb(59, 130, 246)";
+        style.borderColor = "rgb(0, 155, 255)";
     }
 
     let innerElem = null;
@@ -167,28 +167,12 @@ const AgentWidgetOverlay = React.memo(
               } as React.CSSProperties)
             : undefined;
 
-        const toolIconMap: Record<string, string> = {
-            typing: "⌨️",
-            cursor: "👆",
-            scroll: "📜",
-            browse: "🌐",
-            view: "📷",
-        };
-
-        const cursorClassMap: Record<string, string> = {
-            typing: "cursor-type",
-            cursor: "cursor-click",
-            scroll: "cursor-scroll",
-            browse: "cursor-hover",
-            view: "cursor-click",
-        };
-
         const pointerStyle = settings.pointerStyle ?? "pixel";
-        const gridColor = pointerStyle === "pixel" ? "0, 255, 200" : "99, 102, 241";
+        const gridColor = pointerStyle === "pixel" ? "30, 144, 255" : "99, 102, 241";
 
         const isTyping = activity.action === "typing";
         const typingText = activity.typingText ?? (isTyping ? activity.detail : undefined);
-        const isSmoothCursor = settings.cursor && activity.action !== "view";
+        const isSmoothCursor = settings.cursor;
 
         return (
             <div className="agent-widget-overlay" aria-hidden="true">
@@ -205,13 +189,6 @@ const AgentWidgetOverlay = React.memo(
                         <div className={clsx("agent-widget-aura", `aura-style-${pointerStyle}`)} />
                     </>
                 )}
-                {settings.actionChip && (
-                    <div className="agent-widget-chip">
-                        <span className="agent-widget-dot" />
-                        <span className="agent-tool-icon">{toolIconMap[activity.action] ?? "🤖"}</span>
-                        KronosCode {activity.action}
-                    </div>
-                )}
                 {isSmoothCursor && (
                     <div
                         className={clsx(
@@ -226,9 +203,7 @@ const AgentWidgetOverlay = React.memo(
                         <div className="cursor-dot" />
                     </div>
                 )}
-                {isTyping && typingText && (
-                    <TypingKeyboard text={typingText} />
-                )}
+                {isTyping && typingText && <TypingKeyboard text={typingText} />}
                 {settings.screenshots && activity.previewImageUrl ? (
                     <figure className="agent-capture-preview">
                         <figcaption>Agent screenshot</figcaption>

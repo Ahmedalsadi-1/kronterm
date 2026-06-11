@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Block } from "@/app/block/block";
+import { RpcApi } from "@/app/store/wshclientapi";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { CenteredDiv } from "@/element/quickelems";
 import { ContentRenderer, NodeModel, PreviewRenderer, TileLayout } from "@/layout/index";
 import { TileLayoutContents } from "@/layout/lib/types";
 import { atoms, getApi, getSettingsKeyAtom } from "@/store/global";
-import { RpcApi } from "@/app/store/wshclientapi";
-import { TabRpcClient } from "@/app/store/wshrpcutil";
 import * as services from "@/store/services";
 import * as WOS from "@/store/wos";
 import { atom, useAtomValue } from "jotai";
@@ -44,10 +44,10 @@ function makeDefaultCanvasRect(index: number): CanvasRect {
     const column = index % 2;
     const row = Math.floor(index / 2);
     return {
-        x: 48 + column * 520,
-        y: 48 + row * 360,
-        width: 480,
-        height: 320,
+        x: 80 + column * 1280,
+        y: 80 + row * 980,
+        width: 1200,
+        height: 900,
     };
 }
 
@@ -122,8 +122,8 @@ const CanvasNode = React.memo(
                     const start = resizeStartRef.current;
                     onRectChange(blockId, {
                         ...start.rect,
-                        width: Math.max(280, start.rect.width + (event.clientX - start.x) / zoom),
-                        height: Math.max(180, start.rect.height + (event.clientY - start.y) / zoom),
+                        width: Math.max(400, start.rect.width + (event.clientX - start.x) / zoom),
+                        height: Math.max(300, start.rect.height + (event.clientY - start.y) / zoom),
                     });
                 }
             },
@@ -271,7 +271,10 @@ const CanvasLayout = React.memo(({ tabId, tabData }: { tabId: string; tabData: T
         const maxY = Math.max(...nodeRects.map((rect) => rect.y + rect.height));
         const width = Math.max(1, maxX - minX);
         const height = Math.max(1, maxY - minY);
-        const zoom = Math.min(1.2, Math.max(0.35, Math.min((viewport.width - 160) / width, (viewport.height - 160) / height)));
+        const zoom = Math.min(
+            1.2,
+            Math.max(0.35, Math.min((viewport.width - 160) / width, (viewport.height - 160) / height))
+        );
         setAndPersistCamera({
             zoom,
             x: 80 - minX * zoom,
@@ -339,8 +342,7 @@ const CanvasLayout = React.memo(({ tabId, tabData }: { tabId: string; tabData: T
             <div
                 className="absolute inset-0 opacity-80"
                 style={{
-                    backgroundImage:
-                        "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.12) 1px, transparent 0)",
+                    backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.12) 1px, transparent 0)",
                     backgroundSize: `${24 * camera.zoom}px ${24 * camera.zoom}px`,
                     backgroundPosition: `${camera.x}px ${camera.y}px`,
                 }}
@@ -348,7 +350,9 @@ const CanvasLayout = React.memo(({ tabId, tabData }: { tabId: string; tabData: T
             <div className="absolute left-3 top-3 z-40 inline-flex items-center gap-2 rounded-xl border border-white/12 bg-zinc-950/85 px-3 py-2 text-xs text-white/70 shadow-xl backdrop-blur">
                 <i className="fa-solid fa-vector-square text-accent" />
                 <span className="font-semibold text-white/85">Canvas mode</span>
-                <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[10px]">{Math.round(camera.zoom * 100)}%</span>
+                <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[10px]">
+                    {Math.round(camera.zoom * 100)}%
+                </span>
                 <button
                     type="button"
                     onPointerDown={(event) => event.stopPropagation()}
@@ -480,7 +484,9 @@ const TabContent = React.memo(({ tabId, noTopPadding }: { tabId: string; noTopPa
     }
 
     return (
-        <div className={`flex flex-col flex-grow min-h-0 w-full items-center justify-center overflow-hidden relative ${noTopPadding ? "" : "pt-[3px]"} pr-[3px]`}>
+        <div
+            className={`flex flex-col flex-grow min-h-0 w-full items-center justify-center overflow-hidden relative ${noTopPadding ? "" : "pt-[3px]"} pr-[3px]`}
+        >
             {innerContent}
         </div>
     );

@@ -23,6 +23,7 @@ tasks:
         deps:
             - npm:install
             - build:backend
+            - build:krondesign
             - build:tsunamiscaffold
         env:
             WAVETERM_ENVFILE: "{{.ROOT_DIR}}/.env"
@@ -39,6 +40,7 @@ tasks:
         deps:
             - npm:install
             - build:backend
+            - build:krondesign
         env:
             WAVETERM_ENVFILE: "{{.ROOT_DIR}}/.env"
             WCLOUD_PING_ENDPOINT: "https://ping-dev.waveterm.dev/central"
@@ -654,3 +656,42 @@ tasks:
         desc: Start the Go documentation server for the tsunami module
         cmd: $(go env GOPATH)/bin/pkgsite -http=:6060
         dir: tsunami
+
+    # ── Krondesign Design Daemon ─────────────────────────────────────────
+
+    krondesign:install:
+        desc: Install krondesign workspace dependencies.
+        dir: krondesign
+        cmd: pnpm install
+        sources:
+            - krondesign/pnpm-lock.yaml
+            - krondesign/package.json
+        generates:
+            - krondesign/node_modules/**/*
+
+    krondesign:build:
+        desc: Build the krondesign daemon (TypeScript compile).
+        deps:
+            - krondesign:install
+        dir: krondesign
+        cmd: pnpm --filter @krondesign/daemon build
+        sources:
+            - krondesign/apps/daemon/src/**/*.ts
+        generates:
+            - krondesign/apps/daemon/dist/**/*
+
+    krondesign:start:
+        desc: Start the krondesign design daemon on port 7456.
+        cmd: bash scripts/krondesign-manager.sh start
+
+    krondesign:stop:
+        desc: Stop the krondesign design daemon.
+        cmd: bash scripts/krondesign-manager.sh stop
+
+    krondesign:restart:
+        desc: Restart the krondesign design daemon.
+        cmd: bash scripts/krondesign-manager.sh restart
+
+    krondesign:status:
+        desc: Check if the krondesign daemon is running.
+        cmd: bash scripts/krondesign-manager.sh status

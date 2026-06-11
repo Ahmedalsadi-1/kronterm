@@ -6,7 +6,8 @@ import { getTabBadgeAtom } from "@/app/store/badge";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { SidePanelMode, WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { Widgets } from "@/app/workspace/widgets";
 import { validateCssColor } from "@/util/color-validator";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
@@ -14,19 +15,19 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
 import { VTab, VTabItem } from "./vtab";
-import { VTabBarEnv } from "./vtabbarenv";
 import { VTabBlockTree } from "./vtab-block-tree";
+import { VTabBarEnv } from "./vtabbarenv";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 export type { VTabItem } from "./vtab";
 
 const VTabBarAIButton = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
-    const aiPanelOpen = useAtomValue(WorkspaceLayoutModel.getInstance().panelVisibleAtom);
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const widgetsPanelVisible = useAtomValue(layoutModel.widgetsPanelVisibleAtom);
     const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
 
     const onClick = () => {
-        const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+        layoutModel.toggleWidgetsPanel();
     };
 
     if (hideAiButton) {
@@ -35,18 +36,63 @@ const VTabBarAIButton = memo(() => {
 
     return (
         <Tooltip
-            content="Toggle KronosCode Panel"
+            content="Toggle Widgets"
             placement="bottom"
             hideOnClick
-            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-saturn" : "text-secondary"}`}
+            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${widgetsPanelVisible ? "text-saturn" : "text-secondary"}`}
             divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             divOnClick={onClick}
         >
-            <i className={`fa fa-circle-nodes ${aiPanelOpen ? "text-saturn" : ""}`} />
+            <i className={`fa fa-circle-nodes ${widgetsPanelVisible ? "text-saturn" : ""}`} />
         </Tooltip>
     );
 });
 VTabBarAIButton.displayName = "VTabBarAIButton";
+
+const SidePanelModeButton = memo(() => {
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const sidePanelMode = useAtomValue(layoutModel.sidePanelModeAtom);
+
+    const getModeIcon = (mode: SidePanelMode): string => {
+        switch (mode) {
+            case "hidden":
+                return "fa-eye-slash";
+            case "compact":
+                return "fa-columns";
+            case "full":
+                return "fa-table-columns";
+        }
+    };
+
+    const getModeLabel = (mode: SidePanelMode): string => {
+        switch (mode) {
+            case "hidden":
+                return "Hidden";
+            case "compact":
+                return "Compact";
+            case "full":
+                return "Full";
+        }
+    };
+
+    const onClick = () => {
+        layoutModel.cycleSidePanelMode();
+    };
+
+    return (
+        <Tooltip
+            content={`Side Panel: ${getModeLabel(sidePanelMode)} (click to cycle)`}
+            placement="right"
+            hideOnClick
+            divClassName="flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 text-xs text-secondary/60 transition-colors hover:text-primary select-none"
+            divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+            divOnClick={onClick}
+        >
+            <i className={`fa ${getModeIcon(sidePanelMode)}`} style={{ fontSize: "12px" }} />
+        </Tooltip>
+    );
+});
+SidePanelModeButton.displayName = "SidePanelModeButton";
 
 const MacOSHeader = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
@@ -411,6 +457,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                     />
                 )}
             </div>
+            <SidePanelModeButton />
             <button
                 type="button"
                 className="group relative flex h-9 w-full shrink-0 cursor-pointer items-center gap-1.5 pl-3 pr-3 text-xs text-secondary/60 transition-colors hover:text-primary select-none whitespace-nowrap"
@@ -423,6 +470,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                 <i className="fa fa-solid fa-plus" style={{ fontSize: "10px" }} />
                 <span>New Tab</span>
             </button>
+            <Widgets compact />
         </div>
     );
 }

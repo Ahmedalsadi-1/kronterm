@@ -77,6 +77,24 @@
     --container-tiny: 120px;
 
     --z-window-drag: 100;
+
+    /* KronosChamber-ported tokens (settings/chat UI) — additive, mapped to KronTerm theme vars */
+    --color-primary-foreground: var(--main-bg-color);
+    --color-secondary-foreground: var(--text-primary-color);
+    --color-accent-foreground: var(--main-bg-color);
+    --color-card: var(--panel-bg-color);
+    --color-card-foreground: var(--text-primary-color);
+    --color-popover: var(--modal-bg-color);
+    --color-popover-foreground: var(--text-primary-color);
+    --color-destructive: var(--error-color);
+    --color-input: var(--form-element-bg-color);
+    --color-ring: var(--accent-color);
+    --color-sidebar: var(--panel-bg-color);
+    --color-sidebar-foreground: var(--text-primary-color);
+    --color-interactive-hover: var(--surface-hover-color);
+    --color-interactive-active: var(--surface-active-color);
+    --color-interactive-selection: var(--surface-selected-color);
+    --color-interactive-selection-foreground: var(--text-primary-color);
 }
 
 /* Applied when body.nohover is set — used to suppress hover effects during tab remount to prevent ghost-hover flicker */
@@ -89,6 +107,63 @@
 :root {
     --zoomfactor: 1;
     --zoomfactor-inv: 1;
+
+    --interactive-border: var(--border-color);
+    --interactive-border-hover: var(--accent-color);
+    --interactive-border-focus: var(--accent-color);
+    --interactive-focus-ring: var(--accent-color);
+    --surface-elevated: var(--modal-bg-color);
+    --surface-elevated-foreground: var(--text-primary-color);
+    --sidebar-overlay-strong: color-mix(in srgb, var(--panel-bg-color) 92%, transparent);
+    --sidebar-overlay-soft: color-mix(in srgb, var(--panel-bg-color) 75%, transparent);
+    --status-warning: var(--warning-color);
+    --status-warning-background: color-mix(in srgb, var(--warning-color) 12%, transparent);
+    --status-warning-border: color-mix(in srgb, var(--warning-color) 35%, transparent);
+
+    --text-markdown: 0.96875rem;
+    --text-code: 0.8125rem;
+    --text-ui-header: 1rem;
+    --text-ui-label: 0.875rem;
+    --text-meta: 0.8125rem;
+    --text-micro: 0.75rem;
+}
+
+@layer components {
+    .typography-markdown {
+        font-size: var(--text-markdown);
+    }
+
+    .typography-code {
+        font-size: var(--text-code);
+    }
+
+    .typography-ui-header {
+        font-size: var(--text-ui-header);
+        letter-spacing: -0.015em;
+    }
+
+    .typography-ui,
+    .typography-ui-label {
+        font-size: var(--text-ui-label);
+    }
+
+    .typography-meta {
+        font-size: var(--text-meta);
+        letter-spacing: 0.01em;
+    }
+
+    .typography-micro {
+        font-size: var(--text-micro);
+        letter-spacing: 0.04em;
+    }
+
+    .app-region-drag {
+        -webkit-app-region: drag;
+    }
+
+    .app-region-no-drag {
+        -webkit-app-region: no-drag;
+    }
 }
 
 /* Chart tooltip styling for sysinfo plots */

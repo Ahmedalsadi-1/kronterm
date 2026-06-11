@@ -133,17 +133,17 @@ export const AIPanelInput = memo(({ onSubmit, status, model }: AIPanelInputProps
     };
 
     return (
-        <div className={cn("border-t", isFocused ? "border-accent/50" : "border-gray-600")}>
+        <div className={cn("ai-panel-input", isFocused && "is-focused")}>
             <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*,.pdf,.txt,.md,.js,.jsx,.ts,.tsx,.go,.py,.java,.c,.cpp,.h,.hpp,.html,.css,.scss,.sass,.json,.xml,.yaml,.yml,.sh,.bat,.sql"
                 onChange={handleFileChange}
-                className="hidden"
+                className="ai-input-file"
             />
             <form onSubmit={onSubmit}>
-                <div className="relative">
+                <div className="ai-input-wrapper">
                     <textarea
                         ref={textareaRef}
                         value={input}
@@ -152,56 +152,37 @@ export const AIPanelInput = memo(({ onSubmit, status, model }: AIPanelInputProps
                         onFocus={handleFocus}
                         onBlur={handleBlur}
                         placeholder={placeholder}
-                        className={cn(
-                            "w-full  text-white px-2 py-2 pr-5 focus:outline-none resize-none overflow-auto bg-zinc-800/50"
-                        )}
-                        style={{ fontSize: "13px" }}
+                        className="ai-input-textarea"
                         rows={2}
                     />
-                    <Tooltip content="Attach files" placement="top" divClassName="absolute bottom-6.5 right-1">
-                        <button
-                            type="button"
-                            onClick={handleUploadClick}
-                            className={cn(
-                                "w-5 h-5 transition-colors flex items-center justify-center text-gray-400 hover:text-accent cursor-pointer"
-                            )}
-                        >
-                            <i className="fa fa-paperclip text-sm"></i>
-                        </button>
-                    </Tooltip>
-                    {status === "streaming" ? (
-                        <Tooltip content="Stop Response" placement="top" divClassName="absolute bottom-1.5 right-1">
-                            <button
-                                type="button"
-                                onClick={() => model.stopResponse()}
-                                className={cn(
-                                    "w-5 h-5 transition-colors flex items-center justify-center",
-                                    "text-green-500 hover:text-green-400 cursor-pointer"
-                                )}
-                            >
-                                <i className="fa fa-square text-sm"></i>
+                    <div className="ai-input-actions">
+                        <Tooltip content="Attach files" placement="top">
+                            <button type="button" onClick={handleUploadClick} className="ai-input-btn">
+                                <i className="fa fa-paperclip text-sm"></i>
                             </button>
                         </Tooltip>
-                    ) : (
-                        <Tooltip
-                            content="Send message (Enter)"
-                            placement="top"
-                            divClassName="absolute bottom-1.5 right-1"
-                        >
-                            <button
-                                type="submit"
-                                disabled={status !== "ready" || !input.trim()}
-                                className={cn(
-                                    "w-5 h-5 transition-colors flex items-center justify-center",
-                                    status !== "ready" || !input.trim()
-                                        ? "text-gray-400"
-                                        : "text-accent/80 hover:text-accent cursor-pointer"
-                                )}
-                            >
-                                <i className="fa fa-paper-plane text-sm"></i>
-                            </button>
-                        </Tooltip>
-                    )}
+                        {status === "streaming" ? (
+                            <Tooltip content="Stop Response" placement="top">
+                                <button
+                                    type="button"
+                                    onClick={() => model.stopResponse()}
+                                    className="ai-input-btn stop-btn"
+                                >
+                                    <i className="fa fa-square text-sm"></i>
+                                </button>
+                            </Tooltip>
+                        ) : (
+                            <Tooltip content="Send message (Enter)" placement="top">
+                                <button
+                                    type="submit"
+                                    disabled={status !== "ready" || !input.trim()}
+                                    className="ai-input-btn send-btn"
+                                >
+                                    <i className="fa fa-paper-plane text-sm"></i>
+                                </button>
+                            </Tooltip>
+                        )}
+                    </div>
                 </div>
             </form>
         </div>

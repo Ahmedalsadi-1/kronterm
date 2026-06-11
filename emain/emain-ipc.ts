@@ -29,6 +29,7 @@ import {
     setWasActive,
 } from "./emain-activity";
 
+import { getKrondesignProc, getKrondesignUrl, isKrondesignHealthy, runKrondesignDaemon } from "./emain-krondesign";
 import {
     getDesktopPetClickThroughStatus,
     notifyDesktopPetActivity,
@@ -627,12 +628,22 @@ export function initIpcHandlers() {
                 customArgs?: string[];
                 customEnv?: Record<string, string>;
                 resumeSessionId?: string;
-                mcpServers?: Array<{
-                    name: string;
-                    command: string;
-                    args: string[];
-                    env: Array<{ name: string; value: string }>;
-                }>;
+                resumeSessionConversationId?: string;
+                mcpServers?: Array<
+                    | {
+                          type?: "stdio";
+                          name: string;
+                          command: string;
+                          args: string[];
+                          env: Array<{ name: string; value: string }>;
+                      }
+                    | {
+                          type: "http" | "sse";
+                          name: string;
+                          url: string;
+                          headers?: Array<{ name: string; value: string }>;
+                      }
+                >;
                 surfaceContext?: {
                     tabId: string;
                     blockId?: string;
@@ -803,6 +814,27 @@ export function initIpcHandlers() {
         try {
             await manager.setModel(opts);
             return { success: true, data: manager.getModelInfo() };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+
+    // ── Krondesign Daemon IPC ──────────────────────────────────────────
+
+    electron.ipcMain.handle("krondesign-status", async () => {
+        const proc = getKrondesignProc();
+        const healthy = await isKrondesignHealthy();
+        return {
+            running: healthy,
+            url: getKrondesignUrl(),
+            pid: healthy ? (proc?.pid ?? null) : null,
+        };
+    });
+
+    electron.ipcMain.handle("krondesign-start", async () => {
+        try {
+            await runKrondesignDaemon();
+            return { success: true };
         } catch (err) {
             return { success: false, error: err instanceof Error ? err.message : String(err) };
         }

@@ -74,6 +74,7 @@ export class WaveAIModel {
     orefContext: ORef;
     inBuilder: boolean = false;
     isAIStreaming = jotai.atom(false);
+    isSplitViewAtom = jotai.atom(true);
 
     widgetAccessAtom!: jotai.Atom<boolean>;
     droppedFiles: jotai.PrimitiveAtom<DroppedFile[]> = jotai.atom([]);
@@ -357,9 +358,6 @@ export class WaveAIModel {
     }
 
     focusInput() {
-        if (!this.inBuilder && !WorkspaceLayoutModel.getInstance().getAIPanelVisible()) {
-            WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
-        }
         if (this.acpPanelBridge != null) {
             this.acpPanelBridge.focusInput();
             return;
@@ -685,6 +683,10 @@ export class WaveAIModel {
 
     getChatId(): string {
         return globalStore.get(this.chatId);
+    }
+
+    toggleSplitView() {
+        globalStore.set(this.isSplitViewAtom, (prev) => !prev);
     }
 
     toolUseSendApproval(toolcallid: string, approval: string) {

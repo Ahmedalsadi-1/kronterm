@@ -1,3 +1,7 @@
+/**
+ * @deprecated KronosChatHub is deprecated. Use AcpChatPanel instead.
+ * This file is retained for reference but is no longer rendered in the UI.
+ */
 import { getWebServerEndpoint } from "@/util/endpoints";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtom, useAtomValue } from "jotai";
@@ -86,7 +90,7 @@ const fallbackAgents: CatalogAgent[] = [
     { id: "gemini", name: "Gemini", kind: "acp", status: "missing", available: false, icon: "✦" },
 ];
 
-const kronosDirectEndpoint = "http://127.0.0.1:3001";
+const kronosDirectEndpoint = "http://127.0.0.1:4096";
 const krontermDesktopMcpUrl = "http://localhost:9990/computer-use";
 const krontermDesktopDesktopUrl = "http://localhost:9990/novnc/vnc_lite.html?scale=true";
 
@@ -562,7 +566,7 @@ export const KronosChatHub = memo(
 
         return (
             <div
-                className="flex min-h-0 flex-1 overflow-hidden bg-[#090b10] text-zinc-100"
+                className="flex min-h-0 flex-1 overflow-hidden bg-zinc-950 text-zinc-100"
                 onContextMenu={onContextMenu}
             >
                 <AgentRail
@@ -594,7 +598,8 @@ export const KronosChatHub = memo(
                                         : loading
                                           ? "Checking KronosCode"
                                           : "KronosCode offline"}{" "}
-                                    · {toolCount} tools · Kron Computer Use {snapshot?.krontermDesktop.mcpStatus || "unknown"}
+                                    · {toolCount} tools · Kron Computer Use{" "}
+                                    {snapshot?.krontermDesktop.mcpStatus || "unknown"}
                                 </div>
                             </div>
                             <select
@@ -638,7 +643,12 @@ export const KronosChatHub = memo(
                                 <option value="computer-use">Computer Use</option>
                             </select>
                             <button
-                                onClick={() => window.open(snapshot?.krontermDesktop.desktopUrl || krontermDesktopDesktopUrl, "_blank")}
+                                onClick={() =>
+                                    window.open(
+                                        snapshot?.krontermDesktop.desktopUrl || krontermDesktopDesktopUrl,
+                                        "_blank"
+                                    )
+                                }
                                 className="cursor-pointer rounded-xl border border-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900"
                             >
                                 Open Desktop
@@ -673,7 +683,9 @@ export const KronosChatHub = memo(
                             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
                                 <div className="mb-2 font-semibold text-zinc-200">MCP</div>
                                 <div>Kronterm Desktop: {snapshot?.krontermDesktop.mcpStatus}</div>
-                                <div className="truncate font-mono text-zinc-500">{snapshot?.krontermDesktop.mcpUrl}</div>
+                                <div className="truncate font-mono text-zinc-500">
+                                    {snapshot?.krontermDesktop.mcpUrl}
+                                </div>
                                 <div>Desktop: {snapshot?.krontermDesktop.desktopStatus}</div>
                             </div>
                             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
@@ -709,15 +721,17 @@ export const KronosChatHub = memo(
                                 </div>
                                 <div className="text-2xl font-bold">KronosCode Cowork</div>
                                 <div className="mt-2 max-w-lg text-sm leading-6 text-zinc-400">
-                                    Multi-agent local coding, widget control, Kronterm Desktop automation, MCP tools, and
-                                    KronTerm context in one chat surface.
+                                    Multi-agent local coding, widget control, Kronterm Desktop automation, MCP tools,
+                                    and KronTerm context in one chat surface.
                                 </div>
                                 <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs text-zinc-400">
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">
                                         @file mentions
                                     </span>
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">/commands</span>
-                                    <span className="rounded-full border border-zinc-800 px-3 py-1">Kron Computer Use</span>
+                                    <span className="rounded-full border border-zinc-800 px-3 py-1">
+                                        Kron Computer Use
+                                    </span>
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">Widget tools</span>
                                 </div>
                             </div>

@@ -68,7 +68,7 @@ export const CODEX_ACP_NPX_PACKAGE = `npx @zed-industries/codex-acp@${CODEX_ACP_
 export const CODEBUDDY_ACP_BRIDGE_VERSION = "2.73.0";
 export const CODEBUDDY_ACP_NPX_PACKAGE = `npx @tencent-ai/codebuddy-code@${CODEBUDDY_ACP_BRIDGE_VERSION}`;
 export const KRONOSCODE_DEVELOPMENT_FALLBACK_BIN =
-    "/Users/albsheralsadi/kronosfinal/kronoscoder/packages/kronoscode/bin/kronoscode";
+    "/Users/albsheralsadi/kronterm/kronoscoder/packages/kronoscode/bin/kronoscode";
 
 /**
  * All known ACP backend configurations.
@@ -357,7 +357,8 @@ export type AcpSessionUpdatePayload =
     | ErrorUpdate
     | UserMessageChunkUpdate
     | ConfigOptionsUpdate
-    | UsageUpdate;
+    | UsageUpdate
+    | AvailableCommandsUpdate;
 
 export interface AgentMessageChunkUpdate {
     sessionUpdate: "agent_message_chunk";
@@ -460,6 +461,15 @@ export interface UsageUpdate {
     used: number;
     size: number;
     cost?: { amount: number; currency: string };
+}
+
+export interface AvailableCommandsUpdate {
+    sessionUpdate: "available_commands_update";
+    availableCommands: Array<{
+        name?: string;
+        description?: string;
+        input?: { hint?: string };
+    }>;
 }
 
 // ── ACP Permission Types ─────────────────────────────────────────────

@@ -13,7 +13,7 @@ export interface TabBadgesProps {
 }
 
 const DefaultClassName =
-    "pointer-events-none absolute left-[4px] top-1/2 z-[3] flex h-[20px] w-[20px] -translate-y-1/2 items-center justify-center px-[2px] py-[1px]";
+    "pointer-events-none absolute left-[3px] top-1/2 z-[3] flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-full";
 
 export function TabBadges({ badges, flagColor, className }: TabBadgesProps) {
     const flagBadgeId = useMemo(() => uuidv7(), []);
@@ -33,15 +33,15 @@ export function TabBadges({ badges, flagColor, className }: TabBadgesProps) {
     return (
         <div className={cn(DefaultClassName, className)}>
             <i
-                className={makeIconClass(firstBadge.icon, true, { defaultIcon: "circle-small" }) + " text-[12px]"}
+                className={makeIconClass(firstBadge.icon, true, { defaultIcon: "circle-small" }) + " text-[13px]"}
                 style={{ color: firstBadge.color || "#fbbf24" }}
             />
             {extraBadges.length > 0 && (
-                <div className="ml-[2px] flex flex-col items-center justify-center gap-[2px]">
+                <div className="absolute -right-[2px] -top-[2px] flex flex-col items-center justify-center gap-[1px]">
                     {extraBadges.map((badge, idx) => (
                         <div
                             key={idx}
-                            className="h-[4px] w-[4px] rounded-full"
+                            className="h-[5px] w-[5px] rounded-full ring-1 ring-black/30"
                             style={{ backgroundColor: badge.color || "#fbbf24" }}
                         />
                     ))}

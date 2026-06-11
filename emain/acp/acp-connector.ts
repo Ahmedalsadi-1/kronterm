@@ -21,7 +21,15 @@ export async function spawnAcpAgent(
 ): Promise<AcpSpawnResult> {
     const config = ACP_BACKENDS_ALL[backend];
     const acpArgs = customArgs ?? config?.acpArgs;
-    const runtimeEnv = { ...customEnv };
+    const runtimeEnv = {
+        ...(config?.env ?? {}),
+        ...customEnv,
+    };
+    if (backend === "kronoscode") {
+        runtimeEnv.KRONOSCODE_CLIENT ??= "acp";
+        runtimeEnv.KRONOSCODE_DISABLE_AUTOUPDATE ??= "1";
+        runtimeEnv.KRONOSCODE_DISABLE_EXTERNAL_SKILLS ??= "1";
+    }
     const bunBinary = path.join(process.env.HOME || "", ".bun", "bin", "bun");
     if (!runtimeEnv.BUN_BINARY && !process.env.BUN_BINARY && isExecutablePath(bunBinary)) {
         runtimeEnv.BUN_BINARY = bunBinary;

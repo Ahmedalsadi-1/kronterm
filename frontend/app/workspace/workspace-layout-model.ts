@@ -25,6 +25,8 @@ const VTabBar_DefaultWidth = 220;
 const VTabBar_MinWidth = 110;
 const VTabBar_MaxWidth = 280;
 
+export type SidePanelMode = "hidden" | "compact" | "full";
+
 function clampVTabWidth(w: number): number {
     return Math.max(VTabBar_MinWidth, Math.min(w, VTabBar_MaxWidth));
 }
@@ -46,17 +48,22 @@ class WorkspaceLayoutModel {
     aiPanelWrapperRef: HTMLDivElement | null;
     panelVisibleAtom: jotai.PrimitiveAtom<boolean>;
     vtabVisibleAtom: jotai.PrimitiveAtom<boolean>;
+    widgetsPanelVisibleAtom: jotai.PrimitiveAtom<boolean>;
+    sidePanelModeAtom: jotai.PrimitiveAtom<SidePanelMode>;
 
     private inResize: boolean;
     private aiPanelVisible: boolean;
     private aiPanelWidth: number | null;
     private vtabWidth: number;
     private vtabVisible: boolean;
+    private widgetsPanelVisible: boolean;
+    private sidePanelMode: SidePanelMode;
     private initialized: boolean = false;
     private transitionTimeoutRef: NodeJS.Timeout | null = null;
     private focusTimeoutRef: NodeJS.Timeout | null = null;
     private debouncedPersistAIWidth: (width: number) => void;
     private debouncedPersistVTabWidth: (width: number) => void;
+    private debouncedPersistSidePanelMode: (mode: SidePanelMode) => void;
 
     private constructor() {
         this.aiPanelRef = null;
@@ -70,8 +77,12 @@ class WorkspaceLayoutModel {
         this.aiPanelWidth = null;
         this.vtabWidth = VTabBar_DefaultWidth;
         this.vtabVisible = false;
+        this.widgetsPanelVisible = false;
+        this.sidePanelMode = "full";
         this.panelVisibleAtom = jotai.atom(false);
         this.vtabVisibleAtom = jotai.atom(false);
+        this.widgetsPanelVisibleAtom = jotai.atom(false);
+        this.sidePanelModeAtom = jotai.atom<SidePanelMode>("full");
 
         this.handleWindowResize = this.handleWindowResize.bind(this);
         this.handleOuterPanelLayout = this.handleOuterPanelLayout.bind(this);
@@ -96,6 +107,17 @@ class WorkspaceLayoutModel {
                 });
             } catch (e) {
                 console.warn("Failed to persist vtabbar width:", e);
+            }
+        }, 300);
+
+        this.debouncedPersistSidePanelMode = debounce((mode: SidePanelMode) => {
+            try {
+                RpcApi.SetMetaCommand(TabRpcClient, {
+                    oref: WOS.makeORef("workspace", this.getWorkspaceId()),
+                    meta: { "layout:sidepanelmode": mode },
+                });
+            } catch (e) {
+                console.warn("Failed to persist side panel mode:", e);
             }
         }, 300);
     }
@@ -129,6 +151,13 @@ class WorkspaceLayoutModel {
         return getOrefMetaKeyAtom(WOS.makeORef("workspace", this.getWorkspaceId()), "layout:vtabbarwidth");
     }
 
+    private getSidePanelModeAtom(): jotai.Atom<SidePanelMode> {
+        return getOrefMetaKeyAtom(
+            WOS.makeORef("workspace", this.getWorkspaceId()),
+            "layout:sidepanelmode"
+        ) as jotai.Atom<SidePanelMode>;
+    }
+
     private initializeFromMeta(): void {
         if (this.initialized) return;
         this.initialized = true;
@@ -136,6 +165,7 @@ class WorkspaceLayoutModel {
             const savedVisible = globalStore.get(this.getPanelOpenAtom());
             const savedAIWidth = globalStore.get(this.getPanelWidthAtom());
             const savedVTabWidth = globalStore.get(this.getVTabBarWidthAtom());
+            const savedSidePanelMode = globalStore.get(this.getSidePanelModeAtom());
             if (savedVisible != null) {
                 this.aiPanelVisible = savedVisible;
                 globalStore.set(this.panelVisibleAtom, savedVisible);
@@ -145,6 +175,10 @@ class WorkspaceLayoutModel {
             }
             if (savedVTabWidth != null && savedVTabWidth > 0) {
                 this.vtabWidth = savedVTabWidth;
+            }
+            if (savedSidePanelMode != null && ["hidden", "compact", "full"].includes(savedSidePanelMode)) {
+                this.sidePanelMode = savedSidePanelMode;
+                globalStore.set(this.sidePanelModeAtom, savedSidePanelMode);
             }
         } catch (e) {
             console.warn("Failed to initialize from tab meta:", e);
@@ -428,6 +462,58 @@ class WorkspaceLayoutModel {
         this.enableTransitions(250);
         this.syncPanelCollapse();
         this.commitLayouts(window.innerWidth);
+    }
+
+    // ---- Side Panel Mode ----
+
+    getSidePanelMode(): SidePanelMode {
+        this.initializeFromMeta();
+        return this.sidePanelMode;
+    }
+
+    setSidePanelMode(mode: SidePanelMode): void {
+        if (this.sidePanelMode === mode) return;
+        this.sidePanelMode = mode;
+        globalStore.set(this.sidePanelModeAtom, mode);
+        this.debouncedPersistSidePanelMode(mode);
+
+        // Update visibility based on mode
+        if (mode === "hidden") {
+            this.setShowLeftTabBar(false);
+            this.setAIPanelVisible(false);
+        } else if (mode === "compact") {
+            this.setShowLeftTabBar(true);
+            this.setAIPanelVisible(false);
+        } else if (mode === "full") {
+            this.setShowLeftTabBar(true);
+            // Don't auto-open AI panel, just allow it
+        }
+
+        this.enableTransitions(250);
+    }
+
+    cycleSidePanelMode(): void {
+        const modes: SidePanelMode[] = ["hidden", "compact", "full"];
+        const currentIndex = modes.indexOf(this.sidePanelMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        this.setSidePanelMode(modes[nextIndex]);
+    }
+
+    // ---- Widgets Panel ----
+
+    getWidgetsPanelVisible(): boolean {
+        return this.widgetsPanelVisible;
+    }
+
+    setWidgetsPanelVisible(visible: boolean): void {
+        if (this.widgetsPanelVisible === visible) return;
+        this.widgetsPanelVisible = visible;
+        globalStore.set(this.widgetsPanelVisibleAtom, visible);
+        this.enableTransitions(250);
+    }
+
+    toggleWidgetsPanel(): void {
+        this.setWidgetsPanelVisible(!this.widgetsPanelVisible);
     }
 }
 

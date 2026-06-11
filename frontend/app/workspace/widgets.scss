@@ -2,12 +2,55 @@
 // SPDX-License-Identifier: Apache-2.0
 
 .widget-rail {
-    border-left: 1px solid rgb(from var(--border-color) r g b / 0.56);
     background: linear-gradient(
         180deg,
         rgb(from var(--surface-base-color) r g b / 0.48),
         rgb(from var(--main-bg-color) r g b / 0.24)
     );
+}
+
+.widget-rail-left {
+    border-right: 1px solid rgb(from var(--border-color) r g b / 0.56);
+}
+
+.widget-rail-right {
+    border-left: 1px solid rgb(from var(--border-color) r g b / 0.56);
+}
+
+.widget-rail-compact {
+    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.35);
+    border-top: 1px solid rgb(from var(--border-color) r g b / 0.3);
+}
+
+.widget-rail-compact-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--text-secondary-color);
+    transition:
+        background-color 160ms ease,
+        color 160ms ease;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        color: var(--text-primary-color);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.24);
+    }
+}
+
+.widget-rail-compact-icon {
+    width: 14px;
+    height: 14px;
+    stroke-width: 1.8;
 }
 
 .widget-rail-item,
@@ -63,4 +106,22 @@
     color: var(--error-color);
     fill: var(--main-bg-color);
     stroke-width: 2.4;
+}
+
+// ── Widget group section collapse ─────────────────────────────
+.widget-group-section {
+    display: flex;
+    flex-direction: column;
+
+    .widget-group-items {
+        display: flex;
+        flex-direction: column;
+
+        &.h-0 {
+            height: 0 !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
 }

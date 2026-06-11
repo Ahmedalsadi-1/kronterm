@@ -1,6 +1,9 @@
 import { AppStreamViewModel } from "./appstream-model";
 import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { cn } from "@/util/util";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
+import { ActionMarker } from "@/app/view/action-marker";
+import { useAgentOverlays } from "@/app/view/use-agent-overlays";
 import { useAtomValue } from "jotai";
 import { useEffect, useRef, useCallback, useState } from "react";
 
@@ -18,6 +21,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
     const [fps, setFps] = useState(6);
     const [quality, setQuality] = useState(80);
     const [frameInfo, setFrameInfo] = useState<{ width: number; height: number; updatedAt: number } | null>(null);
+    const { waterflowActive, markers } = useAgentOverlays("desktop");
 
     useEffect(() => {
         model.startStream().catch(console.error);
@@ -230,7 +234,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                     </label>
                 </div>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.055),transparent_60%)]">
+            <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.055),transparent_60%)]">
                 <canvas
                     ref={canvasRef}
                     className={cn(
@@ -243,6 +247,17 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                     onMouseMove={handleMouseMove}
                     onContextMenu={handleContextMenu}
                 />
+                <WaterFlowOverlay active={waterflowActive} />
+                {markers.map((m) => (
+                    <ActionMarker
+                        key={m.id}
+                        actionType={m.actionType}
+                        label={m.label}
+                        x={m.x}
+                        y={m.y}
+                        active={true}
+                    />
+                ))}
             </div>
         </div>
     );

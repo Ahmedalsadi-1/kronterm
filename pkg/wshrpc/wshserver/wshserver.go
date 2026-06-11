@@ -1273,11 +1273,196 @@ func (ws *WshServer) ReadAppFileCommand(ctx context.Context, data wshrpc.Command
 				NotFound: true,
 			}, nil
 		}
-		return nil, fmt.Errorf("failed to read app file: %w", err)
+		return nil, err
 	}
 	return &wshrpc.CommandReadAppFileRtnData{
 		Data64: base64.StdEncoding.EncodeToString(fileData.Contents),
 		ModTs:  fileData.ModTs,
+	}, nil
+}
+
+// --- Window Management ---
+
+func (ws *WshServer) WindowListCommand(ctx context.Context) ([]wshrpc.WindowInfo, error) {
+	return nil, fmt.Errorf("window list must be handled by Electron route")
+}
+
+func (ws *WshServer) CreateWindowCommand(ctx context.Context) (string, error) {
+	return "", fmt.Errorf("create window must be handled by Electron route")
+}
+
+func (ws *WshServer) CloseWindowCommand(ctx context.Context, windowId string) error {
+	return fmt.Errorf("close window must be handled by Electron route")
+}
+
+func (ws *WshServer) ActivateWindowCommand(ctx context.Context, windowId string) error {
+	return fmt.Errorf("activate window must be handled by Electron route")
+}
+
+// --- Bookmark Management ---
+
+func (ws *WshServer) BookmarkListCommand(ctx context.Context) (map[string]wconfig.WebBookmark, error) {
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	return fullConfig.Bookmarks, nil
+}
+
+func (ws *WshServer) BookmarkCreateCommand(ctx context.Context, data wshrpc.BookmarkCreateData) error {
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	bookmarks := fullConfig.Bookmarks
+	if bookmarks == nil {
+		bookmarks = make(map[string]wconfig.WebBookmark)
+	}
+	id := fmt.Sprintf("bm_%d", time.Now().UnixNano())
+	bookmarks[id] = wconfig.WebBookmark{
+		Url:          data.Url,
+		Title:        data.Title,
+		DisplayOrder: data.DisplayOrder,
+	}
+	m := waveobj.MetaMapType{}
+	m["bookmarks"] = bookmarks
+	return wconfig.SetBaseConfigValue(m)
+}
+
+func (ws *WshServer) BookmarkRemoveCommand(ctx context.Context, bookmarkId string) error {
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	bookmarks := fullConfig.Bookmarks
+	if bookmarks == nil {
+		return fmt.Errorf("bookmark not found: %s", bookmarkId)
+	}
+	if _, ok := bookmarks[bookmarkId]; !ok {
+		return fmt.Errorf("bookmark not found: %s", bookmarkId)
+	}
+	delete(bookmarks, bookmarkId)
+	m := waveobj.MetaMapType{}
+	m["bookmarks"] = bookmarks
+	return wconfig.SetBaseConfigValue(m)
+}
+
+func (ws *WshServer) BookmarkUpdateCommand(ctx context.Context, data wshrpc.BookmarkUpdateData) error {
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	bookmarks := fullConfig.Bookmarks
+	if bookmarks == nil {
+		return fmt.Errorf("bookmark not found: %s", data.Id)
+	}
+	b, ok := bookmarks[data.Id]
+	if !ok {
+		return fmt.Errorf("bookmark not found: %s", data.Id)
+	}
+	if data.Title != "" {
+		b.Title = data.Title
+	}
+	if data.Url != "" {
+		b.Url = data.Url
+	}
+	if data.DisplayOrder != 0 {
+		b.DisplayOrder = data.DisplayOrder
+	}
+	bookmarks[data.Id] = b
+	m := waveobj.MetaMapType{}
+	m["bookmarks"] = bookmarks
+	return wconfig.SetBaseConfigValue(m)
+}
+
+func (ws *WshServer) BookmarkMoveCommand(ctx context.Context, data wshrpc.BookmarkMoveData) error {
+	// Bookmarks are a flat map (no folder hierarchy), so move is essentially a no-op
+	// or a reorder. For now, just acknowledge.
+	return nil
+}
+
+func (ws *WshServer) BookmarkSearchCommand(ctx context.Context, query string) ([]wshrpc.BookmarkSearchResult, error) {
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	bookmarks := fullConfig.Bookmarks
+	if bookmarks == nil {
+		return []wshrpc.BookmarkSearchResult{}, nil
+	}
+	queryLower := strings.ToLower(query)
+	var results []wshrpc.BookmarkSearchResult
+	for id, b := range bookmarks {
+		if strings.Contains(strings.ToLower(b.Title), queryLower) ||
+			strings.Contains(strings.ToLower(b.Url), queryLower) {
+			results = append(results, wshrpc.BookmarkSearchResult{
+				Id:    id,
+				Title: b.Title,
+				Url:   b.Url,
+			})
+		}
+	}
+	return results, nil
+}
+
+// --- History Management ---
+
+func (ws *WshServer) HistorySearchCommand(ctx context.Context, data wshrpc.HistorySearchData) ([]wshrpc.HistoryEntry, error) {
+	// TODO: implement persistent history storage
+	return []wshrpc.HistoryEntry{}, nil
+}
+
+func (ws *WshServer) HistoryRecentCommand(ctx context.Context, maxItems int) ([]wshrpc.HistoryEntry, error) {
+	// TODO: implement persistent history storage
+	return []wshrpc.HistoryEntry{}, nil
+}
+
+func (ws *WshServer) HistoryDeleteUrlCommand(ctx context.Context, url string) error {
+	// TODO: implement persistent history storage
+	return nil
+}
+
+func (ws *WshServer) HistoryDeleteRangeCommand(ctx context.Context, data wshrpc.HistoryDeleteRangeData) error {
+	// TODO: implement persistent history storage
+	return nil
+}
+
+// --- Tab Group Management ---
+
+func (ws *WshServer) TabGroupListCommand(ctx context.Context) ([]wshrpc.TabGroupInfo, error) {
+	// TODO: implement tab group storage
+	return []wshrpc.TabGroupInfo{}, nil
+}
+
+func (ws *WshServer) GroupTabsCommand(ctx context.Context, data wshrpc.GroupTabsData) error {
+	// TODO: implement tab group storage
+	return nil
+}
+
+func (ws *WshServer) UpdateTabGroupCommand(ctx context.Context, data wshrpc.UpdateTabGroupData) error {
+	// TODO: implement tab group storage
+	return nil
+}
+
+func (ws *WshServer) UngroupTabsCommand(ctx context.Context, tabGroupId string) error {
+	// TODO: implement tab group storage
+	return nil
+}
+
+func (ws *WshServer) CloseTabGroupCommand(ctx context.Context, tabGroupId string) error {
+	// TODO: implement tab group storage
+	return nil
+}
+
+// --- BrowserOS Info ---
+
+func (ws *WshServer) BrowserOSInfoCommand(ctx context.Context) (*wshrpc.BrowserOSInfo, error) {
+	return &wshrpc.BrowserOSInfo{
+		Version: wavebase.WaveVersion,
+		Capabilities: []string{
+			"browser_navigation",
+			"browser_snapshot",
+			"browser_click",
+			"browser_form_fill",
+			"browser_scroll",
+			"browser_find",
+			"browser_zoom",
+			"browser_devtools",
+			"window_management",
+			"bookmark_management",
+			"tab_management",
+		},
+		Features: []string{
+			"webview_based_browsing",
+			"multiple_tabs_per_block",
+			"bookmark_suggestions",
+			"widget_element_interaction",
+		},
 	}, nil
 }
 

@@ -238,6 +238,7 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 		}
 		// Human simulation tools - work across all widget types
 		if len(blocks) > 0 {
+			tools = append(tools, GetOpenWidgetsToolDefinition(tabid))
 			tools = append(tools, GetWidgetGetElementsToolDefinition(tabid))
 			tools = append(tools, GetWidgetGetStateToolDefinition(tabid))
 			tools = append(tools, GetMouseClickToolDefinition(tabid))

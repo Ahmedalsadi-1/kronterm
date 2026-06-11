@@ -49,7 +49,7 @@ const UpdateStatusBannerComponent = () => {
             content={tooltipContent}
             placement="bottom"
             divOnClick={isReady ? onClick : undefined}
-            divClassName={`flex items-center gap-1 px-2 mb-[3px] h-6 text-xs font-medium text-black bg-accent rounded-md transition-colors ${isReady ? "cursor-pointer hover:bg-[var(--button-green-border-color)]" : ""}`}
+            divClassName={`flex items-center gap-1 px-2 mb-[3px] h-6 text-xs font-medium text-black bg-accent rounded-md transition-colors ${isReady ? "cursor-pointer hover:bg-[var(--button-green-border-color)] animate-pulse" : ""}`}
             divStyle={{ WebkitAppRegion: "no-drag" } as any}
         >
             <i className="fa fa-download" />

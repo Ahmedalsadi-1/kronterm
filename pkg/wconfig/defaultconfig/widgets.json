@@ -46,10 +46,24 @@
     "defwidget@ai": {
         "display:order": -2,
         "icon": "sparkles",
-        "label": "ai",
+        "label": "assistant",
+        "color": "#e8c47c",
+        "description": "Assistant chat",
         "blockdef": {
             "meta": {
-                "view": "waveai"
+                "view": "kronoschat"
+            }
+        }
+    },
+    "defwidget@chat": {
+        "display:order": -5.5,
+        "icon": "comment-dots",
+        "label": "chat",
+        "color": "#429DFF",
+        "description": "Assistant chat widget",
+        "blockdef": {
+            "meta": {
+                "view": "kronoschat"
             }
         }
     },
@@ -70,6 +84,22 @@
         "blockdef": {
             "meta": {
                 "view": "sandbox"
+            }
+        }
+    },
+    "defwidget@design": {
+        "display:order": 0.5,
+        "display:group": "design",
+        "icon": "palette",
+        "label": "design",
+        "description": "Open Krondesign inside KronTerm",
+        "blockdef": {
+            "meta": {
+                "view": "design",
+                "url": "http://127.0.0.1:7456",
+                "pinnedurl": "http://127.0.0.1:7456",
+                "web:hidenav": true,
+                "web:partition": "persist:krondesign"
             }
         }
     },

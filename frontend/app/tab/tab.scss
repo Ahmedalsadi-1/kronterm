@@ -15,24 +15,20 @@
     justify-content: center;
 
     .tab-divider {
-        position: absolute;
-        left: 0;
-        width: 1px;
-        height: 13px;
-        background: rgb(from var(--main-text-color) r g b / 0.14);
+        display: none;
     }
 
     .tab-inner {
         position: relative;
-        width: calc(100% - 6px);
+        width: calc(100% - 3px);
         height: 100%;
         white-space: nowrap;
-        border-radius: 6px 6px 4px 4px;
+        border-radius: 8px 8px 4px 4px;
         border: 1px solid transparent;
         transition:
-            background-color 160ms ease,
-            border-color 160ms ease,
-            box-shadow 160ms ease;
+            background-color 180ms ease,
+            border-color 180ms ease,
+            box-shadow 180ms ease;
     }
 
     &.animate {
@@ -41,25 +37,32 @@
             background-color 0.18s ease-in-out;
     }
 
+    // ── Active tab ──────────────────────────────────────────────
     &.active {
         .tab-inner {
-            border-color: rgb(from var(--accent-color) r g b / 0.42);
+            border-color: rgb(from var(--accent-color) r g b / 0.35);
             background: linear-gradient(
                 180deg,
-                rgb(from var(--accent-color) r g b / 0.17),
-                rgb(from var(--accent-color) r g b / 0.11)
+                rgb(from var(--accent-color) r g b / 0.2),
+                rgb(from var(--accent-color) r g b / 0.12)
             );
             box-shadow:
-                inset 0 -1px 0 rgb(from var(--accent-color) r g b / 0.6),
-                0 1px 4px rgb(from var(--main-bg-color) r g b / 0.24);
+                inset 0 -3px 0 rgb(from var(--accent-color) r g b / 0.7),
+                0 1px 6px rgb(from var(--main-bg-color) r g b / 0.3);
         }
 
         .name {
             color: var(--text-primary-color);
             font-weight: 600;
         }
+
+        .close {
+            visibility: visible;
+            opacity: 0.6;
+        }
     }
 
+    // ── Tab name ────────────────────────────────────────────────
     .name {
         position: absolute;
         top: 50%;
@@ -67,7 +70,7 @@
         transform: translate3d(-50%, -50%, 0);
         user-select: none;
         z-index: var(--zindex-tab-name);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 500;
         text-shadow: 0px 0px 4px rgb(from var(--main-bg-color) r g b / 0.25);
         overflow: hidden;
@@ -83,21 +86,25 @@
         }
     }
 
+    // ── Close button ────────────────────────────────────────────
     .wave-button {
         position: absolute;
         top: 50%;
         right: 4px;
         transform: translate3d(0, -50%, 0);
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         z-index: var(--zindex-tab-name);
-        padding: 1px 2px;
-        transition: none !important;
-        border-radius: 4px;
+        padding: 0;
+        border-radius: 50%;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease,
+            opacity 150ms ease !important;
 
         &:focus-visible {
             box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.3);
@@ -106,40 +113,37 @@
 
     .close {
         visibility: hidden;
+        opacity: 0;
     }
 }
 
-// Only apply hover effects when not in nohover mode. This prevents the previously-hovered tab from remaining hovered while a tab view is not mounted.
-body:not(.nohover) .tab:hover + .tab,
-body:not(.nohover) .tab.dragging + .tab {
-    .tab-divider {
-        display: none;
-    }
-}
-
+// ── Hover states (only when not in nohover mode) ────────────────
 body:not(.nohover) .tab:hover,
 body:not(.nohover) .tab.dragging {
-    .tab-divider {
-        display: none;
+    .tab-inner {
+        background: rgb(from var(--main-text-color) r g b / 0.07);
+        border-color: rgb(from var(--main-text-color) r g b / 0.08);
     }
 
-    .tab-inner {
-        border-color: rgb(from var(--main-text-color) r g b / 0.12);
-        background: var(--surface-hover-color);
-    }
     .close {
         visibility: visible;
+        opacity: 0.5;
+
         &:hover {
-            color: var(--main-text-color);
+            opacity: 1;
+            background: rgb(from var(--error-color) r g b / 0.15);
+            color: var(--error-color);
         }
     }
 }
 
-// When in nohover mode, always show the close button on the active tab. This prevents the close button of the active tab from flickering when nohover is toggled.
+// ── nohover: always show close on active tab ────────────────────
 body.nohover .tab.active .close {
     visibility: visible;
+    opacity: 0.6;
 }
 
+// ── New tab animation ───────────────────────────────────────────
 @keyframes expandWidthAndFadeIn {
     from {
         width: var(--initial-tab-width);

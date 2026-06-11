@@ -104,6 +104,10 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.on("acp-event", handler);
         return () => ipcRenderer.removeListener("acp-event", handler);
     },
+
+    // ── Krondesign daemon IPC ────────────────────────────────────────
+    krondesignStatus: () => ipcRenderer.invoke("krondesign-status"),
+    krondesignStart: () => ipcRenderer.invoke("krondesign-start"),
 });
 
 // Custom event for "new-window"

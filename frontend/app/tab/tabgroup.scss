@@ -27,10 +27,11 @@
 }
 
 .tab-group-color-bar {
-    width: 3px;
-    height: 12px;
-    border-radius: 1px;
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
     flex-shrink: 0;
+    box-shadow: 0 0 4px rgb(from currentColor r g b / 0.3);
 }
 
 .tab-group-chevron {
@@ -60,7 +61,9 @@
 .tab-group-items {
     max-height: 500px;
     opacity: 1;
-    transition: max-height 0.2s ease, opacity 0.15s ease;
+    transition:
+        max-height 0.2s ease,
+        opacity 0.15s ease;
     overflow: hidden;
 }
 

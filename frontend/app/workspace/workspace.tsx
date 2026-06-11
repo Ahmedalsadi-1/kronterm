@@ -122,10 +122,12 @@ const WorkspaceElem = memo(() => {
     const ws = useAtomValue(atoms.workspace);
     const tabBarPosition = useAtomValue(getSettingsKeyAtom("app:tabbar")) ?? "top";
     const quickComposerEnabled = useAtomValue(getSettingsKeyAtom("app:quickcomposer" as keyof SettingsType)) ?? false;
-    const showLeftTabBar = tabBarPosition === "left";
+    const sidePanelMode = useAtomValue(workspaceLayoutModel.sidePanelModeAtom);
     const aiPanelVisible = useAtomValue(workspaceLayoutModel.panelVisibleAtom);
     const vtabVisible = useAtomValue(workspaceLayoutModel.vtabVisibleAtom);
+    const widgetsPanelVisible = useAtomValue(workspaceLayoutModel.widgetsPanelVisibleAtom);
     const windowWidth = window.innerWidth;
+    const showLeftTabBar = sidePanelMode !== "hidden" && tabBarPosition === "left";
     const leftGroupInitialPct = workspaceLayoutModel.getLeftGroupInitialPercentage(windowWidth, showLeftTabBar);
     const innerVTabInitialPct = workspaceLayoutModel.getInnerVTabInitialPercentage(windowWidth, showLeftTabBar);
     const innerAIPanelInitialPct = workspaceLayoutModel.getInnerAIPanelInitialPercentage(windowWidth, showLeftTabBar);
@@ -262,13 +264,26 @@ const WorkspaceElem = memo(() => {
                             ) : (
                                 <div className="flex flex-row h-full">
                                     <TabContent key={tabId} tabId={tabId} noTopPadding={showLeftTabBar && isMacOS()} />
-                                    <Widgets />
+                                    {!showLeftTabBar && <Widgets position="right" />}
                                 </div>
                             )}
                         </Panel>
                     </PanelGroup>
                     <ModalsRenderer />
                 </ErrorBoundary>
+                {widgetsPanelVisible && (
+                    <div
+                        className="absolute left-0 top-0 h-full z-50"
+                        style={{
+                            width: "280px",
+                            backdropFilter: "blur(20px)",
+                            background: "rgba(0, 0, 0, 0.35)",
+                            borderRight: "1px solid rgb(from var(--border-color) r g b / 0.3)",
+                        }}
+                    >
+                        <Widgets position="left" />
+                    </div>
+                )}
             </div>
             {floatingIslandVisible && (
                 <FloatingIsland onClose={handleCloseFloatingIsland} onReturnToPanel={handleReturnToPanel} />

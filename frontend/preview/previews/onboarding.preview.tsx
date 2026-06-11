@@ -3,9 +3,12 @@
 
 import Logo from "@/app/asset/logo.svg";
 import { InitPage, NoTelemetryStarPage } from "@/app/onboarding/onboarding";
+import { AppsPage } from "@/app/onboarding/onboarding-apps";
+import { CanvasPage } from "@/app/onboarding/onboarding-canvas";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
 import { DurableSessionPage } from "@/app/onboarding/onboarding-durable";
 import { FilesPage, MagnifyBlocksPage, WaveAIPage } from "@/app/onboarding/onboarding-features";
+import { SandboxPage } from "@/app/onboarding/onboarding-sandbox";
 import { StarAskPage } from "@/app/onboarding/onboarding-starask";
 import { UpgradeMinorWelcomePage } from "@/app/onboarding/onboarding-upgrade-minor";
 import { UpgradeOnboardingFooter, UpgradeOnboardingVersions } from "@/app/onboarding/onboarding-upgrade-patch";
@@ -29,17 +32,26 @@ function OnboardingFeaturesV() {
             <OnboardingModalWrapper width="w-[560px]">
                 <NoTelemetryStarPage isCompact={false} />
             </OnboardingModalWrapper>
-            <OnboardingModalWrapper width="w-[800px]">
+            <OnboardingModalWrapper width="w-[860px]">
                 <WaveAIPage onNext={noop} onSkip={noop} />
             </OnboardingModalWrapper>
-            <OnboardingModalWrapper width="w-[800px]">
-                <DurableSessionPage onNext={noop} onSkip={noop} onPrev={noop} />
+            <OnboardingModalWrapper width="w-[860px]">
+                <DurableSessionPage onNext={noop} onSkip={noop} onPrev={noop} currentStep={2} totalSteps={7} />
             </OnboardingModalWrapper>
-            <OnboardingModalWrapper width="w-[800px]">
+            <OnboardingModalWrapper width="w-[860px]">
+                <CanvasPage onNext={noop} onSkip={noop} onPrev={noop} currentStep={3} totalSteps={7} />
+            </OnboardingModalWrapper>
+            <OnboardingModalWrapper width="w-[860px]">
                 <MagnifyBlocksPage onNext={noop} onSkip={noop} onPrev={noop} />
             </OnboardingModalWrapper>
-            <OnboardingModalWrapper width="w-[800px]">
-                <FilesPage onFinish={noop} onPrev={noop} />
+            <OnboardingModalWrapper width="w-[860px]">
+                <FilesPage onNext={noop} onSkip={noop} onPrev={noop} />
+            </OnboardingModalWrapper>
+            <OnboardingModalWrapper width="w-[860px]">
+                <SandboxPage onNext={noop} onSkip={noop} onPrev={noop} currentStep={6} totalSteps={7} />
+            </OnboardingModalWrapper>
+            <OnboardingModalWrapper width="w-[860px]">
+                <AppsPage onFinish={noop} onPrev={noop} currentStep={7} totalSteps={7} />
             </OnboardingModalWrapper>
         </div>
     );
@@ -59,7 +71,7 @@ function UpgradeOnboardingPatchV() {
                                 <Logo />
                             </div>
                             <div className="text-center text-[25px] font-normal text-foreground">
-                                Wave {version.version} Update
+                                KronTerm {version.version} Update
                             </div>
                         </header>
                         <div className="flex-1">{version.content()}</div>

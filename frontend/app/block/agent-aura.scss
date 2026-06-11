@@ -1,68 +1,92 @@
 // Pixel-aura visual indicator for agent activity on browser/sandbox blocks
+// Colors follow the UI-TARS palette:
+//   DodgerBlue (#1E90FF) — water flow border
+//   Indigo-500 (#6366F1) — cursor ripple
+//   Custom Blue (#009BFF) — clickable highlight
+
+// WaterFlow scanning border — ported from UI-TARS ScreenMarker
+@keyframes kronos-waterflow-edge {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    25% {
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.04);
+    }
+    75% {
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+}
 
 @keyframes kronos-pixel-aura {
     0% {
         box-shadow:
-            0 0 4px 0 rgba(232, 196, 124, 0.3),
-            0 0 8px 0 rgba(232, 196, 124, 0.15),
-            inset 0 0 4px 0 rgba(232, 196, 124, 0.05);
+            0 0 4px 0 rgba(30, 144, 255, 0.3),
+            0 0 8px 0 rgba(30, 144, 255, 0.15),
+            inset 0 0 4px 0 rgba(30, 144, 255, 0.05);
     }
     25% {
         box-shadow:
-            0 0 6px 0 rgba(96, 165, 250, 0.4),
-            0 0 12px 0 rgba(96, 165, 250, 0.2),
-            inset 0 0 6px 0 rgba(96, 165, 250, 0.08);
+            0 0 6px 0 rgba(99, 102, 241, 0.4),
+            0 0 12px 0 rgba(99, 102, 241, 0.2),
+            inset 0 0 6px 0 rgba(99, 102, 241, 0.08);
     }
     50% {
         box-shadow:
-            0 0 8px 0 rgba(167, 139, 250, 0.45),
-            0 0 16px 0 rgba(167, 139, 250, 0.25),
-            inset 0 0 8px 0 rgba(167, 139, 250, 0.1);
+            0 0 8px 0 rgba(30, 144, 255, 0.45),
+            0 0 16px 0 rgba(30, 144, 255, 0.25),
+            inset 0 0 8px 0 rgba(30, 144, 255, 0.1);
     }
     75% {
         box-shadow:
-            0 0 6px 0 rgba(244, 114, 182, 0.4),
-            0 0 12px 0 rgba(244, 114, 182, 0.2),
-            inset 0 0 6px 0 rgba(244, 114, 182, 0.08);
+            0 0 6px 0 rgba(99, 102, 241, 0.4),
+            0 0 12px 0 rgba(99, 102, 241, 0.2),
+            inset 0 0 6px 0 rgba(99, 102, 241, 0.08);
     }
     100% {
         box-shadow:
-            0 0 4px 0 rgba(232, 196, 124, 0.3),
-            0 0 8px 0 rgba(232, 196, 124, 0.15),
-            inset 0 0 4px 0 rgba(232, 196, 124, 0.05);
+            0 0 4px 0 rgba(30, 144, 255, 0.3),
+            0 0 8px 0 rgba(30, 144, 255, 0.15),
+            inset 0 0 4px 0 rgba(30, 144, 255, 0.05);
     }
 }
 
 @keyframes kronos-pixel-aura-stepped {
     0% {
         box-shadow:
-            0 0 3px 0 rgba(232, 196, 124, 0.4),
-            0 0 6px 0 rgba(232, 196, 124, 0.2);
+            0 0 3px 0 rgba(30, 144, 255, 0.4),
+            0 0 6px 0 rgba(30, 144, 255, 0.2);
     }
     20% {
         box-shadow:
-            0 0 5px 0 rgba(96, 165, 250, 0.5),
-            0 0 10px 0 rgba(96, 165, 250, 0.25);
+            0 0 5px 0 rgba(99, 102, 241, 0.5),
+            0 0 10px 0 rgba(99, 102, 241, 0.25);
     }
     40% {
         box-shadow:
-            0 0 4px 0 rgba(167, 139, 250, 0.5),
-            0 0 8px 0 rgba(167, 139, 250, 0.3);
+            0 0 4px 0 rgba(30, 144, 255, 0.5),
+            0 0 8px 0 rgba(30, 144, 255, 0.3);
     }
     60% {
         box-shadow:
-            0 0 5px 0 rgba(244, 114, 182, 0.5),
-            0 0 10px 0 rgba(244, 114, 182, 0.25);
+            0 0 5px 0 rgba(99, 102, 241, 0.5),
+            0 0 10px 0 rgba(99, 102, 241, 0.25);
     }
     80% {
         box-shadow:
-            0 0 4px 0 rgba(74, 222, 128, 0.5),
-            0 0 8px 0 rgba(74, 222, 128, 0.25);
+            0 0 4px 0 rgba(0, 155, 255, 0.5),
+            0 0 8px 0 rgba(0, 155, 255, 0.25);
     }
     100% {
         box-shadow:
-            0 0 3px 0 rgba(232, 196, 124, 0.4),
-            0 0 6px 0 rgba(232, 196, 124, 0.2);
+            0 0 3px 0 rgba(30, 144, 255, 0.4),
+            0 0 6px 0 rgba(30, 144, 255, 0.2);
     }
 }
 
@@ -93,7 +117,8 @@
 }
 
 @keyframes kronos-typing-bounce {
-    0%, 100% {
+    0%,
+    100% {
         transform: translateY(0);
     }
     50% {
@@ -151,13 +176,18 @@
 }
 
 @keyframes kronos-pulse-border {
-    0%, 100% {
-        border-color: rgba(66, 133, 244, 0.2);
-        box-shadow: inset 0 0 8px rgba(66, 133, 244, 0.1), 0 0 4px rgba(66, 133, 244, 0.1);
+    0%,
+    100% {
+        border-color: rgba(99, 102, 241, 0.2);
+        box-shadow:
+            inset 0 0 8px rgba(99, 102, 241, 0.1),
+            0 0 4px rgba(30, 144, 255, 0.1);
     }
     50% {
-        border-color: rgba(66, 133, 244, 0.6);
-        box-shadow: inset 0 0 16px rgba(66, 133, 244, 0.2), 0 0 8px rgba(66, 133, 244, 0.2);
+        border-color: rgba(99, 102, 241, 0.6);
+        box-shadow:
+            inset 0 0 16px rgba(30, 144, 255, 0.2),
+            0 0 8px rgba(99, 102, 241, 0.2);
     }
 }
 
@@ -167,6 +197,7 @@
     border-radius: calc(var(--block-border-radius, 8px) + 2px);
     pointer-events: none;
     z-index: var(--zindex-block-mask-inner, 5);
+    will-change: box-shadow;
 
     &.aura-style-pixel {
         animation: kronos-pixel-aura-stepped 2s steps(6) infinite;
@@ -190,38 +221,6 @@
     overflow: hidden;
     border-radius: var(--block-border-radius, 8px);
 
-    .agent-widget-chip {
-        position: absolute;
-        top: 6px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        background: rgb(from var(--block-bg-color, #1a1a2e) r g b / 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(232, 196, 124, 0.3);
-        border-radius: 12px;
-        font-size: 11px;
-        color: var(--color-primary, #e2e8f0);
-        white-space: nowrap;
-        animation: kronos-chip-slide-in 0.25s ease-out;
-
-        .agent-widget-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #e8c47c;
-            animation: kronos-pixel-aura-stepped 2s steps(4) infinite;
-            box-shadow: 0 0 4px #e8c47c;
-        }
-
-        .agent-tool-icon {
-            font-size: 12px;
-        }
-    }
-
     .agent-pet-cursor {
         position: absolute;
         width: 28px;
@@ -231,7 +230,9 @@
         justify-content: center;
         z-index: 10;
         animation: kronos-cursor-click 0.3s ease-out;
-        transition: left 0.15s ease-out, top 0.15s ease-out;
+        transition:
+            left 0.15s ease-out,
+            top 0.15s ease-out;
 
         .cursor-pointer-icon {
             width: 28px;
@@ -244,28 +245,28 @@
         }
 
         &.cursor-click .cursor-pointer-icon {
-            background: rgba(232, 196, 124, 0.9);
+            background: rgba(0, 155, 255, 0.9);
             border-radius: 50%;
             color: #1a1a2e;
             font-size: 12px;
         }
 
         &.cursor-type .cursor-pointer-icon {
-            background: rgba(96, 165, 250, 0.9);
+            background: rgba(30, 144, 255, 0.9);
             border-radius: 8px;
             color: #1a1a2e;
             font-size: 12px;
         }
 
         &.cursor-scroll .cursor-pointer-icon {
-            background: rgba(167, 139, 250, 0.9);
+            background: rgba(99, 102, 241, 0.9);
             border-radius: 50%;
             color: #1a1a2e;
             font-size: 12px;
         }
 
         &.cursor-hover .cursor-pointer-icon {
-            background: rgba(244, 114, 182, 0.9);
+            background: rgba(0, 155, 255, 0.9);
             border-radius: 50%;
             color: #1a1a2e;
             font-size: 12px;
@@ -276,7 +277,7 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            border: 2px solid rgba(232, 196, 124, 0.6);
+            border: 2px solid rgba(99, 102, 241, 0.6);
             animation: kronos-cursor-ripple 0.6s ease-out;
             pointer-events: none;
         }
@@ -293,7 +294,7 @@
         padding: 6px 12px;
         background: rgb(from var(--block-bg-color, #1a1a2e) r g b / 0.85);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(96, 165, 250, 0.3);
+        border: 1px solid rgba(99, 102, 241, 0.3);
         border-radius: 14px;
         animation: kronos-chip-slide-in 0.25s ease-out;
 
@@ -301,7 +302,7 @@
             width: 5px;
             height: 5px;
             border-radius: 50%;
-            background: #60a5fa;
+            background: #6366f1;
             animation: kronos-typing-bounce 0.8s ease-in-out infinite;
 
             &:nth-child(2) {
@@ -320,14 +321,14 @@
         width: 120px;
         border-radius: 6px;
         overflow: hidden;
-        border: 1px solid rgba(232, 196, 124, 0.3);
+        border: 1px solid rgba(30, 144, 255, 0.3);
         background: rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(4px);
 
         figcaption {
             font-size: 9px;
             padding: 2px 6px;
-            color: #e8c47c;
+            color: #6366f1;
             background: rgba(0, 0, 0, 0.5);
         }
 
@@ -343,8 +344,9 @@
         width: 24px;
         height: 24px;
         z-index: 15;
-        transition: left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                    top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        transition:
+            left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+            top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         animation: kronos-smooth-cursor-move 0.3s ease-out;
 
         .cursor-dot {
@@ -363,7 +365,7 @@
             position: absolute;
             width: 24px;
             height: 24px;
-            border: 2px solid rgba(99, 102, 241, 0.5);
+            border: 2px solid rgba(30, 144, 255, 0.5);
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -386,23 +388,23 @@
         &.cursor-clicking .cursor-ring {
             width: 18px;
             height: 18px;
-            border-color: rgba(232, 196, 124, 0.8);
-            background: rgba(232, 196, 124, 0.15);
+            border-color: rgba(0, 155, 255, 0.8);
+            background: rgba(0, 155, 255, 0.15);
         }
 
         &.cursor-clicking .cursor-dot {
-            background: #e8c47c;
-            box-shadow: 0 0 8px rgba(232, 196, 124, 0.8);
+            background: #6366f1;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
         }
 
         &.cursor-typing .cursor-dot {
-            background: #60a5fa;
-            box-shadow: 0 0 8px rgba(96, 165, 250, 0.6);
+            background: #1e90ff;
+            box-shadow: 0 0 8px rgba(30, 144, 255, 0.6);
             animation: kronos-typing-bounce 0.3s ease-in-out infinite;
         }
 
         &.cursor-typing .cursor-ring {
-            border-color: rgba(96, 165, 250, 0.5);
+            border-color: rgba(30, 144, 255, 0.5);
         }
     }
 
@@ -412,7 +414,7 @@
         border-radius: var(--block-border-radius, 8px);
         pointer-events: none;
         z-index: 4;
-        border: 3px solid rgba(66, 133, 244, 0.4);
+        border: 3px solid rgba(99, 102, 241, 0.4);
         animation: kronos-pulse-border 2s ease-in-out infinite;
     }
 }

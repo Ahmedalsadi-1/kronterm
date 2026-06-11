@@ -3,7 +3,7 @@ name: electron-api
 description: Guide for adding new Electron APIs to Wave Terminal. Use when implementing new frontend-to-electron communications via preload/IPC.
 ---
 
-# Adding Electron APIs
+# electron-api
 
 Electron APIs allow the frontend to call Electron main process functionality directly via IPC.
 

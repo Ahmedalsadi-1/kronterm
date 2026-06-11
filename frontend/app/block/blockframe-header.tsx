@@ -1,12 +1,11 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting } from "@/app/block/agent-widget-settings";
+import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting, type AgentWidgetVisualSettings } from "@/app/block/agent-widget-settings";
 import {
     blockViewToIcon,
     blockViewToName,
     getViewIconElem,
-    OptMagnifyButton,
     renderHeaderElements,
 } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
@@ -175,14 +174,14 @@ function handleHeaderContextMenu(
                 },
                 {
                     label: "Refactor Code",
-                    visible: metaView === "waveai" || metaView === "codeeditor",
+                    visible: metaView === "waveai" || metaView === "kronoschat" || metaView === "codeeditor",
                     click: () => {
                         document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "refactor", blockId, blockType: metaView }, bubbles: true }));
                     },
                 },
                 {
                     label: "Improve Response",
-                    visible: metaView === "waveai",
+                    visible: metaView === "waveai" || metaView === "kronoschat",
                     click: () => {
                         document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "improve", blockId, blockType: metaView }, bubbles: true }));
                     },
@@ -261,59 +260,14 @@ type HeaderEndIconsProps = {
     metaView?: string;
 };
 
-const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId, metaView }: HeaderEndIconsProps) => {
-    const blockEnv = useWaveEnv<BlockEnv>();
+const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndIconsProps) => {
     const endIconButtons = util.useAtomValueSafe(viewModel?.endIconButtons);
-    const magnified = jotai.useAtomValue(nodeModel.isMagnified);
-    const ephemeral = jotai.useAtomValue(nodeModel.isEphemeral);
-    const numLeafs = jotai.useAtomValue(nodeModel.numLeafs);
-    const magnifyDisabled = numLeafs <= 1;
 
     const endIconsElem: React.ReactElement[] = [];
 
     if (endIconButtons && endIconButtons.length > 0) {
         endIconsElem.push(...endIconButtons.map((button, idx) => <IconButton key={idx} decl={button} />));
     }
-    const settingsDecl: IconButtonDecl = {
-        elemtype: "iconbutton",
-        icon: "cog",
-        title: "Settings",
-        click: (e) => handleHeaderContextMenu(e, blockId, viewModel, nodeModel, blockEnv, metaView),
-    };
-    endIconsElem.push(<IconButton key="settings" decl={settingsDecl} className="block-frame-settings" />);
-    if (ephemeral) {
-        const addToLayoutDecl: IconButtonDecl = {
-            elemtype: "iconbutton",
-            icon: "circle-plus",
-            title: "Add to Layout",
-            click: () => {
-                nodeModel.addEphemeralNodeToLayout();
-            },
-        };
-        endIconsElem.push(<IconButton key="add-to-layout" decl={addToLayoutDecl} />);
-    } else {
-        endIconsElem.push(
-            <OptMagnifyButton
-                key="unmagnify"
-                magnified={magnified}
-                toggleMagnify={() => {
-                    nodeModel.toggleMagnify();
-                    setTimeout(() => refocusNode(blockId), 50);
-                }}
-                disabled={magnifyDisabled}
-            />
-        );
-    }
-
-    const foldDecl: IconButtonDecl = {
-        elemtype: "iconbutton",
-        icon: "chevron-down",
-        title: "Fold Block",
-        click: () => {
-            nodeModel.toggleFold();
-        },
-    };
-    endIconsElem.push(<IconButton key="fold" decl={foldDecl} className="block-frame-fold-btn" />);
 
     const closeDecl: IconButtonDecl = {
         elemtype: "iconbutton",
@@ -326,6 +280,53 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId, metaView }: 
     return <div className="block-frame-end-icons">{endIconsElem}</div>;
 });
 HeaderEndIcons.displayName = "HeaderEndIcons";
+
+const WidgetSettingsPanel = ({ blockId }: { blockId: string }) => {
+    const settings = loadAgentWidgetVisualSettings(blockId);
+    const [_, forceUpdate] = React.useState(0);
+    const toggle = (key: keyof AgentWidgetVisualSettings, value: boolean | string) => {
+        updateAgentWidgetVisualSetting(blockId, key, value);
+        forceUpdate((n) => n + 1);
+    };
+    const items = [
+        { key: "glow" as const, label: "Glow" },
+        { key: "actionChip" as const, label: "Action Chip" },
+        { key: "cursor" as const, label: "Agent Cursor" },
+        { key: "screenshots" as const, label: "Screenshot Preview" },
+        { key: "aura" as const, label: "Pixel Aura" },
+    ];
+    const pointerStyles = [
+        { value: "pixel" as const, label: "Pixel" },
+        { value: "smooth" as const, label: "Smooth" },
+        { value: "minimal" as const, label: "Minimal" },
+    ];
+    return (
+        <div className="flex flex-col gap-1 p-2">
+            {items.map((item) => (
+                <label key={item.key} className="flex cursor-pointer items-center gap-2 text-xs text-[#9e9a93] hover:text-[#eeeeee]">
+                    <input type="checkbox" checked={settings[item.key]} onChange={() => toggle(item.key, !settings[item.key])} className="accent-[#5b9ef5] size-3" />
+                    {item.label}
+                </label>
+            ))}
+            <div className="my-1 border-t border-[#2a2a2a]" />
+            <div className="mb-1 text-[10px] text-[#6b6863]">Pointer Style</div>
+            <div className="flex gap-1">
+                {pointerStyles.map((style) => (
+                    <button key={style.value} onClick={() => toggle("pointerStyle", style.value)}
+                        className={cn("cursor-pointer rounded border px-2 py-0.5 text-[10px] transition-colors",
+                            settings.pointerStyle === style.value
+                                ? "border-[#5b9ef5] bg-[#1e2a3a] text-[#5b9ef5]"
+                                : "border-[#2a2a2a] text-[#9e9a93] hover:border-[#3a3a3a] hover:text-[#eeeeee]"
+                        )}
+                    >
+                        {style.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+WidgetSettingsPanel.displayName = "WidgetSettingsPanel";
 
 const BlockFrame_Header = ({
     nodeModel,
@@ -349,6 +350,7 @@ const BlockFrame_Header = ({
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
     const prevMagifiedState = React.useRef(magnified);
+    const [settingsPanelOpen, setSettingsPanelOpen] = React.useState(false);
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
     const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
@@ -410,7 +412,59 @@ const BlockFrame_Header = ({
                     <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
                 </div>
             )}
+            {!useTermHeader && metaView !== "web" && (
+                <div className="block-frame-traffic-lights">
+                    <div
+                        className="traffic-light traffic-light-close"
+                        title="Close Block"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            uxCloseBlock(nodeModel.blockId);
+                        }}
+                    />
+                    <div
+                        className="traffic-light traffic-light-fold"
+                        title="Fold Block"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            nodeModel.toggleFold();
+                        }}
+                    />
+                    <div
+                        className="traffic-light traffic-light-expand"
+                        title="Expand/Squash"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            nodeModel.toggleMagnify();
+                        }}
+                    />
+                </div>
+            )}
             <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
+            {!useTermHeader && metaView !== "web" && (
+                <div className="block-frame-standard-actions">
+                    <IconButton
+                        decl={{
+                            elemtype: "iconbutton",
+                            icon: magnified ? "compress" : "expand",
+                            title: magnified ? "Un-Magnify" : "Magnify",
+                            click: () => {
+                                nodeModel.toggleMagnify();
+                                setTimeout(() => refocusNode(nodeModel.blockId), 50);
+                            },
+                        }}
+                    />
+                    <IconButton
+                        decl={{
+                            elemtype: "iconbutton",
+                            icon: "sliders",
+                            title: "Widget Settings",
+                            click: () => setSettingsPanelOpen((v) => !v),
+                        }}
+                        className={settingsPanelOpen ? "text-[#5b9ef5]" : undefined}
+                    />
+                </div>
+            )}
             <HeaderEndIcons
                 viewModel={viewModel}
                 nodeModel={nodeModel}
@@ -418,6 +472,11 @@ const BlockFrame_Header = ({
                 metaView={metaView}
             />
             {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
+            {settingsPanelOpen && !useTermHeader && metaView !== "web" && (
+                <div className="block-frame-settings-panel" onClick={(e) => e.stopPropagation()} onMouseLeave={() => setSettingsPanelOpen(false)}>
+                    <WidgetSettingsPanel blockId={nodeModel.blockId} />
+                </div>
+            )}
         </div>
     );
 };

@@ -1,13 +1,14 @@
 import { getApi } from "@/store/global";
 import {
-    createAgentActivityTimeline,
     cursorActionForAgentActivity,
     inferAgentActivityAction,
     inferAgentActivitySurface,
     normalizeAgentActivity,
     pointFromAgentActivityInput,
+    publishAgentActivity,
     type AgentActivityEvent,
     type AgentActivityPhase,
+    type LiveAgentSurfaceActivity,
 } from "../../types/agent-activity";
 
 type DesktopPetNotification = Parameters<ReturnType<typeof getApi>["setDesktopPetActivity"]>[0];
@@ -23,14 +24,9 @@ export type AgentWidgetActivity = {
 };
 
 export type AgentSurfaceActivity = AgentActivityEvent;
-
-export type LiveAgentSurfaceActivity = ReturnType<typeof normalizeAgentActivity> & {
-    timestamp: number;
-};
+export type { LiveAgentSurfaceActivity };
 
 const DefaultTuiPetActivityUrl = "http://127.0.0.1:4096/pet/activity";
-export const AgentSurfaceUiActivityEvent = "agent-surface-ui-activity";
-export const agentActivityTimeline = createAgentActivityTimeline();
 
 function targetForBlock(blockId: string | undefined): DesktopPetNotification["target"] {
     if (!blockId) {
@@ -85,12 +81,7 @@ function widgetActionForActivity(activity: Pick<AgentActivityEvent, "action">): 
 }
 
 function dispatchSurfaceUiActivity(activity: AgentSurfaceActivity) {
-    const normalized = agentActivityTimeline.record(activity);
-    window.dispatchEvent(
-        new CustomEvent<LiveAgentSurfaceActivity>(AgentSurfaceUiActivityEvent, {
-            detail: normalized,
-        })
-    );
+    publishAgentActivity(activity);
 }
 
 function imageDataUrl(value: unknown): string | undefined {
