@@ -51,20 +51,33 @@ KronTerm collapses that pile into one focused environment where **context is sha
 
 <br />
 
-<details open>
-<summary><b>🎬 See KronTerm in Action</b></summary>
-<br />
+---
 
-| Demo | What You'll See |
-|------|----------------|
-| <video src="https://github.com/user-attachments/assets/canvas-display.mp4" width="100%" controls></video> | **Layout & Blocks** — drag, resize, arrange terminals, browsers, and sandboxes in any configuration |
-| <video src="https://github.com/user-attachments/assets/browser-widget.mp4" width="100%" controls></video> | **Browser Widget** — inline Chromium web views that the AI can navigate, fill forms, and scrape |
-| <video src="https://github.com/user-attachments/assets/sandbox-demo.mp4" width="100%" controls></video> | **Sandbox VM** — isolated Linux desktop (E2B-powered) with Firefox, VS Code, and terminal |
-| <video src="https://github.com/user-attachments/assets/dev-server.mp4" width="100%" controls></video> | **Dev Server** — run local apps and preview changes beside your terminal and editor |
+## Demo Gallery
 
-> *Note: If videos don't render on GitHub, view them on the [KronTerm website](https://www.kronterm.dev).*
-
-</details>
+<p align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Layout & Blocks</b></td>
+      <td align="center"><b>Browser Widget</b></td>
+    </tr>
+    <tr>
+      <td><video src="https://github.com/user-attachments/assets/canvas-display.mp4" width="100%" controls></video></td>
+      <td><video src="https://github.com/user-attachments/assets/browser-widget.mp4" width="100%" controls></video></td>
+    </tr>
+  </table>
+  <table>
+    <tr>
+      <td align="center"><b>Sandbox VM</b></td>
+      <td align="center"><b>Dev Server</b></td>
+    </tr>
+    <tr>
+      <td><video src="https://github.com/user-attachments/assets/sandbox-demo.mp4" width="100%" controls></video></td>
+      <td><video src="https://github.com/user-attachments/assets/dev-server.mp4" width="100%" controls></video></td>
+    </tr>
+  </table>
+  <i>Drag, resize, browse, sandbox, preview — all in one canvas.</i>
+</p>
 
 <br />
 
@@ -100,7 +113,29 @@ User Request → Router (classifies surface) → Planner (ordered steps + verifi
     → Executor (batch tool calls) → Critic (verify output) → Summarizer (user-facing result)
 ```
 
-It operates at **every layer of the machine**:
+<br />
+
+#### The AI Side Panel
+
+KronTerm's AI panel sits alongside your workspace, seeing every block you have open — terminals, web pages, files, sandboxes. No manual context-pasting, no "please read this file":
+
+<p align="center">
+  <img alt="KronTerm AI Side Panel — the AI sees your entire workspace" src="./assets/kronterm-section/kronterm-sidepanel.png" width="85%">
+</p>
+
+<br />
+
+#### KronosCode Agent at Work
+
+KronosCode agents operate at every level of the machine, routing tasks to specialist agents:
+
+<p align="center">
+  <img alt="KronosCode Agent — agentic AI engine controlling your workspace" src="./assets/kronoscode-images/display-of-kronoscode-agent.png" width="85%">
+</p>
+
+<br />
+
+#### Capabilities by Layer
 
 | Layer | What KronosCode Can Do |
 |-------|----------------------|
@@ -128,6 +163,46 @@ Every tool call is real — no simulation, no narration. If KronosCode used a to
 
 <br />
 
+#### AI-Assisted Code Editing
+
+KronosCode reads file contents, suggests changes, and shows you diffs before applying them:
+
+<p align="center">
+  <img alt="KronosCode File Diff — AI suggests changes with visual diff preview" src="./assets/kronoscode-images/file-diff-display.png" width="85%">
+</p>
+
+<br />
+
+#### Terminal-Integrated File Explorer
+
+The classic TUI file explorer with KronosCode overlay — browse, open, and edit files, all within the terminal:
+
+<p align="center">
+  <img alt="KronTerm TUI File Explorer — navigate projects from the terminal" src="./assets/kronoscode-images/display-of-file-explorer-in-tui.png" width="85%">
+</p>
+
+<br />
+
+#### TUI Settings Editor
+
+Configure KronTerm visually from the terminal — themes, keybindings, fonts, AI providers:
+
+<p align="center">
+  <img alt="KronTerm TUI Settings — visual terminal-based settings editor" src="./assets/kronoscode-images/display-of-tui-settings.png" width="85%">
+</p>
+
+<br />
+
+#### Streamable, Composable Apps
+
+Apps within KronTerm are streamable blocks — run a dev server, preview it beside your code, share the view with your team:
+
+<p align="center">
+  <img alt="Streamable Apps — run and preview dev servers inside KronTerm blocks" src="./assets/kronoscode-images/display-of-streamable-apps.png" width="85%">
+</p>
+
+<br />
+
 ### 🌐 Browser Widget: Web Views That the AI Operates
 
 Inline Chromium browser blocks for docs, dashboards, and live app previews — right next to your terminal. Every web block is a target for KronosCode: navigate, fill forms, scrape data, take screenshots, inspect elements, all within the block.
@@ -145,7 +220,7 @@ Spin up full Linux desktop VMs (E2B-powered) alongside your code. Each sandbox h
 - **Disposable by design** — spin up for a test, tear down when done. No Dockerfiles, no Vagrant boxes, no cloud VM juggling.
 
 <p align="center">
-  <img alt="KronTerm Sandbox — isolated Linux desktop VM" src="./assets/kronterm-section/kronterm-sandbox-screenshot.png" width="90%">
+  <img alt="KronTerm Sandbox — isolated Linux desktop VM" src="./assets/kronterm-section/kronterm-sandbox-screenshot.png" width="85%">
 </p>
 
 <br />
@@ -154,13 +229,15 @@ Spin up full Linux desktop VMs (E2B-powered) alongside your code. Each sandbox h
 
 KronosCode can observe and control any native macOS app through the accessibility API:
 
-- **See**: Full accessibility tree of any running app — buttons, fields, menus, scroll areas
-- **Click**: By element name, DOM id, or screenshot-pixel coordinates
-- **Type**: Into any focused text field
-- **Press**: Key combinations (⌘+C, ⌘+Shift+P, etc.)
-- **Scroll**: In any direction, by lines or pages
-- **Drag**: Between coordinates with configurable duration
-- **Set Values**: On sliders, date pickers, and input fields
+| Action | What It Does |
+|--------|-------------|
+| **See** | Full accessibility tree of any running app — buttons, fields, menus, scroll areas |
+| **Click** | By element name, DOM id, or screenshot-pixel coordinates |
+| **Type** | Into any focused text field |
+| **Press** | Key combinations (⌘+C, ⌘+Shift+P, etc.) |
+| **Scroll** | In any direction, by lines or pages |
+| **Drag** | Between coordinates with configurable duration |
+| **Set Values** | On sliders, date pickers, and input fields |
 
 This bridges the gap between "AI that can read files" and "AI that can use your actual desktop applications."
 
@@ -169,6 +246,31 @@ This bridges the gap between "AI that can read files" and "AI that can use your 
 ### 🔗 Durable SSH & Remote Sessions
 
 Your remote connections survive network drops, sleep cycles, and even KronTerm restarts. Automatic reconnection means you never lose a session mid-work. Includes a built-in graphical editor for remote files, inline previews for markdown, images, CSVs, PDFs, and more.
+
+<br />
+
+---
+
+## 🐾 The KronTerm Pet
+
+A friendly desktop companion that lives in your workspace. The KronTerm pet has two animation states — idle and walking — and adds a touch of personality to your command center.
+
+<p align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="./assets/pet/kronterm-pet-pose1.png" width="120"></td>
+      <td align="center"><img src="./assets/pet/kronterm-pet-pose2.png" width="120"></td>
+      <td align="center"><img src="./assets/pet/kronterm-pet-pose3.png" width="120"></td>
+    </tr>
+    <tr>
+      <td align="center"><i>Pose 1</i></td>
+      <td align="center"><i>Pose 2</i></td>
+      <td align="center"><i>Pose 3</i></td>
+    </tr>
+  </table>
+</p>
+
+The pet is a whimsical touch in an otherwise serious tool — a reminder that joy belongs in the developer experience, too.
 
 <br />
 
@@ -264,6 +366,7 @@ KronosCode has deep access to your system. Control is explicit:
 | **Sandbox isolation** | E2B VMs are fully isolated — root inside the sandbox, zero impact on host |
 
 **Data flow:**
+
 ```
 Your API Key → AI Provider (OpenAI/Claude/Gemini/Ollama)
      ↓
@@ -301,6 +404,7 @@ Your source code, terminal output, and files never transit through a KronTerm cl
 - **Shared Workspaces** — Multi-user layouts, remote pair debugging, team workflows.
 - **Extended Desktop Control** — Windows and Linux native app automation.
 - **Plugin System** — Third-party widgets, tools, and agent integrations.
+- **Persistent Pet** — Your KronTerm pet gains memory, learns your workflow patterns, and evolves over time.
 
 See the full [ROADMAP.md](./ROADMAP.md) for details. Want to influence the direction? [Join our Discord](https://discord.gg/XfvZ334gwU).
 
