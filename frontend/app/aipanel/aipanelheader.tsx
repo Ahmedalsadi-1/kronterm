@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { handleWaveAIContextMenu } from "@/app/aipanel/aipanel-contextmenu";
+import { SiriButton } from "@/app/aipanel/siri-button";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
 import {
@@ -51,6 +52,7 @@ export const AIPanelHeader = memo(
                 <div className="flex items-center gap-1.5">
                     {!inBuilder && (
                         <>
+                            <SiriButton />
                             <button
                                 onClick={() => model.toggleSplitView()}
                                 className={cn(

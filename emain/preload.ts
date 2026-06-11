@@ -105,9 +105,51 @@ contextBridge.exposeInMainWorld("api", {
         return () => ipcRenderer.removeListener("acp-event", handler);
     },
 
+    // ── LSP (Language Server Protocol) IPC ───────────────────────────
+    lspStart: (language: string) =>
+        ipcRenderer.invoke("lsp-start", language).then((r: any) => {
+            if (!r.success) throw new Error(r.error ?? "Failed to start language server");
+            return r.sessionId as string;
+        }),
+    lspSend: (sessionId: string, content: string) => ipcRenderer.send("lsp-send", sessionId, content),
+    lspStop: (sessionId: string) => ipcRenderer.send("lsp-stop", sessionId),
+    onLspMessage: (callback: (msg: { sessionId: string; content: string }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, msg: { sessionId: string; content: string }) =>
+            callback(msg);
+        ipcRenderer.on("lsp-message", handler);
+        return () => ipcRenderer.removeListener("lsp-message", handler);
+    },
+
     // ── Krondesign daemon IPC ────────────────────────────────────────
     krondesignStatus: () => ipcRenderer.invoke("krondesign-status"),
     krondesignStart: () => ipcRenderer.invoke("krondesign-start"),
+
+    // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
+    chathubv2Start: () => ipcRenderer.invoke("chathubv2-start"),
+    chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
+    chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
+
+    // ── Audio / Voice Engine IPC ─────────────────────────────────────
+    audioStart: () => ipcRenderer.invoke("audio-start"),
+    audioStartListening: () => ipcRenderer.send("audio-start-listening"),
+    audioStopListening: () => ipcRenderer.send("audio-stop-listening"),
+    audioSpeak: (text: string) => ipcRenderer.send("audio-speak", text),
+    audioSetWakeWord: (enabled: boolean) => ipcRenderer.send("audio-set-wake-word", enabled),
+    onAudioStatusChange: (callback: (status: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, status: string) => callback(status);
+        ipcRenderer.on("audio-status-change", handler);
+        return () => ipcRenderer.removeListener("audio-status-change", handler);
+    },
+    onAudioTranscript: (callback: (text: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+        ipcRenderer.on("audio-transcript", handler);
+        return () => ipcRenderer.removeListener("audio-transcript", handler);
+    },
+    onAudioError: (callback: (message: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
+        ipcRenderer.on("audio-error", handler);
+        return () => ipcRenderer.removeListener("audio-error", handler);
+    },
 });
 
 // Custom event for "new-window"

@@ -1,0 +1,19 @@
+# KronTerm Voice Engine — Python dependencies
+# Phase 0: Foundation (minimal)
+# Phase 1+: Add STT, TTS, wake word
+
+# Audio capture
+sounddevice>=0.5.0
+numpy>=1.26.0
+
+# Phase 1: Speech-to-Text (faster-whisper)
+# faster-whisper>=1.0.0
+
+# Phase 2: Text-to-Speech (edge-tts)
+# edge-tts>=6.0.0
+
+# Phase 3: Wake Word (Porcupine)
+# pvporcupine>=3.0.0
+
+# Audio processing
+# pydub>=0.25.1

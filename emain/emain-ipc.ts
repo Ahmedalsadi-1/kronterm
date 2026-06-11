@@ -22,6 +22,11 @@ import {
     removeAgentManager,
 } from "./acp";
 import {
+    getChatHubV2ServerStatus,
+    startChatHubV2Server,
+    stopChatHubV2Server,
+} from "./chathubv2-server";
+import {
     incrementTermCommandsDurable,
     incrementTermCommandsRemote,
     incrementTermCommandsRun,
@@ -30,6 +35,17 @@ import {
 } from "./emain-activity";
 
 import { getKrondesignProc, getKrondesignUrl, isKrondesignHealthy, runKrondesignDaemon } from "./emain-krondesign";
+import {
+    audioGetStatus,
+    audioSetWakeWord,
+    audioShutdown,
+    audioSpeak,
+    audioStartListening,
+    audioStopListening,
+    registerAudioCallbacks,
+    runAudioEngine,
+} from "./emain-audio";
+import { sendLspMessage, startLanguageServer, stopLanguageServer } from "./emain-lsp";
 import {
     getDesktopPetClickThroughStatus,
     notifyDesktopPetActivity,
@@ -834,6 +850,29 @@ export function initIpcHandlers() {
         }
     });
 
+    // ── LSP (Language Server Protocol) IPC ─────────────────────────────
+
+    electron.ipcMain.handle("lsp-start", async (event, language: string) => {
+        try {
+            const sessionId = startLanguageServer(event.sender, language);
+            return { success: true, sessionId };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+
+    electron.ipcMain.on("lsp-send", (event, sessionId: string, content: string) => {
+        try {
+            sendLspMessage(sessionId, content);
+        } catch (err) {
+            console.error("[lsp] send error:", err);
+        }
+    });
+
+    electron.ipcMain.on("lsp-stop", (event, sessionId: string) => {
+        stopLanguageServer(sessionId);
+    });
+
     // ── Krondesign Daemon IPC ──────────────────────────────────────────
 
     electron.ipcMain.handle("krondesign-status", async () => {
@@ -853,5 +892,71 @@ export function initIpcHandlers() {
         } catch (err) {
             return { success: false, error: err instanceof Error ? err.message : String(err) };
         }
+    });
+
+    // ── Audio / Voice Engine IPC ──────────────────────────────────────
+
+    electron.ipcMain.handle("audio-start", async () => {
+        const audioReady = await runAudioEngine();
+        registerAudioCallbacks({
+            onStatusChange: (status) => {
+                for (const wc of electron.BrowserWindow.getAllWindows().map((w) => w.webContents)) {
+                    if (!wc.isDestroyed()) {
+                        wc.send("audio-status-change", status);
+                    }
+                }
+            },
+            onTranscript: (text) => {
+                for (const wc of electron.BrowserWindow.getAllWindows().map((w) => w.webContents)) {
+                    if (!wc.isDestroyed()) {
+                        wc.send("audio-transcript", text);
+                    }
+                }
+            },
+            onError: (msg) => {
+                for (const wc of electron.BrowserWindow.getAllWindows().map((w) => w.webContents)) {
+                    if (!wc.isDestroyed()) {
+                        wc.send("audio-error", msg);
+                    }
+                }
+            },
+        });
+        return audioReady;
+    });
+
+    electron.ipcMain.on("audio-start-listening", () => {
+        audioStartListening();
+    });
+
+    electron.ipcMain.on("audio-stop-listening", () => {
+        audioStopListening();
+    });
+
+    electron.ipcMain.on("audio-speak", (_event, text: string) => {
+        audioSpeak(text);
+    });
+
+    electron.ipcMain.on("audio-set-wake-word", (_event, enabled: boolean) => {
+        audioSetWakeWord(enabled);
+    });
+
+    // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
+
+    electron.ipcMain.handle("chathubv2-start", async () => {
+        try {
+            const data = await startChatHubV2Server();
+            return { success: true, data };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+
+    electron.ipcMain.handle("chathubv2-status", async () => {
+        return { success: true, data: getChatHubV2ServerStatus() };
+    });
+
+    electron.ipcMain.handle("chathubv2-stop", async () => {
+        stopChatHubV2Server();
+        return { success: true };
     });
 }

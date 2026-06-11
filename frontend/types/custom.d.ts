@@ -299,9 +299,51 @@ declare global {
             }) => void
         ) => () => void;
 
+        // ── LSP (Language Server Protocol) ────────────────────────────
+        lspStart: (language: string) => Promise<string>;
+        lspSend: (sessionId: string, content: string) => void;
+        lspStop: (sessionId: string) => void;
+        onLspMessage: (callback: (msg: { sessionId: string; content: string }) => void) => () => void;
+
         // ── Krondesign daemon ────────────────────────────────────────
         krondesignStatus: () => Promise<{ running: boolean; url: string; pid: number | null }>;
         krondesignStart: () => Promise<{ success: boolean; error?: string }>;
+
+        // ── ChatHub V2 / KronosChamber backend ──────────────────────
+        chathubv2Start: () => Promise<{
+            success: boolean;
+            error?: string;
+            data?: {
+                url: string;
+                port: number;
+                pid?: number;
+                serverPath: string;
+                distPath: string;
+                ready: boolean;
+            };
+        }>;
+        chathubv2Status: () => Promise<{
+            success: boolean;
+            data?: {
+                url: string;
+                port: number;
+                pid?: number;
+                serverPath: string;
+                distPath: string;
+                ready: boolean;
+            } | null;
+        }>;
+        chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
+
+        // ── Audio / Voice Engine IPC ──────────────────────────────
+        audioStart: () => Promise<boolean>;
+        audioStartListening: () => void;
+        audioStopListening: () => void;
+        audioSpeak: (text: string) => void;
+        audioSetWakeWord: (enabled: boolean) => void;
+        onAudioStatusChange: (callback: (status: string) => void) => () => void;
+        onAudioTranscript: (callback: (text: string) => void) => () => void;
+        onAudioError: (callback: (message: string) => void) => () => void;
     };
 
     type ElectronContextMenuItem = {
