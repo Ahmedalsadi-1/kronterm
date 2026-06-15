@@ -1,16 +1,14 @@
 <p align="center">
-  <a href="https://www.kronterm.dev">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/pet/kronterm-pet-logo.png">
-      <img alt="KronTerm" src="./assets/pet/kronterm-pet-logo.png" width="100">
-    </picture>
-  </a>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHJ4PSI4IiBmaWxsPSIjNjVDNUYxIi8+PHRleHQgeD0iMjAiIHk9IjI2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMEEwQTBBIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSxCbGFja2Zyb3ctc3R5bGVkLEZvbnR3ZWlnaHQ9IjcwMCIgZm9udC1zaXplPSIyMCI+SzwvdGV4dD48L3N2Zz4=">
+    <img alt="KronTerm" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHJ4PSI4IiBmaWxsPSIjNjVDNUYxIi8+PHRleHQgeD0iMjAiIHk9IjI2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMEEwQTBBIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSxCbGFja2Zyb3ctc3R5bGVkLEZvbnR3ZWlnaHQ9IjcwMCIgZm9udC1zaXplPSIyMCI+SzwvdGV4dD48L3N2Zz4=" width="48">
+  </picture>
 </p>
 
 <h1 align="center">KronTerm</h1>
 
 <p align="center">
-  <b>The AI-native desktop command center<br />for serious builders.</b>
+  <b>One desktop command center.<br />Terminal · Browser · Sandboxes · AI — fused.</b>
 </p>
 
 <p align="center">
@@ -24,113 +22,72 @@
 <br />
 
 <p align="center">
-  <img alt="KronTerm Workspace — terminal, browser, sandbox, files, and AI in one desktop canvas" src="./assets/kronterm-section/kronterm-homepage.png" width="95%">
+  <img alt="KronTerm Workspace" src="./assets/kronterm-section/kronterm-homepage.png" width="95%">
 </p>
 
 <p align="center">
-  <i>Terminal · Browser · Editor · Sandboxes · AI Agents · Desktop Control — one surface.</i>
+  <i>Terminal · Browser · Editor · Sandboxes · AI Agents · Desktop Control — one surface, one tool in your dock.</i>
 </p>
 
 <br />
 
 ---
 
-## The Workspace That Replaces Your Entire Toolchain
+## Why KronTerm?
 
-**KronTerm is a commercial AI-native desktop workspace** that fuses your terminal, browser, file manager, sandbox environments, desktop automation, and AI agents into a single programmable canvas. It is the only tool in your dock — everything else lives inside it.
+Every developer keeps a constellation of apps running: a terminal emulator, a browser with dozens of tabs, an IDE, an AI chat window, Docker or a VM, a notes app, maybe a tile manager. Each lives in its own window, owns its own context, and fights for screen space. The AI in the sidebar can't see your build output. The terminal doesn't know what's in the browser. The browser doesn't know what the sandbox is doing.
 
-> **Not another terminal emulator.** Not another AI chat sidebar. KronTerm is a vertically integrated command center where every surface — shells, web views, files, Linux VMs, macOS apps — is visible to and controllable by AI agents that operate alongside you.
+**KronTerm is the only tool in your dock.**
 
-<br />
+It collapses your entire toolchain into one programmable canvas where every surface — shells, web views, files, Linux VMs, native apps — is visible to and controllable by AI agents that operate alongside you. Context is shared. Surfaces are programmable. The AI operates on your real workspace, not a chat transcript.
 
-### The Problem: You're Juggling 5+ Tools
-
-Every developer keeps a constellation of apps open: terminal emulator + browser (20 tabs) + IDE + AI chat + Docker/VM sandbox + notes + maybe a tile manager. Each in its own window. Each fighting for screen space. Each with its own context that the AI in the sidebar can't see.
-
-KronTerm collapses that pile into one focused environment where **context is shared, surfaces are programmable, and AI agents operate on the real workspace — not a chat transcript.**
+> **Not a terminal emulator.** Not an AI chat sidebar. KronTerm is a vertically integrated command center for serious builders.
 
 <br />
 
 ---
 
-## Demo Gallery
+## Feature Deep-Dive
 
-<p align="center">
-  <table>
-    <tr>
-      <td align="center"><b>Layout & Blocks</b></td>
-      <td align="center"><b>Browser Widget</b></td>
-    </tr>
-    <tr>
-      <td><video src="https://github.com/user-attachments/assets/canvas-display.mp4" width="100%" controls></video></td>
-      <td><video src="https://github.com/user-attachments/assets/browser-widget.mp4" width="100%" controls></video></td>
-    </tr>
-  </table>
-  <table>
-    <tr>
-      <td align="center"><b>Sandbox VM</b></td>
-      <td align="center"><b>Dev Server</b></td>
-    </tr>
-    <tr>
-      <td><video src="https://github.com/user-attachments/assets/sandbox-demo.mp4" width="100%" controls></video></td>
-      <td><video src="https://github.com/user-attachments/assets/dev-server.mp4" width="100%" controls></video></td>
-    </tr>
-  </table>
-  <i>Drag, resize, browse, sandbox, preview — all in one canvas.</i>
-</p>
+### 🧩 Blocks: Every Surface Is a Widget
 
-<br />
+KronTerm's workspace is built from **blocks** — fully interactive surfaces that you position, resize, stack, or full-screen. Every block exposes a structured accessibility tree via the Widget Protocol, making it visible and controllable by AI.
 
----
-
-## Core Capabilities
-
-### 🧩 Blocks: Drag-and-Drop Workspace
-
-Every KronTerm "block" is a fully interactive surface that can be positioned, resized, stacked, or full-screened. Blocks communicate via the `wsh` IPC protocol — and the AI can see and manipulate every single one.
-
-| Block Type | Purpose |
-|------------|---------|
-| **Terminal** | Full PTY with shell integration, scrollback capture, SSH, and AI-readable command output |
-| **Browser** | Embedded Chromium — docs, dashboards, previews, and AI-operated browser automation |
+| Block Type | What It Does |
+|------------|-------------|
+| **Terminal** | Full PTY with shell integration, scrollback capture, SSH sessions, AI-readable output |
+| **Browser** | Embedded Chromium — docs, dashboards, live previews, AI-driven browser automation |
 | **Preview** | Renders markdown, images, CSVs, PDFs, HTML — auto-refreshes on file changes |
-| **AI Chat** | Inline KronosCode panel that sees the entire workspace — every block, every file, every command |
-| **Sandbox** | Full Linux desktop VM (E2B) with Firefox, VS Code, terminal — isolated, disposable, programmable |
-| **Launcher** | Command palette for quick actions, block creation, and workspace navigation |
-| **Sys Info** | Real-time system resource monitor (CPU, memory, disk, network) |
-| **Settings** | Visual editor for themes, keybindings, fonts, and AI provider configuration |
+| **AI Chat** | KronosCode panel with full workspace context — every block, file, and command |
+| **Sandbox VM** | Full Linux desktop (E2B) with Firefox, VS Code, terminal — isolated, disposable |
+| **Launcher** | Command palette for quick actions and workspace navigation |
+| **Sys Info** | Real-time CPU, memory, disk, network monitor |
+| **Settings** | Visual editor for themes, keybindings, fonts, AI providers |
 
-**Widget Protocol** — Every block exposes a structured accessibility tree via the widget interaction layer. The AI can snapshot, click (`@e3` refs), type, scroll, drag, inspect, screenshot, and read state from any block. This is how KronosCode operates your workspace like a human would — without separate browser automation tools, PTY libraries, or screen readers.
+The **Widget Protocol** is what makes blocks special. Every block returns a structured element tree via `widget_snapshot`. The AI can click by ref (`@e3`), type, scroll, drag, inspect, and screenshot any block — no separate browser automation tools, PTY libraries, or screen readers needed.
 
 <br />
 
-### 🧠 KronosCode: The AI Engine That Controls Everything
+### 🧠 KronosCode: The AI Engine
 
 **KronosCode is not a chatbot.** It is a structured agentic execution engine that routes every request through a deterministic pipeline:
 
 ```
-User Request → Router (classifies surface) → Planner (ordered steps + verification gates)
-    → Executor (batch tool calls) → Critic (verify output) → Summarizer (user-facing result)
+User Request → Router → Planner → Executor → Critic → Summarizer
 ```
 
-<br />
-
-#### The AI Side Panel
-
-KronTerm's AI panel sits alongside your workspace, seeing every block you have open — terminals, web pages, files, sandboxes. No manual context-pasting, no "please read this file":
+The AI panel sits beside your workspace, seeing every block you have open — terminals, web pages, files, sandboxes. No manual context-pasting.
 
 <p align="center">
-  <img alt="KronTerm AI Side Panel — the AI sees your entire workspace" src="./assets/kronterm-section/kronterm-sidepanel.png" width="85%">
+  <img alt="KronTerm AI Side Panel" src="./assets/kronterm-section/kronterm-sidepanel.png" width="85%">
 </p>
 
 <br />
 
-#### KronosCode Agent at Work
-
-KronosCode agents operate at every level of the machine, routing tasks to specialist agents:
+KronosCode agents operate at every layer of the machine:
 
 <p align="center">
-  <img alt="KronosCode Agent — agentic AI engine controlling your workspace" src="./assets/kronoscode-images/display-of-kronoscode-agent.png" width="85%">
+  <img alt="KronosCode Agent Architecture" src="./assets/kronoscode-images/display-of-kronoscode-agent.png" width="85%">
 </p>
 
 <br />
@@ -138,15 +95,17 @@ KronosCode agents operate at every level of the machine, routing tasks to specia
 #### Capabilities by Layer
 
 | Layer | What KronosCode Can Do |
-|-------|----------------------|
-| **Screen** | Take screenshots of any block or the host macOS desktop. Read pixel colors. Track cursor positions. |
-| **Accessibility** | Inspect the full AX tree of native macOS apps. Click by element ref, read values, scroll panels. |
-| **Widget** | Inside KronTerm blocks: annotated screenshots with `@e3` refs, click by ref or coordinate, type, scroll to elements, drag, wait for conditions. |
-| **Terminal** | Execute shell commands with timeouts, read scrollback, capture exit codes, parse JSON output. |
-| **Network** | Fetch URLs, search the web, scrape pages, search code docs, make API calls. |
-| **Memory** | Search screen/audio history via Screenpipe. Recall what was visible minutes ago. |
+|-------|------------------------|
+| **Screen** | Screenshots of any block or the host macOS desktop. Pixel color reading. Cursor tracking. |
+| **Accessibility** | Full AX tree of native macOS apps. Click by element ref, read values, scroll panels. |
+| **Widget** | Annotated screenshots with `@e3` refs, click by ref or coordinate, type, scroll, drag, wait. |
+| **Terminal** | Shell commands with timeouts, scrollback capture, exit code parsing, JSON output. |
+| **Network** | URL fetch, web search, page scraping, code documentation search, API calls. |
+| **Memory** | Screen/audio history via Screenpipe. Recall what was visible minutes ago. |
 
-**Agent Architecture** — KronosCode uses a routing-first design with specialist agents:
+#### Agent Architecture
+
+KronosCode uses a routing-first design with specialist agents:
 
 ```
 Kronos (Router)
@@ -157,77 +116,101 @@ Kronos (Router)
   └── Librarian  — Web search, code search, documentation research
 ```
 
-Every tool call is real — no simulation, no narration. If KronosCode used a tool, the runtime actually emitted the call.
+Every tool call is real — no simulation, no narration. If KronosCode emitted a tool call, the runtime executed it.
 
-> **KronosCode is included with KronTerm.** No additional setup, no premium tier for the core agent system. ACP premium agents (autonomous background agents) are coming as a commercial add-on.
+> **KronosCode is included with KronTerm.** No additional setup. No premium tier for the core agent system.
 
 <br />
 
 #### AI-Assisted Code Editing
 
-KronosCode reads file contents, suggests changes, and shows you diffs before applying them:
+KronosCode reads file contents, suggests changes, and shows diffs before applying them:
 
 <p align="center">
-  <img alt="KronosCode File Diff — AI suggests changes with visual diff preview" src="./assets/kronoscode-images/file-diff-display.png" width="85%">
+  <img alt="File Diff Preview" src="./assets/kronoscode-images/file-diff-display.png" width="85%">
 </p>
 
 <br />
 
-#### Terminal-Integrated File Explorer
+#### Terminal File Explorer
 
-The classic TUI file explorer with KronosCode overlay — browse, open, and edit files, all within the terminal:
+Browse, open, and edit files within the terminal with KronosCode overlay:
 
 <p align="center">
-  <img alt="KronTerm TUI File Explorer — navigate projects from the terminal" src="./assets/kronoscode-images/display-of-file-explorer-in-tui.png" width="85%">
+  <img alt="TUI File Explorer" src="./assets/kronoscode-images/display-of-file-explorer-in-tui.png" width="85%">
 </p>
 
 <br />
 
 #### TUI Settings Editor
 
-Configure KronTerm visually from the terminal — themes, keybindings, fonts, AI providers:
+Configure themes, keybindings, fonts, and AI providers visually from the terminal:
 
 <p align="center">
-  <img alt="KronTerm TUI Settings — visual terminal-based settings editor" src="./assets/kronoscode-images/display-of-tui-settings.png" width="85%">
+  <img alt="TUI Settings Editor" src="./assets/kronoscode-images/display-of-tui-settings.png" width="85%">
 </p>
 
 <br />
 
-#### Streamable, Composable Apps
+#### Streamable Apps
 
-Apps within KronTerm are streamable blocks — run a dev server, preview it beside your code, share the view with your team:
+Run a dev server, preview it beside your code, share the view:
 
 <p align="center">
-  <img alt="Streamable Apps — run and preview dev servers inside KronTerm blocks" src="./assets/kronoscode-images/display-of-streamable-apps.png" width="85%">
+  <img alt="Streamable App Blocks" src="./assets/kronoscode-images/display-of-streamable-apps.png" width="85%">
 </p>
 
 <br />
 
-### 🌐 Browser Widget: Web Views That the AI Operates
+#### Session Management
 
-Inline Chromium browser blocks for docs, dashboards, and live app previews — right next to your terminal. Every web block is a target for KronosCode: navigate, fill forms, scrape data, take screenshots, inspect elements, all within the block.
+AI-managed session history — browse, search, and resume past conversations:
 
-This isn't just a browser viewer — it's a **browser automation surface** that the AI operates natively, without Playwright, Selenium, or any external tool. The `widget_snapshot` API returns the full element tree with refs like `@e3`, and the AI clicks by ref, not by fragile coordinate heuristics.
+<p align="center">
+  <video src="./assets/kronterm-section/video /sidepanel-session-management.mp4" width="85%" controls></video>
+</p>
 
 <br />
 
-### 🖥️ Sandbox VMs: Isolated Linux Desktops on Demand
+#### ACP Agent Management
+
+Autonomous background agent configuration and monitoring:
+
+<p align="center">
+  <video src="./assets/kronterm-section/video /acp-management.mp4" width="85%" controls></video>
+</p>
+
+<br />
+
+### 🌐 Browser Automation, Native
+
+Inline Chromium browser blocks for docs, dashboards, and live app previews — right next to your terminal. Every web block is a target for KronosCode: navigate, fill forms, scrape data, take screenshots, inspect elements — all within the block.
+
+This is **browser automation without Playwright or Selenium**. The `widget_snapshot` API returns the full element tree with refs like `@e3`. The AI clicks by ref, not by fragile coordinate heuristics.
+
+<p align="center">
+  <img alt="Browser Widget — embedded Chromium with AI-controlled automation" src="./assets/kronterm-section/kronterm-homepage.png" width="85%">
+</p>
+
+<br />
+
+### 🖥️ Sandbox VMs: Isolated Linux Desktops
 
 Spin up full Linux desktop VMs (E2B-powered) alongside your code. Each sandbox has Firefox, VS Code, a terminal, and its own file system — and KronosCode operates them directly.
 
 - **Fully isolated** — root access, package installs, network ops. Nothing touches your host.
-- **AI-controlled** — KronosCode can click, type, scroll, drag, open apps, read/write files inside the sandbox.
-- **Disposable by design** — spin up for a test, tear down when done. No Dockerfiles, no Vagrant boxes, no cloud VM juggling.
+- **AI-controlled** — KronosCode clicks, types, scrolls, drags, opens apps, reads and writes files inside the sandbox.
+- **Disposable by design** — spin up for a test, tear down when done. No Dockerfiles, no cloud VMs.
 
 <p align="center">
-  <img alt="KronTerm Sandbox — isolated Linux desktop VM" src="./assets/kronterm-section/kronterm-sandbox-screenshot.png" width="85%">
+  <img alt="Sandbox VM" src="./assets/kronterm-section/kronterm-sandbox-screenshot.png" width="85%">
 </p>
 
 <br />
 
-### 🖱️ Desktop Control: Native macOS Automation
+### 🖱️ Native Desktop Control (macOS)
 
-KronosCode can observe and control any native macOS app through the accessibility API:
+KronosCode observes and controls any native macOS app through the Accessibility API:
 
 | Action | What It Does |
 |--------|-------------|
@@ -235,78 +218,55 @@ KronosCode can observe and control any native macOS app through the accessibilit
 | **Click** | By element name, DOM id, or screenshot-pixel coordinates |
 | **Type** | Into any focused text field |
 | **Press** | Key combinations (⌘+C, ⌘+Shift+P, etc.) |
-| **Scroll** | In any direction, by lines or pages |
+| **Scroll** | Any direction, lines or pages |
 | **Drag** | Between coordinates with configurable duration |
 | **Set Values** | On sliders, date pickers, and input fields |
 
-This bridges the gap between "AI that can read files" and "AI that can use your actual desktop applications."
+<video src="./assets/kronterm-section/video /kron-computer-use.mp4" width="100%" controls></video>
+
+This bridges the gap between "AI that reads files" and "AI that uses your actual applications."
 
 <br />
 
 ### 🔗 Durable SSH & Remote Sessions
 
-Your remote connections survive network drops, sleep cycles, and even KronTerm restarts. Automatic reconnection means you never lose a session mid-work. Includes a built-in graphical editor for remote files, inline previews for markdown, images, CSVs, PDFs, and more.
+Remote connections survive network drops, sleep cycles, and KronTerm restarts. Automatic reconnection means you never lose a session mid-work. Includes a built-in graphical editor for remote files, inline previews for markdown, images, CSVs, PDFs.
 
 <br />
 
 ---
 
-## 🐾 The KronTerm Pet
+## Architecture
 
-A friendly desktop companion that lives in your workspace. The KronTerm pet has two animation states — idle and walking — and adds a touch of personality to your command center.
-
-<p align="center">
-  <table>
-    <tr>
-      <td align="center"><img src="./assets/pet/kronterm-pet-pose1.png" width="120"></td>
-      <td align="center"><img src="./assets/pet/kronterm-pet-pose2.png" width="120"></td>
-      <td align="center"><img src="./assets/pet/kronterm-pet-pose3.png" width="120"></td>
-    </tr>
-    <tr>
-      <td align="center"><i>Pose 1</i></td>
-      <td align="center"><i>Pose 2</i></td>
-      <td align="center"><i>Pose 3</i></td>
-    </tr>
-  </table>
-</p>
-
-The pet is a whimsical touch in an otherwise serious tool — a reminder that joy belongs in the developer experience, too.
-
-<br />
-
----
-
-## 🏗️ Architecture: How It All Fits Together
-
-KronTerm is a **vertically integrated system** built from four layers:
+KronTerm is a **vertically integrated system** across four layers:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                     USER INTERFACE                           │
+│                      USER INTERFACE                          │
 │  KronTerm Desktop App (Electron + TypeScript)                 │
 │  • Block canvas with drag-and-drop layout engine              │
 │  • WebSocket RPC bridge (wsh) between UI and Go backend       │
 │  • Native menus, tabs, themes, custom keybindings             │
-│  • macOS / Linux / Windows — same DX everywhere               │
+│  • macOS / Linux / Windows — consistent experience            │
 ├──────────────────────────────────────────────────────────────┤
-│                    WIDGET LAYER (wsh IPC)                     │
-│  • Every block is a widget with a structured element tree      │
+│                     WIDGET LAYER (wsh IPC)                    │
+│  • Every block is a widget with a structured element tree     │
 │  • widget_* tools: snapshot, click, type, scroll, drag        │
 │  • Terminal PTY via node-pty (local) or SSH bridge (remote)   │
 │  • Chromium Embedded Framework for web blocks                 │
 │  • E2B SDK for sandbox VM lifecycle management                │
 ├──────────────────────────────────────────────────────────────┤
-│                   KRONOSCODE AI ENGINE                        │
+│                    KRONOSCODE AI ENGINE                       │
 │  • TypeScript core (Bun runtime)                              │
 │  • Vercel AI SDK for multi-provider abstraction               │
-│  • Hono HTTP server for local API & MCP endpoints             │
-│  • Drizzle ORM + SQLite for session & tool persistence        │
-│  • Zod schema validation throughout                           │
+│  • Hono HTTP server for local API and MCP endpoints           │
+│  • Drizzle ORM + SQLite for session and tool persistence      │
+│  • Zod schema validation throughout                          │
 │  • LSP integration for code intelligence                      │
 │  • 69+ built-in tools + MCP server integration                │
 │  • Skills system (loadable domain-specific capabilities)      │
 ├──────────────────────────────────────────────────────────────┤
-│                    AI PROVIDER LAYER                          │
+│                     AI PROVIDER LAYER                         │
 │  • OpenAI (GPT-4o, o3) · Anthropic (Claude 4 Sonnet/Opus)    │
 │  • Google (Gemini 2.0 Pro/Flash) · Ollama / LM Studio (local) │
 │  • Bring your own keys — no accounts, no cloud dependency     │
@@ -318,10 +278,10 @@ KronTerm is a **vertically integrated system** built from four layers:
 
 | Component | Technology | Role |
 |-----------|-----------|------|
-| **Desktop Shell** | Electron + TypeScript | Cross-platform window, menu, native OS integrations |
+| **Desktop Shell** | Electron + TypeScript | Cross-platform window, native OS integrations |
 | **Backend** | Go | High-performance IPC, PTY, SSH, WebSocket bridge |
 | **AI Engine** | TypeScript + Bun | Agent logic, tool execution, session management |
-| **Widget Protocol** | wsh IPC (JSON over WebSocket) | Bidirectional control: AI ↔ block widgets |
+| **Widget Protocol** | wsh IPC (JSON over WebSocket) | Bidirectional AI ↔ block widget control |
 | **Database** | SQLite via Drizzle ORM | Sessions, tool metadata, config storage |
 | **AI SDK** | Vercel AI SDK (`ai`) | Multi-provider abstraction, streaming, tool calling |
 | **HTTP** | Hono | Local API, MCP server, health checks |
@@ -336,15 +296,15 @@ KronTerm is a **vertically integrated system** built from four layers:
 
 ## ⚡ ACP Agents: Autonomous Background Intelligence
 
-Beyond KronosCode (on-demand), KronTerm supports **ACP (Agent Control Protocol)** agents — premium autonomous agents that run continuously, watching your workspace and acting on your behalf:
+Beyond KronosCode (on-demand), KronTerm supports **ACP (Agent Control Protocol)** agents — autonomous agents that run continuously, watching your workspace and acting on your behalf:
 
 | Agent | Role |
 |-------|------|
-| **Hermes** | Personal automation — watches file changes, triggers builds, runs tests on save, keeps your dev loop spinning |
+| **Hermes** | Personal automation — watches file changes, triggers builds, runs tests on save |
 | **OpenClaw** | File system intelligence — navigates codebases, understands dependency graphs, performs large-scale refactors |
-| **Codex** | Deep code generation & analysis — generates entire modules, analyzes complex code paths, produces production-grade implementations |
+| **Codex** | Deep code generation and analysis — generates entire modules, analyzes complex code paths, produces production-grade implementations |
 
-> **Premium feature.** ACP agents are coming as part of KronTerm's commercial tier.
+> **Premium feature.** ACP agents are part of KronTerm's commercial tier.
 
 <br />
 
@@ -352,7 +312,7 @@ Beyond KronosCode (on-demand), KronTerm supports **ACP (Agent Control Protocol)*
 
 ## 🔒 Security Model
 
-KronosCode has deep access to your system. Control is explicit:
+KronosCode has deep access to your system. Control is explicit and local:
 
 | Mechanism | What It Prevents |
 |-----------|-----------------|
@@ -368,11 +328,11 @@ KronosCode has deep access to your system. Control is explicit:
 **Data flow:**
 
 ```
-Your API Key → AI Provider (OpenAI/Claude/Gemini/Ollama)
+Your API Key → AI Provider (OpenAI / Claude / Gemini / Ollama)
      ↓
 KronosCode Engine (local — your machine)
      ↓
-Tool calls executed locally
+Tool calls executed locally on your workspace
      ↓
 Results return to AI → Response in your workspace
 ```
@@ -383,13 +343,13 @@ Your source code, terminal output, and files never transit through a KronTerm cl
 
 ---
 
-## 💻 Platforms
+## Platforms
 
 | Platform | Status |
 |----------|--------|
 | macOS (arm64 / x64) | ✅ Private beta |
-| Windows (x64) | 🔜 Evaluation |
-| Linux (arm64 / x64) | 🔜 Evaluation |
+| Windows (x64) | 🔜 Under evaluation |
+| Linux (arm64 / x64) | 🔜 Under evaluation |
 
 **[Request private beta access →](https://www.kronterm.dev/download)**
 
@@ -397,22 +357,21 @@ Your source code, terminal output, and files never transit through a KronTerm cl
 
 ---
 
-## 🔮 Roadmap
+## Roadmap
 
-- **KronTerm API** — Programmatic workspace control. CI pipelines, automation scripts, and custom tools will drive KronTerm like a headless dev environment.
-- **ACP Agents** — Hermes, OpenClaw, and Codex autonomous agents.
+- **KronTerm API** — Programmatic workspace control for CI pipelines, automation scripts, and custom tooling.
+- **ACP Agents** — Ship Hermes, OpenClaw, and Codex autonomous agents.
 - **Shared Workspaces** — Multi-user layouts, remote pair debugging, team workflows.
 - **Extended Desktop Control** — Windows and Linux native app automation.
 - **Plugin System** — Third-party widgets, tools, and agent integrations.
-- **Persistent Pet** — Your KronTerm pet gains memory, learns your workflow patterns, and evolves over time.
 
-See the full [ROADMAP.md](./ROADMAP.md) for details. Want to influence the direction? [Join our Discord](https://discord.gg/XfvZ334gwU).
+See [ROADMAP.md](./ROADMAP.md) for details. Want to influence the direction? [Join our Discord](https://discord.gg/XfvZ334gwU).
 
 <br />
 
 ---
 
-## Community & Links
+## Community
 
 | | |
 |---|---|
@@ -421,15 +380,14 @@ See the full [ROADMAP.md](./ROADMAP.md) for details. Want to influence the direc
 | ⬇️ **Download** | [kronterm.dev/download](https://www.kronterm.dev/download) |
 | 🐦 **X** | [@krontermdev](https://x.com/krontermdev) |
 | 💬 **Discord** | [Join the community](https://discord.gg/XfvZ334gwU) |
-| 🐙 **GitHub** | [krontermdev/kronterm](https://github.com/krontermdev/kronterm) |
 
 <br />
 
 ---
 
 <p align="center">
-  <b>KronTerm is a commercial AI-native workspace.</b><br />
-  <i>Built for developers, founders, and teams who need one desktop command center<br />for terminal, browser, sandboxes, and AI-assisted execution.</i>
+  <b>KronTerm — your desktop command center.</b><br />
+  <i>Built for developers, founders, and teams who need<br />one environment for terminal, browser, sandboxes, and AI-assisted execution.</i>
 </p>
 
 <p align="center">
