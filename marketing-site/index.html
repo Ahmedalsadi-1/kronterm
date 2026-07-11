@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="KronTerm is the AI-native terminal workspace for terminal, browser, editor, sandboxes, SSH and agentic automation." />
+  <title>KronTerm — One workspace. Every tool.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="KronTerm home"><span class="brand-mark">K</span><span>KronTerm</span></a>
+    <nav><a href="#capabilities">Capabilities</a><a href="#kronoscode">KronosCode</a><a href="#workflow">Workflow</a></nav>
+    <a class="button button-small button-ghost" href="https://github.com/Ahmedalsadi-1/kronterm">View GitHub</a>
+  </header>
+  <main id="top">
+    <section class="hero section-shell">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> AI-native developer workspace</div>
+        <h1>One workspace.<br><em>Every tool.</em></h1>
+        <p>KronTerm combines your terminal, browser, editor, sandboxes, SSH sessions and AI agents in a single programmable canvas.</p>
+        <div class="hero-actions"><a class="button button-primary" href="#capabilities">Explore capabilities</a><a class="button button-ghost" href="https://www.kronterm.dev/download">Download KronTerm</a></div>
+        <div class="proof-row"><span>Mac</span><span>Windows</span><span>Linux</span><span>Local-first</span></div>
+      </div>
+      <div class="workspace-card" aria-label="KronTerm workspace mockup">
+        <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div><div class="window-title">kronterm / workspace</div><div class="window-status">● connected</div></div>
+        <div class="workspace-grid">
+          <div class="panel panel-terminal"><div class="panel-label">TERMINAL</div><pre><span class="muted">$</span> kronos run deploy
+<span class="green">✓</span> analyzing workspace
+<span class="green">✓</span> tests passed <span class="muted">128/128</span>
+<span class="purple">→</span> deploying preview
+<span class="muted">https://preview.kronterm.dev</span>
+
+<span class="cursor">▋</span></pre></div>
+          <div class="panel panel-browser"><div class="panel-label">BROWSER</div><div class="browser-top"><span></span><b>docs.kronterm.dev</b></div><div class="browser-content"><div class="browser-kicker">KronTerm Docs</div><h3>Build without context switching.</h3><div class="browser-lines"><i></i><i></i><i></i><i></i></div></div></div>
+          <div class="panel panel-agent"><div class="panel-label">KRONOSCODE</div><div class="agent-message">I found the failed test, patched the parser, and opened a diff for review.</div><div class="agent-steps"><span>01</span> Inspect logs</div><div class="agent-steps active"><span>02</span> Apply patch</div><div class="agent-steps"><span>03</span> Run tests</div></div>
+        </div>
+      </div>
+    </section>
+    <section class="ticker" aria-label="KronTerm features"><div>TERMINAL <b>✦</b> BROWSER <b>✦</b> EDITOR <b>✦</b> SANDBOXES <b>✦</b> SSH <b>✦</b> AI AGENTS <b>✦</b></div></section>
+    <section id="capabilities" class="section-shell capabilities">
+      <div class="section-heading"><div class="eyebrow"><span></span> Capabilities</div><h2>Replace the pile of developer tools.</h2><p>Everything stays visible, connected and controllable inside one workspace.</p></div>
+      <div class="capability-grid">
+        <article class="capability-card wide"><div class="card-number">01</div><div><h3>Composable workspace</h3><p>Drag, resize and arrange terminal, browser, editor, preview and sandbox blocks into the exact layout your task needs.</p></div><div class="mini-layout"><i></i><i></i><i></i><i></i></div></article>
+        <article class="capability-card"><div class="card-number">02</div><h3>Durable SSH</h3><p>Remote sessions survive drops, sleep cycles and restarts with automatic reconnection.</p><div class="terminal-chip">ssh prod-01 <span>connected</span></div></article>
+        <article class="capability-card"><div class="card-number">03</div><h3>Local and cloud AI</h3><p>Use OpenAI, Claude, Gemini, Ollama or LM Studio with your own keys and models.</p><div class="model-row"><span>GPT</span><span>Claude</span><span>Gemini</span><span>Local</span></div></article>
+        <article class="capability-card"><div class="card-number">04</div><h3>Command blocks</h3><p>Run, monitor, rerun and capture commands without cluttering your main terminal.</p><div class="command-stack"><i></i><i></i><i></i></div></article>
+        <article class="capability-card wide accent-card"><div class="card-number">05</div><div><h3>Built for automation</h3><p>KronTerm exposes workspace actions as tools, turning your environment into a programmable operating surface.</p></div><div class="tool-cloud"><span>run_command</span><span>open_block</span><span>edit_file</span><span>browse_web</span></div></article>
+      </div>
+    </section>
+    <section id="kronoscode" class="section-shell agent-section">
+      <div class="agent-orbit"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="agent-core">K</div><span class="orbit-tag tag-one">Sisyphus</span><span class="orbit-tag tag-two">Hephaestus</span><span class="orbit-tag tag-three">Oracle</span><span class="orbit-tag tag-four">Browser Agent</span></div>
+      <div class="agent-copy"><div class="eyebrow"><span></span> KronosCode</div><h2>The AI engine that can operate your workspace.</h2><p>KronosCode agents do more than answer questions. They inspect output, edit files, control blocks, browse pages, run commands and coordinate specialist agents through ACP.</p><ul><li><b>See context</b><span>Terminal output, files, previews and web views.</span></li><li><b>Take action</b><span>Execute commands, edit code and automate interfaces.</span></li><li><b>Coordinate</b><span>Delegate work across specialized agents.</span></li></ul></div>
+    </section>
+    <section id="workflow" class="section-shell workflow"><div class="section-heading centered"><div class="eyebrow"><span></span> One continuous flow</div><h2>From idea to shipped code without leaving the canvas.</h2></div><div class="workflow-track"><div class="workflow-step"><span>01</span><h3>Explore</h3><p>Open docs and inspect the codebase.</p></div><div class="workflow-step"><span>02</span><h3>Build</h3><p>Edit files and run commands side by side.</p></div><div class="workflow-step"><span>03</span><h3>Validate</h3><p>Launch previews and isolated sandboxes.</p></div><div class="workflow-step"><span>04</span><h3>Ship</h3><p>Let agents test, patch and deploy.</p></div></div></section>
+    <section class="cta section-shell"><div><div class="eyebrow"><span></span> Stop switching. Start shipping.</div><h2>Your entire developer environment, finally working as one.</h2></div><a class="button button-light" href="https://www.kronterm.dev/download">Download KronTerm</a></section>
+  </main>
+  <footer class="section-shell"><a class="brand" href="#top"><span class="brand-mark">K</span><span>KronTerm</span></a><p>AI-native terminal workspace.</p><div><a href="https://github.com/Ahmedalsadi-1/kronterm">GitHub</a><a href="https://docs.kronterm.dev">Docs</a><a href="https://www.kronterm.dev">Website</a></div></footer>
+  <script src="script.js"></script>
+</body>
+</html>
