@@ -69,10 +69,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
             data-message-id={message.info.id}
         >
-            <div className=\"relative px-4\">
+            <div className="relative px-4">
                 {isUser ? (
-                    <div className=\"flex justify-end\">
-                        <div style={{ backgroundColor: 'var(--surface-subtle-color)' }} className=\"max-w-[85%] rounded-2xl rounded-br-sm px-4 py-2 border border-white/5 shadow-lg relative\">
+                    <div className="flex justify-end">
+                        <div style={{ backgroundColor: 'var(--surface-subtle-color)' }} className="max-w-[85%] rounded-2xl rounded-br-sm px-4 py-2 border border-white/5 shadow-lg relative">
                             <MessageBody
                                 messageId={message.info.id}
                                 parts={message.parts}
@@ -93,13 +93,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 <InsertIntoCanvasButton
                                     canvasBlockId={canvasBlockId}
                                     content={fullText}
-                                    title=\"User message\"
+                                    title="User message"
                                 />
                             )}
                         </div>
                     </div>
                 ) : (
-                    <div className=\"relative\">
+                    <div className="relative">
                         <MessageHeader
                             isUser={false}
                             providerID={message.info.providerID || null}
@@ -130,7 +130,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                             <InsertIntoCanvasButton
                                 canvasBlockId={canvasBlockId}
                                 content={fullText}
-                                title=\"Assistant message\"
+                                title="Assistant message"
                             />
                         )}
                     </div>

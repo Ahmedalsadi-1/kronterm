@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Part } from '../../types/sdk';
+import type { Part } from '../../../types/sdk';
 
 import UserTextPart from './parts/UserTextPart';
 import ToolPart from './parts/ToolPart';
@@ -10,7 +10,7 @@ import type { StreamPhase, ToolPopupContent, AgentMentionInfo } from './types';
 import { cn } from '@/lib/utils';
 import { isEmptyTextPart } from './partUtils';
 import { FadeInOnReveal } from './FadeInOnReveal';
-import type { ContentChangeReason } from '../../types/scroll';
+import type { ContentChangeReason } from '../../../types/scroll';
 
 interface MessageBodyProps {
     messageId: string;

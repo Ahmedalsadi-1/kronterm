@@ -48,7 +48,7 @@ export class SandboxViewModel implements ViewModel {
     }
 
     keyDownHandler(e: WaveKeyboardEvent): boolean {
-        if (e.control && e.shiftKey && e.key === "i") {
+        if (e.control && e.shift && e.key === "i") {
             RpcApi.SandboxStatusCommand(TabRpcClient, { sessionId: this.blockId }).catch(() => {});
             return true;
         }

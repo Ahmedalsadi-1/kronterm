@@ -120,8 +120,8 @@ export const pillars: Feature[] = [
         icon: ShieldCheck
     },
     {
-        title: "Local and cloud models",
-        text: "Use local or cloud model support with a workspace that keeps context structured instead of scattering work across tools.",
+        title: "Kronos runtime defaults",
+        text: "Private beta routes execution through KronosCode and KronosChamber so model, tool, and approval state stay inspectable.",
         icon: Cpu
     },
     {

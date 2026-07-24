@@ -1,10 +1,42 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { WshClient } from "@/app/store/wshclient";
 import type { WaveEnv } from "@/app/waveenv/waveenv";
 import { type Placement } from "@floating-ui/react";
 import type * as jotai from "jotai";
 import type * as rxjs from "rxjs";
+
+declare module "@/app/store/wshclientapi" {
+    interface RpcApiType {
+        ListAllAppsCommand(
+            client: WshClient,
+            opts?: RpcOpts
+        ): Promise<
+            Array<{
+                appid: string;
+                modtime?: number;
+                manifest?: {
+                    appmeta?: {
+                        title?: string;
+                        displayname?: string;
+                        shortdesc?: string;
+                        icon?: string;
+                        iconcolor?: string;
+                    };
+                    configschema?: Record<string, unknown>;
+                    dataschema?: Record<string, unknown>;
+                    secrets?: Record<string, unknown>;
+                };
+            }>
+        >;
+        MakeDraftFromLocalCommand(
+            client: WshClient,
+            data: CommandMakeDraftFromLocalData,
+            opts?: RpcOpts
+        ): Promise<CommandMakeDraftFromLocalRtnData>;
+    }
+}
 
 declare global {
     type GlobalAtomsType = {
@@ -27,6 +59,8 @@ declare global {
         allConnStatus: jotai.Atom<ConnStatus[]>;
         reinitVersion: jotai.PrimitiveAtom<number>;
         waveAIRateLimitInfoAtom: jotai.PrimitiveAtom<RateLimitInfo>;
+        builderId: jotai.PrimitiveAtom<string>;
+        builderAppId: jotai.PrimitiveAtom<string>;
     };
 
     type ThrottledValueAtom<T> = jotai.WritableAtom<T, [update: jotai.SetStateAction<T>], void>;
@@ -41,6 +75,32 @@ declare global {
     type AtomWithDebounce<T> = {
         currentValueAtom: jotai.Atom<T>;
         debouncedValueAtom: DebouncedValueAtom<T>;
+    };
+
+    type ChatHubV2RuntimeHealth = {
+        runtime: "kronoscode-kronoschamber";
+        status: "not-found" | "starting" | "ready" | "error" | "stopped";
+        checkedAt: number;
+        candidateRoots: string[];
+        detectedRoot?: string;
+        serverPath?: string;
+        distPath?: string;
+        kronosCodeBinary?: string;
+        startupError?: string;
+        logExcerpt: string[];
+        supportedProviders: string[];
+        supportedModels: string[];
+        recoveryActions: Array<"retry" | "open-settings" | "inspect-logs">;
+    };
+
+    type ChatHubV2ServerData = {
+        url: string;
+        port: number;
+        pid?: number;
+        serverPath: string;
+        distPath: string;
+        ready: boolean;
+        health?: ChatHubV2RuntimeHealth;
     };
 
     type SplitAtom<Item> = Atom<Atom<Item>[]>;
@@ -61,6 +121,43 @@ declare global {
         isPreview?: boolean;
     };
 
+    type WaveInitOpts = GlobalInitOptions & {
+        tabId: string;
+        fullConfig: FullConfigType;
+        clientId: string;
+        activate?: boolean;
+    };
+
+    type BuilderInitOpts = GlobalInitOptions & {
+        builderId: string;
+        appId?: string;
+    };
+
+    type KronSettingsKey =
+        | keyof SettingsType
+        | "app:defaulteditor"
+        | "desktop:control"
+        | "desktop:screenshare"
+        | "desktop:autominimize"
+        | "git:username"
+        | "git:useremail"
+        | "github:token"
+        | "github:owner"
+        | "notify:desktop"
+        | "notify:sound"
+        | "notify:taskcomplete"
+        | "notify:error"
+        | "term:autodelete"
+        | "term:autodeletedays";
+
+    type CommandMakeDraftFromLocalData = {
+        localappid: string;
+    };
+
+    type CommandMakeDraftFromLocalRtnData = {
+        draftappid: string;
+    };
+
     type ElectronApi = {
         getAuthKey(): string; // get-auth-key
         getIsDev(): boolean; // get-is-dev
@@ -76,6 +173,7 @@ declare global {
         getAboutModalDetails: () => AboutModalDetails; // get-about-modal-details
         getZoomFactor: () => number; // get-zoom-factor
         showWorkspaceAppMenu: (workspaceId: string) => void; // workspace-appmenu-show
+        showBuilderAppMenu: (builderId: string) => void; // builder-appmenu-show
         showContextMenu: (workspaceId: string, menu: ElectronContextMenuItem[]) => void; // contextmenu-show
         onContextMenuClick: (callback: (id: string | null) => void) => void; // contextmenu-click
         onNavigate: (callback: (url: string) => void) => void;
@@ -95,6 +193,9 @@ declare global {
         registerGlobalWebviewKeys: (keys: string[]) => void; // register-global-webview-keys
         onControlShiftStateUpdate: (callback: (state: boolean) => void) => void; // control-shift-state-update
         createWorkspace: () => void; // create-workspace
+        openBuilder: (appId?: string) => void; // open-builder
+        closeBuilderWindow: (builderId?: string) => void; // close-builder-window
+        setBuilderWindowAppId: (appId: string) => void; // set-builder-window-app-id
         switchWorkspace: (workspaceId: string) => void; // switch-workspace
         deleteWorkspace: (workspaceId: string) => void; // delete-workspace
         setActiveTab: (tabId: string) => void; // set-active-tab
@@ -102,6 +203,7 @@ declare global {
         closeTab: (workspaceId: string, tabId: string, confirmClose: boolean) => Promise<boolean>; // close-tab
         setWindowInitStatus: (status: "ready" | "wave-ready") => void; // set-window-init-status
         onWaveInit: (callback: (initOpts: WaveInitOpts) => void) => void; // wave-init
+        onBuilderInit?: (callback: (initOpts: BuilderInitOpts) => void) => void; // builder-init
         sendLog: (log: string) => void; // fe-log
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
@@ -310,28 +412,16 @@ declare global {
         krondesignStart: () => Promise<{ success: boolean; error?: string }>;
 
         // ── ChatHub V2 / KronosChamber backend ──────────────────────
-        chathubv2Start: () => Promise<{
+        chathubv2Start: (context?: { tabId?: string; blockId?: string }) => Promise<{
             success: boolean;
             error?: string;
-            data?: {
-                url: string;
-                port: number;
-                pid?: number;
-                serverPath: string;
-                distPath: string;
-                ready: boolean;
-            };
+            data?: ChatHubV2ServerData;
+            health?: ChatHubV2RuntimeHealth;
         }>;
         chathubv2Status: () => Promise<{
             success: boolean;
-            data?: {
-                url: string;
-                port: number;
-                pid?: number;
-                serverPath: string;
-                distPath: string;
-                ready: boolean;
-            } | null;
+            data?: ChatHubV2ServerData | null;
+            health?: ChatHubV2RuntimeHealth;
         }>;
         chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
 

@@ -12,7 +12,7 @@ interface KronSettingsAboutContentProps {
 
 const KronSettingsAboutContent = memo(({ model }: KronSettingsAboutContentProps) => {
     const fullConfig = useAtomValue(model.env.atoms.fullConfigAtom);
-    const version = fullConfig?.version ?? "unknown";
+    const version = (fullConfig as FullConfigType & { version?: string })?.version ?? "unknown";
 
     return (
         <div>

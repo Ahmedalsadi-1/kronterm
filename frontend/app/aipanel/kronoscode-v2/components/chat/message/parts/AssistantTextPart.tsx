@@ -1,9 +1,9 @@
-import React from 'react';
-import type { Part } from '../../../types/sdk';
-import { MarkdownRenderer } from '../MarkdownRenderer';
-import type { StreamPhase } from '../types';
-import type { ContentChangeReason } from '../../../types/scroll';
-import { ReasoningTimelineBlock, formatReasoningText } from './ReasoningPart';
+import React from "react";
+import type { ContentChangeReason } from "../../../../types/scroll";
+import type { Part } from "../../../../types/sdk";
+import { MarkdownRenderer } from "../../MarkdownRenderer";
+import type { StreamPhase } from "../types";
+import { ReasoningTimelineBlock, formatReasoningText } from "./ReasoningPart";
 
 type PartWithText = Part & { text?: string; content?: string; value?: string; time?: { start?: number; end?: number } };
 
@@ -26,24 +26,18 @@ const AssistantTextPart: React.FC<AssistantTextPartProps> = ({
 }) => {
     const partWithText = part as PartWithText;
     const rawText = partWithText.text;
-    const baseTextContent = typeof rawText === 'string' ? rawText : partWithText.content || partWithText.value || '';
+    const baseTextContent = typeof rawText === "string" ? rawText : partWithText.content || partWithText.value || "";
     const textContent = React.useMemo(() => {
         if (renderAsReasoning) {
             return formatReasoningText(baseTextContent);
         }
         return baseTextContent;
     }, [baseTextContent, renderAsReasoning]);
-    const isStreamingPhase = streamPhase === 'streaming';
-    const isCooldownPhase = streamPhase === 'cooldown';
-    const wasStreamingRef = React.useRef(isStreamingPhase);
-
-    if (isStreamingPhase || isCooldownPhase) {
-        wasStreamingRef.current = true;
-        return null;
-    }
+    const isStreamingPhase = streamPhase === "streaming";
+    const isCooldownPhase = streamPhase === "cooldown";
 
     const time = partWithText.time;
-    const isFinalized = time && typeof time.end !== 'undefined';
+    const isFinalized = time && typeof time.end !== "undefined";
 
     if (!isFinalized && (!textContent || textContent.trim().length === 0)) {
         return null;
@@ -71,8 +65,8 @@ const AssistantTextPart: React.FC<AssistantTextPartProps> = ({
                 content={textContent}
                 part={part}
                 messageId={messageId}
-                isAnimated={allowAnimation}
-                isStreaming={false}
+                isAnimated={allowAnimation && !isStreamingPhase && !isCooldownPhase}
+                isStreaming={isStreamingPhase || isCooldownPhase}
             />
         </div>
     );

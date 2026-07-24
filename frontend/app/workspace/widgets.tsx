@@ -82,7 +82,7 @@ function widgetGroupKey(widget: WidgetConfigType): WidgetGroupKey {
     if (view === "web") return "browser";
     if (view === "sandbox") return "sandbox";
     if (view === "design") return "design";
-    if (view === "waveai" || view === "waveconfig") return "ai";
+    if (view === "waveai" || view === "kronoschat" || view === "chathubv2" || view === "waveconfig") return "ai";
     if (view === "tsunami") return "apps";
     return "tools";
 }
@@ -121,10 +121,29 @@ type WidgetPropsType = {
     env: WidgetsEnv;
 };
 
+function isChatHubWidget(widget: WidgetConfigType): boolean {
+    const view = widget.blockdef?.meta?.view;
+    return view === "waveai" || view === "kronoschat" || view === "chathubv2";
+}
+
+function getWidgetLabel(widget: WidgetConfigType): string {
+    if (isChatHubWidget(widget)) {
+        return "ChatHub V2";
+    }
+    return widget.label;
+}
+
+function getWidgetDescription(widget: WidgetConfigType): string {
+    if (isChatHubWidget(widget)) {
+        return "KronosChamber AI chat hub";
+    }
+    return widget.description || widget.label;
+}
+
 async function handleWidgetSelect(widget: WidgetConfigType, env: WidgetsEnv) {
-    // Redirect the old deprecated WaveAI block widget to the new kronoschat widget
-    if (widget.blockdef?.meta?.view === "waveai") {
-        env.createBlock({ meta: { view: "kronoschat" } }, widget.magnified);
+    // Redirect the old deprecated WaveAI/ACP chat widgets to ChatHub V2.
+    if (isChatHubWidget(widget)) {
+        env.createBlock({ meta: { view: "chathubv2" } }, widget.magnified);
         return;
     }
     const blockDef = widget.blockdef;
@@ -134,19 +153,20 @@ async function handleWidgetSelect(widget: WidgetConfigType, env: WidgetsEnv) {
 const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
     const [isTruncated, setIsTruncated] = useState(false);
     const labelRef = useRef<HTMLDivElement>(null);
+    const label = getWidgetLabel(widget);
 
     useEffect(() => {
         if (mode === "normal" && labelRef.current) {
             const element = labelRef.current;
             setIsTruncated(element.scrollWidth > element.clientWidth);
         }
-    }, [mode, widget.label]);
+    }, [mode, label]);
 
     const shouldDisableTooltip = mode !== "normal" ? false : !isTruncated;
 
     return (
         <Tooltip
-            content={widget.description || widget.label}
+            content={getWidgetDescription(widget)}
             placement="left"
             disable={shouldDisableTooltip}
             divClassName={clsx(
@@ -159,12 +179,12 @@ const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
             <div style={{ color: widget.color }}>
                 <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
             </div>
-            {mode === "normal" && !isBlank(widget.label) ? (
+            {mode === "normal" && !isBlank(label) ? (
                 <div
                     ref={labelRef}
                     className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis"
                 >
-                    {widget.label}
+                    {label}
                 </div>
             ) : null}
         </Tooltip>

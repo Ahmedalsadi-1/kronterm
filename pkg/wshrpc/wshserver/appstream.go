@@ -80,6 +80,15 @@ func (ws *WshServer) AppStreamStartCommand(ctx context.Context, data wshrpc.AppS
 	mux.HandleFunc("/scroll", func(w http.ResponseWriter, r *http.Request) {
 		handleAppStreamScroll(streamCtx, appName, w, r)
 	})
+	mux.HandleFunc("/drag", func(w http.ResponseWriter, r *http.Request) {
+		handleAppStreamDrag(streamCtx, appName, w, r)
+	})
+	mux.HandleFunc("/paste", func(w http.ResponseWriter, r *http.Request) {
+		handleAppStreamType(streamCtx, appName, w, r)
+	})
+	mux.HandleFunc("/wait", func(w http.ResponseWriter, r *http.Request) {
+		handleAppStreamWait(streamCtx, appName, w, r)
+	})
 	server := &http.Server{
 		Handler: withAppStreamCors(mux),
 	}
@@ -298,6 +307,11 @@ type appStreamActionRequest struct {
 	Keys        string `json:"keys,omitempty"`
 	Direction   string `json:"direction,omitempty"`
 	ScrollCount int    `json:"scrollCount,omitempty"`
+	FromX       int    `json:"fromX,omitempty"`
+	FromY       int    `json:"fromY,omitempty"`
+	ToX         int    `json:"toX,omitempty"`
+	ToY         int    `json:"toY,omitempty"`
+	TimeoutMs   int    `json:"timeoutMs,omitempty"`
 }
 
 func readActionBody(r *http.Request) ([]byte, error) {
@@ -413,4 +427,58 @@ func handleAppStreamScroll(ctx context.Context, appName string, w http.ResponseW
 		}
 	}
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func handleAppStreamDrag(ctx context.Context, appName string, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	body, err := readActionBody(r)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var req appStreamActionRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid JSON"})
+		return
+	}
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	args := map[string]any{
+		"app": appName, "from_x": req.FromX, "from_y": req.FromY, "to_x": req.ToX, "to_y": req.ToY,
+	}
+	if _, err := callOpenComputerUseTool(callCtx, "drag", args); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func handleAppStreamWait(ctx context.Context, appName string, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	body, err := readActionBody(r)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var req appStreamActionRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid JSON"})
+		return
+	}
+	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
+	if timeout <= 0 || timeout > 30*time.Second {
+		timeout = 5 * time.Second
+	}
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	output, err := callOpenComputerUseTool(callCtx, "get_app_state", map[string]any{"app": appName})
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if _, err := screenshotFromOpenComputerUse(output); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 }

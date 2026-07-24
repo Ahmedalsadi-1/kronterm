@@ -11,7 +11,7 @@ interface KronSettingsSessionsContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsSessionsContent = memo(({ _model }: KronSettingsSessionsContentProps) => {
+const KronSettingsSessionsContent = memo(({ model: _model }: KronSettingsSessionsContentProps) => {
     const [durableSessions, setDurableSessions] = useToggleField("term:durable");
     const [autoDeleteEnabled, setAutoDeleteEnabled] = useToggleField("term:autodelete");
     const [autoDeleteDays, setAutoDeleteDays] = useNumberField("term:autodeletedays", 30);

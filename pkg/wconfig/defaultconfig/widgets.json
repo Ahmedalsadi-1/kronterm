@@ -46,24 +46,24 @@
     "defwidget@ai": {
         "display:order": -2,
         "icon": "sparkles",
-        "label": "assistant",
+        "label": "ChatHub V2",
         "color": "#e8c47c",
-        "description": "Assistant chat",
+        "description": "KronosChamber AI chat hub",
         "blockdef": {
             "meta": {
-                "view": "kronoschat"
+                "view": "chathubv2"
             }
         }
     },
     "defwidget@chat": {
         "display:order": -5.5,
         "icon": "comment-dots",
-        "label": "chat",
+        "label": "ChatHub V2",
         "color": "#429DFF",
-        "description": "Assistant chat widget",
+        "description": "KronosChamber AI chat widget",
         "blockdef": {
             "meta": {
-                "view": "kronoschat"
+                "view": "chathubv2"
             }
         }
     },

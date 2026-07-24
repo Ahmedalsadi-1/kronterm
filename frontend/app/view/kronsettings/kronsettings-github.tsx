@@ -10,7 +10,7 @@ interface KronSettingsGitHubContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsGitHubContent = memo(({ _model }: KronSettingsGitHubContentProps) => {
+const KronSettingsGitHubContent = memo(({ model: _model }: KronSettingsGitHubContentProps) => {
     const [token, setToken] = useSettingField("github:token");
     const [owner, setOwner] = useSettingField("github:owner");
 

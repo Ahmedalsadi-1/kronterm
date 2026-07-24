@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
+import {
+    AgentWidgetSettingsEvent,
+    type AgentWidgetVisualSettings,
+    loadAgentWidgetVisualSettings,
+    updateAgentWidgetVisualSetting,
+} from "@/app/block/agent-widget-settings";
 import { BlockNodeModel } from "@/app/block/blocktypes";
-import { uxCloseBlock } from "@/app/store/keymodel";
 import { Search, useSearch } from "@/app/element/search";
-import { getSettingsKeyAtom } from "@/app/store/global";
+import { getSettingsKeyAtom, refocusNode } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
-import { getSimpleControlShiftAtom } from "@/app/store/keymodel";
+import { getSimpleControlShiftAtom, uxCloseBlock } from "@/app/store/keymodel";
 import type { TabModel } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -16,26 +21,20 @@ import {
     SuggestionControlNoData,
     SuggestionControlNoResults,
 } from "@/app/suggestion/suggestion";
-import { CURSOR_OVERLAY_SCRIPT, reportCursorToPet } from "@/app/view/cursor-overlay";
-import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { ActionMarker } from "@/app/view/action-marker";
+import { CURSOR_OVERLAY_SCRIPT, reportCursorToPet } from "@/app/view/cursor-overlay";
 import { useAgentOverlays } from "@/app/view/use-agent-overlays";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { MockBoundary } from "@/app/waveenv/mockboundary";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { adaptFromReactOrNativeKeyEvent, checkKeyPressed } from "@/util/keyutil";
 import { fireAndForget, useAtomValueSafe } from "@/util/util";
-import {
-    AgentWidgetSettingsEvent,
-    type AgentWidgetVisualSettings,
-    loadAgentWidgetVisualSettings,
-    updateAgentWidgetVisualSetting,
-} from "@/app/block/agent-widget-settings";
-import { refocusNode } from "@/app/store/global";
 import clsx from "clsx";
 import { WebviewTag } from "electron";
 import { Atom, PrimitiveAtom, atom, useAtomValue, useSetAtom } from "jotai";
 import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { subscribeAgentActivityStream } from "../../../types/agent-activity";
+import { makeBrowserPayload, publishCrossViewEvent } from "../../../types/cross-view-bus";
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
 
@@ -1224,6 +1223,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             setErrorText("");
             if (e.isMainFrame) {
                 model.handleNavigate(e.url);
+                publishCrossViewEvent("browser:navigate", model.blockId, makeBrowserPayload(model.blockId, e.url));
             }
             model.updateNavState();
         };
@@ -1240,6 +1240,11 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
                 return;
             }
             model.updateActiveBrowserTab({ title: e.title });
+            publishCrossViewEvent(
+                "browser:title-change",
+                model.blockId,
+                makeBrowserPayload(model.blockId, undefined, e.title)
+            );
         };
         const faviconUpdatedHandler = (e: any) => {
             const favicons = e?.favicons;
@@ -1479,15 +1484,7 @@ const SETTINGS_LABELS: Record<string, string> = {
 };
 
 const WebViewSettingsPanel = memo(
-    ({
-        model,
-        blockId,
-        onClose,
-    }: {
-        model: WebViewModel;
-        blockId: string;
-        onClose: () => void;
-    }) => {
+    ({ model, blockId, onClose }: { model: WebViewModel; blockId: string; onClose: () => void }) => {
         const [settings, setSettings] = useState<AgentWidgetVisualSettings>(() =>
             loadAgentWidgetVisualSettings(blockId)
         );
@@ -1570,11 +1567,7 @@ const WebViewSettingsPanel = memo(
                 <div className="webview-settings-body">
                     {booleanKeys.map((key) => (
                         <label key={key} className="webview-settings-row">
-                            <input
-                                type="checkbox"
-                                checked={settings[key]}
-                                onChange={() => toggleSetting(key)}
-                            />
+                            <input type="checkbox" checked={settings[key]} onChange={() => toggleSetting(key)} />
                             <span>{SETTINGS_LABELS[key]}</span>
                         </label>
                     ))}

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { memo } from "react";
-import { SettingsCard, SectionHeader } from "./kronsettings-shared";
 import type { KronSettingsViewModel } from "./kronsettings-model";
+import { SectionHeader, SettingsCard } from "./kronsettings-shared";
 
 interface KronSettingsShortcutsContentProps {
     model: KronSettingsViewModel;
@@ -40,12 +40,16 @@ const SHORTCUTS: ShortcutEntry[] = [
     { label: "Sandbox: Mouse Click", keys: "Click on preview", group: "Sandbox" },
 ];
 
-const KronSettingsShortcutsContent = memo(({ _model }: KronSettingsShortcutsContentProps) => {
+const KronSettingsShortcutsContent = memo(({ model: _model }: KronSettingsShortcutsContentProps) => {
     const groups = Array.from(new Set(SHORTCUTS.map((s) => s.group)));
 
     return (
         <SettingsCard>
-            <SectionHeader title="Keyboard Shortcuts" icon="keyboard" description="Default shortcuts. Custom configuration coming soon." />
+            <SectionHeader
+                title="Keyboard Shortcuts"
+                icon="keyboard"
+                description="Default shortcuts for beta workflows. Custom capture remains a roadmap control, not a required setup step."
+            />
             {groups.map((group) => (
                 <div key={group}>
                     <div className="kron-settings-shortcut-group-title">{group}</div>

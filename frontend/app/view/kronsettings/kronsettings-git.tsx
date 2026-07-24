@@ -10,7 +10,7 @@ interface KronSettingsGitContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsGitContent = memo(({ _model }: KronSettingsGitContentProps) => {
+const KronSettingsGitContent = memo(({ model: _model }: KronSettingsGitContentProps) => {
     const [userName, setUserName] = useSettingField("git:username");
     const [userEmail, setUserEmail] = useSettingField("git:useremail");
 

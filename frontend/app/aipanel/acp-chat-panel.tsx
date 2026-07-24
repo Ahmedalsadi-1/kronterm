@@ -111,6 +111,11 @@ function toAcpNameValueEntries(source?: Record<string, string>): AcpMcpNameValue
     return entries.length ? entries : undefined;
 }
 
+function extractUrlFromAgentActivity(activity: TimedAgentActivityEvent | null): string {
+    const detail = activity?.detail ?? "";
+    return detail.match(/https?:\/\/[^\s"'<>]+/i)?.[0] ?? "";
+}
+
 function buildAcpMcpSessionServer(serverId: string, server: MCPConfig | undefined): AcpMcpSessionServer | null {
     if (!server || server.enabled === false) {
         return null;
@@ -526,96 +531,102 @@ const LiveSurfaceStrip = memo(
 );
 LiveSurfaceStrip.displayName = "LiveSurfaceStrip";
 
-const SandboxRunDisplay = memo(
+const AgentSurfaceViewer = memo(
     ({
         activity,
         timeline,
+        onExpandSurface,
         onTakeOver,
-        onDirectTerminal,
     }: {
         activity: LiveAgentSurfaceActivity | null;
         timeline: TimedAgentActivityEvent[];
+        onExpandSurface: (activity: TimedAgentActivityEvent | null) => void;
         onTakeOver: () => void;
-        onDirectTerminal: () => void;
     }) => {
-        const sandboxActive = activity?.surface === "sandbox" || timeline.some((item) => item.surface === "sandbox");
-        if (!sandboxActive) {
+        const surfaceActivity =
+            activity != null && (activity.surface === "browser" || activity.surface === "sandbox")
+                ? activity
+                : timeline.find((item) => item.surface === "browser" || item.surface === "sandbox") ?? null;
+        if (!surfaceActivity) {
             return null;
         }
-        const latest = timeline[0] ?? activity;
+
+        const surfaceTimeline = timeline.filter((item) => item.surface === surfaceActivity.surface).slice(0, 4);
+        const isBrowser = surfaceActivity.surface === "browser";
+        const title = isBrowser ? "Browser" : "Sandbox";
+        const icon = isBrowser ? "fa-globe" : "fa-cube";
+
         return (
             <div className="shrink-0 border-b border-[#2a2a2a] bg-[#101010] px-4 py-3">
-                <div className="mx-auto grid max-w-5xl gap-3 @2xl:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.8fr)]">
+                <div className="mx-auto grid max-w-5xl gap-3 @2xl:grid-cols-[minmax(0,1.35fr)_minmax(220px,0.75fr)]">
                     <section className="overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#050505]">
                         <div className="flex h-9 items-center gap-2 border-b border-[#242424] px-3 text-[11px] text-[#9e9a93]">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5b9ef5]" />
-                            <i className="fa fa-cube text-[#5b9ef5]" />
-                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">Sandbox</span>
+                            <i className={cn("fa text-[#5b9ef5]", icon)} />
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">
+                                Agent {title}
+                            </span>
                             <span className="min-w-0 flex-1 truncate">
-                                {latest?.detail ?? latest?.action ?? "Working"}
+                                {surfaceActivity.detail ?? surfaceActivity.action}
                             </span>
                             <button
                                 type="button"
-                                onClick={onDirectTerminal}
-                                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#2a2a2a] bg-[#171717] px-2 py-1 text-[#d4d4d4] hover:bg-[#242424]"
-                            >
-                                <i className="fa fa-terminal text-[10px]" />
-                                Terminal
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onTakeOver}
+                                onClick={() => onExpandSurface(surfaceActivity)}
                                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#1e2a3a] bg-[#161c28] px-2 py-1 text-[#8ab4f5] hover:bg-[#1e2a3a]"
                             >
-                                <i className="fa fa-hand text-[10px]" />
-                                Take over
+                                <i className="fa fa-up-right-and-down-left-from-center text-[10px]" />
+                                Expand
                             </button>
+                            {!isBrowser ? (
+                                <button
+                                    type="button"
+                                    onClick={onTakeOver}
+                                    className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#2a2a2a] bg-[#171717] px-2 py-1 text-[#d4d4d4] hover:bg-[#242424]"
+                                >
+                                    <i className="fa fa-hand text-[10px]" />
+                                    Take over
+                                </button>
+                            ) : null}
                         </div>
                         <div className="flex aspect-video items-center justify-center bg-black">
-                            {activity?.previewimageurl ? (
+                            {surfaceActivity.previewimageurl ? (
                                 <img
-                                    src={activity.previewimageurl}
-                                    alt="Sandbox preview"
+                                    src={surfaceActivity.previewimageurl}
+                                    alt={`${title} preview`}
                                     className="h-full w-full object-contain"
                                 />
                             ) : (
-                                <div className="text-xs text-[#6b6863]">Waiting for sandbox preview</div>
+                                <div className="flex flex-col items-center gap-2 text-center text-xs text-[#6b6863]">
+                                    <i className={cn("fa text-lg text-[#3a3834]", icon)} />
+                                    <span>Waiting for {title.toLowerCase()} preview</span>
+                                </div>
                             )}
                         </div>
                     </section>
                     <section className="min-h-0 rounded-lg border border-[#2a2a2a] bg-[#151515] p-3">
                         <div className="mb-2 flex items-center justify-between text-[11px]">
-                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">Timeline</span>
-                            <span className="text-[#6b6863]">{timeline.length} events</span>
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">Thoughts</span>
+                            <span className="text-[#6b6863]">{surfaceTimeline.length} events</span>
                         </div>
-                        <div className="max-h-[220px] space-y-2 overflow-y-auto">
-                            {timeline.length ? (
-                                timeline.map((item) => (
-                                    <div
-                                        key={`${item.timestamp}-${item.action}-${item.detail ?? ""}`}
-                                        className="flex gap-2 text-xs"
-                                    >
-                                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#5b9ef5]" />
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2 text-[#d4d4d4]">
-                                                <span className="uppercase text-[10px] tracking-[0.1em] text-[#8a8580]">
-                                                    {item.phase}
-                                                </span>
-                                                <span className="truncate">{item.detail ?? item.action}</span>
-                                            </div>
-                                            {item.thought ? (
-                                                <div className="mt-0.5 truncate text-[11px] text-[#77736d]">
-                                                    {item.thought}
-                                                </div>
-                                            ) : null}
-                                        </div>
+                        <div className="space-y-2">
+                            {surfaceTimeline.map((item) => (
+                                <div
+                                    key={`${item.timestamp}-${item.action}-${item.detail ?? ""}`}
+                                    className="rounded-md border border-[#242424] bg-[#101010] px-3 py-2 text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-[#d4d4d4]">
+                                        <span className="uppercase text-[10px] tracking-[0.1em] text-[#8a8580]">
+                                            {item.phase}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate">{item.detail ?? item.action}</span>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="rounded-md border border-dashed border-[#2a2a2a] px-3 py-6 text-center text-xs text-[#6b6863]">
-                                    Sandbox events will appear here.
+                                    {item.thought ? (
+                                        <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#77736d]">
+                                            {item.thought}
+                                        </div>
+                                    ) : null}
                                 </div>
-                            )}
+                            ))}
                         </div>
                     </section>
                 </div>
@@ -623,7 +634,7 @@ const SandboxRunDisplay = memo(
         );
     }
 );
-SandboxRunDisplay.displayName = "SandboxRunDisplay";
+AgentSurfaceViewer.displayName = "AgentSurfaceViewer";
 
 const AgentLibraryPopup = memo(
     ({
@@ -1049,10 +1060,17 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         stop();
         setTakeoverActive(true);
     }, [stop]);
-    const handleDirectSandboxTerminal = useCallback(() => {
-        void createBlock({ meta: { view: "sandbox", "sandbox:mode": "desktop" } });
-        setTakeoverActive(true);
-    }, [createBlock]);
+    const handleExpandSurface = useCallback(
+        (activity: TimedAgentActivityEvent | null) => {
+            if (activity?.surface === "sandbox") {
+                void createBlock({ meta: { view: "sandbox", "sandbox:mode": "desktop" } });
+                return;
+            }
+            const url = extractUrlFromAgentActivity(activity);
+            void createBlock({ meta: url ? { view: "web", url } : { view: "web" } });
+        },
+        [createBlock]
+    );
     const [composerMenu, setComposerMenu] = useState<{
         mode: AcpComposerMenuMode;
         query: string;
@@ -1917,14 +1935,11 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     ) : null}
                 </div>
                 <LiveSurfaceStrip activity={liveSurfaceActivity} onTakeOver={handleTakeOver} />
-                <SandboxRunDisplay
+                <AgentSurfaceViewer
                     activity={liveSurfaceActivity}
-                    timeline={surfaceTimeline.filter(
-                        (item) =>
-                            item.surface === "sandbox" || item.surface === "desktop" || item.surface === "terminal"
-                    )}
+                    timeline={surfaceTimeline}
+                    onExpandSurface={handleExpandSurface}
                     onTakeOver={handleTakeOver}
-                    onDirectTerminal={handleDirectSandboxTerminal}
                 />
 
                 {takeoverActive && (
@@ -2070,7 +2085,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="shrink-0 border-t border-border bg-panel px-3 pb-3 pt-2 @lg:px-5 @lg:pb-5">
+                <div className="sticky bottom-0 z-20 shrink-0 border-t border-border bg-panel px-3 pb-3 pt-2 @lg:px-5 @lg:pb-5">
                     <ChatWidgetAppsStrip />
                     <div className="relative mx-auto w-full max-w-3xl">
                         <ImprovedChatInput

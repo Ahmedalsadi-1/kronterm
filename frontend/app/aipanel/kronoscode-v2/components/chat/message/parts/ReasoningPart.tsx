@@ -1,9 +1,9 @@
 import React from 'react';
 import type { ComponentType } from 'react';
-import type { Part } from '../../../types/sdk';
+import type { Part } from '../../../../types/sdk';
 import { RiArrowDownSLine, RiArrowRightSLine, RiBrainAi3Line, RiChatAi3Line } from '@remixicon/react';
 import { cn } from '@/lib/utils';
-import type { ContentChangeReason } from '../../../types/scroll';
+import type { ContentChangeReason } from '../../../../types/scroll';
 import { ScrollableOverlay } from './ScrollableOverlay';
 
 type PartWithText = Part & { text?: string; content?: string };

@@ -125,12 +125,13 @@ contextBridge.exposeInMainWorld("api", {
     krondesignStart: () => ipcRenderer.invoke("krondesign-start"),
 
     // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
-    chathubv2Start: () => ipcRenderer.invoke("chathubv2-start"),
+    chathubv2Start: (context?: { tabId?: string; blockId?: string }) => ipcRenderer.invoke("chathubv2-start", context),
     chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
     chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
 
     // ── Audio / Voice Engine IPC ─────────────────────────────────────
     audioStart: () => ipcRenderer.invoke("audio-start"),
+    audioShutdown: () => ipcRenderer.send("audio-shutdown"),
     audioStartListening: () => ipcRenderer.send("audio-start-listening"),
     audioStopListening: () => ipcRenderer.send("audio-stop-listening"),
     audioSpeak: (text: string) => ipcRenderer.send("audio-speak", text),

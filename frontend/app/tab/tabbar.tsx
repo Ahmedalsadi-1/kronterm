@@ -1,17 +1,17 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Tooltip } from "@/app/element/tooltip";
-import { TabRpcClient } from "@/app/store/wshrpcutil";
-import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import {
     KronchatProjectsChangedEvent,
     readKronchatProjects,
     requestOpenKronchatProject,
     type KronchatProject,
 } from "@/app/aipanel/kronchat-projects";
-import { deleteLayoutModelForTab } from "@/layout/index";
+import { Tooltip } from "@/app/element/tooltip";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { useWaveEnv } from "@/app/waveenv/waveenv";
+import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { deleteLayoutModelForTab } from "@/layout/lib/layoutModelHooks";
 import { isMacOSTahoeOrLater } from "@/util/platformutil";
 import { fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
@@ -170,6 +170,8 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const tabWidthRef = useRef<number>(TabDefaultWidth);
     const scrollableRef = useRef<boolean>(false);
     const prevAllLoadedRef = useRef<boolean>(false);
+    const resizeFrameRef = useRef<number | null>(null);
+    const draggingTabOrderRef = useRef<string[]>([]);
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const isFullScreen = useAtomValue(env.atoms.isFullScreen);
     const zoomFactor = useAtomValue(env.atoms.zoomFactorAtom);
@@ -240,7 +242,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const setSizeAndPosition = (animate?: boolean) => {
         const tabBar = tabBarRef.current;
-        if (tabBar === null) return;
+        const tabbarWrapper = tabbarWrapperRef.current;
+        const draggerLeft = draggerLeftRef.current;
+        const addButton = addBtnRef.current;
+        if (tabBar === null || tabbarWrapper === null || draggerLeft === null || addButton === null) return;
 
         const getOuterWidth = (el: HTMLElement): number => {
             const rect = el.getBoundingClientRect();
@@ -248,10 +253,19 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             return rect.width + parseFloat(style.marginLeft) + parseFloat(style.marginRight);
         };
 
-        const tabbarWrapperWidth = tabbarWrapperRef.current.getBoundingClientRect().width;
-        const windowDragLeftWidth = draggerLeftRef.current.getBoundingClientRect().width;
+        const numberOfTabs = tabIds.length;
+        if (numberOfTabs === 0) {
+            if (osInstanceRef.current) {
+                osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
+            }
+            return;
+        }
+
+        const tabbarWrapperWidth = tabbarWrapper.getBoundingClientRect().width;
+        const windowDragLeftWidth = draggerLeft.getBoundingClientRect().width;
         const rightContainerWidth = rightContainerRef.current?.getBoundingClientRect().width ?? 0;
-        const addBtnWidth = getOuterWidth(addBtnRef.current);
+        const addBtnWidth = getOuterWidth(addButton);
         const appMenuButtonWidth = appMenuButtonRef.current?.getBoundingClientRect().width ?? 0;
         const workspaceSwitcherWidth = workspaceSwitcherRef.current?.getBoundingClientRect().width ?? 0;
         const waveAIButtonWidth = waveAIButtonRef.current != null ? getOuterWidth(waveAIButtonRef.current) : 0;
@@ -266,8 +280,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             waveAIButtonWidth +
             projectPillsWidth;
         const spaceForTabs = tabbarWrapperWidth - nonTabElementsWidth;
-
-        const numberOfTabs = tabIds.length;
 
         // Compute the ideal width per tab by dividing the available space by the number of tabs
         let idealTabWidth = spaceForTabs / numberOfTabs;
@@ -304,10 +316,15 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
         // Initialize/destroy overlay scrollbars
         if (newScrollable) {
-            osInstanceRef.current = OverlayScrollbars(tabBarRef.current, { ...(OSOptions as any) });
+            if (osInstanceRef.current == null) {
+                osInstanceRef.current = OverlayScrollbars(tabBar, { ...(OSOptions as any) });
+            } else {
+                osInstanceRef.current.update();
+            }
         } else {
             if (osInstanceRef.current) {
                 osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
             }
         }
     };
@@ -318,9 +335,27 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     );
 
     const handleResizeTabs = useCallback(() => {
-        setSizeAndPosition();
-        saveTabsPositionDebounced();
+        if (resizeFrameRef.current != null) {
+            return;
+        }
+        resizeFrameRef.current = window.requestAnimationFrame(() => {
+            resizeFrameRef.current = null;
+            setSizeAndPosition();
+            saveTabsPositionDebounced();
+        });
     }, [tabIds, newTabId, isFullScreen]);
+
+    useEffect(() => {
+        return () => {
+            if (resizeFrameRef.current != null) {
+                window.cancelAnimationFrame(resizeFrameRef.current);
+            }
+            if (osInstanceRef.current) {
+                osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
+            }
+        };
+    }, []);
 
     // update layout on reinit version
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
@@ -378,9 +413,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const getNewTabIndex = (currentX: number, tabIndex: number, dragDirection: string) => {
         let newTabIndex = tabIndex;
         const tabWidth = tabWidthRef.current;
+        const tabCount = draggingTabOrderRef.current.length || tabIds.length;
         if (dragDirection === "+") {
             // Dragging to the right
-            for (let i = tabIndex + 1; i < tabIds.length; i++) {
+            for (let i = tabIndex + 1; i < tabCount; i++) {
                 const otherTabStart = dragStartPositions[i];
                 if (currentX + tabWidth > otherTabStart + tabWidth / 2) {
                     newTabIndex = i;
@@ -474,23 +510,24 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         const newTabIndex = getNewTabIndex(currentX, tabIndex, dragDirection);
 
         if (newTabIndex !== tabIndex) {
+            const orderedTabIds = draggingTabOrderRef.current;
             // Remove the dragged tab if not already done
             if (!draggingRemovedRef.current) {
-                tabIds.splice(tabIndex, 1);
+                orderedTabIds.splice(tabIndex, 1);
                 draggingRemovedRef.current = true;
             }
 
             // Find current index of the dragged tab in tempTabs
-            const currentIndexOfDraggingTab = tabIds.indexOf(tabId);
+            const currentIndexOfDraggingTab = orderedTabIds.indexOf(tabId);
 
             // Move the dragged tab to its new position
             if (currentIndexOfDraggingTab !== -1) {
-                tabIds.splice(currentIndexOfDraggingTab, 1);
+                orderedTabIds.splice(currentIndexOfDraggingTab, 1);
             }
-            tabIds.splice(newTabIndex, 0, tabId);
+            orderedTabIds.splice(newTabIndex, 0, tabId);
 
             // Update visual positions of the tabs
-            tabIds.forEach((localTabId, index) => {
+            orderedTabIds.forEach((localTabId, index) => {
                 const ref = tabRefs.current.find((ref) => ref.current.dataset.tabId === localTabId);
                 if (ref.current && localTabId !== tabId) {
                     ref.current.style.transform = `translate3d(${index * tabWidth}px,0,0)`;
@@ -519,9 +556,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const handleMouseUp = (_event: MouseEvent) => {
         const { tabIndex, dragged } = draggingTabDataRef.current;
+        const orderedTabIds = draggingTabOrderRef.current.length ? draggingTabOrderRef.current : tabIds;
 
         // Update the final position of the dragged tab
-        const draggingTab = tabIds[tabIndex];
+        const draggingTab = orderedTabIds[tabIndex];
         const tabWidth = tabWidthRef.current;
         const finalLeftPosition = tabIndex * tabWidth;
         const ref = tabRefs.current.find((ref) => ref.current.dataset.tabId === draggingTab);
@@ -531,7 +569,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         }
 
         if (dragged) {
-            setUpdatedTabsDebounced(tabIds);
+            setUpdatedTabsDebounced([...orderedTabIds]);
         } else {
             // Reset styles
             tabRefs.current.forEach((ref) => {
@@ -545,6 +583,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         document.removeEventListener("mouseup", handleMouseUp);
         document.removeEventListener("mousemove", handleMouseMove);
         draggingRemovedRef.current = false;
+        draggingTabOrderRef.current = [];
     };
 
     const handleDragStart = useCallback(
@@ -566,6 +605,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                     totalScrollOffset: 0,
                     dragged: false,
                 };
+                draggingTabOrderRef.current = [...tabIds];
 
                 document.addEventListener("mousemove", handleMouseMove);
                 document.addEventListener("mouseup", handleMouseUp);

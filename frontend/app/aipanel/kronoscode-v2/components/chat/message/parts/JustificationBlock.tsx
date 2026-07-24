@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Part } from '../../../types/sdk';
-import type { ContentChangeReason } from '../../../types/scroll';
+import type { Part } from '../../../../types/sdk';
+import type { ContentChangeReason } from '../../../../types/scroll';
 import { ReasoningTimelineBlock } from './ReasoningPart';
 
 type PartWithText = Part & { text?: string; content?: string };

@@ -61,16 +61,18 @@ function sortedFrames(images: Record<string, string>): string[] {
 }
 
 const idleFrames = sortedFrames(
-    import.meta.glob("../../assets/idle/*.png", { eager: true, import: "default", query: "?url" }) as unknown as Record<
-        string,
-        string
-    >
+    import.meta.glob("../../assets/pet/idle/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
 );
 const walkFrames = sortedFrames(
-    import.meta.glob("../../assets/walk/*.png", { eager: true, import: "default", query: "?url" }) as unknown as Record<
-        string,
-        string
-    >
+    import.meta.glob("../../assets/pet/walk/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
 );
 const root = document.getElementById("pet-root");
 const sprite = document.getElementById("pet-sprite") as HTMLImageElement;
@@ -359,7 +361,11 @@ function renderState(nextState: PetState) {
 
 function animate() {
     const isFollowingCursor = cursorFollowActive && state.cursorAction && state.cursorAction !== "idle";
-    const frames = isFollowingCursor ? walkFrames : (options.mode === "expressive" && state.moving ? walkFrames : idleFrames);
+    const frames = isFollowingCursor
+        ? walkFrames
+        : options.mode === "expressive" && state.moving
+          ? walkFrames
+          : idleFrames;
     if (frames.length > 0) {
         sprite.src = frames[frame % frames.length];
         frame++;

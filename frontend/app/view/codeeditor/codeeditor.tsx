@@ -1,12 +1,14 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { startLspClient, stopLspClient } from "@/app/lsp/lsp-client-manager";
+import { LspService } from "@/app/lsp/lsp-service";
 import { MonacoCodeEditor } from "@/app/monaco/monaco-react";
 import { useOverrideConfigAtom } from "@/app/store/global";
 import { boundNumber } from "@/util/util";
 import type * as MonacoTypes from "monaco-editor";
 import * as MonacoModule from "monaco-editor";
-import React, { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 function defaultEditorOptions(): MonacoTypes.editor.IEditorOptions {
     const opts: MonacoTypes.editor.IEditorOptions = {
@@ -42,6 +44,7 @@ interface CodeEditorProps {
 export function CodeEditor({ blockId, text, language, fileName, readonly, onChange, onMount }: CodeEditorProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const unmountRef = useRef<() => void>(null);
+    const lspLanguageRef = useRef<string | undefined>(undefined);
     const minimapEnabled = useOverrideConfigAtom(blockId, "editor:minimapenabled") ?? false;
     const stickyScrollEnabled = useOverrideConfigAtom(blockId, "editor:stickyscrollenabled") ?? false;
     const wordWrap = useOverrideConfigAtom(blockId, "editor:wordwrap") ?? false;
@@ -55,9 +58,18 @@ export function CodeEditor({ blockId, text, language, fileName, readonly, onChan
         editorPath = uuidRef;
     }
 
-    React.useEffect(() => {
+    // Initialize LSP service once
+    useEffect(() => {
+        LspService.init();
+    }, []);
+
+    useEffect(() => {
         return () => {
-            // unmount function
+            // unmount function: stop LSP and run user cleanup
+            if (lspLanguageRef.current) {
+                stopLspClient(lspLanguageRef.current);
+                lspLanguageRef.current = undefined;
+            }
             if (unmountRef.current) {
                 unmountRef.current();
             }
@@ -74,6 +86,17 @@ export function CodeEditor({ blockId, text, language, fileName, readonly, onChan
         editor: MonacoTypes.editor.IStandaloneCodeEditor,
         monaco: typeof MonacoModule
     ): () => void {
+        // Start LSP client for the current language
+        if (language && !readonly) {
+            const model = editor.getModel();
+            if (model) {
+                lspLanguageRef.current = language;
+                startLspClient(model, language).catch((err) =>
+                    console.warn(`[lsp] could not start client for "${language}":`, err)
+                );
+            }
+        }
+
         if (onMount) {
             const cleanup = onMount(editor, monaco);
             unmountRef.current = cleanup;

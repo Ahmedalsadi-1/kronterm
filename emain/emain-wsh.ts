@@ -132,18 +132,17 @@ export class ElectronWshClientType extends WshClient {
     async handle_windowlist(rh: RpcResponseHelper): Promise<WindowInfo[]> {
         const { waveWindowMap } = await import("./emain-window");
         const windows: WindowInfo[] = [];
-        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
         for (const [id, ww] of waveWindowMap) {
             windows.push({
                 windowId: id,
                 workspaceId: ww.workspaceId,
                 tabCount: ww.allLoadedTabViews?.size ?? 0,
-                activeTabId: ww.activeTabView?.tabId ?? "",
+                activeTabId: ww.activeTabView?.waveTabId ?? "",
                 focused: ww.isFocused(),
-                title: ww.window?.getTitle() ?? "",
+                title: ww.getTitle() ?? "",
             });
         }
-        rh.resolve(windows);
+        return windows;
     }
 
     async handle_createwindow(rh: RpcResponseHelper): Promise<string> {
@@ -153,7 +152,7 @@ export class ElectronWshClientType extends WshClient {
             unamePlatform,
             isPrimaryStartupWindow: false,
         });
-        rh.resolve(window.waveWindowId);
+        return window.waveWindowId;
     }
 
     async handle_closewindow(rh: RpcResponseHelper, windowId: string) {
@@ -162,8 +161,7 @@ export class ElectronWshClientType extends WshClient {
         if (ww == null) {
             throw new Error(`window ${windowId} not found`);
         }
-        ww.window.close();
-        rh.resolve();
+        ww.close();
     }
 
     async handle_activatewindow(rh: RpcResponseHelper, windowId: string) {
@@ -172,7 +170,6 @@ export class ElectronWshClientType extends WshClient {
         if (ww != null) {
             ww.focus();
         }
-        rh.resolve();
     }
 }
 

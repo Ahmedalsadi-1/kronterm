@@ -9,7 +9,7 @@ interface KronSettingsProvidersContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsProvidersContent = memo(({ _model }: KronSettingsProvidersContentProps) => {
+const KronSettingsProvidersContent = memo(({ model: _model }: KronSettingsProvidersContentProps) => {
     return (
         <div className="kron-settings-card" style={{ overflow: "hidden" }}>
             <ProvidersPanel />

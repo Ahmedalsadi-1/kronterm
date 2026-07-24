@@ -45,7 +45,7 @@ const ToggleBtn = ({ checked, onChange }: { checked: boolean; onChange: (v: bool
     </button>
 );
 
-const KronSettingsDesktopContent = memo(({ _model }: KronSettingsDesktopContentProps) => {
+const KronSettingsDesktopContent = memo(({ model: _model }: KronSettingsDesktopContentProps) => {
     const [desktopControl, setDesktopControl] = useToggleField("desktop:control");
     const [screenShare, setScreenShare] = useToggleField("desktop:screenshare");
     const [autoMinimize, setAutoMinimize] = useToggleField("desktop:autominimize");

@@ -254,6 +254,7 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 			tools = append(tools, GetWidgetElementAtToolDefinition(tabid))
 			tools = append(tools, GetWidgetClickToolDefinition(tabid))
 			tools = append(tools, GetWidgetHoverToolDefinition(tabid))
+			tools = append(tools, GetWidgetMouseMoveToolDefinition(tabid))
 			tools = append(tools, GetWidgetLongPressToolDefinition(tabid))
 			tools = append(tools, GetWidgetDragToolDefinition(tabid))
 			tools = append(tools, GetWidgetScrollToToolDefinition(tabid))

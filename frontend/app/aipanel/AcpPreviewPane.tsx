@@ -1,14 +1,13 @@
 import React from 'react';
-import { useAtomValue } from 'jotai';
-import { WaveAIModel } from './waveai-model';
 import { SimpleMarkdownRenderer } from './kronoscode-v2/components/chat/MarkdownRenderer';
-import { RiCodeSSlashLine, RiEyeLine, RiLayoutMasonryLine } from '@remixicon/react';
-import { cn } from '@/util/util';
+import { RiCodeSSlashLine, RiLayoutMasonryLine } from '@remixicon/react';
+import type { AcpAgentMessage } from './use-acp-session';
 
-export const AcpPreviewPane: React.FC = () => {
-    const model = WaveAIModel.getInstance();
-    const messages = useAtomValue(model.messages);
-    
+type AcpPreviewPaneProps = {
+    messages?: AcpAgentMessage[];
+};
+
+export const AcpPreviewPane: React.FC<AcpPreviewPaneProps> = ({ messages = [] }) => {
     // Find the latest "artifact" or tool output
     const latestArtifact = React.useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i--) {

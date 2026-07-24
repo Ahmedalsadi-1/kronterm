@@ -29,7 +29,7 @@ const BUILTIN_SKILLS: SkillEntry[] = [
     { name: "react-dev", description: "React TypeScript best practices", category: "frontend", installed: true },
 ];
 
-const KronSettingsSkillsContent = memo(({ _model }: KronSettingsSkillsContentProps) => {
+const KronSettingsSkillsContent = memo(({ model: _model }: KronSettingsSkillsContentProps) => {
     return (
         <SettingsCard>
             <SectionHeader title="Installed Skills" icon="book" description="Skills extend agent capabilities with domain-specific knowledge." />

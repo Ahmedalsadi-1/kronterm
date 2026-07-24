@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/wavebase"
+	"github.com/wavetermdev/waveterm/pkg/waveobj"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 )
 
@@ -205,11 +206,28 @@ func (ws *WshServer) CanvasConnectNodesCommand(ctx context.Context, data wshrpc.
 		ToNode:   data.ToNode,
 		Label:    data.Label,
 	}
-	doc.Edges = append(doc.Edges, edge)
+	var existingEdge *wshrpc.CanvasEdge
+	for idx := range doc.Edges {
+		existing := &doc.Edges[idx]
+		if existing.FromNode == edge.FromNode && existing.ToNode == edge.ToNode && existing.Label == edge.Label {
+			existingEdge = existing
+			break
+		}
+	}
+	if existingEdge == nil {
+		doc.Edges = append(doc.Edges, edge)
+		existingEdge = &doc.Edges[len(doc.Edges)-1]
+	}
+	for idx := range doc.Nodes {
+		if doc.Nodes[idx].Id == data.ToNode && doc.Nodes[idx].LiveBlockId != "" && isLaunchableCanvasNodeType(doc.Nodes[idx].Type) {
+			doc.Nodes[idx].Status = "connected"
+			canvasSetNodeMetaString(&doc.Nodes[idx], "kronosStatus", doc.Nodes[idx].Status)
+		}
+	}
 	if err := writeCanvasDocument(dir, doc); err != nil {
 		return nil, err
 	}
-	return &edge, nil
+	return existingEdge, nil
 }
 
 func (ws *WshServer) CanvasLaunchNodeCommand(ctx context.Context, data wshrpc.CanvasLaunchNodeRequest) (*wshrpc.CanvasLaunchNodeResponse, error) {
@@ -222,17 +240,102 @@ func (ws *WshServer) CanvasLaunchNodeCommand(ctx context.Context, data wshrpc.Ca
 	}
 	for idx := range doc.Nodes {
 		if doc.Nodes[idx].Id == data.NodeId {
-			if doc.Nodes[idx].Status == "" || doc.Nodes[idx].Status == "idle" || doc.Nodes[idx].Status == "ready" {
-				doc.Nodes[idx].Status = "launched"
+			node := &doc.Nodes[idx]
+			if !isLaunchableCanvasNodeType(node.Type) {
+				return nil, fmt.Errorf("canvas node type is not launchable: %s", node.Type)
+			}
+			if node.LiveBlockId != "" {
+				node.Status = "connected"
+				canvasSetNodeMetaString(node, "kronosStatus", node.Status)
+				if err := writeCanvasDocument(dir, doc); err != nil {
+					return nil, err
+				}
+				return &wshrpc.CanvasLaunchNodeResponse{Node: *node}, nil
+			}
+			blockDef, err := canvasLaunchBlockDef(*node, data.BlockDef)
+			if err != nil {
+				return nil, err
+			}
+			if data.TabId == "" {
+				return nil, fmt.Errorf("tabid is required to launch canvas node")
+			}
+			targetAction := data.TargetAction
+			if targetAction == "" && data.TargetBlockId != "" {
+				targetAction = "splitright"
+			}
+			blockRef, err := ws.CreateBlockCommand(ctx, wshrpc.CommandCreateBlockData{
+				TabId:         data.TabId,
+				BlockDef:      blockDef,
+				Focused:       true,
+				TargetBlockId: data.TargetBlockId,
+				TargetAction:  targetAction,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("launching canvas node: %w", err)
+			}
+			if blockRef == nil || blockRef.OID == "" {
+				return nil, fmt.Errorf("launching canvas node returned no block id")
+			}
+			node.LiveBlockId = blockRef.OID
+			node.Status = "launched"
+			if node.Type == "appstream" {
+				node.SessionId = blockRef.OID
+			}
+			canvasSetNodeMetaString(node, "kronosLiveBlockId", node.LiveBlockId)
+			canvasSetNodeMetaString(node, "kronosStatus", node.Status)
+			if node.SessionId != "" {
+				canvasSetNodeMetaString(node, "kronosSessionId", node.SessionId)
 			}
 			if err := writeCanvasDocument(dir, doc); err != nil {
 				return nil, err
 			}
-			node := doc.Nodes[idx]
-			return &wshrpc.CanvasLaunchNodeResponse{Node: node}, nil
+			return &wshrpc.CanvasLaunchNodeResponse{Node: *node}, nil
 		}
 	}
 	return nil, fmt.Errorf("canvas node not found: %s", data.NodeId)
+}
+
+func isLaunchableCanvasNodeType(nodeType string) bool {
+	return nodeType == "widget" || nodeType == "appstream" || nodeType == "aichat"
+}
+
+func canvasLaunchBlockDef(node wshrpc.CanvasNode, requested *waveobj.BlockDef) (*waveobj.BlockDef, error) {
+	if requested != nil {
+		return requested, nil
+	}
+	switch node.Type {
+	case "appstream":
+		appName := firstNonBlank(node.AppName, node.Title, node.AppId)
+		if appName == "" {
+			return nil, fmt.Errorf("appstream node requires appname")
+		}
+		return &waveobj.BlockDef{
+			Meta: waveobj.MetaMapType{
+				"view":              "appstream",
+				"appstream:appid":   firstNonBlank(node.AppId, appName),
+				"appstream:appname": appName,
+			},
+		}, nil
+	case "aichat":
+		return &waveobj.BlockDef{
+			Meta: waveobj.MetaMapType{
+				"view":                 "waveai",
+				"waveai:widgetcontext": true,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("blockdef is required to launch canvas %s node", node.Type)
+	}
+}
+
+func canvasSetNodeMetaString(node *wshrpc.CanvasNode, key string, value string) {
+	if value == "" {
+		return
+	}
+	if node.Meta == nil {
+		node.Meta = make(map[string]any)
+	}
+	node.Meta[key] = value
 }
 
 func canvasStorageDir(workspaceId string, blockId string) (string, error) {
@@ -322,9 +425,9 @@ func canvasDocumentHasNode(doc wshrpc.CanvasDocument, nodeId string) bool {
 
 func renderCanvasSnapshot(nodes []wshrpc.CanvasNode, edges []wshrpc.CanvasEdge, includeContent bool) string {
 	var b strings.Builder
-	b.WriteString(\"Canvas Graph:\\n\")
+	b.WriteString("Canvas Graph:\n")
 	if len(nodes) == 0 {
-		b.WriteString(\"  (empty)\\n\")
+		b.WriteString("  (empty)\n")
 	}
 
 	incomingEdges := make(map[string][]string)
@@ -338,14 +441,14 @@ func renderCanvasSnapshot(nodes []wshrpc.CanvasNode, edges []wshrpc.CanvasEdge, 
 
 	for _, node := range nodes {
 		title := strings.TrimSpace(node.Title)
-		if title == \"\" {
+		if title == "" {
 			title = node.Id
 		}
-		b.WriteString(fmt.Sprintf(\"  - [%s] %s\", node.Type, title))
-		if node.Status != \"\" {
-			b.WriteString(\" (\" + node.Status + \")\")
+		b.WriteString(fmt.Sprintf("  - [%s] %s", node.Type, title))
+		if node.Status != "" {
+			b.WriteString(" (" + node.Status + ")")
 		}
-		b.WriteString(\"\\n\")
+		b.WriteString("\n")
 
 		sources := incomingEdges[node.Id]
 		if len(sources) > 0 {
@@ -353,25 +456,25 @@ func renderCanvasSnapshot(nodes []wshrpc.CanvasNode, edges []wshrpc.CanvasEdge, 
 			for _, s := range sources {
 				sourceTitles = append(sourceTitles, firstNonBlank(nodeTitles[s], s))
 			}
-			b.WriteString(fmt.Sprintf(\"      <- Receives context from: %s\\n\", strings.Join(sourceTitles, \", \")))
+			b.WriteString(fmt.Sprintf("      <- Receives context from: %s\n", strings.Join(sourceTitles, ", ")))
 		}
 
-		if includeContent && strings.TrimSpace(node.Content) != \"\" {
-			for _, line := range strings.Split(node.Content, \"\\n\") {
-				b.WriteString(\"      \" + line + \"\\n\")
+		if includeContent && strings.TrimSpace(node.Content) != "" {
+			for _, line := range strings.Split(node.Content, "\n") {
+				b.WriteString("      " + line + "\n")
 			}
 		}
 	}
 	if len(edges) > 0 {
-		b.WriteString(\"Connections:\\n\")
+		b.WriteString("Connections:\n")
 		for _, edge := range edges {
 			from := firstNonBlank(nodeTitles[edge.FromNode], edge.FromNode)
 			to := firstNonBlank(nodeTitles[edge.ToNode], edge.ToNode)
-			b.WriteString(fmt.Sprintf(\"  %s -> %s\", from, to))
-			if edge.Label != \"\" {
-				b.WriteString(\" : \" + edge.Label)
+			b.WriteString(fmt.Sprintf("  %s -> %s", from, to))
+			if edge.Label != "" {
+				b.WriteString(" : " + edge.Label)
 			}
-			b.WriteString(\"\\n\")
+			b.WriteString("\n")
 		}
 	}
 	return b.String()

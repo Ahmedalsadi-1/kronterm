@@ -4,6 +4,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "electron-vite";
+import path from "node:path";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
 import svgr from "vite-plugin-svgr";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -11,6 +12,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // from our electron build
 const CHROME = "chrome140";
 const NODE = "node22";
+const VscodeJsonRpcCommonPath = path.resolve(process.cwd(), "node_modules/vscode-jsonrpc/lib/common");
 
 // for debugging
 // target is like -- path.resolve(__dirname, "frontend/app/workspace/workspace-layout-model.ts");
@@ -85,7 +87,7 @@ export default defineConfig({
             outDir: "dist/main",
             externalizeDeps: false,
         },
-        plugins: [tsconfigPaths()],
+        plugins: [tsconfigPaths({ ignoreConfigErrors: true })],
         resolve: {
             alias: {
                 "@": "frontend",
@@ -121,7 +123,7 @@ export default defineConfig({
         server: {
             open: false,
         },
-        plugins: [tsconfigPaths()],
+        plugins: [tsconfigPaths({ ignoreConfigErrors: true })],
     },
     renderer: {
         root: ".",
@@ -153,8 +155,15 @@ export default defineConfig({
         },
         optimizeDeps: {
             include: ["monaco-yaml/yaml.worker.js"],
+            exclude: ["langium"],
             esbuildOptions: {
                 target: CHROME,
+            },
+        },
+        resolve: {
+            alias: {
+                "vscode-jsonrpc/lib/common/cancellation.js": path.join(VscodeJsonRpcCommonPath, "cancellation.js"),
+                "vscode-jsonrpc/lib/common/events.js": path.join(VscodeJsonRpcCommonPath, "events.js"),
             },
         },
         server: {
@@ -183,7 +192,7 @@ export default defineConfig({
             },
         },
         plugins: [
-            tsconfigPaths(),
+            tsconfigPaths({ ignoreConfigErrors: true }),
             { ...ViteImageOptimizer(), apply: "build" },
             svgr({
                 svgrOptions: { exportType: "default", ref: true, svgo: false, titleProp: true },

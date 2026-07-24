@@ -1574,12 +1574,12 @@ func GetWidgetClickToolDefinition(tabId string) uctypes.ToolDefinition {
 	}
 }
 
-func GetWidgetHoverToolDefinition(tabId string) uctypes.ToolDefinition {
+func makeWidgetHoverToolDefinition(tabId string, name string, displayName string, description string, toolLogName string) uctypes.ToolDefinition {
 	return uctypes.ToolDefinition{
-		Name:        "widget_hover",
-		DisplayName: "Widget Hover",
-		Description: "Move cursor over an element or coordinate. Triggers hover effects.",
-		ToolLogName: "human:widget_hover",
+		Name:        name,
+		DisplayName: displayName,
+		Description: description,
+		ToolLogName: toolLogName,
 		Strict:      false,
 		InputSchema: map[string]any{
 			"type": "object",
@@ -1636,6 +1636,26 @@ func GetWidgetHoverToolDefinition(tabId string) uctypes.ToolDefinition {
 			return &MouseActionOutput{WidgetId: widgetId, Success: true, Message: "hovered"}, nil
 		},
 	}
+}
+
+func GetWidgetHoverToolDefinition(tabId string) uctypes.ToolDefinition {
+	return makeWidgetHoverToolDefinition(
+		tabId,
+		"widget_hover",
+		"Widget Hover",
+		"Move cursor over an element or coordinate. Triggers hover effects.",
+		"human:widget_hover",
+	)
+}
+
+func GetWidgetMouseMoveToolDefinition(tabId string) uctypes.ToolDefinition {
+	return makeWidgetHoverToolDefinition(
+		tabId,
+		"widget_mouse_move",
+		"Widget Mouse Move",
+		"Move the cursor to an element or coordinate in a widget. Use before click/drag when pointer position matters.",
+		"human:widget_mouse_move",
+	)
 }
 
 func GetWidgetLongPressToolDefinition(tabId string) uctypes.ToolDefinition {

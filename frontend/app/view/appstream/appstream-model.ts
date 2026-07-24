@@ -125,4 +125,32 @@ export class AppStreamViewModel implements ViewModel {
             });
         } catch {}
     }
+
+    async sendDrag(fromX: number, fromY: number, toX: number, toY: number): Promise<void> {
+        await this.sendAction("/drag", { fromX, fromY, toX, toY });
+    }
+
+    async sendPaste(text: string): Promise<void> {
+        await this.sendAction("/paste", { text });
+    }
+
+    async waitUntilReady(timeoutMs = 5000): Promise<void> {
+        await this.sendAction("/wait", { timeoutMs });
+    }
+
+    private async sendAction(path: string, body: Record<string, unknown>): Promise<void> {
+        const streamUrl = globalStore.get(this.streamUrlAtom);
+        if (!streamUrl) {
+            throw new Error("App stream is not connected");
+        }
+        const response = await fetch(streamUrl + path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (!response.ok || result.error) {
+            throw new Error(result.error || `App stream action failed (${response.status})`);
+        }
+    }
 }

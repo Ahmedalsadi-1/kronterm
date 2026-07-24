@@ -18,6 +18,65 @@ type BrowserInteractionResult = {
     message: string;
 };
 
+const DefaultKrontermDesktopComputerUseUrl = "http://localhost:9990/computer-use";
+
+export function sandboxComputerUseUrlFromStatus(status: SandboxStatusResponse | null | undefined): string {
+    const statusWithUrls = status as
+        | (SandboxStatusResponse & { mcpUrl?: string; desktopUrl?: string })
+        | null
+        | undefined;
+    if (statusWithUrls?.mcpUrl) {
+        return statusWithUrls.mcpUrl.replace(/\/+$/, "");
+    }
+    if (statusWithUrls?.desktopUrl) {
+        try {
+            const desktopUrl = new URL(statusWithUrls.desktopUrl);
+            return `${desktopUrl.protocol}//${desktopUrl.host}/computer-use`;
+        } catch {
+            return DefaultKrontermDesktopComputerUseUrl;
+        }
+    }
+    return DefaultKrontermDesktopComputerUseUrl;
+}
+
+export function buildSandboxKeyboardPressPayload(keys: string[]): Record<string, unknown> {
+    return { action: "type_keys", keys };
+}
+
+export function buildSandboxScrollPayload(
+    direction: string,
+    amount: number,
+    originX?: number,
+    originY?: number
+): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+        action: "scroll",
+        direction: direction || "down",
+        scrollCount: Math.max(1, Math.ceil(Math.abs(amount) / 50)),
+    };
+    if (originX != null && originY != null) {
+        payload.coordinates = { x: originX, y: originY };
+    }
+    return payload;
+}
+
+export function buildSandboxDragPayload(
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    button = "left"
+): Record<string, unknown> {
+    return {
+        action: "drag_mouse",
+        button,
+        path: [
+            { x: startX, y: startY },
+            { x: endX, y: endY },
+        ],
+    };
+}
+
 export function buildBrowserInteractionScript(
     action: BrowserInteractionAction,
     payload: Record<string, unknown>
@@ -348,6 +407,147 @@ export class TabClient extends WshClient {
         }
     }
 
+    private async sandboxClick(
+        blockId: string,
+        x: number,
+        y: number,
+        button: string
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = {
+                action: "click_mouse",
+                button: button || "left",
+                clickCount: 1,
+                coordinates: { x, y },
+            };
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop click failed (${response.status}): ${text}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop click error: ${e}` };
+        }
+    }
+
+    private async sandboxKeyboardType(blockId: string, text: string): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = { action: "type_text", text };
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop type failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop type error: ${e}` };
+        }
+    }
+
+    private async sandboxKeyboardPress(blockId: string, keys: string[]): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxKeyboardPressPayload(keys);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop press failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop press error: ${e}` };
+        }
+    }
+
+    private async sandboxScroll(
+        blockId: string,
+        direction: string,
+        amount: number,
+        originX?: number,
+        originY?: number
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxScrollPayload(direction, amount, originX, originY);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop scroll failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop scroll error: ${e}` };
+        }
+    }
+
+    private async sandboxDrag(
+        blockId: string,
+        startX: number,
+        startY: number,
+        endX: number,
+        endY: number
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxDragPayload(startX, startY, endX, endY);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop drag failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop drag error: ${e}` };
+        }
+    }
+
+    private async sandboxComputerUseUrl(blockId: string): Promise<string> {
+        try {
+            const status = await RpcApi.SandboxStatusCommand(this, { sessionId: blockId }, { timeout: 5000 });
+            return sandboxComputerUseUrlFromStatus(status);
+        } catch {
+            return DefaultKrontermDesktopComputerUseUrl;
+        }
+    }
+
     handle_captureblockscreenshot(rh: RpcResponseHelper, data: CommandCaptureBlockScreenshotData): Promise<string> {
         return this.captureBlockScreenshot(data.blockid);
     }
@@ -568,6 +768,55 @@ export class TabClient extends WshClient {
                     visible: true,
                 });
             }
+        } else if (viewType === "sandbox") {
+            const sandboxMode = blockData?.meta?.["sandbox:mode"] ?? "desktop";
+            const sandboxUrl = blockData?.meta?.["sandbox:browserurl"] ?? "";
+            const sandboxBlockId = blockData?.meta?.["sandbox:browserblockid"] ?? "";
+
+            elements.push({
+                ref: "sandbox-desktop",
+                role: "desktop",
+                name: "Sandbox Desktop",
+                value: `mode: ${sandboxMode}, browser: ${sandboxUrl || "none"}, browserBlock: ${sandboxBlockId || "none"}`,
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+                focusable: false,
+                visible: true,
+            });
+
+            // For kronterm-desktop runtime, try to fetch a screenshot
+            try {
+                const controller = new AbortController();
+                const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+                const response = await fetch(await this.sandboxComputerUseUrl(data.blockid), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "screenshot" }),
+                    signal: controller.signal,
+                });
+                window.clearTimeout(timeoutId);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data?.image) {
+                        elements.push({
+                            ref: "screenshot",
+                            role: "image",
+                            name: "Desktop Screenshot",
+                            value: `data:image/png;base64,${data.image}`,
+                            x: 0,
+                            y: 0,
+                            width: 800,
+                            height: 600,
+                            focusable: false,
+                            visible: true,
+                        });
+                    }
+                }
+            } catch {
+                // Sandbox API not available — return basic info only
+            }
         }
 
         return {
@@ -633,6 +882,15 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        // Route sandbox clicks to the kronterm-desktop API
+        if (viewType === "sandbox") {
+            return this.sandboxClick(data.blockid, data.x ?? 0, data.y ?? 0, data.button ?? "left");
+        }
+
         return this.executeBrowserInteraction(data.blockid, "click", {
             x: data.x,
             y: data.y,
@@ -655,6 +913,15 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            const direction = (data.amount ?? 0) >= 0 ? "down" : "up";
+            return this.sandboxScroll(data.blockid, direction, data.amount ?? 0, data.originx, data.originy);
+        }
+
         return this.executeBrowserInteraction(data.blockid, "scroll", {
             amount: data.amount,
             originX: data.originx,
@@ -674,6 +941,14 @@ export class TabClient extends WshClient {
         const node = layoutModel.getNodeByBlockId(data.blockid);
         if (!node) {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
+        }
+
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxDrag(data.blockid, data.startx ?? 0, data.starty ?? 0, data.endx ?? 0, data.endy ?? 0);
         }
 
         return this.executeBrowserInteraction(data.blockid, "drag", {
@@ -699,6 +974,14 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxKeyboardType(data.blockid, data.text);
+        }
+
         return this.executeBrowserInteraction(data.blockid, "type", { text: data.text, delayMs: data.delayms });
     }
 
@@ -714,6 +997,14 @@ export class TabClient extends WshClient {
         const node = layoutModel.getNodeByBlockId(data.blockid);
         if (!node) {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
+        }
+
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxKeyboardPress(data.blockid, data.keys);
         }
 
         return this.executeBrowserInteraction(data.blockid, "press", { keys: data.keys });

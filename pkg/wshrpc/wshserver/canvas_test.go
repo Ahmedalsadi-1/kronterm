@@ -113,7 +113,14 @@ func TestCanvasNodeMutationCommands(t *testing.T) {
 	if _, err := ws.CanvasCreateNodeCommand(ctx, wshrpc.CanvasNodeMutationRequest{
 		WorkspaceId: workspaceId,
 		BlockId:     blockId,
-		Node:        wshrpc.CanvasNode{Id: "app", ShapeId: "shape-app", Type: "appstream", Title: "Notes", Status: "idle"},
+		Node: wshrpc.CanvasNode{
+			Id:          "app",
+			ShapeId:     "shape-app",
+			Type:        "appstream",
+			Title:       "Notes",
+			Status:      "launched",
+			LiveBlockId: "block-live",
+		},
 	}); err != nil {
 		t.Fatalf("create app node failed: %v", err)
 	}
@@ -133,8 +140,14 @@ func TestCanvasNodeMutationCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("launch node failed: %v", err)
 	}
-	if launch.Node.Status != "launched" {
-		t.Fatalf("expected launched status, got %q", launch.Node.Status)
+	if launch.Node.Status != "connected" {
+		t.Fatalf("expected connected status, got %q", launch.Node.Status)
+	}
+	if launch.Node.LiveBlockId != "block-live" {
+		t.Fatalf("expected live block id to be preserved, got %q", launch.Node.LiveBlockId)
+	}
+	if launch.Node.Meta["kronosStatus"] != "connected" {
+		t.Fatalf("expected status metadata to be connected, got %#v", launch.Node.Meta)
 	}
 	if err := ws.CanvasDeleteNodeCommand(ctx, wshrpc.CanvasNodeIdRequest{
 		WorkspaceId: workspaceId,

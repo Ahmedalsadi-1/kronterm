@@ -7,6 +7,7 @@ import { atoms, getApi, getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { useTabModelMaybe } from "@/app/store/tab-model";
 import { isBuilderWindow } from "@/app/store/windowtype";
+import { ChatHubV2Frame } from "@/app/view/chathubv2/chathubv2";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { getWebServerEndpoint } from "@/util/endpoints";
 import { checkKeyPressed, keydownWrapper } from "@/util/keyutil";
@@ -17,14 +18,13 @@ import { DefaultChatTransport } from "ai";
 import * as jotai from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { AcpChatPanel } from "./acp-chat-panel";
-import { AcpPreviewPane } from "./AcpPreviewPane";
 import { formatFileSizeError, isAcceptableFile, validateFileSize } from "./ai-utils";
 import "./aipanel.scss";
 import { AIPanelHeader } from "./aipanelheader";
 import { AIRateLimitStrip } from "./airatelimitstrip";
 import { WaveUIMessage } from "./aitypes";
 import { BYOKAnnouncement } from "./byokannouncement";
+import { SiriVoiceOverlay } from "./siri-button";
 import { WaveAIModel } from "./waveai-model";
 
 const AIBlockMask = memo(() => {
@@ -505,7 +505,6 @@ const AIPanelComponentInner = memo(
         const [isReactDndDragOver, setIsReactDndDragOver] = useState(false);
         const [initialLoadDone, setInitialLoadDone] = useState(false);
         const model = WaveAIModel.getInstance();
-        const isSplitView = jotai.useAtomValue(model.isSplitViewAtom);
         const containerRef = useRef<HTMLDivElement>(null);
         const isLayoutMode = jotai.useAtomValue(atoms.controlShiftDelayAtom);
         const showOverlayBlockNums = jotai.useAtomValue(getSettingsKeyAtom("app:showoverlayblocknums")) ?? true;
@@ -853,19 +852,9 @@ const AIPanelComponentInner = memo(
                 <AIRateLimitStrip />
 
                 {!isWidget && <AIPanelHeader onFloatingIsland={onFloatingIsland} />}
+                {!isWidget && <SiriVoiceOverlay />}
                 <div key="main-content" className="flex-1 flex flex-col min-h-0">
-                    {isSplitView && !isWidget ? (
-                        <div className="ai-panel-content-split flex-1 min-h-0">
-                            <div className="ai-panel-chat-pane">
-                                <AcpChatPanel />
-                            </div>
-                            <div className="ai-panel-preview-pane">
-                                <AcpPreviewPane />
-                            </div>
-                        </div>
-                    ) : (
-                        <AcpChatPanel />
-                    )}
+                    <ChatHubV2Frame blockId={isWidget ? "widget" : "side-panel"} tabId={tabModel?.tabId} />
                 </div>
             </div>
         );

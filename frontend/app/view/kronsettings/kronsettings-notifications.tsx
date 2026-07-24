@@ -25,7 +25,7 @@ function useToggleField(key: Parameters<typeof getSettingsKeyAtom>[0]): [boolean
     return [val, save];
 }
 
-const KronSettingsNotificationsContent = memo(({ _model }: KronSettingsNotificationsContentProps) => {
+const KronSettingsNotificationsContent = memo(({ model: _model }: KronSettingsNotificationsContentProps) => {
     const [desktopNotif, setDesktopNotif] = useToggleField("notify:desktop");
     const [soundEnabled, setSoundEnabled] = useToggleField("notify:sound");
     const [taskComplete, setTaskComplete] = useToggleField("notify:taskcomplete");

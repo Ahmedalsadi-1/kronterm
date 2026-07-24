@@ -28,7 +28,7 @@ export class VoiceModel {
 
     readonly isSiriButtonActive = atom((get) => {
         const status = get(this.statusAtom);
-        return status === "listening" || status === "speaking";
+        return get(this.listeningAtom) || status === "listening" || status === "transcribing" || status === "speaking";
     });
 
     private constructor() {
@@ -37,10 +37,15 @@ export class VoiceModel {
 
         api.onAudioStatusChange?.((status: string) => {
             globalStore.set(this.statusAtom, status as VoiceStatus);
+            if (status === "listening") {
+                globalStore.set(this.listeningAtom, true);
+            } else if (status === "error") {
+                globalStore.set(this.listeningAtom, false);
+            }
         });
 
         api.onAudioTranscript?.((text: string) => {
-            globalStore.set(this.transcriptAtom, text);
+            this.handleTranscript(text);
         });
 
         api.onAudioError?.((message: string) => {
@@ -77,6 +82,24 @@ export class VoiceModel {
         return result;
     }
 
+    async startListening(): Promise<boolean> {
+        const api = getApi();
+        if (api == null) return false;
+
+        if (!globalStore.get(this.engineReadyAtom)) {
+            const engineReady = await this.startEngine();
+            if (!engineReady) {
+                return false;
+            }
+        }
+
+        api.audioStartListening?.();
+        globalStore.set(this.listeningAtom, true);
+        globalStore.set(this.statusAtom, "listening");
+        globalStore.set(this.errorAtom, null);
+        return true;
+    }
+
     disableEngine(): void {
         const api = getApi();
         if (globalStore.get(this.listeningAtom)) {
@@ -88,7 +111,7 @@ export class VoiceModel {
         globalStore.set(this.statusAtom, "idle");
     }
 
-    toggleListening(): void {
+    async toggleListening(): Promise<void> {
         const api = getApi();
         if (api == null) return;
 
@@ -98,9 +121,7 @@ export class VoiceModel {
             globalStore.set(this.listeningAtom, false);
             globalStore.set(this.statusAtom, "idle");
         } else {
-            api.audioStartListening?.();
-            globalStore.set(this.listeningAtom, true);
-            globalStore.set(this.statusAtom, "listening");
+            await this.startListening();
         }
     }
 
@@ -113,5 +134,18 @@ export class VoiceModel {
     speak(text: string): void {
         const api = getApi();
         api?.audioSpeak?.(text);
+    }
+
+    private handleTranscript(text: string): void {
+        globalStore.set(this.transcriptAtom, text);
+        const trimmedText = text.trim();
+        if (!trimmedText || typeof window === "undefined") {
+            return;
+        }
+        window.dispatchEvent(
+            new CustomEvent("kronterm:voice-transcript", {
+                detail: { text: trimmedText, mode: "submit" },
+            })
+        );
     }
 }

@@ -1,4 +1,4 @@
-import type { AcpAgentMessage } from "../use-acp-session";
+import type { AcpAgentMessage } from "../../use-acp-session";
 import type { Message, Part } from "../types/sdk";
 
 export function getMessageText(message: AcpAgentMessage): string {
@@ -17,54 +17,74 @@ export function getMessageText(message: AcpAgentMessage): string {
     return "";
 }
 
-export function mapAcpMessagesToSDK(messages: AcpAgentMessage[]): Array<{ info: Message, parts: Part[] }> {
-    const sdkMessages: Array<{ info: Message, parts: Part[] }> = [];
-    
+function getMessageMetadata(message: AcpAgentMessage): Record<string, string> {
+    if (message.data == null || typeof message.data !== "object") {
+        return {};
+    }
+    const data = message.data as Record<string, unknown>;
+    return {
+        agent: typeof data.agent === "string" ? data.agent : "",
+        mode: typeof data.mode === "string" ? data.mode : "",
+        modelID: typeof data.modelID === "string" ? data.modelID : "",
+        providerID: typeof data.providerID === "string" ? data.providerID : "",
+    };
+}
+
+export function mapAcpMessagesToSDK(messages: AcpAgentMessage[]): Array<{ info: Message; parts: Part[] }> {
+    const sdkMessages: Array<{ info: Message; parts: Part[] }> = [];
+
     // Simple stateful grouping
-    let currentMessage: { info: Message, parts: Part[] } | null = null;
+    let currentMessage: { info: Message; parts: Part[] } | null = null;
 
     for (const msg of messages) {
         const isUser = msg.type === "user_message";
-        const isAssistant = msg.type === "agent_message_chunk" || msg.type === "agent_thought_chunk" || msg.type === "tool_call" || msg.type === "tool_call_update";
-        
+        const isAssistant =
+            msg.type === "agent_message_chunk" ||
+            msg.type === "agent_thought_chunk" ||
+            msg.type === "tool_call" ||
+            msg.type === "tool_call_update";
+
         if (isUser) {
             sdkMessages.push({
                 info: {
                     id: msg.msgId,
                     role: "user",
-                    parts: []
+                    parts: [],
                 },
-                parts: [{
-                    type: "text",
-                    text: getMessageText(msg)
-                }]
+                parts: [
+                    {
+                        type: "text",
+                        text: getMessageText(msg),
+                    },
+                ],
             });
             currentMessage = null;
             continue;
         }
 
         if (isAssistant) {
+            const metadata = getMessageMetadata(msg);
             if (!currentMessage) {
                 currentMessage = {
                     info: {
                         id: msg.msgId,
-                        role: \"assistant\",
+                        role: "assistant",
                         parts: [],
-                        agent: msg.agent,
-                        mode: msg.mode,
-                        modelID: msg.modelID,
-                        providerID: msg.providerID
+                        agent: metadata.agent,
+                        mode: metadata.mode,
+                        modelID: metadata.modelID,
+                        providerID: metadata.providerID,
                     },
-                    parts: []
+                    parts: [],
                 };
                 sdkMessages.push(currentMessage);
             }
 
             // Sync info if it was missing in the first chunk but present now
-            if (msg.agent && !currentMessage.info.agent) currentMessage.info.agent = msg.agent;
-            if (msg.mode && !currentMessage.info.mode) currentMessage.info.mode = msg.mode;
-            if (msg.modelID && !currentMessage.info.modelID) currentMessage.info.modelID = msg.modelID;
-            if (msg.providerID && !currentMessage.info.providerID) currentMessage.info.providerID = msg.providerID;
+            if (metadata.agent && !currentMessage.info.agent) currentMessage.info.agent = metadata.agent;
+            if (metadata.mode && !currentMessage.info.mode) currentMessage.info.mode = metadata.mode;
+            if (metadata.modelID && !currentMessage.info.modelID) currentMessage.info.modelID = metadata.modelID;
+            if (metadata.providerID && !currentMessage.info.providerID) currentMessage.info.providerID = metadata.providerID;
 
             if (msg.type === "agent_message_chunk") {
                 const text = getMessageText(msg);
@@ -74,7 +94,7 @@ export function mapAcpMessagesToSDK(messages: AcpAgentMessage[]): Array<{ info: 
                 } else {
                     currentMessage.parts.push({
                         type: "text",
-                        text: text
+                        text: text,
                     });
                 }
             } else if (msg.type === "agent_thought_chunk") {
@@ -85,7 +105,7 @@ export function mapAcpMessagesToSDK(messages: AcpAgentMessage[]): Array<{ info: 
                 } else {
                     currentMessage.parts.push({
                         type: "reasoning",
-                        text: text
+                        text: text,
                     });
                 }
             } else if (msg.type === "tool_call" || msg.type === "tool_call_update") {
@@ -97,8 +117,8 @@ export function mapAcpMessagesToSDK(messages: AcpAgentMessage[]): Array<{ info: 
                     input: data?.rawInput,
                     state: {
                         status: data?.status || "running",
-                        output: data?.content?.[0]?.content?.text
-                    }
+                        output: data?.content?.[0]?.content?.text,
+                    },
                 });
             }
         }

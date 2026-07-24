@@ -1,7 +1,7 @@
 import React from 'react';
 import { RiArrowDownSLine, RiArrowRightSLine, RiToolsLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
-import type { Part } from '../../../types/sdk';
+import type { Part } from '../../../../types/sdk';
 
 interface ToolPartProps {
     part: Part;
@@ -18,11 +18,11 @@ const ToolPart: React.FC<ToolPartProps> = ({
     part,
     isExpanded,
     onToggle,
-    _syntaxTheme,
-    _isMobile,
-    _onContentChange,
-    _hasPrevTool,
-    _hasNextTool,
+    syntaxTheme: _syntaxTheme,
+    isMobile: _isMobile,
+    onContentChange: _onContentChange,
+    hasPrevTool: _hasPrevTool,
+    hasNextTool: _hasNextTool,
 }) => {
     const toolName = part.tool || 'tool';
     const status = part.state?.status || 'completed';

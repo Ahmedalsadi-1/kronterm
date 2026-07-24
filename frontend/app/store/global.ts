@@ -221,16 +221,18 @@ function useOverrideConfigAtom<T extends keyof SettingsType>(blockId: string | n
     return useAtomValue(getOverrideConfigAtom(blockId, key));
 }
 
-function getSettingsKeyAtom<T extends keyof SettingsType>(key: T): Atom<SettingsType[T]> {
-    if (isPreviewWindow()) return NullAtom as Atom<SettingsType[T]>;
-    let settingsKeyAtom = settingsAtomCache.get(key) as Atom<SettingsType[T]>;
+function getSettingsKeyAtom<T extends keyof SettingsType>(key: T): Atom<SettingsType[T]>;
+function getSettingsKeyAtom(key: KronSettingsKey): Atom<unknown>;
+function getSettingsKeyAtom(key: KronSettingsKey): Atom<unknown> {
+    if (isPreviewWindow()) return NullAtom as Atom<unknown>;
+    let settingsKeyAtom = settingsAtomCache.get(key) as Atom<unknown>;
     if (settingsKeyAtom == null) {
         settingsKeyAtom = atom((get) => {
             const settings = get(atoms.settingsAtom);
             if (settings == null) {
                 return null;
             }
-            return settings[key];
+            return settings[key as keyof SettingsType];
         });
         settingsAtomCache.set(key, settingsKeyAtom);
     }

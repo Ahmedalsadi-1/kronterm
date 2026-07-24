@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { extractCanvasEdgesFromArrowBindings, summarizeCanvas } from "./kronoscanvas-utils";
+import {
+    extractCanvasEdgesFromArrowBindings,
+    extractCanvasEdgesFromNodeParents,
+    mergeCanvasEdges,
+    summarizeCanvas,
+} from "./kronoscanvas-utils";
 
 describe("kronoscanvas-utils", () => {
     it("extracts tldraw arrow bindings into semantic canvas edges", () => {
@@ -37,5 +42,31 @@ describe("kronoscanvas-utils", () => {
         );
         expect(summary).toContain("[text] Prompt");
         expect(summary).toContain("Prompt -> Terminal");
+        expect(summary).not.toContain("\\n");
+    });
+
+    it("extracts Flowith-style parent links from node metadata", () => {
+        const parentEdges = extractCanvasEdgesFromNodeParents([
+            { id: "parent", shapeid: "shape:parent", type: "text", title: "Parent" },
+            {
+                id: "child",
+                shapeid: "shape:child",
+                type: "text",
+                title: "Child",
+                meta: { kronosParentNodeId: "parent" },
+            },
+        ] as CanvasNode[]);
+        expect(parentEdges).toEqual([
+            {
+                id: "follow:parent:child",
+                shapeid: "shape:child",
+                fromnode: "parent",
+                tonode: "child",
+                label: "follow",
+            },
+        ]);
+        expect(
+            mergeCanvasEdges([{ id: "arrow", fromnode: "parent", tonode: "child" }] as CanvasEdge[], parentEdges)
+        ).toHaveLength(2);
     });
 });

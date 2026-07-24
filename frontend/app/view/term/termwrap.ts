@@ -655,7 +655,15 @@ export class TermWrap {
                 "atBottom:",
                 atBottom
             );
-            RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize });
+            void RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize }).catch(
+                (error) => {
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (message.includes("no controller found for block")) {
+                        return;
+                    }
+                    console.error("[termwrap] resize controller update failed", error);
+                }
+            );
         }
         dlog("resize", `${this.terminal.rows}x${this.terminal.cols}`, `${oldRows}x${oldCols}`, this.hasResized);
         if (!this.hasResized) {

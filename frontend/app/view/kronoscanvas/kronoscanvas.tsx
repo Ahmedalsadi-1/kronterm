@@ -5,13 +5,28 @@
 // - https://github.com/inspirepan/canvas-cowork
 // - https://github.com/flowith-ai/canvas-cowork
 
-import { createBlockSplitHorizontally } from "@/app/store/global";
+import { CodeCard, CodeCardBody, CodeCardHeader, CodeCardTitle } from "@/app/components/hermes-ui/chat/code-card";
+import { Badge } from "@/app/components/hermes-ui/ui/badge";
+import { CopyButton } from "@/app/components/hermes-ui/ui/copy-button";
+import { refocusNode } from "@/app/store/global";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { atoms } from "@/store/global";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { Bot, Boxes, FileText, Folder, Image, Layers, MonitorPlay, Save, Type } from \"lucide-react\";
+import {
+    Bot,
+    Boxes,
+    ClipboardList,
+    Folder,
+    GitBranch,
+    Image,
+    MonitorPlay,
+    Network,
+    Play,
+    Save,
+    Type,
+} from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     AssetRecordType,
@@ -28,6 +43,9 @@ import { OutlinePanel } from "./canvas-cowork/outline-panel";
 import type { KronosCanvasViewModel } from "./kronoscanvas-model";
 import {
     extractCanvasEdgesFromArrowBindings,
+    extractCanvasEdgesFromNodeParents,
+    mergeCanvasEdges,
+    summarizeCanvas,
     type ArrowBindingLike,
     type KronosCanvasNodeType,
 } from "./kronoscanvas-utils";
@@ -42,7 +60,11 @@ type ShapeMeta = {
     kronosAppId?: string;
     kronosAppName?: string;
     kronosSessionId?: string;
+    kronosLiveBlockId?: string;
     kronosStatus?: string;
+    kronosParentNodeId?: string;
+    kronosSource?: string;
+    kronosCommand?: string;
 };
 
 const SaveDelayMs = 650;
@@ -149,6 +171,7 @@ function buildCanvasDocument(editor: Editor): CanvasDocument {
             appid: meta.kronosAppId,
             appname: meta.kronosAppName,
             sessionid: meta.kronosSessionId,
+            liveblockid: meta.kronosLiveBlockId,
             status: meta.kronosStatus,
             meta: { ...shape.meta },
         });
@@ -161,7 +184,10 @@ function buildCanvasDocument(editor: Editor): CanvasDocument {
         snapshot: getSnapshot(editor.store) as unknown as Record<string, unknown>,
         shapetonode: Object.fromEntries(shapeToNode.entries()),
         nodes,
-        edges: extractCanvasEdgesFromArrowBindings(arrowBindings, shapeToNode),
+        edges: mergeCanvasEdges(
+            extractCanvasEdgesFromArrowBindings(arrowBindings, shapeToNode),
+            extractCanvasEdgesFromNodeParents(nodes)
+        ),
     };
 }
 
@@ -183,10 +209,11 @@ function createGeoNode(editor: Editor, title: string, type: KronosCanvasNodeType
         y: point.y,
         props: {
             geo: "rectangle",
-            w: type === \"appstream\" ? 260 : 220,
-            h: type === \"appstream\" ? 120 : 92,
-            color: type === \"appstream\" ? \"violet\" : type === \"aichat\" ? \"orange\" : type === \"widget\" ? \"blue\" : \"black\",
-            fill: \"solid\",
+            w: type === "appstream" ? 260 : 220,
+            h: type === "appstream" ? 120 : 92,
+            color:
+                type === "appstream" ? "violet" : type === "aichat" ? "orange" : type === "widget" ? "blue" : "black",
+            fill: "solid",
             dash: "solid",
             size: "m",
             font: "draw",
@@ -205,6 +232,37 @@ function createGeoNode(editor: Editor, title: string, type: KronosCanvasNodeType
         },
     } as any);
     editor.select(id);
+    return String(id);
+}
+
+function createTextNodeShape(
+    editor: Editor,
+    title: string,
+    text: string,
+    meta: ShapeMeta = {},
+    offsetX = 0,
+    offsetY = 0
+) {
+    const id = createShapeId();
+    const point = canvasPoint(editor, offsetX, offsetY);
+    editor.createShape({
+        id,
+        type: "named_text",
+        x: point.x,
+        y: point.y,
+        props: {
+            name: title,
+            text,
+            w: 300,
+        },
+        meta: {
+            ...meta,
+            kronosNodeId: String(id),
+            kronosNodeType: "text",
+        },
+    } as any);
+    editor.select(id);
+    return String(id);
 }
 
 function ensureDocumentNodesHaveShapes(editor: Editor, nodes: CanvasNode[]): boolean {
@@ -228,30 +286,30 @@ function ensureDocumentNodesHaveShapes(editor: Editor, nodes: CanvasNode[]): boo
                 meta: {
                     ...(node.meta ?? {}),
                     kronosNodeId: node.id,
-                    kronosNodeType: \"frame\",
+                    kronosNodeType: "frame",
                 },
             } as any);
-        } else if (type === \"widget\" || type === \"appstream\" || type === \"aichat\") {
+        } else if (type === "widget" || type === "appstream" || type === "aichat") {
             editor.createShape({
                 id,
-                type: \"geo\",
+                type: "geo",
                 x: point.x,
                 y: point.y,
                 props: {
-                    geo: \"rectangle\",
-                    w: type === \"appstream\" ? 260 : 220,
-                    h: type === \"appstream\" ? 120 : 92,
-                    color: type === \"appstream\" ? \"violet\" : type === \"aichat\" ? \"orange\" : \"blue\",
-                    fill: \"solid\",
-                    dash: \"solid\",
-                    size: \"m\",
-                    font: \"draw\",
-                    align: \"middle\",
-                    verticalAlign: \"middle\",
-                    labelColor: \"black\",
+                    geo: "rectangle",
+                    w: type === "appstream" ? 260 : 220,
+                    h: type === "appstream" ? 120 : 92,
+                    color: type === "appstream" ? "violet" : type === "aichat" ? "orange" : "blue",
+                    fill: "solid",
+                    dash: "solid",
+                    size: "m",
+                    font: "draw",
+                    align: "middle",
+                    verticalAlign: "middle",
+                    labelColor: "black",
                     richText: toRichText(node.title || node.appname || type),
                     growY: 0,
-                    url: \"\",
+                    url: "",
                     scale: 1,
                 },
                 meta: {
@@ -261,6 +319,7 @@ function ensureDocumentNodesHaveShapes(editor: Editor, nodes: CanvasNode[]): boo
                     kronosAppId: node.appid,
                     kronosAppName: node.appname,
                     kronosSessionId: node.sessionid,
+                    kronosLiveBlockId: node.liveblockid,
                     kronosStatus: node.status,
                 },
             } as any);
@@ -279,6 +338,7 @@ function ensureDocumentNodesHaveShapes(editor: Editor, nodes: CanvasNode[]): boo
                     ...(node.meta ?? {}),
                     kronosNodeId: node.id,
                     kronosNodeType: "text",
+                    kronosLiveBlockId: node.liveblockid,
                     kronosStatus: node.status,
                 },
             } as any);
@@ -288,6 +348,22 @@ function ensureDocumentNodesHaveShapes(editor: Editor, nodes: CanvasNode[]): boo
         offset += 36;
     }
     return changed;
+}
+
+function updateShapeFromCanvasNode(editor: Editor, shape: TLShape, node: CanvasNode) {
+    editor.updateShapes([
+        {
+            ...shape,
+            meta: {
+                ...shape.meta,
+                kronosAppId: node.appid,
+                kronosAppName: node.appname,
+                kronosSessionId: node.sessionid,
+                kronosLiveBlockId: node.liveblockid,
+                kronosStatus: node.status,
+            },
+        } as any,
+    ]);
 }
 
 function useInstalledApps() {
@@ -324,12 +400,16 @@ function useWidgetOptions(): WidgetConfigType[] {
 
 export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanvasViewModel>) => {
     const workspaceId = useAtomValue(atoms.workspaceId);
+    const tabId = useAtomValue(atoms.staticTabId);
     const [editor, setEditor] = useState<Editor | null>(null);
     const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
     const [outlineNodes, setOutlineNodes] = useState<CanvasNode[]>([]);
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [selectedWidgetId, setSelectedWidgetId] = useState("");
     const [selectedAppId, setSelectedAppId] = useState("");
+    const [flowPrompt, setFlowPrompt] = useState("Map the selected work into the next canvas node.");
+    const [flowBatchSize, setFlowBatchSize] = useState(3);
+    const [snapshotText, setSnapshotText] = useState("");
     const saveTimerRef = useRef<number | null>(null);
     const loadedRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -451,24 +531,7 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
         if (!editor) {
             return;
         }
-        const id = createShapeId();
-        const point = canvasPoint(editor);
-        editor.createShape({
-            id,
-            type: "named_text",
-            x: point.x,
-            y: point.y,
-            props: {
-                name: "note",
-                text: "New canvas note",
-                w: 260,
-            },
-            meta: {
-                kronosNodeId: String(id),
-                kronosNodeType: "text",
-            },
-        } as any);
-        editor.select(id);
+        createTextNodeShape(editor, "note", "New canvas note");
     }, [editor]);
 
     const addFrame = useCallback(() => {
@@ -509,13 +572,13 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
             return;
         }
         const app = apps.find((item) => (item.bundleid || item.appid || item.name) === selectedAppId) ?? apps[0];
-        const appId = app?.bundleid || app?.appid || app?.name || \"app\";
+        const appId = app?.bundleid || app?.appid || app?.name || "app";
         const appName = app?.name || appId;
-        createGeoNode(editor, appName, \"appstream\", {
+        createGeoNode(editor, appName, "appstream", {
             kronosAppId: appId,
             kronosAppName: appName,
             kronosSessionId: `${blockId}:${appId}`,
-            kronosStatus: \"idle\",
+            kronosStatus: "idle",
         });
     }, [apps, blockId, editor, selectedAppId]);
 
@@ -523,9 +586,61 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
         if (!editor) {
             return;
         }
-        createGeoNode(editor, \"AI Chat\", \"aichat\", {
-            kronosStatus: \"ready\",
+        createGeoNode(editor, "AI Chat", "aichat", {
+            kronosStatus: "ready",
         });
+    }, [editor]);
+
+    const selectedShape = useMemo(() => {
+        if (!editor || !selectedShapeId) {
+            return null;
+        }
+        return editor.getShape(selectedShapeId as any) ?? null;
+    }, [editor, selectedShapeId]);
+    const selectedMeta = readShapeMeta(selectedShape);
+
+    const selectedNodeId = selectedShape ? nodeIdForShape(selectedShape) : "";
+    const selectedNodeTitle = editor && selectedShape ? shapeTitle(editor, selectedShape) : "";
+
+    const submitFlowNode = useCallback(
+        (batchIndex?: number) => {
+            if (!editor) {
+                return;
+            }
+            const title = batchIndex == null ? "Flowith node" : `Flowith node ${batchIndex + 1}`;
+            const content = flowPrompt.trim() || "Flowith canvas node";
+            const parentId = selectedShape ? nodeIdForShape(selectedShape) : "";
+            createTextNodeShape(
+                editor,
+                title,
+                batchIndex == null ? content : `${content}\n\nVariant ${batchIndex + 1}`,
+                {
+                    kronosParentNodeId: parentId || undefined,
+                    kronosSource: "flowith-canvas-cowork",
+                    kronosCommand: batchIndex == null ? "submit-node" : "submit-batch",
+                    kronosStatus: parentId ? "following parent" : "submitted",
+                },
+                batchIndex == null ? 80 : 120 + batchIndex * 36,
+                batchIndex == null ? 40 : 76 + batchIndex * 24
+            );
+        },
+        [editor, flowPrompt, selectedShape]
+    );
+
+    const submitFlowBatch = useCallback(() => {
+        const count = Math.max(2, Math.min(6, flowBatchSize));
+        for (let index = 0; index < count; index += 1) {
+            submitFlowNode(index);
+        }
+    }, [flowBatchSize, submitFlowNode]);
+
+    const readCanvasSnapshot = useCallback(() => {
+        if (!editor) {
+            setSnapshotText("");
+            return;
+        }
+        const doc = buildCanvasDocument(editor);
+        setSnapshotText(summarizeCanvas(doc.nodes, doc.edges));
     }, [editor]);
 
     const uploadCanvasAsset = useCallback(
@@ -588,48 +703,118 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
         [editor, uploadCanvasAsset]
     );
 
-    const selectedShape = useMemo(() => {
-        if (!editor || !selectedShapeId) {
-            return null;
-        }
-        return editor.getShape(selectedShapeId as any) ?? null;
-    }, [editor, selectedShapeId]);
-    const selectedMeta = readShapeMeta(selectedShape);
-
     const launchSelectedAppStream = useCallback(async () => {
         if (!selectedShape || selectedMeta.kronosNodeType !== "appstream") {
             return;
         }
-        await createBlockSplitHorizontally(
-            {
+        if (editor) {
+            await saveDocument(editor);
+        }
+        const response = await RpcApi.CanvasLaunchNodeCommand(TabRpcClient, {
+            workspaceid: workspaceId,
+            blockid: blockId,
+            nodeid: selectedNodeId,
+            tabid: tabId,
+            targetblockid: blockId,
+            targetaction: "splitright",
+            blockdef: {
                 meta: {
                     view: "appstream",
                     "appstream:appid": selectedMeta.kronosAppId,
                     "appstream:appname": selectedMeta.kronosAppName,
                 } as unknown as MetaType,
             },
-            blockId,
-            "after"
-        );
+        });
         if (editor) {
-            editor.updateShapes([
-                {
-                    ...selectedShape,
-                    meta: {
-                        ...selectedShape.meta,
-                        kronosStatus: "launched",
-                    },
-                } as any,
-            ]);
+            updateShapeFromCanvasNode(editor, selectedShape, response.node);
+        }
+        if (response.node.liveblockid) {
+            refocusNode(response.node.liveblockid);
         }
     }, [
         blockId,
         editor,
+        saveDocument,
         selectedMeta.kronosAppId,
         selectedMeta.kronosAppName,
         selectedMeta.kronosNodeType,
+        selectedNodeId,
         selectedShape,
+        tabId,
+        workspaceId,
     ]);
+
+    const launchSelectedWidget = useCallback(async () => {
+        if (!selectedShape || selectedMeta.kronosNodeType !== "widget") {
+            return;
+        }
+        const widget = widgets.find(
+            (item) =>
+                (item.label || item.blockdef?.meta?.view) === selectedMeta.kronosWidgetId ||
+                item.blockdef?.meta?.view === selectedMeta.kronosWidgetId
+        );
+        if (!widget?.blockdef) {
+            return;
+        }
+        if (editor) {
+            await saveDocument(editor);
+        }
+        const response = await RpcApi.CanvasLaunchNodeCommand(TabRpcClient, {
+            workspaceid: workspaceId,
+            blockid: blockId,
+            nodeid: selectedNodeId,
+            tabid: tabId,
+            targetblockid: blockId,
+            targetaction: "splitright",
+            blockdef: widget.blockdef,
+        });
+        if (editor) {
+            updateShapeFromCanvasNode(editor, selectedShape, response.node);
+        }
+        if (response.node.liveblockid) {
+            refocusNode(response.node.liveblockid);
+        }
+    }, [
+        blockId,
+        editor,
+        saveDocument,
+        selectedMeta.kronosNodeType,
+        selectedMeta.kronosWidgetId,
+        selectedNodeId,
+        selectedShape,
+        tabId,
+        widgets,
+        workspaceId,
+    ]);
+
+    const launchSelectedAIChat = useCallback(async () => {
+        if (!selectedShape || selectedMeta.kronosNodeType !== "aichat") {
+            return;
+        }
+        if (editor) {
+            await saveDocument(editor);
+        }
+        const response = await RpcApi.CanvasLaunchNodeCommand(TabRpcClient, {
+            workspaceid: workspaceId,
+            blockid: blockId,
+            nodeid: selectedNodeId,
+            tabid: tabId,
+            targetblockid: blockId,
+            targetaction: "splitright",
+            blockdef: {
+                meta: {
+                    view: "waveai",
+                    "waveai:widgetcontext": true,
+                } as unknown as MetaType,
+            },
+        });
+        if (editor) {
+            updateShapeFromCanvasNode(editor, selectedShape, response.node);
+        }
+        if (response.node.liveblockid) {
+            refocusNode(response.node.liveblockid);
+        }
+    }, [blockId, editor, saveDocument, selectedMeta.kronosNodeType, selectedNodeId, selectedShape, tabId, workspaceId]);
 
     return (
         <div className="kronos-canvas-view">
@@ -714,19 +899,19 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
                     )}
                 </select>
                 <button
-                    type=\"button\"
+                    type="button"
                     onClick={addAppStreamNode}
                     disabled={apps.length === 0}
-                    title=\"Add app stream node\"
+                    title="Add app stream node"
                 >
-                    <MonitorPlay className=\"h-3.5 w-3.5\" />
+                    <MonitorPlay className="h-3.5 w-3.5" />
                     App
                 </button>
-                <button type=\"button\" onClick={addAIChatNode} title=\"Add AI Chat node\">
-                    <Bot className=\"h-3.5 w-3.5\" />
+                <button type="button" onClick={addAIChatNode} title="Add AI Chat node">
+                    <Bot className="h-3.5 w-3.5" />
                     AI
                 </button>
-                <span className={cn(\"kronos-canvas-save-state\", saveState === \"error\" && \"text-red-400\")}>
+                <span className={cn("kronos-canvas-save-state", saveState === "error" && "text-red-400")}>
                     <Save className="mr-1 inline h-3 w-3" />
                     {saveState === "saving"
                         ? "Saving"
@@ -738,6 +923,75 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
                 </span>
             </div>
             <OutlinePanel editor={editor} nodes={outlineNodes} />
+            <div className="kronos-canvas-command-center">
+                <CodeCard className="bg-background/90 shadow-none">
+                    <CodeCardHeader>
+                        <CodeCardTitle>
+                            <Network className="h-3.5 w-3.5" />
+                            Canvas cowork bridge
+                        </CodeCardTitle>
+                        <div className="flex shrink-0 items-center gap-1">
+                            <Badge variant="outline">Hermes</Badge>
+                            <Badge variant="outline">KronosChamber</Badge>
+                            <Badge variant="outline">Flowith</Badge>
+                        </div>
+                    </CodeCardHeader>
+                    <CodeCardBody className="font-sans text-xs">
+                        <div className="kronos-canvas-command-section">
+                            <div className="kronos-canvas-command-heading">
+                                <GitBranch className="h-3.5 w-3.5" />
+                                Follow parent
+                            </div>
+                            <div className="kronos-canvas-muted">
+                                {selectedNodeId
+                                    ? `Selected parent: ${selectedNodeTitle || selectedNodeId}`
+                                    : "Select a node to make new submissions follow it."}
+                            </div>
+                            <textarea
+                                value={flowPrompt}
+                                onChange={(event) => setFlowPrompt(event.target.value)}
+                                className="kronos-canvas-flow-input"
+                                rows={3}
+                            />
+                            <div className="kronos-canvas-command-actions">
+                                <button type="button" onClick={() => submitFlowNode()}>
+                                    <Play className="h-3.5 w-3.5" />
+                                    Submit node
+                                </button>
+                                <label className="kronos-canvas-stepper">
+                                    <span>Batch</span>
+                                    <input
+                                        type="number"
+                                        min={2}
+                                        max={6}
+                                        value={flowBatchSize}
+                                        onChange={(event) => setFlowBatchSize(Number(event.target.value) || 2)}
+                                    />
+                                </label>
+                                <button type="button" onClick={submitFlowBatch}>
+                                    <ClipboardList className="h-3.5 w-3.5" />
+                                    Submit batch
+                                </button>
+                            </div>
+                        </div>
+                        <div className="kronos-canvas-command-section">
+                            <div className="kronos-canvas-command-heading">
+                                <Save className="h-3.5 w-3.5" />
+                                Semantic snapshot
+                            </div>
+                            <div className="kronos-canvas-command-actions">
+                                <button type="button" onClick={readCanvasSnapshot}>
+                                    Read nodes
+                                </button>
+                                {snapshotText ? (
+                                    <CopyButton appearance="inline" text={snapshotText} label="Copy snapshot" />
+                                ) : null}
+                            </div>
+                            {snapshotText ? <pre className="kronos-canvas-snapshot">{snapshotText}</pre> : null}
+                        </div>
+                    </CodeCardBody>
+                </CodeCard>
+            </div>
             {selectedShape ? (
                 <div className="kronos-canvas-selection">
                     <div className="kronos-canvas-selection-title">{shapeTitle(editor!, selectedShape)}</div>
@@ -745,10 +999,32 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
                         {selectedMeta.kronosNodeType ?? shapeNodeType(selectedShape) ?? selectedShape.type}
                         {selectedMeta.kronosStatus ? ` · ${selectedMeta.kronosStatus}` : ""}
                     </div>
+                    {selectedMeta.kronosLiveBlockId ? (
+                        <div className="kronos-canvas-selection-meta mt-2">
+                            Live block {selectedMeta.kronosLiveBlockId}
+                        </div>
+                    ) : null}
+                    {selectedMeta.kronosParentNodeId ? (
+                        <div className="kronos-canvas-selection-meta mt-2">
+                            Follows parent node {selectedMeta.kronosParentNodeId}
+                        </div>
+                    ) : null}
                     {selectedMeta.kronosNodeType === "appstream" ? (
                         <button type="button" className="mt-3" onClick={() => void launchSelectedAppStream()}>
                             <MonitorPlay className="h-3.5 w-3.5" />
-                            Launch stream block
+                            {selectedMeta.kronosLiveBlockId ? "Connect stream block" : "Launch stream block"}
+                        </button>
+                    ) : null}
+                    {selectedMeta.kronosNodeType === "widget" ? (
+                        <button type="button" className="mt-3" onClick={() => void launchSelectedWidget()}>
+                            <Boxes className="h-3.5 w-3.5" />
+                            {selectedMeta.kronosLiveBlockId ? "Connect widget block" : "Launch widget block"}
+                        </button>
+                    ) : null}
+                    {selectedMeta.kronosNodeType === "aichat" ? (
+                        <button type="button" className="mt-3" onClick={() => void launchSelectedAIChat()}>
+                            <Bot className="h-3.5 w-3.5" />
+                            {selectedMeta.kronosLiveBlockId ? "Connect AI chat block" : "Launch AI chat block"}
                         </button>
                     ) : null}
                 </div>
@@ -758,49 +1034,3 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
 });
 
 KronosCanvasView.displayName = "KronosCanvasView";
-
-const CanvasOutline = memo(({ editor, nodes }: { editor: Editor | null; nodes: CanvasNode[] }) => {
-    if (!editor) {
-        return null;
-    }
-    return (
-        <div className="kronos-canvas-outline">
-            <div className="kronos-canvas-outline-header">
-                <Layers className="h-3.5 w-3.5" />
-                Canvas Outline
-            </div>
-            {nodes.length === 0 ? (
-                <div className="kronos-canvas-outline-empty">No canvas nodes</div>
-            ) : (
-                nodes.map((node) => (
-                    <button
-                        key={node.id}
-                        type="button"
-                        className="kronos-canvas-outline-item"
-                        onClick={() => {
-                            editor.select(node.shapeid as any);
-                            editor.zoomToSelection({ animation: { duration: 180 } });
-                        }}
-                    >
-                        {node.type === \"frame\" ? (
-                            <Folder className=\"h-3.5 w-3.5\" />
-                        ) : node.type === \"image\" ? (
-                            <Image className=\"h-3.5 w-3.5\" />
-                        ) : node.type === \"appstream\" ? (
-                            <MonitorPlay className=\"h-3.5 w-3.5\" />
-                        ) : node.type === \"aichat\" ? (
-                            <Bot className=\"h-3.5 w-3.5\" />
-                        ) : node.type === \"widget\" ? (
-                            <Boxes className=\"h-3.5 w-3.5\" />
-                        ) : (
-                            <FileText className=\"h-3.5 w-3.5\" />
-                        )}
-                        <span className="min-w-0 truncate">{node.title || node.type}</span>
-                    </button>
-                ))
-            )}
-        </div>
-    );
-});
-
-CanvasOutline.displayName = "CanvasOutline";

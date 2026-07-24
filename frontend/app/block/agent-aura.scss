@@ -4,6 +4,13 @@
 //   Indigo-500 (#6366F1) — cursor ripple
 //   Custom Blue (#009BFF) — clickable highlight
 
+:root {
+    --agent-control-blue: #1e90ff;
+    --agent-control-blue-rgb: 30, 144, 255;
+    --agent-control-border: rgba(var(--agent-control-blue-rgb), 0.42);
+    --agent-control-surface: rgba(var(--agent-control-blue-rgb), 0.1);
+}
+
 // WaterFlow scanning border — ported from UI-TARS ScreenMarker
 @keyframes kronos-waterflow-edge {
     0%, 100% {
@@ -54,6 +61,17 @@
             0 0 4px 0 rgba(30, 144, 255, 0.3),
             0 0 8px 0 rgba(30, 144, 255, 0.15),
             inset 0 0 4px 0 rgba(30, 144, 255, 0.05);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-aura,
+    .agent-pet-cursor,
+    .agent-smooth-cursor,
+    .agent-waterflow-overlay,
+    .agent-action-marker {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
     }
 }
 

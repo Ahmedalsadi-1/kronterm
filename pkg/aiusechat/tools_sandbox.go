@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -403,8 +404,8 @@ func GetDesktopKeyboardPressToolDefinition() uctypes.ToolDefinition {
 }
 
 func krontermDesktopAction(session *sandboxmanager.Session, payload map[string]any) (any, error) {
-	baseURL := strings.TrimRight(session.DesktopURL, "/")
-	if baseURL == "" {
+	computerUseURL := krontermDesktopComputerUseURL(session)
+	if computerUseURL == "" {
 		return nil, fmt.Errorf("kronterm-desktop runtime URL is not configured")
 	}
 	body, err := json.Marshal(payload)
@@ -412,7 +413,7 @@ func krontermDesktopAction(session *sandboxmanager.Session, payload map[string]a
 		return nil, err
 	}
 	client := http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(baseURL+"/computer-use", "application/json", bytes.NewReader(body))
+	resp, err := client.Post(computerUseURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("kronterm-desktop action failed: %w", err)
 	}
@@ -428,6 +429,27 @@ func krontermDesktopAction(session *sandboxmanager.Session, payload map[string]a
 		return nil, fmt.Errorf("kronterm-desktop action failed: %v", result["error"])
 	}
 	return result, nil
+}
+
+func krontermDesktopComputerUseURL(session *sandboxmanager.Session) string {
+	if session == nil {
+		return ""
+	}
+	if session.MCPURL != "" {
+		return strings.TrimRight(session.MCPURL, "/")
+	}
+	baseURL := strings.TrimRight(session.DesktopURL, "/")
+	if baseURL == "" {
+		return ""
+	}
+	if strings.HasSuffix(baseURL, "/computer-use") {
+		return baseURL
+	}
+	parsed, err := url.Parse(baseURL)
+	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/computer-use"}).String()
+	}
+	return baseURL + "/computer-use"
 }
 
 func krontermDesktopClickMouse(session *sandboxmanager.Session, args map[string]any) (any, error) {

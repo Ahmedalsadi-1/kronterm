@@ -465,6 +465,10 @@ declare global {
         workspaceid: string;
         blockid: string;
         nodeid: string;
+        tabid?: string;
+        blockdef?: BlockDef;
+        targetblockid?: string;
+        targetaction?: string;
     };
 
     // wshrpc.CanvasLaunchNodeResponse
@@ -494,6 +498,7 @@ declare global {
         parentid?: string;
         workspaceid?: string;
         blockid?: string;
+        liveblockid?: string;
         appid?: string;
         appname?: string;
         sessionid?: string;

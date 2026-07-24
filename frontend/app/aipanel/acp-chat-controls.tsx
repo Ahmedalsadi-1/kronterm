@@ -1,3 +1,8 @@
+import { Badge } from "@/app/components/hermes-ui/ui/badge";
+import {
+    KronosChamberSidebar,
+    type KronosChamberSection,
+} from "@/app/components/kronoschamber-ui/kronoschamber-sidebar";
 import { cn } from "@/util/util";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import ReactDOM from "react-dom";
@@ -705,6 +710,27 @@ export const SessionSidebar = memo(
                         </button>
                     </div>
                 </div>
+                <div className="flex shrink-0 gap-1 border-b border-[#242424] px-3 py-2">
+                    {[
+                        { mode: "open", label: "Full" },
+                        { mode: "compact", label: "Compact" },
+                        { mode: "hidden", label: "Closed" },
+                    ].map((item) => (
+                        <button
+                            type="button"
+                            key={item.mode}
+                            onClick={() => onSetSidebarMode(item.mode as "open" | "compact" | "hidden")}
+                            className={cn(
+                                "h-7 flex-1 cursor-pointer rounded-md border px-2 text-[11px] font-medium transition-colors",
+                                item.mode === "open"
+                                    ? "border-[#1e3a5f] bg-[#162238] text-[#8ab4f5]"
+                                    : "border-[#2a2a2a] bg-[#101010] text-[#8a8580] hover:bg-[#1a1a1a] hover:text-[#d4d4d4]"
+                            )}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-4">
                     {grouped.length ? (
                         grouped.map(([workspace, runtimeSessions]) => (
@@ -1031,6 +1057,7 @@ export const SettingsPanel = memo(
     }: SettingsPanelProps) => {
         const [activeTab, setActiveTab] = useState<SettingsTab>("kronterm");
         const [section, setSection] = useState<SettingsSection>("defaults");
+        const [chamberPreviewSection, setChamberPreviewSection] = useState<KronosChamberSection>("chat");
         const profile = profiles[selectedAgent?.backend ?? "kronoscode"] ?? {};
         const activeSession = sessions.find((session) => session.conversationId === activeConversationId);
         const liveSessions = sessions.filter((session) => session.resumeState !== "archived");
@@ -1105,7 +1132,18 @@ export const SettingsPanel = memo(
                         </div>
                         <div>
                             <div className="text-sm font-semibold text-[#eeeeee]">Settings</div>
-                            <div className="text-[11px] text-[#6b6863]">Configure KronTerm and agents</div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#6b6863]">
+                                <span>Configure KronTerm and agents</span>
+                                <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
+                                    KronosChamber
+                                </Badge>
+                                <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
+                                    Hermes UI
+                                </Badge>
+                                <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
+                                    Canvas cowork
+                                </Badge>
+                            </div>
                         </div>
                     </div>
                     <button
@@ -1174,6 +1212,31 @@ export const SettingsPanel = memo(
                                     KronosCode is the primary agent. External agent values are applied only when their
                                     active ACP runtime advertises matching controls.
                                 </p>
+                                <div className="mb-5 grid gap-3 rounded-lg border border-[#2a2a2a] bg-[#101010] p-3 @lg:grid-cols-[230px_minmax(0,1fr)]">
+                                    <div className="h-56 min-h-0 overflow-hidden rounded-md border border-[#2a2a2a] bg-[#0d0d0d]">
+                                        <KronosChamberSidebar
+                                            selectedSection={chamberPreviewSection}
+                                            onSelectSection={setChamberPreviewSection}
+                                        />
+                                    </div>
+                                    <div className="min-w-0 self-center">
+                                        <div className="mb-2 flex flex-wrap gap-1.5">
+                                            <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
+                                                Direct KronosChamber copy
+                                            </Badge>
+                                            <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
+                                                ACP adapter
+                                            </Badge>
+                                        </div>
+                                        <div className="text-sm font-semibold capitalize text-[#d4d4d4]">
+                                            {chamberPreviewSection} settings surface
+                                        </div>
+                                        <p className="mt-1 leading-relaxed text-[#8a8580]">
+                                            This panel uses the copied KronosChamber navigation component inside the
+                                            KronosCoder settings runtime while keeping Kronterm Jotai and ACP writes.
+                                        </p>
+                                    </div>
+                                </div>
                                 <label htmlFor={`acp-default-model-${fieldSuffix}`} className="mb-3 block">
                                     <span className="mb-1.5 block font-medium text-[#9e9a93]">
                                         Default model for {selectedAgent?.name}

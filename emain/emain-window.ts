@@ -141,6 +141,8 @@ export class WaveBrowserWindow extends BaseWindow {
     workspaceId: string;
     allLoadedTabViews: Map<string, WaveTabView>;
     activeTabView: WaveTabView;
+    private readonly fullConfig: FullConfigType;
+    private readonly unamePlatform: NodeJS.Platform;
     private canClose: boolean;
     private deleteAllowed: boolean;
     private actionQueue: WindowActionQueueEntry[];
@@ -209,6 +211,8 @@ export class WaveBrowserWindow extends BaseWindow {
             this.setMenu(null);
         }
 
+        this.fullConfig = fullConfig;
+        this.unamePlatform = opts.unamePlatform;
         const fullscreenOnLaunch = fullConfig?.settings["window:fullscreenonlaunch"];
         if (fullscreenOnLaunch && opts.foregroundWindow) {
             this.once("show", () => {
@@ -398,6 +402,9 @@ export class WaveBrowserWindow extends BaseWindow {
             tabId: tabView.waveTabId,
             clientId: clientId,
             windowId: this.waveWindowId,
+            platform: this.unamePlatform,
+            environment: "electron",
+            fullConfig: this.fullConfig,
             activate: true,
         };
         if (primaryStartupTab) {

@@ -1,12 +1,11 @@
 import React from 'react';
 import { Streamdown } from 'streamdown';
-import { code } from '@streamdown/code';
 import { mermaid } from '@streamdown/mermaid';
 import 'streamdown/styles.css';
 import { FadeInOnReveal } from './message/FadeInOnReveal';
 import type { Part } from '../../types/sdk';
 import { cn } from '@/lib/utils';
-import { RiFileCopyLine, RiCheckLine, RiDownloadLine } from '@remixicon/react';
+import { RiFileCopyLine, RiCheckLine } from '@remixicon/react';
 
 // Simple clipboard helper since we don't want to port the whole OpenChamber lib/clipboard
 const copyToClipboard = async (text: string) => {
@@ -75,7 +74,7 @@ const CodeBlockWrapper: React.FC<CodeBlockWrapperProps> = ({ children, className
 const streamdownComponents = {
   pre: CodeBlockWrapper,
   table: TableWrapper,
-};
+} as any;
 
 const streamdownControls = {
   code: false,

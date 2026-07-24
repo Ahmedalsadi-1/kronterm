@@ -1,13 +1,47 @@
-import { AppStreamViewModel } from "./appstream-model";
 import { reportDesktopPetActivity } from "@/app/aipanel/desktop-pet-activity";
-import { cn } from "@/util/util";
-import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { ActionMarker } from "@/app/view/action-marker";
 import { useAgentOverlays } from "@/app/view/use-agent-overlays";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
+import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppStreamViewModel } from "./appstream-model";
 
 type StreamFitMode = "fit" | "fill" | "actual";
+
+type CanvasPoint = { x: number; y: number };
+
+function clampCanvasCoordinate(value: number, max: number): number {
+    return Math.min(Math.max(0, value), Math.max(0, max - 1));
+}
+
+export function clientPointToCanvasPoint(
+    clientX: number,
+    clientY: number,
+    rect: Pick<DOMRect, "left" | "top" | "width" | "height">,
+    canvasWidth: number,
+    canvasHeight: number,
+    fitMode: StreamFitMode
+): CanvasPoint {
+    if (canvasWidth <= 0 || canvasHeight <= 0 || rect.width <= 0 || rect.height <= 0) {
+        return { x: 0, y: 0 };
+    }
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    if (fitMode === "fill") {
+        const scale = Math.max(rect.width / canvasWidth, rect.height / canvasHeight);
+        const renderedWidth = canvasWidth * scale;
+        const renderedHeight = canvasHeight * scale;
+        return {
+            x: Math.round(clampCanvasCoordinate((localX - (rect.width - renderedWidth) / 2) / scale, canvasWidth)),
+            y: Math.round(clampCanvasCoordinate((localY - (rect.height - renderedHeight) / 2) / scale, canvasHeight)),
+        };
+    }
+    return {
+        x: Math.round(clampCanvasCoordinate(localX * (canvasWidth / rect.width), canvasWidth)),
+        y: Math.round(clampCanvasCoordinate(localY * (canvasHeight / rect.height), canvasHeight)),
+    };
+}
 
 export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>) {
     const status = useAtomValue(model.statusAtom);
@@ -16,6 +50,8 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
     const appName = useAtomValue(model.appNameAtom);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cursorPosRef = useRef({ x: -1, y: -1 });
+    const dragStartRef = useRef<CanvasPoint | null>(null);
+    const suppressClickRef = useRef(false);
     const streamingRef = useRef(false);
     const [fitMode, setFitMode] = useState<StreamFitMode>("fit");
     const [fps, setFps] = useState(6);
@@ -63,18 +99,16 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                     const cursor = cursorPosRef.current;
                     if (cursor.x >= 0 && cursor.y >= 0) {
                         ctx.beginPath();
-                        ctx.moveTo(cursor.x, cursor.y);
-                        ctx.lineTo(cursor.x + 12, cursor.y + 12);
-                        ctx.moveTo(cursor.x, cursor.y);
-                        ctx.lineTo(cursor.x - 3, cursor.y + 18);
-                        ctx.moveTo(cursor.x, cursor.y);
-                        ctx.lineTo(cursor.x + 16, cursor.y + 5);
-                        ctx.closePath();
-                        ctx.fillStyle = "white";
+                        ctx.arc(cursor.x, cursor.y, 14, 0, Math.PI * 2);
+                        ctx.fillStyle = "rgba(30, 144, 255, 0.14)";
                         ctx.fill();
-                        ctx.strokeStyle = "black";
-                        ctx.lineWidth = 1.5;
+                        ctx.strokeStyle = "rgba(30, 144, 255, 0.9)";
+                        ctx.lineWidth = 2;
                         ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(cursor.x, cursor.y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = "#1E90FF";
+                        ctx.fill();
                     }
 
                     if (!disposed) {
@@ -97,51 +131,107 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
         };
     }, [streamUrl, status, fps, quality]);
 
-    const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = Math.round((e.clientX - rect.left) * scaleX);
-        const y = Math.round((e.clientY - rect.top) * scaleY);
-        cursorPosRef.current = { x, y };
-        reportDesktopPetActivity(
-            { kind: "tool", detail: "desktop app click" },
-            model.blockId,
-            { x: Math.round(e.clientX - rect.left), y: Math.round(e.clientY - rect.top) }
-        );
-        void model.sendClick(x, y);
-    }, [model]);
+    const handleClick = useCallback(
+        (e: React.MouseEvent<HTMLCanvasElement>) => {
+            if (suppressClickRef.current) {
+                suppressClickRef.current = false;
+                return;
+            }
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const point = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
+            cursorPosRef.current = point;
+            reportDesktopPetActivity({ kind: "tool", detail: "desktop app click" }, model.blockId, {
+                x: Math.round(e.clientX - rect.left),
+                y: Math.round(e.clientY - rect.top),
+            });
+            void model.sendClick(point.x, point.y);
+        },
+        [fitMode, model]
+    );
 
-    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        cursorPosRef.current = {
-            x: Math.round((e.clientX - rect.left) * scaleX),
-            y: Math.round((e.clientY - rect.top) * scaleY),
-        };
-    }, []);
+    const handlePointerDown = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            dragStartRef.current = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
+            e.currentTarget.setPointerCapture(e.pointerId);
+        },
+        [fitMode]
+    );
 
-    const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-        e.preventDefault();
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = Math.round((e.clientX - rect.left) * scaleX);
-        const y = Math.round((e.clientY - rect.top) * scaleY);
-        reportDesktopPetActivity(
-            { kind: "tool", detail: "desktop app right click" },
-            model.blockId,
-            { x: Math.round(e.clientX - rect.left), y: Math.round(e.clientY - rect.top) }
-        );
-        void model.sendClick(x, y, "right");
-    }, [model]);
+    const handlePointerUp = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const canvas = canvasRef.current;
+            const start = dragStartRef.current;
+            dragStartRef.current = null;
+            if (!canvas || !start) return;
+            const rect = canvas.getBoundingClientRect();
+            const end = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
+            if (Math.hypot(end.x - start.x, end.y - start.y) < 6) return;
+            suppressClickRef.current = true;
+            reportDesktopPetActivity({ kind: "tool", detail: "desktop app drag" }, model.blockId, {
+                x: Math.round(e.clientX - rect.left),
+                y: Math.round(e.clientY - rect.top),
+            });
+            void model.sendDrag(start.x, start.y, end.x, end.y);
+        },
+        [fitMode, model]
+    );
+
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+            e.preventDefault();
+            const keys = [e.metaKey && "Meta", e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift", e.key]
+                .filter(Boolean)
+                .join("+");
+            void model.sendKeyPress(keys);
+        },
+        [model]
+    );
+
+    const handlePaste = useCallback(
+        (e: React.ClipboardEvent<HTMLCanvasElement>) => {
+            e.preventDefault();
+            void model.sendPaste(e.clipboardData.getData("text"));
+        },
+        [model]
+    );
+
+    const handleMouseMove = useCallback(
+        (e: React.MouseEvent<HTMLCanvasElement>) => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            cursorPosRef.current = clientPointToCanvasPoint(
+                e.clientX,
+                e.clientY,
+                rect,
+                canvas.width,
+                canvas.height,
+                fitMode
+            );
+        },
+        [fitMode]
+    );
+
+    const handleContextMenu = useCallback(
+        (e: React.MouseEvent<HTMLCanvasElement>) => {
+            e.preventDefault();
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const point = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
+            reportDesktopPetActivity({ kind: "tool", detail: "desktop app right click" }, model.blockId, {
+                x: Math.round(e.clientX - rect.left),
+                y: Math.round(e.clientY - rect.top),
+            });
+            void model.sendClick(point.x, point.y, "right");
+        },
+        [fitMode, model]
+    );
 
     if (status === "starting") {
         return (
@@ -181,7 +271,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             <div className="flex h-9 items-center justify-between border-b border-white/10 bg-zinc-950/90 px-2 text-[11px] text-zinc-400">
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="flex items-center gap-1.5 text-zinc-200">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.75)]" />
+                        <span className="h-2 w-2 rounded-full bg-[#1E90FF] shadow-[0_0_10px_rgba(30,144,255,0.6)]" />
                         {appName}
                     </span>
                     <span className="text-zinc-600">|</span>
@@ -237,8 +327,9 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.055),transparent_60%)]">
                 <canvas
                     ref={canvasRef}
+                    tabIndex={0}
                     className={cn(
-                        "block cursor-crosshair rounded-sm shadow-2xl shadow-black/60",
+                        "block cursor-none rounded-sm shadow-2xl shadow-black/60",
                         fitMode === "fit" && "max-h-full max-w-full object-contain",
                         fitMode === "fill" && "h-full w-full object-cover",
                         fitMode === "actual" && "max-w-none max-h-none"
@@ -246,17 +337,14 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                     onClick={handleClick}
                     onMouseMove={handleMouseMove}
                     onContextMenu={handleContextMenu}
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
                 />
                 <WaterFlowOverlay active={waterflowActive} />
                 {markers.map((m) => (
-                    <ActionMarker
-                        key={m.id}
-                        actionType={m.actionType}
-                        label={m.label}
-                        x={m.x}
-                        y={m.y}
-                        active={true}
-                    />
+                    <ActionMarker key={m.id} actionType={m.actionType} label={m.label} x={m.x} y={m.y} active={true} />
                 ))}
             </div>
         </div>

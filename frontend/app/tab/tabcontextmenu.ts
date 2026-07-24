@@ -105,7 +105,7 @@ export function buildTabContextMenu(
         menu.push({ label: "Backgrounds", type: "submenu", submenu }, { type: "separator" });
     }
     menu.push(...buildTabBarContextMenu(env), { type: "separator" });
-    const currentGroup = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:group")) ?? null;
+    const currentGroup = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:group" as keyof MetaType)) ?? null;
     menu.push({
         label: "Add to Group",
         type: "submenu",
@@ -118,7 +118,7 @@ export function buildTabContextMenu(
                         fireAndForget(() =>
                             env.rpc.SetMetaCommand(TabRpcClient, {
                                 oref: tabORef,
-                                meta: { "tab:group": groupName.trim(), "tab:groupcolor": "blue" },
+                                meta: { "tab:group": groupName.trim(), "tab:groupcolor": "blue" } as MetaType,
                             })
                         );
                     }
@@ -130,7 +130,10 @@ export function buildTabContextMenu(
                 checked: currentGroup == null,
                 click: () =>
                     fireAndForget(() =>
-                        env.rpc.SetMetaCommand(TabRpcClient, { oref: tabORef, meta: { "tab:group": null, "tab:groupcolor": null } })
+                        env.rpc.SetMetaCommand(TabRpcClient, {
+                            oref: tabORef,
+                            meta: { "tab:group": null, "tab:groupcolor": null } as MetaType,
+                        })
                     ),
             },
         ],

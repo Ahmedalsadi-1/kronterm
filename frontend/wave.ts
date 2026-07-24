@@ -15,7 +15,7 @@ import { modalsModel } from "@/app/store/modalmodel";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { makeTabRouteId } from "@/app/store/wshrouter";
 import { initWshrpc, TabRpcClient } from "@/app/store/wshrpcutil";
-import { getLayoutModelForStaticTab } from "@/layout/index";
+import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { countersClear, countersPrint } from "@/store/counters";
 import {
     atoms,
@@ -211,4 +211,3 @@ async function initWave(initOpts: WaveInitOpts) {
     console.log("Wave First Render Done");
     getApi().setWindowInitStatus("wave-ready");
 }
-

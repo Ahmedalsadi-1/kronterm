@@ -120,7 +120,7 @@ const AccentPicker = memo(({ r, g, b, onChange }: { r: number; g: number; b: num
 
 AccentPicker.displayName = "AccentPicker";
 
-const KronSettingsThemeContent = memo(({ _model }: KronSettingsThemeContentProps) => {
+const KronSettingsThemeContent = memo(({ model: _model }: KronSettingsThemeContentProps) => {
     const [selectedPreset, setSelectedPreset] = useState("default");
 
     const handlePresetSelect = useCallback((id: string) => {

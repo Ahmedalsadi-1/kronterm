@@ -12,12 +12,27 @@ const hasConfigErrorsAtom = atom(false);
 const isDevAtom = atom(true);
 const mockVersionAtom = atom(0);
 
-function makeMockApp(name: string, icon: string, iconcolor: string): AppInfo {
+type PreviewAppInfo = {
+    appid: string;
+    manifest?: {
+        appmeta?: {
+            title?: string;
+            displayname?: string;
+            shortdesc?: string;
+            icon?: string;
+            iconcolor?: string;
+        };
+        configschema?: Record<string, unknown>;
+        dataschema?: Record<string, unknown>;
+        secrets?: Record<string, unknown>;
+    };
+};
+
+function makeMockApp(name: string, icon: string, iconcolor: string): PreviewAppInfo {
     return {
         appid: `local/${name.toLowerCase().replace(/\s+/g, "-")}`,
-        modtime: 0,
         manifest: {
-            appmeta: { title: name, shortdesc: "", icon, iconcolor },
+            appmeta: { title: name, displayname: name, shortdesc: "", icon, iconcolor },
             configschema: {},
             dataschema: {},
             secrets: {},
@@ -25,7 +40,7 @@ function makeMockApp(name: string, icon: string, iconcolor: string): AppInfo {
     };
 }
 
-const mockApps: AppInfo[] = [
+const mockApps: PreviewAppInfo[] = [
     makeMockApp("Weather", "cloud-sun", "#60a5fa"),
     makeMockApp("Stocks", "chart-line", "#34d399"),
     makeMockApp("Notes", "note-sticky", "#fbbf24"),
@@ -91,12 +106,15 @@ function makeWidgetsEnv(
     baseEnv: WaveEnv,
     isDev: boolean,
     hasCustomAIPresets: boolean,
-    apps?: AppInfo[],
+    apps?: PreviewAppInfo[],
     atomOverrides?: Partial<GlobalAtomsType>
 ) {
     return applyMockEnvOverrides(baseEnv, {
         isDev,
-        rpc: { ListAllAppsCommand: () => Promise.resolve(apps ?? []) },
+        rpc: {
+            ListAllAppsCommand: () => Promise.resolve(apps ?? []),
+            ListInstalledAppsCommand: () => Promise.resolve([]),
+        },
         atoms: {
             fullConfigAtom,
             hasCustomAIPresetsAtom: atom(hasCustomAIPresets),
@@ -116,7 +134,7 @@ function WidgetsScenario({
     isDev?: boolean;
     hasCustomAIPresets?: boolean;
     height?: number;
-    apps?: AppInfo[];
+    apps?: PreviewAppInfo[];
 }) {
     const baseEnv = useWaveEnv();
     const envRef = useRef<WaveEnv>(null);

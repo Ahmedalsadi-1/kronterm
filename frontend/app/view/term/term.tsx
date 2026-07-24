@@ -83,8 +83,10 @@ const TermVDomToolbarNode = ({ vdomBlockId, blockId, model }: TerminalViewProps 
             blockId: vdomBlockId,
             isFocused: jotai.atom(false),
             isMagnified: jotai.atom(false),
+            isFolded: jotai.atom(false),
             focusNode: () => {},
             toggleMagnify: () => {},
+            toggleFold: () => {},
             onClose: () => {
                 if (vdomBlockId != null) {
                     RpcApi.DeleteSubBlockCommand(TabRpcClient, { blockid: vdomBlockId });
@@ -129,10 +131,12 @@ const TermVDomNodeSingleId = ({ vdomBlockId, blockId, model }: TerminalViewProps
             blockId: vdomBlockId,
             isFocused: isFocusedAtom,
             isMagnified: jotai.atom(false),
+            isFolded: jotai.atom(false),
             focusNode: () => {
                 model.nodeModel.focusNode();
             },
             toggleMagnify: () => {},
+            toggleFold: () => {},
             onClose: () => {
                 if (vdomBlockId != null) {
                     RpcApi.DeleteSubBlockCommand(TabRpcClient, { blockid: vdomBlockId });

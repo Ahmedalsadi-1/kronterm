@@ -4,9 +4,17 @@
 // Adapted from MIT-licensed Hermes desktop chat components:
 // https://github.com/NousResearch/hermes-agent/tree/main/apps/desktop
 
+import {
+    CodeCardBody,
+    CodeCardHeader,
+    CodeCardSubtitle,
+    CodeCardTitle,
+    CodeCard as HermesCodeCard,
+} from "@/app/components/hermes-ui/chat/code-card";
+import { CopyButton } from "@/app/components/hermes-ui/ui/copy-button";
 import { cn } from "@/util/util";
-import { Copy, MonitorPlay } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { MonitorPlay } from "lucide-react";
+import { memo, useCallback } from "react";
 
 export const CodeCard = memo(
     ({
@@ -21,15 +29,17 @@ export const CodeCard = memo(
         className?: string;
     }) => {
         return (
-            <div className={cn("min-w-0 overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#0a0a0a]", className)}>
-                <div className="flex items-center justify-between gap-2 border-b border-[#2a2a2a] px-2.5 py-1.5">
-                    <div className="min-w-0 truncate text-xs font-medium text-[#d4d4d4]">
+            <HermesCodeCard className={cn("border-[#2a2a2a] bg-[#0a0a0a]", className)}>
+                <CodeCardHeader className="border-[#2a2a2a] px-2.5 py-1.5">
+                    <CodeCardTitle className="text-xs text-[#d4d4d4]">
                         {title}
-                        {subtitle ? <span className="ml-1 font-normal text-[#6b6863]">{subtitle}</span> : null}
-                    </div>
-                </div>
-                <div className="p-2">{children}</div>
-            </div>
+                        {subtitle ? (
+                            <CodeCardSubtitle className="ml-1 text-[#6b6863]">{subtitle}</CodeCardSubtitle>
+                        ) : null}
+                    </CodeCardTitle>
+                </CodeCardHeader>
+                <CodeCardBody className="p-2">{children}</CodeCardBody>
+            </HermesCodeCard>
         );
     }
 );
@@ -37,12 +47,6 @@ export const CodeCard = memo(
 CodeCard.displayName = "CodeCard";
 
 export const CopyablePre = memo(({ text, maxHeight = "max-h-40" }: { text: string; maxHeight?: string }) => {
-    const [copied, setCopied] = useState(false);
-    const copy = useCallback(() => {
-        navigator.clipboard.writeText(text).catch(() => {});
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1400);
-    }, [text]);
     return (
         <div className="group relative">
             <pre
@@ -53,14 +57,12 @@ export const CopyablePre = memo(({ text, maxHeight = "max-h-40" }: { text: strin
             >
                 {text}
             </pre>
-            <button
-                type="button"
-                onClick={copy}
-                className="absolute right-1 top-1 hidden cursor-pointer rounded border border-[#2a2a2a] bg-[#111] p-1 text-[#8a8580] hover:text-[#d4d4d4] group-hover:block"
+            <CopyButton
+                appearance="icon"
+                className="absolute right-1 top-1 hidden border-[#2a2a2a] bg-[#111] text-[#8a8580] hover:text-[#d4d4d4] group-hover:inline-flex"
+                text={text}
                 title="Copy"
-            >
-                {copied ? <i className="fa fa-check text-[10px] text-[#5b9ef5]" /> : <Copy className="h-3 w-3" />}
-            </button>
+            />
         </div>
     );
 });

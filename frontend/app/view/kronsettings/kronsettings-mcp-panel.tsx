@@ -9,7 +9,7 @@ interface KronSettingsMcpContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsMcpContent = memo(({ _model }: KronSettingsMcpContentProps) => {
+const KronSettingsMcpContent = memo(({ model: _model }: KronSettingsMcpContentProps) => {
     return (
         <div className="kron-settings-card" style={{ overflow: "hidden" }}>
             <McpPanel />

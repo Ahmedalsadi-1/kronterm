@@ -1,4 +1,10 @@
-import { createBlockSplitHorizontally, getFocusedBlockId } from "@/app/store/global";
+import {
+    createBlockSplitHorizontally,
+    getAllBlockComponentModels,
+    getFocusedBlockId,
+    globalStore,
+    refocusNode,
+} from "@/app/store/global";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { useEffect, useRef } from "react";
 import { subscribeAgentActivityStream } from "../../../types/agent-activity";
@@ -15,6 +21,16 @@ export function ComputerUseStreamManager() {
     const creatingApps = useRef(new Set<string>());
 
     useEffect(() => {
+        const reconcileStreams = () => {
+            for (const model of getAllBlockComponentModels() as any[]) {
+                const viewModel = model?.viewModel;
+                if (viewModel?.viewType !== "appstream" || !viewModel.appNameAtom || !viewModel.blockId) continue;
+                const appNameValue = globalStore.get(viewModel.appNameAtom);
+                const appName = typeof appNameValue === "string" ? appNameValue.trim() : "";
+                if (appName) appStreamBlocks.current.set(appStreamKey(appName), viewModel.blockId);
+            }
+        };
+        reconcileStreams();
         const handleRegisteredStream = (event: Event) => {
             const detail = (event as CustomEvent<{ appName?: string; blockId?: string }>).detail;
             if (!detail?.appName || !detail.blockId) {
@@ -22,13 +38,26 @@ export function ComputerUseStreamManager() {
             }
             appStreamBlocks.current.set(appStreamKey(detail.appName), detail.blockId);
         };
+        const handleControl = (event: Event) => {
+            const detail = (event as CustomEvent<{ action?: string; activity?: { appname?: string; blockid?: string } }>).detail;
+            const appName = detail?.activity?.appname;
+            const blockId = (appName && appStreamBlocks.current.get(appStreamKey(appName))) || detail?.activity?.blockid;
+            if (!blockId) return;
+            const model = (getAllBlockComponentModels() as any[]).find((candidate) => candidate?.viewModel?.blockId === blockId)?.viewModel;
+            if (detail.action === "focus" || detail.action === "takeover") refocusNode(blockId);
+            if (detail.action === "stop") void model?.stopStream?.();
+            if (detail.action === "retry") void model?.startStream?.();
+        };
         const unsubscribeActivity = subscribeAgentActivityStream((activity) => {
             const appName = activity.appname?.trim();
             const key = appName ? appStreamKey(appName) : "";
             if (activity.surface !== "desktop" || !appName || creatingApps.current.has(key)) {
                 return;
             }
-            if (appStreamBlocks.current.has(key)) {
+            reconcileStreams();
+            const existingBlockId = appStreamBlocks.current.get(key);
+            if (existingBlockId) {
+                refocusNode(existingBlockId);
                 return;
             }
             creatingApps.current.add(key);
@@ -57,8 +86,10 @@ export function ComputerUseStreamManager() {
         });
 
         window.addEventListener(AppStreamCreatedEvent, handleRegisteredStream);
+        window.addEventListener("kronterm:computer-use-control", handleControl);
         return () => {
             window.removeEventListener(AppStreamCreatedEvent, handleRegisteredStream);
+            window.removeEventListener("kronterm:computer-use-control", handleControl);
             unsubscribeActivity();
         };
     }, [env]);

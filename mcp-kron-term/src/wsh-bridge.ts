@@ -8,8 +8,94 @@ import { fileURLToPath } from "node:url";
  * Bridge to KronTerm's wsh CLI and daemon.
  * Executes `wsh` commands to control blocks, layout, widgets, and more.
  */
+type ListedBlock = {
+    blockid?: string;
+    blockId?: string;
+    view?: string;
+    meta?: Record<string, unknown>;
+    focused?: boolean;
+};
+
+type RecentWebOpen = {
+    blockId: string;
+    timestamp: number;
+};
+
+const RecentWebOpenWindowMs = 30_000;
+const RefusedBrowserHosts = new Set(["example.cpm"]);
+
+export function makeWshBlockRef(blockId: string): string {
+    return blockId.startsWith("block:") ? blockId : `block:${blockId}`;
+}
+
+export function makeSandboxArgs(sessionId: string, command: string): string[] {
+    return ["sandbox", "--session-id", sessionId, command];
+}
+
+export function makeWidgetClickArgs(
+    blockId: string,
+    elementRef?: string,
+    x?: number,
+    y?: number,
+    button?: string,
+    clickType?: string
+): string[] {
+    const hasElementRef = elementRef != null && elementRef !== "";
+    const hasCoordinates = x != null && y != null;
+    if ((x == null) !== (y == null)) {
+        throw new Error("widget click requires both x and y, or neither");
+    }
+    if ((hasElementRef && hasCoordinates) || (!hasElementRef && !hasCoordinates)) {
+        throw new Error("widget click requires exactly one target: elementRef or both x and y");
+    }
+    const args = ["-b", makeWshBlockRef(blockId), "widget", "click"];
+    if (hasElementRef) args.push("--element-ref", elementRef);
+    if (x != null) args.push("--x", String(x));
+    if (y != null) args.push("--y", String(y));
+    if (button) args.push("--button", button);
+    if (clickType) args.push("--click-type", clickType);
+    return args;
+}
+
+export function makeWidgetHoverArgs(blockId: string, elementRef?: string, x?: number, y?: number): string[] {
+    const args = ["-b", makeWshBlockRef(blockId), "widget", "hover"];
+    if (elementRef) args.push("--element-ref", elementRef);
+    if (x != null) args.push("--x", String(x));
+    if (y != null) args.push("--y", String(y));
+    return args;
+}
+
+export function makeSandboxClickArgs(
+    sessionId: string,
+    x?: number,
+    y?: number,
+    button?: string,
+    count?: number
+): string[] {
+    const args = makeSandboxArgs(sessionId, "click");
+    if (x != null && y != null) args.push("--at", "--x", String(x), "--y", String(y));
+    if (button) args.push("--button", button);
+    if (count != null) args.push("--count", String(count));
+    return args;
+}
+
+export function makeSandboxDragArgs(
+    sessionId: string,
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    button?: string
+): string[] {
+    const args = [...makeSandboxArgs(sessionId, "drag"), String(startX), String(startY), String(endX), String(endY)];
+    if (button) args.push("--button", button);
+    return args;
+}
+
 export class WshBridge {
     private wshPath: string;
+    private recentWebOpens = new Map<string, RecentWebOpen>();
+    private pendingWebOpen: Promise<string> | null = null;
 
     constructor() {
         this.wshPath = this.resolveWsh();
@@ -28,8 +114,7 @@ export class WshBridge {
         const packagedBinDir = resourcesPath ? join(resourcesPath, "app.asar.unpacked", "dist", "bin") : null;
         const packagedWsh =
             packagedBinDir && existsSync(packagedBinDir)
-                ? readdirSync(packagedBinDir)
-                      .find((filename) => filename === "wsh" || filename.startsWith("wsh-"))
+                ? readdirSync(packagedBinDir).find((filename) => filename === "wsh" || filename.startsWith("wsh-"))
                 : null;
         const candidates = [
             repoWsh,
@@ -78,11 +163,83 @@ export class WshBridge {
     }
 
     private blockRef(blockId: string): string {
-        return blockId.startsWith("block:") ? blockId : `block:${blockId}`;
+        return makeWshBlockRef(blockId);
     }
 
     private blockId(blockId: string): string {
         return blockId.startsWith("block:") ? blockId.slice("block:".length) : blockId;
+    }
+
+    private normalizeBrowserUrl(url: string): string {
+        const parsed = new URL(url);
+        if (RefusedBrowserHosts.has(parsed.hostname.toLowerCase())) {
+            throw new Error(`refusing to open likely typo URL ${parsed.href}`);
+        }
+        return parsed.href;
+    }
+
+    private blockIdFromOutput(output: string): string | null {
+        return (
+            output.match(/block:([a-z0-9-]+)/i)?.[1] ?? output.match(/\b([a-f0-9]{8}-[a-f0-9-]{20,})\b/i)?.[1] ?? null
+        );
+    }
+
+    private sameBrowserUrl(left: string | undefined, right: string): boolean {
+        if (!left) {
+            return false;
+        }
+        try {
+            return new URL(left).href === right;
+        } catch {
+            return left === right;
+        }
+    }
+
+    private getBrowserBlockUrl(block: ListedBlock): string | undefined {
+        const metaUrl = typeof block.meta?.url === "string" ? block.meta.url : undefined;
+        if (metaUrl) {
+            return metaUrl;
+        }
+        const tabs = block.meta?.["web:tabs"];
+        const activeTabId = typeof block.meta?.["web:activetabid"] === "string" ? block.meta["web:activetabid"] : "";
+        if (!Array.isArray(tabs)) {
+            return undefined;
+        }
+        const activeTab = tabs.find(
+            (tab) => tab && typeof tab === "object" && "id" in tab && (tab as { id?: unknown }).id === activeTabId
+        );
+        const fallbackTab = tabs.find((tab) => tab && typeof tab === "object");
+        const tab = activeTab ?? fallbackTab;
+        if (!tab || typeof tab !== "object" || !("url" in tab)) {
+            return undefined;
+        }
+        const tabUrl = (tab as { url?: unknown }).url;
+        return typeof tabUrl === "string" ? tabUrl : undefined;
+    }
+
+    private async findExistingWebBlock(normalizedUrl: string): Promise<string | null> {
+        const now = Date.now();
+        const recent = this.recentWebOpens.get(normalizedUrl);
+        if (recent && now - recent.timestamp < RecentWebOpenWindowMs) {
+            return recent.blockId;
+        }
+
+        let blocks: ListedBlock[] = [];
+        try {
+            const rawBlocks = await this.listBlocks(undefined, true);
+            blocks = JSON.parse(rawBlocks) as ListedBlock[];
+        } catch {
+            return null;
+        }
+        const webBlocks = blocks.filter((block) => block.view === "web" || block.meta?.view === "web");
+        const match = webBlocks.find((block) => {
+            return this.sameBrowserUrl(this.getBrowserBlockUrl(block), normalizedUrl);
+        }) ?? webBlocks.find((block) => block.focused || block.meta?.focused === true) ?? webBlocks[0];
+        const blockId = match?.blockid ?? match?.blockId ?? null;
+        if (blockId) {
+            this.recentWebOpens.set(normalizedUrl, { blockId, timestamp: now });
+        }
+        return blockId;
     }
 
     // ── Workspace ──────────────────────────────────────────────────────
@@ -151,10 +308,35 @@ export class WshBridge {
 
     // ── Web ────────────────────────────────────────────────────────────
 
-    async openWeb(url: string, magnified?: boolean): Promise<string> {
-        const args = ["web", "open", url];
-        if (magnified) args.push("--magnified");
-        return this.run(args);
+    async openWeb(url: string, magnified?: boolean, newSurface = false): Promise<string> {
+        const normalizedUrl = this.normalizeBrowserUrl(url);
+        if (this.pendingWebOpen && !magnified && !newSurface) {
+            await this.pendingWebOpen;
+        }
+        const operation = (async () => {
+            const existingBlockId = magnified || newSurface ? null : await this.findExistingWebBlock(normalizedUrl);
+            if (existingBlockId) {
+                await this.navigateWeb(existingBlockId, normalizedUrl);
+                await this.focusBlock(existingBlockId).catch(() => undefined);
+                this.recentWebOpens.set(normalizedUrl, { blockId: existingBlockId, timestamp: Date.now() });
+                return `reused block block:${existingBlockId}`;
+            }
+
+            const args = ["web", "open", normalizedUrl];
+            if (magnified) args.push("--magnified");
+            const result = await this.run(args);
+            const blockId = this.blockIdFromOutput(result);
+            if (blockId) {
+                this.recentWebOpens.set(normalizedUrl, { blockId, timestamp: Date.now() });
+            }
+            return result;
+        })();
+        if (!magnified && !newSurface) this.pendingWebOpen = operation;
+        try {
+            return await operation;
+        } finally {
+            if (this.pendingWebOpen === operation) this.pendingWebOpen = null;
+        }
     }
 
     async navigateWeb(blockId: string, url: string): Promise<string> {
@@ -197,7 +379,14 @@ export class WshBridge {
         return this.run(["-b", this.blockRef(blockId), "widget", "snapshot", "--json"]);
     }
 
-    async widgetFind(blockId: string, role?: string, name?: string, value?: string, text?: string, maxCount?: number): Promise<string> {
+    async widgetFind(
+        blockId: string,
+        role?: string,
+        name?: string,
+        value?: string,
+        text?: string,
+        maxCount?: number
+    ): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "widget", "find", "--json"];
         if (role) args.push("--role", role);
         if (name) args.push("--name", name);
@@ -212,7 +401,17 @@ export class WshBridge {
     }
 
     async widgetElementAt(blockId: string, x: number, y: number): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "element-at", "--x", String(x), "--y", String(y), "--json"]);
+        return this.run([
+            "-b",
+            this.blockRef(blockId),
+            "widget",
+            "element-at",
+            "--x",
+            String(x),
+            "--y",
+            String(y),
+            "--json",
+        ]);
     }
 
     async widgetScreenshot(blockId: string): Promise<string> {
@@ -225,22 +424,23 @@ export class WshBridge {
         return this.run(args);
     }
 
-    async widgetClick(blockId: string, elementRef?: string, x?: number, y?: number, button?: string, clickType?: string): Promise<string> {
-        const args = ["-b", this.blockRef(blockId), "widget", "click"];
-        if (elementRef) args.push("--element-ref", elementRef);
-        if (x != null) args.push("--x", String(x));
-        if (y != null) args.push("--y", String(y));
-        if (button) args.push("--button", button);
-        if (clickType) args.push("--click-type", clickType);
-        return this.run(args);
+    async widgetClick(
+        blockId: string,
+        elementRef?: string,
+        x?: number,
+        y?: number,
+        button?: string,
+        clickType?: string
+    ): Promise<string> {
+        return this.run(makeWidgetClickArgs(blockId, elementRef, x, y, button, clickType));
     }
 
     async widgetHover(blockId: string, elementRef?: string, x?: number, y?: number): Promise<string> {
-        const args = ["-b", this.blockRef(blockId), "widget", "hover"];
-        if (elementRef) args.push("--element-ref", elementRef);
-        if (x != null) args.push("--x", String(x));
-        if (y != null) args.push("--y", String(y));
-        return this.run(args);
+        return this.run(makeWidgetHoverArgs(blockId, elementRef, x, y));
+    }
+
+    async widgetMouseMove(blockId: string, elementRef?: string, x?: number, y?: number): Promise<string> {
+        return this.widgetHover(blockId, elementRef, x, y);
     }
 
     async widgetType(blockId: string, text: string, delayMs?: number): Promise<string> {
@@ -261,13 +461,39 @@ export class WshBridge {
         return this.run(args);
     }
 
-    async widgetDrag(blockId: string, startX: number, startY: number, endX: number, endY: number, button?: string): Promise<string> {
-        const args = ["-b", this.blockRef(blockId), "widget", "drag", "--start-x", String(startX), "--start-y", String(startY), "--end-x", String(endX), "--end-y", String(endY)];
+    async widgetDrag(
+        blockId: string,
+        startX: number,
+        startY: number,
+        endX: number,
+        endY: number,
+        button?: string
+    ): Promise<string> {
+        const args = [
+            "-b",
+            this.blockRef(blockId),
+            "widget",
+            "drag",
+            "--start-x",
+            String(startX),
+            "--start-y",
+            String(startY),
+            "--end-x",
+            String(endX),
+            "--end-y",
+            String(endY),
+        ];
         if (button) args.push("--button", button);
         return this.run(args);
     }
 
-    async widgetLongPress(blockId: string, elementRef?: string, x?: number, y?: number, duration?: number): Promise<string> {
+    async widgetLongPress(
+        blockId: string,
+        elementRef?: string,
+        x?: number,
+        y?: number,
+        duration?: number
+    ): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "widget", "long-press"];
         if (elementRef) args.push("--element-ref", elementRef);
         if (x != null) args.push("--x", String(x));
@@ -281,7 +507,16 @@ export class WshBridge {
     }
 
     async widgetSetValue(blockId: string, elementRef: string, value: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "set-value", "--element-ref", elementRef, "--value", value]);
+        return this.run([
+            "-b",
+            this.blockRef(blockId),
+            "widget",
+            "set-value",
+            "--element-ref",
+            elementRef,
+            "--value",
+            value,
+        ]);
     }
 
     async widgetClear(blockId: string, elementRef: string): Promise<string> {
@@ -289,7 +524,16 @@ export class WshBridge {
     }
 
     async widgetSelect(blockId: string, elementRef: string, option: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "select", "--element-ref", elementRef, "--option", option]);
+        return this.run([
+            "-b",
+            this.blockRef(blockId),
+            "widget",
+            "select",
+            "--element-ref",
+            elementRef,
+            "--option",
+            option,
+        ]);
     }
 
     async widgetToggle(blockId: string, elementRef: string): Promise<string> {
@@ -318,7 +562,7 @@ export class WshBridge {
     // ── Sandbox VM ─────────────────────────────────────────────────────
 
     private sandboxArgs(sessionId: string, command: string): string[] {
-        return ["sandbox", "--session-id", sessionId, command];
+        return makeSandboxArgs(sessionId, command);
     }
 
     async sandboxStart(sessionId = "default", mode?: string, browserUrl?: string): Promise<string> {
@@ -345,11 +589,7 @@ export class WshBridge {
     }
 
     async sandboxClick(sessionId: string, x?: number, y?: number, button?: string, count?: number): Promise<string> {
-        const args = this.sandboxArgs(sessionId, "click");
-        if (x != null && y != null) args.push("--at", "--x", String(x), "--y", String(y));
-        if (button) args.push("--button", button);
-        if (count != null) args.push("--count", String(count));
-        return this.run(args);
+        return this.run(makeSandboxClickArgs(sessionId, x, y, button, count));
     }
 
     async sandboxType(sessionId: string, text: string, delayMs?: number): Promise<string> {
@@ -366,7 +606,13 @@ export class WshBridge {
         return this.run([...this.sandboxArgs(sessionId, "press"), ...keys]);
     }
 
-    async sandboxScroll(sessionId: string, direction?: string, count?: number, x?: number, y?: number): Promise<string> {
+    async sandboxScroll(
+        sessionId: string,
+        direction?: string,
+        count?: number,
+        x?: number,
+        y?: number
+    ): Promise<string> {
         const args = this.sandboxArgs(sessionId, "scroll");
         if (direction) args.push("--direction", direction);
         if (count != null) args.push("--count", String(count));
@@ -374,16 +620,15 @@ export class WshBridge {
         return this.run(args);
     }
 
-    async sandboxDrag(sessionId: string, startX: number, startY: number, endX: number, endY: number, button?: string): Promise<string> {
-        const args = [
-            ...this.sandboxArgs(sessionId, "drag"),
-            String(startX),
-            String(startY),
-            String(endX),
-            String(endY),
-        ];
-        if (button) args.push("--button", button);
-        return this.run(args);
+    async sandboxDrag(
+        sessionId: string,
+        startX: number,
+        startY: number,
+        endX: number,
+        endY: number,
+        button?: string
+    ): Promise<string> {
+        return this.run(makeSandboxDragArgs(sessionId, startX, startY, endX, endY, button));
     }
 
     // ── New: Launch Widget ──────────────────────────────────────────────
@@ -463,7 +708,13 @@ export class WshBridge {
 
     // ── New: Run Command in Block ──────────────────────────────────────
 
-    async runCommand(command: string, cwd?: string, magnified?: boolean, exitOnSuccess?: boolean, forceExit?: boolean): Promise<string> {
+    async runCommand(
+        command: string,
+        cwd?: string,
+        magnified?: boolean,
+        exitOnSuccess?: boolean,
+        forceExit?: boolean
+    ): Promise<string> {
         const args = ["run", "-c", command];
         if (cwd) args.push("--cwd", cwd);
         if (magnified) args.push("--magnified");
@@ -480,7 +731,12 @@ export class WshBridge {
         return this.run(args);
     }
 
-    async setVariables(blockId: string, vars: Record<string, string>, local?: boolean, varFileName?: string): Promise<string> {
+    async setVariables(
+        blockId: string,
+        vars: Record<string, string>,
+        local?: boolean,
+        varFileName?: string
+    ): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "setvar"];
         if (local) args.push("--local");
         if (varFileName) args.push("--varfile", varFileName);

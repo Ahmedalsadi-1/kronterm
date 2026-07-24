@@ -9,7 +9,7 @@ interface KronSettingsUsageContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsUsageContent = memo(({ _model }: KronSettingsUsageContentProps) => {
+const KronSettingsUsageContent = memo(({ model: _model }: KronSettingsUsageContentProps) => {
     return (
         <div>
             <SettingsCard>

@@ -12,7 +12,8 @@
 
 .kronos-canvas-toolbar,
 .kronos-canvas-outline,
-.kronos-canvas-selection {
+.kronos-canvas-selection,
+.kronos-canvas-command-center {
     position: absolute;
     z-index: 50;
     border: 1px solid var(--border);
@@ -34,7 +35,8 @@
 
 .kronos-canvas-toolbar select,
 .kronos-canvas-toolbar button,
-.kronos-canvas-selection button {
+.kronos-canvas-selection button,
+.kronos-canvas-command-center button {
     height: 30px;
     border-radius: 6px;
     border: 1px solid var(--border);
@@ -44,7 +46,8 @@
 }
 
 .kronos-canvas-toolbar button,
-.kronos-canvas-selection button {
+.kronos-canvas-selection button,
+.kronos-canvas-command-center button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -53,7 +56,8 @@
 }
 
 .kronos-canvas-toolbar button:hover,
-.kronos-canvas-selection button:hover {
+.kronos-canvas-selection button:hover,
+.kronos-canvas-command-center button:hover {
     background: var(--interactive-hover);
 }
 
@@ -124,6 +128,113 @@
 .kronos-canvas-selection-meta {
     color: var(--muted-foreground);
     font-size: 11px;
+}
+
+.kronos-canvas-command-center {
+    top: 62px;
+    right: 12px;
+    width: min(410px, calc(100% - 280px));
+    max-height: min(650px, calc(100% - 92px));
+    overflow: auto;
+    border-radius: 8px;
+}
+
+.kronos-canvas-command-center [data-slot="code-card"] {
+    border: 0;
+}
+
+.kronos-canvas-command-section {
+    border-bottom: 1px solid var(--border);
+    padding: 10px;
+}
+
+.kronos-canvas-command-section:last-child {
+    border-bottom: 0;
+}
+
+.kronos-canvas-command-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 6px;
+    color: var(--foreground);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.kronos-canvas-muted {
+    margin-bottom: 8px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.kronos-canvas-flow-input {
+    min-height: 76px;
+    width: 100%;
+    resize: vertical;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 94%, black);
+    color: var(--foreground);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.45;
+    outline: none;
+    padding: 8px;
+}
+
+.kronos-canvas-command-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 9px;
+}
+
+.kronos-canvas-stepper {
+    display: inline-flex;
+    height: 30px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    padding: 0 8px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+}
+
+.kronos-canvas-stepper input {
+    width: 42px;
+    border: 0;
+    background: transparent;
+    color: var(--foreground);
+    outline: none;
+}
+
+.kronos-canvas-snapshot {
+    max-height: 190px;
+    overflow: auto;
+    margin: 9px 0 0;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 88%, black);
+    color: var(--muted-foreground);
+    font-size: 10px;
+    line-height: 1.5;
+    padding: 9px;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+    .kronos-canvas-command-center {
+        top: auto;
+        right: 12px;
+        bottom: 116px;
+        left: 12px;
+        width: auto;
+        max-height: 330px;
+    }
 }
 
 .kronos-canvas-save-state {

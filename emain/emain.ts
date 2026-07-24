@@ -27,11 +27,11 @@ import {
     setWasActive,
     setWasInFg,
 } from "./emain-activity";
+import { stopAudioEngine } from "./emain-audio";
 import { initIpcHandlers } from "./emain-ipc";
 import { runKrondesignDaemon, stopKrondesignDaemon } from "./emain-krondesign";
 import { log } from "./emain-log";
 import { stopAllLanguageServers } from "./emain-lsp";
-import { runAudioEngine, stopAudioEngine } from "./emain-audio";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
 import { createDesktopPetWindow } from "./emain-pet";
 import {
@@ -410,9 +410,6 @@ async function appMain() {
             electron.systemPreferences.askForMediaAccess("microphone");
         }
     }
-    fireAndForget(async () => {
-        await runAudioEngine();
-    });
     configureAuthKeyRequestInjection(electron.session.defaultSession);
     initIpcHandlers();
 

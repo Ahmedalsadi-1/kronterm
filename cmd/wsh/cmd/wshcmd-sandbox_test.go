@@ -3,6 +3,7 @@ package cmd
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
@@ -47,5 +48,37 @@ func TestSandboxKrontermDesktopActionPreservesScreenshotResponse(t *testing.T) {
 	resultMap, ok := result.(map[string]any)
 	if !ok || resultMap["image"] != "pngdata" {
 		t.Fatalf("expected screenshot payload, got %#v", result)
+	}
+}
+
+func TestSandboxKrontermDesktopActionUsesMcpUrl(t *testing.T) {
+	var requestedPath atomic.Value
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath.Store(r.URL.Path)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	_, err := sandboxKrontermDesktopAction(
+		wshrpc.SandboxStatusResponse{DesktopUrl: "http://example.invalid/novnc/vnc_lite.html", McpUrl: server.URL + "/custom-computer-use"},
+		map[string]any{"action": "click_mouse"},
+	)
+	if err != nil {
+		t.Fatalf("expected mcpUrl action to succeed: %v", err)
+	}
+	if path := requestedPath.Load(); path != "/custom-computer-use" {
+		t.Fatalf("expected request to mcpUrl path, got %#v", path)
+	}
+}
+
+func TestSandboxComputerUseURLFromPreviewURL(t *testing.T) {
+	computerUseURL, err := sandboxComputerUseURL(wshrpc.SandboxStatusResponse{
+		DesktopUrl: "http://localhost:9990/novnc/vnc_lite.html?scale=true",
+	})
+	if err != nil {
+		t.Fatalf("expected preview URL to normalize: %v", err)
+	}
+	if computerUseURL != "http://localhost:9990/computer-use" {
+		t.Fatalf("unexpected computer-use URL: %s", computerUseURL)
 	}
 }

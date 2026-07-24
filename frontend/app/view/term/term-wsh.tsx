@@ -195,23 +195,49 @@ export class TermWshClient extends WshClient {
             return { blockid: this.blockId, elements: [], count: 0, timestamp: Date.now() };
         }
         const rect = termWrap.connectElem.getBoundingClientRect();
+
+        // Get scrollback content for AI visibility (last 50 lines)
+        const scrollbackContent = termWrap.getScrollbackContent();
+        const lastLines = scrollbackContent ? scrollbackContent.split("\n").slice(-50).join("\n") : "";
+
+        // Get selection if any
+        const selection = termWrap.terminal.getSelection();
+
+        const elements: WidgetElementData[] = [
+            {
+                ref: "terminal",
+                role: "terminal",
+                name: "Terminal",
+                value: lastLines,
+                x: Math.round(rect.x),
+                y: Math.round(rect.y),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                focusable: true,
+                visible: true,
+            },
+        ];
+
+        // Add selection as a separate element if there's a selection
+        if (selection && selection.length > 0) {
+            elements.push({
+                ref: "terminal-selection",
+                role: "text",
+                name: "Selected Text",
+                value: selection,
+                x: Math.round(rect.x),
+                y: Math.round(rect.y),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                focusable: false,
+                visible: true,
+            });
+        }
+
         return {
             blockid: this.blockId,
-            elements: [
-                {
-                    ref: "terminal",
-                    role: "terminal",
-                    name: "Terminal",
-                    value: "",
-                    x: Math.round(rect.x),
-                    y: Math.round(rect.y),
-                    width: Math.round(rect.width),
-                    height: Math.round(rect.height),
-                    focusable: true,
-                    visible: true,
-                },
-            ],
-            count: 1,
+            elements: elements,
+            count: elements.length,
             timestamp: Date.now(),
         };
     }

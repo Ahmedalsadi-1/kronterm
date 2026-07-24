@@ -9,7 +9,7 @@ interface KronSettingsAgentsContentProps {
     model: KronSettingsViewModel;
 }
 
-const KronSettingsAgentsContent = memo(({ _model }: KronSettingsAgentsContentProps) => {
+const KronSettingsAgentsContent = memo(({ model: _model }: KronSettingsAgentsContentProps) => {
     return (
         <div className="kron-settings-card" style={{ overflow: "hidden" }}>
             <AgentsPanel />

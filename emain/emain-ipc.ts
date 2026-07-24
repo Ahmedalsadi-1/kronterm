@@ -22,6 +22,7 @@ import {
     removeAgentManager,
 } from "./acp";
 import {
+    getChatHubV2RuntimeHealth,
     getChatHubV2ServerStatus,
     startChatHubV2Server,
     stopChatHubV2Server,
@@ -34,7 +35,6 @@ import {
     setWasActive,
 } from "./emain-activity";
 
-import { getKrondesignProc, getKrondesignUrl, isKrondesignHealthy, runKrondesignDaemon } from "./emain-krondesign";
 import {
     audioGetStatus,
     audioSetWakeWord,
@@ -45,6 +45,7 @@ import {
     registerAudioCallbacks,
     runAudioEngine,
 } from "./emain-audio";
+import { getKrondesignProc, getKrondesignUrl, isKrondesignHealthy, runKrondesignDaemon } from "./emain-krondesign";
 import { sendLspMessage, startLanguageServer, stopLanguageServer } from "./emain-lsp";
 import {
     getDesktopPetClickThroughStatus,
@@ -924,6 +925,14 @@ export function initIpcHandlers() {
         return audioReady;
     });
 
+    electron.ipcMain.handle("audio-status", async () => {
+        return audioGetStatus();
+    });
+
+    electron.ipcMain.on("audio-shutdown", () => {
+        audioShutdown();
+    });
+
     electron.ipcMain.on("audio-start-listening", () => {
         audioStartListening();
     });
@@ -942,17 +951,21 @@ export function initIpcHandlers() {
 
     // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
 
-    electron.ipcMain.handle("chathubv2-start", async () => {
+    electron.ipcMain.handle("chathubv2-start", async (_event, context?: { tabId?: string; blockId?: string }) => {
         try {
-            const data = await startChatHubV2Server();
-            return { success: true, data };
+            const data = await startChatHubV2Server(context);
+            return { success: true, data, health: data.health };
         } catch (err) {
-            return { success: false, error: err instanceof Error ? err.message : String(err) };
+            return {
+                success: false,
+                error: err instanceof Error ? err.message : String(err),
+                health: getChatHubV2RuntimeHealth(),
+            };
         }
     });
 
     electron.ipcMain.handle("chathubv2-status", async () => {
-        return { success: true, data: getChatHubV2ServerStatus() };
+        return { success: true, data: getChatHubV2ServerStatus(), health: getChatHubV2RuntimeHealth() };
     });
 
     electron.ipcMain.handle("chathubv2-stop", async () => {

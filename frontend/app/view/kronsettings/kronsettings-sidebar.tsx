@@ -1,11 +1,11 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useAtom } from \"jotai\";
-import { memo, useCallback } from \"react\";
-import type { KronSettingsViewModel, SettingsSection } from \"./kronsettings-model\";
-import { SECTION_GROUP_LABELS, SETTINGS_SECTIONS } from \"./kronsettings-model\";
-import { cn } from \"@/util/util\";
+import { useAtom } from "jotai";
+import { memo, useCallback } from "react";
+import type { KronSettingsViewModel, SettingsSection } from "./kronsettings-model";
+import { SECTION_GROUP_LABELS, SETTINGS_SECTIONS } from "./kronsettings-model";
+import { cn } from "@/util/util";
 import {
     RiPaletteLine,
     RiChat3Line,
@@ -24,7 +24,7 @@ import {
     RiBarChartLine,
     RiInformationLine,
     RiContrastDropLine,
-} from \"@remixicon/react\";
+} from "@remixicon/react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
     theme: RiContrastDropLine,
@@ -50,7 +50,7 @@ interface KronSettingsSidebarProps {
     model: KronSettingsViewModel;
 }
 
-const groupOrder = [\"appearance\", \"features\", \"integrations\", \"kronoscode\", \"other\"];
+const groupOrder = ["appearance", "features", "integrations", "kronoscode", "other"];
 
 const KronSettingsSidebar = memo(({ model }: KronSettingsSidebarProps) => {
     const [selectedSection, setSelectedSection] = useAtom(model.selectedSectionAtom);
@@ -70,14 +70,14 @@ const KronSettingsSidebar = memo(({ model }: KronSettingsSidebarProps) => {
         .filter((g) => g.sections.length > 0);
 
     return (
-        <nav className=\"kron-settings-sidebar\" role=\"navigation\" aria-label=\"Settings sections\">
-            <div className=\"kron-settings-sidebar-inner\">
+        <nav className="kron-settings-sidebar" role="navigation" aria-label="Settings sections">
+            <div className="kron-settings-sidebar-inner">
                 {groupedSections.map(({ group, sections }) => (
-                    <div key={group} className=\"mb-6\">
-                        <div className=\"kron-settings-sidebar-group-label\">
+                    <div key={group} className="mb-6">
+                        <div className="kron-settings-sidebar-group-label">
                             {SECTION_GROUP_LABELS[group] ?? group}
                         </div>
-                        <div className=\"space-y-0.5\">
+                        <div className="space-y-0.5">
                             {sections.map((section) => {
                                 const Icon = ICON_MAP[section.id];
                                 return (
@@ -85,14 +85,14 @@ const KronSettingsSidebar = memo(({ model }: KronSettingsSidebarProps) => {
                                         key={section.id}
                                         onClick={() => handleSelect(section.id)}
                                         className={cn(
-                                            \"kron-settings-sidebar-item\",
-                                            selectedSection === section.id && \"kron-settings-sidebar-item--active\"
+                                            "kron-settings-sidebar-item",
+                                            selectedSection === section.id && "kron-settings-sidebar-item--active"
                                         )}
-                                        role=\"button\"
+                                        role="button"
                                         tabIndex={0}
-                                        onKeyDown={(e) => e.key === \"Enter\" && handleSelect(section.id)}
+                                        onKeyDown={(e) => e.key === "Enter" && handleSelect(section.id)}
                                     >
-                                        {Icon && <Icon className=\"w-4 h-4\" />}
+                                        {Icon && <Icon className="w-4 h-4" />}
                                         <span>{section.label}</span>
                                     </div>
                                 );

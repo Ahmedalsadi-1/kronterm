@@ -3,6 +3,8 @@
 
 package wshrpc
 
+import "github.com/wavetermdev/waveterm/pkg/waveobj"
+
 type CanvasLoadRequest struct {
 	WorkspaceId string `json:"workspaceid"`
 	BlockId     string `json:"blockid"`
@@ -60,9 +62,13 @@ type CanvasConnectNodesRequest struct {
 }
 
 type CanvasLaunchNodeRequest struct {
-	WorkspaceId string `json:"workspaceid"`
-	BlockId     string `json:"blockid"`
-	NodeId      string `json:"nodeid"`
+	WorkspaceId   string            `json:"workspaceid"`
+	BlockId       string            `json:"blockid"`
+	NodeId        string            `json:"nodeid"`
+	TabId         string            `json:"tabid,omitempty"`
+	BlockDef      *waveobj.BlockDef `json:"blockdef,omitempty"`
+	TargetBlockId string            `json:"targetblockid,omitempty"`
+	TargetAction  string            `json:"targetaction,omitempty"`
 }
 
 type CanvasDocument struct {
@@ -84,6 +90,7 @@ type CanvasNode struct {
 	ParentId    string         `json:"parentid,omitempty"`
 	WorkspaceId string         `json:"workspaceid,omitempty"`
 	BlockId     string         `json:"blockid,omitempty"`
+	LiveBlockId string         `json:"liveblockid,omitempty"`
 	AppId       string         `json:"appid,omitempty"`
 	AppName     string         `json:"appname,omitempty"`
 	SessionId   string         `json:"sessionid,omitempty"`

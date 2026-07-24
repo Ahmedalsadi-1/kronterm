@@ -1,4 +1,4 @@
-import type { Message } from '../../types/sdk';
+import type { Message } from '../../../types/sdk';
 
 export interface MessageRoleInfo {
     role: string;

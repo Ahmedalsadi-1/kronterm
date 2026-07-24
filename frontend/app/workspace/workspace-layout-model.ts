@@ -388,6 +388,7 @@ class WorkspaceLayoutModel {
 
     getLeftGroupInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
         this.initializeFromMeta();
+        if (windowWidth <= 0) return 0;
         const vtabW = showLeftTabBar && !isBuilderWindow() ? this.getResolvedVTabWidth() : 0;
         const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
         return ((vtabW + aiW) / windowWidth) * 100;
@@ -408,7 +409,7 @@ class WorkspaceLayoutModel {
         const vtabW = showLeftTabBar && !isBuilderWindow() ? this.getResolvedVTabWidth() : 0;
         const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
         const total = vtabW + aiW;
-        if (total === 0) return 50;
+        if (total === 0) return 100;
         return (aiW / total) * 100;
     }
 

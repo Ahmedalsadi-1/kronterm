@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollableOverlay } from '@/app/components/ui/ScrollableOverlay';
+import { ComputerUseStatusCard } from '@/app/components/computer-use-status-card';
 import { KronosChamberVisualSettings } from './KronosChamberVisualSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { VoiceSettings } from './VoiceSettings';
@@ -64,7 +65,11 @@ const ShortcutsSection: React.FC = () => (
             <h3 className="text-base font-semibold text-foreground">Keyboard Shortcuts</h3>
             <p className="text-sm text-muted-foreground">Configure keyboard shortcuts and key overrides.</p>
         </div>
-        <p className="text-sm text-muted-foreground">Coming soon: full keyboard shortcut customization with capture UI.</p>
+        <BetaStatusPanel
+            title="Shortcut capture is limited in this beta"
+            body="Core KronTerm and KronosChamber shortcuts are active. Full capture-based remapping stays out of the primary path until it passes the screenshot and keyboard regression matrix."
+            action="Use system keybindings for now"
+        />
     </div>
 );
 
@@ -86,7 +91,11 @@ const GitSection: React.FC = () => (
             <h3 className="text-base font-semibold text-foreground">Git</h3>
             <p className="text-sm text-muted-foreground">Configure commit messages, identities, and worktree settings.</p>
         </div>
-        <p className="text-sm text-muted-foreground">Coming soon: gitmoji, commit model selection, and worktree management.</p>
+        <BetaStatusPanel
+            title="Git controls are runtime-led"
+            body="KronosCode owns commit, branch, and worktree actions during private beta. This panel stays focused on identities and defaults until those controls have parity with the in-chat evidence flow."
+            action="Run Git actions from KronosChamber"
+        />
     </div>
 );
 
@@ -96,18 +105,38 @@ const GitHubSection: React.FC = () => (
             <h3 className="text-base font-semibold text-foreground">GitHub</h3>
             <p className="text-sm text-muted-foreground">Connect your GitHub account for PR and issue workflows.</p>
         </div>
-        <p className="text-sm text-muted-foreground">Coming soon: GitHub authentication, PR management, and issue tracking.</p>
+        <BetaStatusPanel
+            title="GitHub workflows run through KronosCode"
+            body="PR and issue actions remain available through the KronosCode runtime path. Native account management will return here after auth, recovery, and session restore states are fully covered."
+            action="Use chat-driven GitHub actions"
+        />
     </div>
 );
 
 const DesktopSection: React.FC = () => (
     <div className="space-y-4">
+        <ComputerUseStatusCard />
         <div className="space-y-1">
             <h3 className="text-base font-semibold text-foreground">Desktop</h3>
             <p className="text-sm text-muted-foreground">Desktop control, MCP servers, and sandbox settings.</p>
         </div>
-        <p className="text-sm text-muted-foreground">
-            Desktop control settings coming soon. Launch sandbox sessions from chat using <span className="font-mono">/sandbox</span>.
-        </p>
+        <BetaStatusPanel
+            title="KronosCode is the active desktop runtime"
+            body="Sandbox, browser, and desktop control are routed through KronosChamber so approvals, takeover, cancellation, and evidence stay in one loop."
+            action="Launch from chat with /sandbox or the runtime controls"
+        />
+    </div>
+);
+
+const BetaStatusPanel: React.FC<{ title: string; body: string; action: string }> = ({ title, body, action }) => (
+    <div className="rounded-lg border border-border/70 bg-card/70 p-4 shadow-sm">
+        <div className="mb-2 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+        </div>
+        <p className="text-sm leading-6 text-muted-foreground">{body}</p>
+        <div className="mt-3 inline-flex rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-medium text-muted-foreground">
+            {action}
+        </div>
     </div>
 );

@@ -1,7 +1,6 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AIPanelComponentInner } from "@/app/aipanel/aipanel";
 import {
     BlockComponentModel2,
     BlockNodeModel,
@@ -14,6 +13,7 @@ import type { TabModel } from "@/app/store/tab-model";
 import { useTabModel } from "@/app/store/tab-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
 import { AppStreamViewModel } from "@/app/view/appstream/appstream-model";
+import { ChatHubV2ViewModel } from "@/app/view/chathubv2/chathubv2-model";
 import { DesignViewModel } from "@/app/view/design/design";
 import { InstalledAppsViewModel } from "@/app/view/installedapps/installedapps";
 import { KronosCanvasViewModel } from "@/app/view/kronoscanvas/kronoscanvas-model";
@@ -25,10 +25,9 @@ import { SysinfoViewModel } from "@/app/view/sysinfo/sysinfo";
 import { TsunamiViewModel } from "@/app/view/tsunami/tsunami";
 import { VDomModel } from "@/app/view/vdom/vdom-model";
 import { useWaveEnv, WaveEnv } from "@/app/waveenv/waveenv";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { ErrorBoundary } from "@/element/errorboundary";
 import { CenteredDiv } from "@/element/quickelems";
-import { useDebouncedNodeInnerRect } from "@/layout/index";
+import { useDebouncedNodeInnerRect } from "@/layout/lib/layoutModelHooks";
 import { counterInc } from "@/store/counters";
 import { getBlockComponentModel, registerBlockComponentModel, unregisterBlockComponentModel } from "@/store/global";
 import { makeORef } from "@/store/wos";
@@ -39,7 +38,6 @@ import { TermViewModel } from "@/view/term/term-model";
 import { WaveAiModel } from "@/view/waveai/waveai";
 import { WebViewModel } from "@/view/webview/webview";
 import clsx from "clsx";
-import type { Atom } from "jotai";
 import { atom, useAtomValue } from "jotai";
 import { memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuickTipsViewModel } from "../view/quicktipsview/quicktipsview";
@@ -50,47 +48,13 @@ import { BlockEnv } from "./blockenv";
 import { BlockFrame } from "./blockframe";
 import { blockViewToIcon, blockViewToName } from "./blockutil";
 
-// KronosChat block view: renders the side panel content as a workspace block
-class KronosChatViewModel implements ViewModel {
-    viewType: string;
-    blockId: string;
-    nodeModel: BlockNodeModel;
-    tabModel: TabModel;
-    noPadding: Atom<boolean>;
-    viewIcon: Atom<string>;
-    viewName: Atom<string>;
-
-    constructor({ blockId, nodeModel, tabModel }: ViewModelInitType) {
-        this.blockId = blockId;
-        this.nodeModel = nodeModel;
-        this.tabModel = tabModel;
-        this.viewType = "kronoschat";
-        this.noPadding = atom(true);
-        this.viewIcon = atom("sparkles");
-        this.viewName = atom("Assistant");
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(false, { nofocus: true });
-    }
-
-    get viewComponent(): ViewComponent {
-        return KronosChatView;
-    }
-}
-
-const KronosChatView = memo(({ model }: { model: KronosChatViewModel }) => {
-    return (
-        <div className="w-full h-full overflow-hidden">
-            <AIPanelComponentInner roundTopLeft={false} floatingIslandActive={false} isWidget={true} />
-        </div>
-    );
-});
-KronosChatView.displayName = "KronosChatView";
-
 const BlockRegistry: Map<string, ViewModelClass> = new Map();
 BlockRegistry.set("term", TermViewModel);
 BlockRegistry.set("preview", PreviewModel);
 BlockRegistry.set("web", WebViewModel);
 BlockRegistry.set("waveai", WaveAiModel);
-BlockRegistry.set("kronoschat", KronosChatViewModel);
+BlockRegistry.set("kronoschat", ChatHubV2ViewModel);
+BlockRegistry.set("chathubv2", ChatHubV2ViewModel);
 BlockRegistry.set("cpuplot", SysinfoViewModel);
 BlockRegistry.set("sysinfo", SysinfoViewModel);
 BlockRegistry.set("vdom", VDomModel);

@@ -64,6 +64,10 @@ export type AgentActivityEvent = {
     previewimageurl?: string;
     petactivityurl?: string;
     appname?: string;
+    surfaceid?: string;
+    verificationstatus?: "unverified" | "verified" | "failed";
+    errorcode?: "invalid-target" | "stale-target" | "permission" | "unavailable" | "timeout" | "action-failed";
+    attempts?: number;
     presentationHints?: AgentActivityPresentationHints;
 };
 

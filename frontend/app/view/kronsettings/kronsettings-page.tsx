@@ -1,46 +1,46 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useAtomValue } from "jotai";
-import { memo } from "react";
-import type { KronSettingsViewModel, SettingsSection } from "./kronsettings-model";
-import { SETTINGS_SECTIONS } from "./kronsettings-model";
-import { KronSettingsThemeContent } from "./kronsettings-theme";
-import { KronSettingsVisualContent } from "./kronsettings-visual";
-import { KronSettingsAboutContent } from "./kronsettings-about";
-import { KronSettingsChatContent } from "./kronsettings-chat";
-import { KronSettingsShortcutsContent } from "./kronsettings-shortcuts";
-import { KronSettingsSessionsContent } from "./kronsettings-sessions";
-import { KronSettingsGitContent } from "./kronsettings-git";
-import { KronSettingsGitHubContent } from "./kronsettings-github";
-import { KronSettingsNotificationsContent } from "./kronsettings-notifications";
-import { KronSettingsVoiceContent } from "./kronsettings-voice";
-import { KronSettingsDesktopContent } from "./kronsettings-desktop";
-import { KronSettingsAgentsContent } from "./kronsettings-agents-panel";
-import { KronSettingsCommandsContent } from "./kronsettings-commands";
-import { KronSettingsSkillsContent } from "./kronsettings-skills";
-import { KronSettingsMcpContent } from "./kronsettings-mcp-panel";
-import { KronSettingsProvidersContent } from "./kronsettings-providers-panel";
-import { KronSettingsUsageContent } from "./kronsettings-usage";
 import {
-    RiPaletteLine,
+    RiBarChartLine,
+    RiBookOpenLine,
+    RiBrainLine,
     RiChat3Line,
-    RiKeyboardLine,
-    RiHistoryLine,
+    RiCloudLine,
+    RiComputerLine,
+    RiContrastDropLine,
     RiGitBranchLine,
     RiGithubFill,
-    RiNotification3Line,
-    RiMicLine,
-    RiComputerLine,
-    RiBrainLine,
-    RiTerminalBoxLine,
-    RiBookOpenLine,
-    RiPlugLine,
-    RiCloudLine,
-    RiBarChartLine,
+    RiHistoryLine,
     RiInformationLine,
-    RiContrastDropLine,
+    RiKeyboardLine,
+    RiMicLine,
+    RiNotification3Line,
+    RiPaletteLine,
+    RiPlugLine,
+    RiTerminalBoxLine,
 } from "@remixicon/react";
+import { useAtomValue } from "jotai";
+import { memo } from "react";
+import { KronSettingsAboutContent } from "./kronsettings-about";
+import { KronSettingsAgentsContent } from "./kronsettings-agents-panel";
+import { KronSettingsChatContent } from "./kronsettings-chat";
+import { KronSettingsCommandsContent } from "./kronsettings-commands";
+import { KronSettingsDesktopContent } from "./kronsettings-desktop";
+import { KronSettingsGitContent } from "./kronsettings-git";
+import { KronSettingsGitHubContent } from "./kronsettings-github";
+import { KronSettingsMcpContent } from "./kronsettings-mcp-panel";
+import type { KronSettingsViewModel, SettingsSection } from "./kronsettings-model";
+import { SETTINGS_SECTIONS } from "./kronsettings-model";
+import { KronSettingsNotificationsContent } from "./kronsettings-notifications";
+import { KronSettingsProvidersContent } from "./kronsettings-providers-panel";
+import { KronSettingsSessionsContent } from "./kronsettings-sessions";
+import { KronSettingsShortcutsContent } from "./kronsettings-shortcuts";
+import { KronSettingsSkillsContent } from "./kronsettings-skills";
+import { KronSettingsThemeContent } from "./kronsettings-theme";
+import { KronSettingsUsageContent } from "./kronsettings-usage";
+import { KronSettingsVisualContent } from "./kronsettings-visual";
+import { KronSettingsVoiceContent } from "./kronsettings-voice";
 
 const ICON_MAP: Record<string, React.ElementType> = {
     theme: RiContrastDropLine,
@@ -119,7 +119,12 @@ const PageRenderer = memo(({ model, section }: { model: KronSettingsViewModel; s
         case "usage":
             return <KronSettingsUsageContent model={model} />;
         default:
-            return <div className="kron-settings-empty"><i className="fa fa-solid fa-wrench" /><p>Coming soon.</p></div>;
+            return (
+                <div className="kron-settings-empty">
+                    <i className="fa fa-solid fa-wrench" />
+                    <p>This settings surface is not enabled for the current runtime.</p>
+                </div>
+            );
     }
 });
 

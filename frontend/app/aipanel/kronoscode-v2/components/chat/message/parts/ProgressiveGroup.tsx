@@ -1,7 +1,7 @@
 import React from 'react';
 import { RiArrowDownSLine, RiArrowRightSLine, RiStackLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
-import type { Part } from '../../../types/sdk';
+import type { Part } from '../../../../types/sdk';
 import ToolPart from './ToolPart';
 import ReasoningPart from './ReasoningPart';
 import JustificationBlock from './JustificationBlock';

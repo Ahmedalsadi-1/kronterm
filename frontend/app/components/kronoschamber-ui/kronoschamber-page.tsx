@@ -1,4 +1,5 @@
 import { ScrollableOverlay } from "@/app/components/ui/ScrollableOverlay";
+import { ComputerUseStatusCard } from "@/app/components/computer-use-status-card";
 import React from "react";
 import type { KronosChamberSection } from "./KronosChamberSidebar";
 import { KronosChamberVisualSettings } from "./KronosChamberVisualSettings";
@@ -86,11 +87,23 @@ const ShortcutsSection: React.FC = () => (
     <div className="space-y-4">
         <div className="space-y-1">
             <h3 className="text-base font-semibold text-foreground">Keyboard Shortcuts</h3>
-            <p className="text-sm text-muted-foreground">Configure keyboard shortcuts and key overrides.</p>
+            <p className="text-sm text-muted-foreground">
+                Review the shortcuts that keep agent work, panes, and runtime surfaces fast.
+            </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-            Coming soon: full keyboard shortcut customization with capture UI.
-        </p>
+        <StatusList
+            items={[
+                ["Layout control", "Split, focus, close, and magnify blocks from the global shortcut map."],
+                [
+                    "Agent workflow",
+                    "Open KronosCode, approve tools, cancel turns, and move through active work without leaving the keyboard.",
+                ],
+                [
+                    "Customization",
+                    "Custom capture UI is tracked as a beta roadmap item; defaults remain stable for this release.",
+                ],
+            ]}
+        />
     </div>
 );
 
@@ -111,12 +124,22 @@ const GitSection: React.FC = () => (
         <div className="space-y-1">
             <h3 className="text-base font-semibold text-foreground">Git</h3>
             <p className="text-sm text-muted-foreground">
-                Configure commit messages, identities, and worktree settings.
+                Configure identity and keep agent-authored changes tied to the right workspace.
             </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-            Coming soon: gitmoji, commit model selection, and worktree management.
-        </p>
+        <StatusList
+            items={[
+                ["Identity", "Commit author name and email are managed from KronTerm settings."],
+                [
+                    "Review loop",
+                    "KronosCode sessions can surface changed files, diffs, and validation evidence before handoff.",
+                ],
+                [
+                    "Worktrees",
+                    "Parallel worktree orchestration stays behind the agent runtime until the controls are release-ready.",
+                ],
+            ]}
+        />
     </div>
 );
 
@@ -126,21 +149,52 @@ const GitHubSection: React.FC = () => (
             <h3 className="text-base font-semibold text-foreground">GitHub</h3>
             <p className="text-sm text-muted-foreground">Connect your GitHub account for PR and issue workflows.</p>
         </div>
-        <p className="text-sm text-muted-foreground">
-            Coming soon: GitHub authentication, PR management, and issue tracking.
-        </p>
+        <StatusList
+            items={[
+                ["Credentials", "Use the GitHub settings panel to save a personal access token and default owner."],
+                [
+                    "Agent context",
+                    "Issues, PRs, and repository context are routed through the active KronosCode session when available.",
+                ],
+                [
+                    "Recovery",
+                    "Unavailable or missing credentials should keep the workspace usable and show a direct fix path.",
+                ],
+            ]}
+        />
     </div>
 );
 
 const DesktopSection: React.FC = () => (
     <div className="space-y-4">
+        <ComputerUseStatusCard />
         <div className="space-y-1">
             <h3 className="text-base font-semibold text-foreground">Desktop</h3>
             <p className="text-sm text-muted-foreground">Desktop control, MCP servers, and sandbox settings.</p>
         </div>
-        <p className="text-sm text-muted-foreground">
-            Desktop control settings coming soon. Launch sandbox sessions from chat using{" "}
-            <span className="font-mono">/sandbox</span>.
-        </p>
+        <StatusList
+            items={[
+                ["Sandbox launch", "Start supervised browser, terminal, and desktop surfaces from chat with /sandbox."],
+                [
+                    "Permission boundary",
+                    "Desktop control and screen capture stay explicit so agent actions remain inspectable.",
+                ],
+                [
+                    "Evidence",
+                    "Screenshots and activity previews should appear in the run timeline before follow-up decisions.",
+                ],
+            ]}
+        />
+    </div>
+);
+
+const StatusList: React.FC<{ items: [string, string][] }> = ({ items }) => (
+    <div className="grid gap-3">
+        {items.map(([title, body]) => (
+            <div key={title} className="rounded-lg border border-border/70 bg-card/40 px-4 py-3">
+                <div className="text-sm font-medium text-foreground">{title}</div>
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">{body}</div>
+            </div>
+        ))}
     </div>
 );

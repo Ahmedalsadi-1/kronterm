@@ -5,7 +5,6 @@ import logoUrl from "@/app/asset/logo.svg?url";
 import type { BlockNodeModel } from "@/app/block/blocktypes";
 import { atoms, globalStore, replaceBlock } from "@/app/store/global";
 import type { TabModel } from "@/app/store/tab-model";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { checkKeyPressed, keydownWrapper } from "@/util/keyutil";
 import { isBlank, makeIconClass } from "@/util/util";
 import clsx from "clsx";
@@ -130,9 +129,12 @@ export class LauncherViewModel implements ViewModel {
     }
 
     async handleWidgetSelect(widget: WidgetConfigType) {
-        if (widget.blockdef?.meta?.view === "waveai") {
-            const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
-            WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+        if (
+            widget.blockdef?.meta?.view === "waveai" ||
+            widget.blockdef?.meta?.view === "kronoschat" ||
+            widget.blockdef?.meta?.view === "chathubv2"
+        ) {
+            await replaceBlock(this.blockId, { meta: { view: "chathubv2" } }, true);
             return;
         }
         try {

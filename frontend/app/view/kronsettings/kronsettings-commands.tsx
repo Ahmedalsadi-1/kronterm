@@ -26,7 +26,7 @@ const ACP_COMMANDS: CommandEntry[] = [
     { name: "export", description: "Export conversation as markdown", command: "/export" },
 ];
 
-const KronSettingsCommandsContent = memo(({ _model }: KronSettingsCommandsContentProps) => {
+const KronSettingsCommandsContent = memo(({ model: _model }: KronSettingsCommandsContentProps) => {
     return (
         <SettingsCard>
             <SectionHeader title="ACP Commands" icon="terminal" description="Agent Control Protocol commands for interacting with AI agents." />

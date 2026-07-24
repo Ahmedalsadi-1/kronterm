@@ -1,13 +1,13 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting, type AgentWidgetVisualSettings } from "@/app/block/agent-widget-settings";
 import {
-    blockViewToIcon,
-    blockViewToName,
-    getViewIconElem,
-    renderHeaderElements,
-} from "@/app/block/blockutil";
+    loadAgentWidgetVisualSettings,
+    updateAgentWidgetVisualSetting,
+    type AgentWidgetVisualSettings,
+} from "@/app/block/agent-widget-settings";
+import { buildAgentWidgetShortcutText, isAgentWidgetShortcutView } from "@/app/block/agent-widget-shortcuts";
+import { blockViewToIcon, blockViewToName, getViewIconElem, renderHeaderElements } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
 import { DurableSessionFlyover } from "@/app/block/durable-session-flyover";
 import { getBlockBadgeAtom } from "@/app/store/badge";
@@ -59,6 +59,14 @@ function handleHeaderContextMenu(
             },
         },
     ];
+    if (isAgentWidgetShortcutView(metaView)) {
+        menu.push({
+            label: "Copy Agent Widget Shortcuts",
+            click: () => {
+                navigator.clipboard.writeText(buildAgentWidgetShortcutText(blockId, metaView));
+            },
+        });
+    }
     const extraItems = viewModel?.getSettingsMenuItems?.();
     if (extraItems && extraItems.length > 0) menu.push({ type: "separator" }, ...extraItems);
     if (metaView === "web" || metaView === "sandbox") {
@@ -110,22 +118,19 @@ function handleHeaderContextMenu(
                                 label: "Pixel (Stepped)",
                                 type: "radio",
                                 checked: activitySettings.pointerStyle === "pixel",
-                                click: () =>
-                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "pixel"),
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "pixel"),
                             },
                             {
                                 label: "Smooth",
                                 type: "radio",
                                 checked: activitySettings.pointerStyle === "smooth",
-                                click: () =>
-                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "smooth"),
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "smooth"),
                             },
                             {
                                 label: "Minimal",
                                 type: "radio",
                                 checked: activitySettings.pointerStyle === "minimal",
-                                click: () =>
-                                    updateAgentWidgetVisualSetting(blockId, "pointerStyle", "minimal"),
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "minimal"),
                             },
                         ],
                     },
@@ -142,61 +147,110 @@ function handleHeaderContextMenu(
                 {
                     label: "Explain Output",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "explain-output", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "explain-output", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Fix Error",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "fix-error", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "fix-error", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Suggest Command",
                     visible: metaView === "term",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "suggest-command", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "suggest-command", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Summarize Page",
                     visible: metaView === "webview" || metaView === "preview",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "summarize-page", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "summarize-page", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Extract Data",
                     visible: metaView === "webview",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "extract-data", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "extract-data", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Refactor Code",
-                    visible: metaView === "waveai" || metaView === "kronoschat" || metaView === "codeeditor",
+                    visible:
+                        metaView === "waveai" ||
+                        metaView === "kronoschat" ||
+                        metaView === "chathubv2" ||
+                        metaView === "codeeditor",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "refactor", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "refactor", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Improve Response",
-                    visible: metaView === "waveai" || metaView === "kronoschat",
+                    visible: metaView === "waveai" || metaView === "kronoschat" || metaView === "chathubv2",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "improve", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "improve", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 { type: "separator" as const },
                 {
                     label: "Take Screenshot",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "screenshot", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "screenshot", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
                 {
                     label: "Send to AI Panel",
                     click: () => {
-                        document.dispatchEvent(new CustomEvent("kronoscode:block-action", { detail: { actionId: "send-to-panel", blockId, blockType: metaView }, bubbles: true }));
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "send-to-panel", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
                     },
                 },
             ],
@@ -303,8 +357,16 @@ const WidgetSettingsPanel = ({ blockId }: { blockId: string }) => {
     return (
         <div className="flex flex-col gap-1 p-2">
             {items.map((item) => (
-                <label key={item.key} className="flex cursor-pointer items-center gap-2 text-xs text-[#9e9a93] hover:text-[#eeeeee]">
-                    <input type="checkbox" checked={settings[item.key]} onChange={() => toggle(item.key, !settings[item.key])} className="accent-[#5b9ef5] size-3" />
+                <label
+                    key={item.key}
+                    className="flex cursor-pointer items-center gap-2 text-xs text-[#9e9a93] hover:text-[#eeeeee]"
+                >
+                    <input
+                        type="checkbox"
+                        checked={settings[item.key]}
+                        onChange={() => toggle(item.key, !settings[item.key])}
+                        className="accent-[#5b9ef5] size-3"
+                    />
                     {item.label}
                 </label>
             ))}
@@ -312,8 +374,11 @@ const WidgetSettingsPanel = ({ blockId }: { blockId: string }) => {
             <div className="mb-1 text-[10px] text-[#6b6863]">Pointer Style</div>
             <div className="flex gap-1">
                 {pointerStyles.map((style) => (
-                    <button key={style.value} onClick={() => toggle("pointerStyle", style.value)}
-                        className={cn("cursor-pointer rounded border px-2 py-0.5 text-[10px] transition-colors",
+                    <button
+                        key={style.value}
+                        onClick={() => toggle("pointerStyle", style.value)}
+                        className={cn(
+                            "cursor-pointer rounded border px-2 py-0.5 text-[10px] transition-colors",
                             settings.pointerStyle === style.value
                                 ? "border-[#5b9ef5] bg-[#1e2a3a] text-[#5b9ef5]"
                                 : "border-[#2a2a2a] text-[#9e9a93] hover:border-[#3a3a3a] hover:text-[#eeeeee]"
@@ -473,7 +538,11 @@ const BlockFrame_Header = ({
             />
             {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
             {settingsPanelOpen && !useTermHeader && metaView !== "web" && (
-                <div className="block-frame-settings-panel" onClick={(e) => e.stopPropagation()} onMouseLeave={() => setSettingsPanelOpen(false)}>
+                <div
+                    className="block-frame-settings-panel"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseLeave={() => setSettingsPanelOpen(false)}
+                >
                     <WidgetSettingsPanel blockId={nodeModel.blockId} />
                 </div>
             )}

@@ -6,7 +6,7 @@ import type { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 export type KronSettingsEnv = WaveEnvSubset<{
     isDev: WaveEnv["isDev"];
     isWindows: WaveEnv["isWindows"];
-    isMac: WaveEnv["isMac"];
+    isMacOS: WaveEnv["isMacOS"];
     electron: {
         getPlatform: WaveEnv["electron"]["getPlatform"];
         getConfigDir: WaveEnv["electron"]["getConfigDir"];

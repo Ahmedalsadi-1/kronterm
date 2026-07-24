@@ -205,6 +205,13 @@ function startPetActivityServer() {
         return;
     }
     petActivityServer = createServer((request, response) => {
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "content-type");
+        if (request.method === "OPTIONS" && request.url === "/pet/activity") {
+            response.writeHead(204).end();
+            return;
+        }
         if (request.method !== "POST" || request.url !== "/pet/activity") {
             response.writeHead(404).end();
             return;

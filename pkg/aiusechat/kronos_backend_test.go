@@ -64,6 +64,7 @@ func TestBuildWaveToolManifestSortsAndIncludesMetadata(t *testing.T) {
 func TestWaveToolCapabilityFamily(t *testing.T) {
 	cases := map[string]string{
 		"widget_click":        "widget-control",
+		"widget_mouse_move":   "widget-control",
 		"mouse_click":         "direct-widget-input",
 		"keyboard_type":       "direct-widget-input",
 		"term_run_command":    "terminal-control",
@@ -87,6 +88,7 @@ func TestWidgetControlToolsActOnWidgets(t *testing.T) {
 		"widget_inspect",
 		"widget_click",
 		"widget_hover",
+		"widget_mouse_move",
 		"widget_set_value",
 		"widget_select",
 		"widget_toggle",

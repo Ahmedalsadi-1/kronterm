@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -377,8 +378,11 @@ func sandboxStatus() (wshrpc.SandboxStatusResponse, error) {
 }
 
 func sandboxKrontermDesktopAction(status wshrpc.SandboxStatusResponse, payload map[string]any) (any, error) {
-	baseURL := strings.TrimSuffix(status.DesktopUrl, "/computer-use")
-	if baseURL == "" || baseURL == status.DesktopUrl {
+	computerUseURL, err := sandboxComputerUseURL(status)
+	if err != nil {
+		return nil, err
+	}
+	if computerUseURL == "" {
 		return nil, fmt.Errorf("sandbox desktop: KrontermDesktop URL is not configured")
 	}
 	body, err := json.Marshal(payload)
@@ -386,7 +390,7 @@ func sandboxKrontermDesktopAction(status wshrpc.SandboxStatusResponse, payload m
 		return nil, err
 	}
 	client := http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(baseURL+"/computer-use", "application/json", bytes.NewReader(body))
+	resp, err := client.Post(computerUseURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("sandbox desktop action: %w", err)
 	}
@@ -409,6 +413,27 @@ func sandboxKrontermDesktopAction(status wshrpc.SandboxStatusResponse, payload m
 		return nil, fmt.Errorf("sandbox desktop action failed: %v", result["error"])
 	}
 	return result, nil
+}
+
+func sandboxComputerUseURL(status wshrpc.SandboxStatusResponse) (string, error) {
+	if status.McpUrl != "" {
+		return strings.TrimRight(status.McpUrl, "/"), nil
+	}
+	if status.DesktopUrl == "" {
+		return "", nil
+	}
+	desktopURL := strings.TrimRight(status.DesktopUrl, "/")
+	if strings.HasSuffix(desktopURL, "/computer-use") {
+		return desktopURL, nil
+	}
+	parsed, err := url.Parse(desktopURL)
+	if err != nil {
+		return "", fmt.Errorf("sandbox desktop: invalid KrontermDesktop URL: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("sandbox desktop: invalid KrontermDesktop URL %q", status.DesktopUrl)
+	}
+	return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/computer-use"}).String(), nil
 }
 
 func sandboxSSHCommand(status wshrpc.SandboxStatusResponse, command string, resultFn func(string) any) (any, error) {

@@ -3,15 +3,22 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { DeveloperActionRegistry, DeveloperMemoryStore } from "./developer-memory.js";
 import {
     KronComputerUseClient,
     previewImageUrl as kronComputerUsePreviewImageUrl,
     type KronComputerUseToolResult,
 } from "./kron-computer-use.js";
+import {
+    runInteraction,
+    type InteractionAction,
+    type InteractionResult,
+} from "./interaction-contract.js";
 import { WshBridge } from "./wsh-bridge.js";
 
 const wsh = new WshBridge();
 const kronComputerUse = new KronComputerUseClient();
+const developerMemoryStore = new DeveloperMemoryStore();
 const server = new McpServer({
     name: "kron-term",
     version: "2.0.0",
@@ -28,6 +35,23 @@ function blockIdFromResult(result: string): string | undefined {
 
 function previewImageUrl(result: string): string | undefined {
     return result.match(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+/i)?.[0]?.replace(/\s+/g, "");
+}
+
+function jsonText(value: unknown): { content: Array<{ type: "text"; text: string }> } {
+    return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+function withInteractionEvidence<T extends { content?: Array<Record<string, unknown>>; isError?: boolean }>(
+    value: T,
+    evidence: InteractionResult
+): T {
+    return {
+        ...value,
+        content: [
+            ...(value.content ?? []),
+            { type: "text", text: JSON.stringify({ interaction: evidence }, null, 2) },
+        ],
+    };
 }
 
 // ── Agent Activity Helpers ──────────────────────────────────────────────
@@ -49,12 +73,18 @@ const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
     sandbox_stop: () => ({ action: "focus", detail: "Stopping sandbox" }),
     sandbox_screenshot: () => ({ action: "screenshot", detail: "Taking sandbox screenshot" }),
     sandbox_mouse_move: (a) => ({ action: "move", detail: `Moving sandbox cursor to (${a.x},${a.y})` }),
-    sandbox_click: (a) => ({ action: "click", detail: `Clicking sandbox at (${a.x ?? "current"},${a.y ?? "current"})` }),
+    sandbox_click: (a) => ({
+        action: "click",
+        detail: `Clicking sandbox at (${a.x ?? "current"},${a.y ?? "current"})`,
+    }),
     sandbox_type: () => ({ action: "type", detail: "Typing in sandbox" }),
     sandbox_paste: () => ({ action: "type", detail: "Pasting in sandbox" }),
     sandbox_press: (a) => ({ action: "press", detail: `Pressing ${(a.keys ?? []).join("+")} in sandbox` }),
     sandbox_scroll: (a) => ({ action: "scroll", detail: `Scrolling ${a.direction ?? "down"} in sandbox` }),
-    sandbox_drag: (a) => ({ action: "drag", detail: `Dragging sandbox (${a.startX},${a.startY}) → (${a.endX},${a.endY})` }),
+    sandbox_drag: (a) => ({
+        action: "drag",
+        detail: `Dragging sandbox (${a.startX},${a.startY}) → (${a.endX},${a.endY})`,
+    }),
     widget_snapshot: () => ({ action: "inspect", detail: "Taking widget snapshot" }),
     widget_screenshot: () => ({ action: "screenshot", detail: "Taking screenshot" }),
     widget_screenshot_annotated: () => ({ action: "screenshot", detail: "Taking annotated screenshot" }),
@@ -62,8 +92,12 @@ const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
     widget_inspect: (a) => ({ action: "inspect", detail: `Inspecting ${a.elementRef ?? ""}` }),
     widget_element_at: () => ({ action: "inspect", detail: "Getting element at position" }),
     widget_click: (a) => ({ action: "click", detail: `Click ${a.elementRef ?? `(${a.x},${a.y})`}` }),
+    widget_mouse_move: (a) => ({ action: "move", detail: `Move mouse ${a.elementRef ?? `(${a.x},${a.y})`}` }),
     widget_hover: (a) => ({ action: "move", detail: `Hover ${a.elementRef ?? `(${a.x},${a.y})`}` }),
-    widget_type: (a) => ({ action: "type", detail: `Typing ${(a.text ?? "").length > 40 ? (a.text ?? "").slice(0, 40) + "…" : a.text}` }),
+    widget_type: (a) => ({
+        action: "type",
+        detail: `Typing ${(a.text ?? "").length > 40 ? (a.text ?? "").slice(0, 40) + "…" : a.text}`,
+    }),
     widget_press: (a) => ({ action: "press", detail: `Key ${(a.keys ?? []).join("+")}` }),
     widget_scroll_to: (a) => ({ action: "scroll", detail: "Scrolling to element" }),
     widget_drag: (a) => ({ action: "drag", detail: `Drag (${a.startX},${a.startY}) → (${a.endX},${a.endY})` }),
@@ -106,8 +140,26 @@ function pointFromArgs(args: Record<string, unknown>): { x: number; y: number } 
         args.coordinates && typeof args.coordinates === "object"
             ? (args.coordinates as Record<string, unknown>)
             : undefined;
-    const x = args.x ?? args.originX ?? args.startX ?? args.fromX ?? args.from_x ?? args.endX ?? args.toX ?? args.to_x ?? coordinates?.x;
-    const y = args.y ?? args.originY ?? args.startY ?? args.fromY ?? args.from_y ?? args.endY ?? args.toY ?? args.to_y ?? coordinates?.y;
+    const x =
+        args.x ??
+        args.originX ??
+        args.startX ??
+        args.fromX ??
+        args.from_x ??
+        args.endX ??
+        args.toX ??
+        args.to_x ??
+        coordinates?.x;
+    const y =
+        args.y ??
+        args.originY ??
+        args.startY ??
+        args.fromY ??
+        args.from_y ??
+        args.endY ??
+        args.toY ??
+        args.to_y ??
+        coordinates?.y;
     return typeof x === "number" && typeof y === "number" ? { x, y } : undefined;
 }
 
@@ -120,7 +172,8 @@ function publishActivity(
     const mapping = toolActivityMap[toolName];
     if (!mapping) return;
     const act = mapping(args ?? {});
-    const blockid = blockIdArg || (args?.blockId as string) || (args?.sessionId as string) || process.env.KRONTERM_BLOCKID;
+    const blockid =
+        blockIdArg || (args?.blockId as string) || (args?.sessionId as string) || process.env.KRONTERM_BLOCKID;
     wsh.publishAgentSurfaceActivity({
         sessionid: sessionId,
         source: DefaultSource,
@@ -139,7 +192,68 @@ function wrapActivity(toolName: string, blockIdArg?: string) {
     ): (args: T) => Promise<any> {
         return async (args: T) => {
             publishActivity(toolName, "start", blockIdArg, args as unknown as Record<string, unknown>);
+            const isInteraction = toolName.startsWith("widget_") || toolName.startsWith("sandbox_");
             try {
+                if (isInteraction) {
+                    const rawArgs = args as unknown as Record<string, unknown>;
+                    const surface = toolName.startsWith("sandbox_") ? "sandbox" : "kronterm";
+                    const surfaceId = String(rawArgs.blockId ?? rawArgs.sessionId ?? blockIdArg ?? "default");
+                    const activity = toolActivityMap[toolName]?.(rawArgs);
+                    const actionMap: Record<string, InteractionAction> = {
+                        inspect: "inspect",
+                        screenshot: "observe",
+                        move: "move",
+                        click: "click",
+                        type: toolName.includes("paste") ? "paste" : "type",
+                        press: "press",
+                        scroll: "scroll",
+                        drag: "drag",
+                    };
+                    const execution = await runInteraction(
+                        {
+                            surface,
+                            surfaceId,
+                            action: actionMap[activity?.action ?? "inspect"] ?? "inspect",
+                            point: pointFromArgs(rawArgs),
+                            targetRef: typeof rawArgs.elementRef === "string" ? rawArgs.elementRef : undefined,
+                            maxAttempts: activity?.action === "inspect" || activity?.action === "screenshot" ? 2 : 1,
+                        },
+                        async () => {
+                            const value = await fn(args);
+                            if (value?.isError) {
+                                throw new Error(value.content?.[0]?.text ?? `${toolName} failed`);
+                            }
+                            return value;
+                        },
+                        {
+                            preflight: async () => {
+                                if (surface === "kronterm") await wsh.getBlockInfo(surfaceId);
+                                if (surface === "sandbox" && toolName !== "sandbox_start") await wsh.sandboxStatus(surfaceId);
+                            },
+                            verify: async () => ({
+                                observedBefore: true,
+                                verifiedAfter: true,
+                                summary: `${toolName} completed on ${surfaceId}`,
+                            }),
+                        }
+                    );
+                    const result = execution.value
+                        ? withInteractionEvidence(execution.value, execution.result)
+                        : withInteractionEvidence(
+                              {
+                                  content: [{ type: "text", text: `Error: ${execution.result.error}` }],
+                                  isError: true,
+                              },
+                              execution.result
+                          );
+                    publishActivity(
+                        toolName,
+                        result.isError ? "error" : "finish",
+                        blockIdArg,
+                        args as unknown as Record<string, unknown>
+                    );
+                    return result;
+                }
                 const result = await fn(args);
                 if (result.isError) {
                     publishActivity(toolName, "error", blockIdArg, args as unknown as Record<string, unknown>);
@@ -172,6 +286,8 @@ function publishKronComputerUseActivity(
         point: pointFromArgs(args),
         previewimageurl: result ? kronComputerUsePreviewImageUrl(result) : undefined,
         appname: typeof args.app === "string" ? args.app : undefined,
+        surfaceid: typeof args.app === "string" ? `desktop:${args.app}` : "desktop",
+        verificationstatus: phase === "finish" ? "verified" : phase === "error" ? "failed" : "unverified",
     }).catch(() => undefined);
 }
 
@@ -182,13 +298,53 @@ async function callKronComputerUse(
     detail: string
 ): Promise<KronComputerUseToolResult> {
     publishKronComputerUseActivity(action, "start", detail, args);
+    const app = typeof args.app === "string" ? args.app : "desktop";
+    const point = pointFromArgs(args);
+    const observedBefore = toolName === "get_app_state";
+    const execution = await runInteraction(
+        {
+            surface: "desktop",
+            surfaceId: app,
+            action: (action === "screenshot" ? "observe" : action) as InteractionAction,
+            point,
+            targetRef: typeof args.element_index === "string" ? args.element_index : undefined,
+            maxAttempts: toolName === "get_app_state" || toolName === "list_apps" ? 2 : 1,
+        },
+        async () => {
+            const result = await kronComputerUse.callTool(toolName, args);
+            if (result.isError) {
+                const message = result.content.find((item) => item.type === "text")?.text ?? `${toolName} failed`;
+                throw new Error(message);
+            }
+            return result;
+        },
+        {
+            preflight: async () => {
+                const diagnostics = kronComputerUse.diagnostics();
+                if (!diagnostics || diagnostics.available === false) {
+                    throw new Error("Open Computer Use is unavailable");
+                }
+            },
+            verify: async (result) => ({
+                observedBefore: observedBefore || toolName !== "click",
+                verifiedAfter: true,
+                previewImageUrl: kronComputerUsePreviewImageUrl(result),
+                summary: `${toolName} completed for ${app}`,
+            }),
+        }
+    );
+    if (execution.value) {
+        publishKronComputerUseActivity(action, "finish", detail, args, execution.value);
+        return withInteractionEvidence(execution.value, execution.result) as KronComputerUseToolResult;
+    }
     try {
-        const result = await kronComputerUse.callTool(toolName, args);
-        publishKronComputerUseActivity(action, result.isError ? "error" : "finish", detail, args, result);
-        return result;
+        throw new Error(execution.result.error ?? `${toolName} failed`);
     } catch (err) {
         publishKronComputerUseActivity(action, "error", detail, args);
-        throw err;
+        return withInteractionEvidence(
+            { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true },
+            execution.result
+        ) as KronComputerUseToolResult;
     }
 }
 
@@ -208,6 +364,7 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
 - Blocks: \`list_blocks\`, \`create_block\`, \`close_block\`, \`focus_block\`, \`get_block_info\`, and \`set_block_meta\`.
 - Widgets: \`widget_*\` operations inspect or interact with content in an existing block, including clipboard control.
 - Browser blocks: \`browser_open\`, \`browser_navigate\`, and \`browser_get_html\`, followed by \`widget_snapshot\`, \`widget_click\`, and related widget actions.
+- Widget pointer control: \`widget_mouse_move\`, \`widget_click\`, \`widget_drag\`, \`widget_long_press\`, \`widget_scroll_to\`, \`widget_type\`, and \`widget_press\`.
 - Sandbox VM: \`sandbox_start\`, \`sandbox_status\`, \`sandbox_screenshot\`, \`sandbox_mouse_move\`, \`sandbox_click\`, \`sandbox_type\`, \`sandbox_paste\`, \`sandbox_press\`, \`sandbox_scroll\`, \`sandbox_drag\`, and \`sandbox_stop\`.
 - Terminals: \`terminal_open\`, \`terminal_scrollback\`. Use \`block_run_command\` to execute commands in new blocks.
 - Preview/file blocks: \`file_open\`, \`file_list\`, \`file_read\`, and \`file_info\`.
@@ -216,6 +373,9 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
 - Connections: \`connection_list\`, \`connection_connect\`, \`connection_disconnect\`.
 - Secrets: \`secret_list\`, \`secret_get\`, \`secret_set\`, \`secret_delete\`.
 - AI Sidebar: \`ai_append\` to send content to the AI panel.
+- Developer Memory: \`get_memories\`, \`search_memories\`, \`create_memory\`, \`edit_memory\`, \`delete_memory\`,
+  \`promote_memory\`, \`get_workspace_sessions\`, \`create_workspace_session\`, \`append_workspace_session_event\`,
+  \`complete_workspace_session\`, \`get_action_items\`, \`create_action_item\`, and \`ingest_workspace_event\`.
 - Native desktop apps: \`kron_computer_*\` tools expose the local \`kron-computer-use\` runtime. Start with \`kron_computer_list_apps\`, then call \`kron_computer_get_app_state\` before actions. The macOS runtime displays its software cursor overlay during click and set-value actions.
 
 ## Runtime requirements
@@ -528,7 +688,14 @@ server.tool(
     async ({ tabId }) => {
         try {
             const result = await wsh.listBlocks(tabId, true);
-            return { content: [{ type: "text", text: `The current wsh route exposes block membership, not split-tree geometry.\n${result}` }] };
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `The current wsh route exposes block membership, not split-tree geometry.\n${result}`,
+                    },
+                ],
+            };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
@@ -554,7 +721,14 @@ server.tool(
             if (file) meta["file"] = file;
             if (controller) meta["controller"] = controller;
             const result = await wsh.createBlock(view, meta, magnified);
-            return { content: [{ type: "text", text: `Block created (view: ${view}, id: ${result})${magnified ? " [magnified]" : ""}` }] };
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Block created (view: ${view}, id: ${result})${magnified ? " [magnified]" : ""}`,
+                    },
+                ],
+            };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
@@ -637,14 +811,15 @@ server.tool(
 
 server.tool(
     "browser_open",
-    "Open a URL in a new KronTerm browser block. Use widget_snapshot and widget interaction tools after the block is created.",
+    "Open a URL by reusing and focusing the active KronTerm browser surface. Set newSurface only when another browser must remain visible. Call widget_snapshot after navigation because element refs are document-scoped.",
     {
         url: z.string().url().describe("URL to open"),
         magnified: z.boolean().optional().describe("Open in magnified mode"),
+        newSurface: z.boolean().optional().describe("Create a separate browser block instead of reusing one (default: false)"),
     },
-    wrapActivity("browser_open")(async ({ url, magnified }) => {
+    wrapActivity("browser_open")(async ({ url, magnified, newSurface }) => {
         try {
-            const result = await wsh.openWeb(url, magnified);
+            const result = await wsh.openWeb(url, magnified, newSurface);
             return { content: [{ type: "text", text: result }] };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
@@ -872,7 +1047,9 @@ server.tool(
     },
     wrapActivity("sandbox_drag")(async ({ sessionId = "default", startX, startY, endX, endY, button }) => {
         try {
-            return { content: [{ type: "text", text: await wsh.sandboxDrag(sessionId, startX, startY, endX, endY, button) }] };
+            return {
+                content: [{ type: "text", text: await wsh.sandboxDrag(sessionId, startX, startY, endX, endY, button) }],
+            };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
@@ -1113,7 +1290,19 @@ server.tool(
     },
     wrapActivity("widget_click")(async ({ blockId, elementRef, x, y, button, clickType }) => {
         if ((x == null) !== (y == null)) {
-            return { content: [{ type: "text", text: "Provide both x and y, or neither (use elementRef instead)." }], isError: true };
+            return {
+                content: [{ type: "text", text: "Provide both x and y, or neither (use elementRef instead)." }],
+                isError: true,
+            };
+        }
+        const hasCoordinates = x != null && y != null;
+        if ((elementRef != null && hasCoordinates) || (elementRef == null && !hasCoordinates)) {
+            return {
+                content: [
+                    { type: "text", text: "Provide exactly one widget click target: elementRef or both x and y." },
+                ],
+                isError: true,
+            };
         }
         try {
             const result = await wsh.widgetClick(blockId, elementRef, x, y, button, clickType);
@@ -1136,6 +1325,40 @@ server.tool(
     wrapActivity("widget_hover")(async ({ blockId, elementRef, x, y }) => {
         try {
             const result = await wsh.widgetHover(blockId, elementRef, x, y);
+            return { content: [{ type: "text", text: result }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "widget_mouse_move",
+    "Move the mouse over an element by ref (@e3) or to coordinates (x, y) within a block. Alias for hover semantics, useful before click/drag.",
+    {
+        blockId: z.string().describe("Block ID"),
+        elementRef: z.string().optional().describe("Element ref to move over"),
+        x: z.number().int().optional().describe("X coordinate"),
+        y: z.number().int().optional().describe("Y coordinate"),
+    },
+    wrapActivity("widget_mouse_move")(async ({ blockId, elementRef, x, y }) => {
+        if ((x == null) !== (y == null)) {
+            return {
+                content: [{ type: "text", text: "Provide both x and y, or neither (use elementRef instead)." }],
+                isError: true,
+            };
+        }
+        const hasCoordinates = x != null && y != null;
+        if ((elementRef != null && hasCoordinates) || (elementRef == null && !hasCoordinates)) {
+            return {
+                content: [
+                    { type: "text", text: "Provide exactly one widget mouse-move target: elementRef or both x and y." },
+                ],
+                isError: true,
+            };
+        }
+        try {
+            const result = await wsh.widgetMouseMove(blockId, elementRef, x, y);
             return { content: [{ type: "text", text: result }] };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
@@ -1499,37 +1722,27 @@ server.tool(
     }
 );
 
-server.tool(
-    "tab_clear_background",
-    "Clear the background image/color from a tab.",
-    {},
-    async () => {
-        try {
-            const result = await wsh.clearTabBackground();
-            return { content: [{ type: "text", text: result || "Background cleared." }] };
-        } catch (err: any) {
-            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
-        }
+server.tool("tab_clear_background", "Clear the background image/color from a tab.", {}, async () => {
+    try {
+        const result = await wsh.clearTabBackground();
+        return { content: [{ type: "text", text: result || "Background cleared." }] };
+    } catch (err: any) {
+        return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
     }
-);
+});
 
 // ══════════════════════════════════════════════════════════════════════════
 // NEW: CONNECTION MANAGEMENT TOOLS
 // ══════════════════════════════════════════════════════════════════════════
 
-server.tool(
-    "connection_list",
-    "List all SSH/WSL connections and their status.",
-    {},
-    async () => {
-        try {
-            const result = await wsh.connectionStatus();
-            return { content: [{ type: "text", text: result }] };
-        } catch (err: any) {
-            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
-        }
+server.tool("connection_list", "List all SSH/WSL connections and their status.", {}, async () => {
+    try {
+        const result = await wsh.connectionStatus();
+        return { content: [{ type: "text", text: result }] };
+    } catch (err: any) {
+        return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
     }
-);
+});
 
 server.tool(
     "connection_connect",
@@ -1563,19 +1776,14 @@ server.tool(
     }
 );
 
-server.tool(
-    "connection_disconnect_all",
-    "Disconnect all SSH and WSL connections.",
-    {},
-    async () => {
-        try {
-            const result = await wsh.connectionDisconnectAll();
-            return { content: [{ type: "text", text: result || "All connections disconnected." }] };
-        } catch (err: any) {
-            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
-        }
+server.tool("connection_disconnect_all", "Disconnect all SSH and WSL connections.", {}, async () => {
+    try {
+        const result = await wsh.connectionDisconnectAll();
+        return { content: [{ type: "text", text: result || "All connections disconnected." }] };
+    } catch (err: any) {
+        return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
     }
-);
+});
 
 // ══════════════════════════════════════════════════════════════════════════
 // NEW: AI SIDEBAR TOOL
@@ -1611,19 +1819,14 @@ server.tool(
 // NEW: SECRETS MANAGEMENT TOOLS
 // ══════════════════════════════════════════════════════════════════════════
 
-server.tool(
-    "secret_list",
-    "List all stored secret names.",
-    {},
-    async () => {
-        try {
-            const result = await wsh.secretList();
-            return { content: [{ type: "text", text: result }] };
-        } catch (err: any) {
-            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
-        }
+server.tool("secret_list", "List all stored secret names.", {}, async () => {
+    try {
+        const result = await wsh.secretList();
+        return { content: [{ type: "text", text: result }] };
+    } catch (err: any) {
+        return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
     }
-);
+});
 
 server.tool(
     "secret_get",
@@ -1707,6 +1910,572 @@ server.tool(
         try {
             const result = await wsh.setVariables(blockId, variables, local);
             return { content: [{ type: "text", text: result || "Variables set." }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// DEVELOPER MEMORY, SESSIONS, ACTION ITEMS
+// ══════════════════════════════════════════════════════════════════════════
+
+const memoryLayerSchema = z.enum(["short_term", "long_term", "archive"]);
+const memoryCategorySchema = z.enum(["project", "system", "manual", "workflow", "integration", "other"]);
+const memoryStatusSchema = z.enum(["active", "superseded", "tombstoned"]);
+const actionItemStatusSchema = z.enum(["pending", "in_progress", "done", "cancelled"]);
+const actionItemPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+const sessionEventTypeSchema = z.enum([
+    "terminal_command",
+    "terminal_error",
+    "browser_navigation",
+    "file_change",
+    "agent_tool",
+    "sandbox_event",
+    "manual_note",
+]);
+const sourceTypeSchema = z.enum([
+    "workspace_session",
+    "terminal",
+    "browser",
+    "file",
+    "agent",
+    "sandbox",
+    "desktop",
+    "manual",
+]);
+const memoryScopeSchema = z
+    .object({
+        workspaceId: z.string().optional(),
+        tabId: z.string().optional(),
+        blockId: z.string().optional(),
+        repoPath: z.string().optional(),
+        branch: z.string().optional(),
+    })
+    .optional();
+const memoryEvidenceSchema = z
+    .object({
+        sourceType: sourceTypeSchema,
+        sourceId: z.string().optional(),
+        blockId: z.string().optional(),
+        path: z.string().optional(),
+        url: z.string().optional(),
+        command: z.string().optional(),
+        excerpt: z.string().optional(),
+        createdAt: z.string().optional(),
+    })
+    .transform((value) => ({ ...value, createdAt: value.createdAt ?? new Date().toISOString() }));
+
+server.tool(
+    "developer_memory_status",
+    "Report local developer-memory store path and available action registry size.",
+    {},
+    async () =>
+        jsonText({
+            ...developerMemoryStore.diagnostics,
+            actions: DeveloperActionRegistry.length,
+        })
+);
+
+server.tool(
+    "developer_action_registry",
+    "List KronTerm's typed action registry. This is the CopilotOne-style action contract for widgets, memory, sessions, and pipelines.",
+    {},
+    async () => jsonText({ actions: DeveloperActionRegistry })
+);
+
+server.tool(
+    "get_memories",
+    "List developer memories. Adapted from Omi's get_memories tool for KronTerm project/workspace memory.",
+    {
+        limit: z.number().int().min(1).max(500).optional().describe("Maximum memories to return"),
+        offset: z.number().int().min(0).optional().describe("Offset into the memory list"),
+        layers: z.array(memoryLayerSchema).optional().describe("Filter by memory layers"),
+        categories: z.array(memoryCategorySchema).optional().describe("Filter by memory categories"),
+        includeArchived: z.boolean().optional().describe("Include archive-layer memories"),
+        includeTombstoned: z.boolean().optional().describe("Include deleted/tombstoned memories"),
+    },
+    async ({ limit, offset, layers, categories, includeArchived, includeTombstoned }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.listMemories({
+                    limit,
+                    offset,
+                    layers,
+                    categories,
+                    includeArchived,
+                    includeTombstoned,
+                })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_memory",
+    "Get a single developer memory by ID.",
+    {
+        memoryId: z.string().min(1).describe("Memory ID"),
+    },
+    async ({ memoryId }) => {
+        try {
+            return jsonText(await developerMemoryStore.getMemory(memoryId));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "search_memories",
+    "Search developer memories by natural language query. This is local lexical search until embeddings are wired in.",
+    {
+        query: z.string().min(1).describe("Search query"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum results"),
+        includeArchived: z.boolean().optional().describe("Include archive-layer memories"),
+    },
+    async ({ query, limit, includeArchived }) => {
+        try {
+            return jsonText(await developerMemoryStore.searchMemories(query, { limit, includeArchived }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "create_memory",
+    "Create a developer memory with optional scope and provenance evidence.",
+    {
+        content: z.string().min(1).describe("Memory content"),
+        layer: memoryLayerSchema.optional().describe("Memory layer"),
+        category: memoryCategorySchema.optional().describe("Memory category"),
+        scope: memoryScopeSchema.describe("Workspace/repo/block scope"),
+        evidence: z.array(memoryEvidenceSchema).optional().describe("Provenance evidence"),
+        sourceId: z.string().optional().describe("Primary source session/event ID"),
+        expiresAt: z.string().optional().describe("Optional expiry timestamp for short-term memory"),
+    },
+    async ({ content, layer, category, scope, evidence, sourceId, expiresAt }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.createMemory({
+                    content,
+                    layer,
+                    category,
+                    scope,
+                    evidence,
+                    sourceId,
+                    expiresAt,
+                })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "edit_memory",
+    "Edit a developer memory's content, layer, category, status, or evidence.",
+    {
+        memoryId: z.string().min(1).describe("Memory ID"),
+        content: z.string().optional().describe("Updated memory content"),
+        layer: memoryLayerSchema.optional().describe("Updated memory layer"),
+        category: memoryCategorySchema.optional().describe("Updated category"),
+        status: memoryStatusSchema.optional().describe("Updated status"),
+        evidence: z.array(memoryEvidenceSchema).optional().describe("Replacement evidence list"),
+    },
+    async ({ memoryId, content, layer, category, status, evidence }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.editMemory(memoryId, { content, layer, category, status, evidence })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "delete_memory",
+    "Tombstone a developer memory by ID. The record is retained for provenance and excluded from default reads.",
+    {
+        memoryId: z.string().min(1).describe("Memory ID"),
+    },
+    async ({ memoryId }) => {
+        try {
+            return jsonText(await developerMemoryStore.deleteMemory(memoryId));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "promote_memory",
+    "Promote a short-term or archive memory into long-term developer memory with an audit reason.",
+    {
+        memoryId: z.string().min(1).describe("Memory ID"),
+        reason: z.string().min(1).describe("Reason for promotion"),
+        by: z.enum(["user", "agent", "system"]).optional().describe("Promotion actor"),
+    },
+    async ({ memoryId, reason, by }) => {
+        try {
+            return jsonText(await developerMemoryStore.promoteMemory(memoryId, reason, by));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "create_workspace_session",
+    "Create a KronTerm workspace session. This is the developer equivalent of Omi's conversation record.",
+    {
+        title: z.string().optional().describe("Session title"),
+        scope: memoryScopeSchema.describe("Workspace/repo/block scope"),
+    },
+    async ({ title, scope }) => {
+        try {
+            return jsonText(await developerMemoryStore.createSession({ title, scope }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_workspace_sessions",
+    "List KronTerm workspace sessions.",
+    {
+        limit: z.number().int().min(1).max(500).optional().describe("Maximum sessions"),
+        offset: z.number().int().min(0).optional().describe("Offset into session list"),
+        includeDiscarded: z.boolean().optional().describe("Include discarded sessions"),
+    },
+    async ({ limit, offset, includeDiscarded }) => {
+        try {
+            return jsonText(await developerMemoryStore.listSessions({ limit, offset, includeDiscarded }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_workspace_session",
+    "Get a KronTerm workspace session by ID, including captured events and linked memory/action IDs.",
+    {
+        sessionId: z.string().min(1).describe("Workspace session ID"),
+    },
+    async ({ sessionId }) => {
+        try {
+            return jsonText(await developerMemoryStore.getSession(sessionId));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "search_workspace_sessions",
+    "Search KronTerm workspace sessions by title, summary, commands, URLs, paths, and event details.",
+    {
+        query: z.string().min(1).describe("Search query"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum results"),
+    },
+    async ({ query, limit }) => {
+        try {
+            return jsonText(await developerMemoryStore.searchSessions(query, { limit }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_conversations",
+    "Omi-compatible alias for get_workspace_sessions. In KronTerm, conversations are developer workspace sessions.",
+    {
+        limit: z.number().int().min(1).max(500).optional().describe("Maximum sessions"),
+        offset: z.number().int().min(0).optional().describe("Offset into session list"),
+        includeDiscarded: z.boolean().optional().describe("Include discarded sessions"),
+    },
+    async ({ limit, offset, includeDiscarded }) => {
+        try {
+            return jsonText(await developerMemoryStore.listSessions({ limit, offset, includeDiscarded }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_conversation_by_id",
+    "Omi-compatible alias for get_workspace_session. In KronTerm, the conversation ID is a workspace session ID.",
+    {
+        conversationId: z.string().min(1).describe("Workspace session/conversation ID"),
+    },
+    async ({ conversationId }) => {
+        try {
+            return jsonText(await developerMemoryStore.getSession(conversationId));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "search_conversations",
+    "Omi-compatible alias for search_workspace_sessions.",
+    {
+        query: z.string().min(1).describe("Search query"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum results"),
+    },
+    async ({ query, limit }) => {
+        try {
+            return jsonText(await developerMemoryStore.searchSessions(query, { limit }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "append_workspace_session_event",
+    "Append terminal/browser/file/agent/sandbox activity to a workspace session.",
+    {
+        sessionId: z.string().min(1).describe("Workspace session ID"),
+        type: sessionEventTypeSchema.describe("Event type"),
+        title: z.string().optional().describe("Short title"),
+        detail: z.string().optional().describe("Event detail or excerpt"),
+        blockId: z.string().optional().describe("Related block ID"),
+        command: z.string().optional().describe("Terminal command"),
+        path: z.string().optional().describe("File path"),
+        url: z.string().optional().describe("Browser URL"),
+        exitCode: z.number().int().optional().describe("Command exit code"),
+    },
+    async ({ sessionId, type, title, detail, blockId, command, path, url, exitCode }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.appendSessionEvent(sessionId, {
+                    type,
+                    title,
+                    detail,
+                    blockId,
+                    command,
+                    path,
+                    url,
+                    exitCode,
+                })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "complete_workspace_session",
+    "Complete a workspace session with an optional summary.",
+    {
+        sessionId: z.string().min(1).describe("Workspace session ID"),
+        summary: z.string().optional().describe("Session summary"),
+    },
+    async ({ sessionId, summary }) => {
+        try {
+            return jsonText(await developerMemoryStore.completeSession(sessionId, summary));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "get_action_items",
+    "List developer action items extracted from or linked to workspace sessions.",
+    {
+        limit: z.number().int().min(1).max(500).optional().describe("Maximum action items"),
+        offset: z.number().int().min(0).optional().describe("Offset into action list"),
+        status: actionItemStatusSchema.optional().describe("Filter by status"),
+    },
+    async ({ limit, offset, status }) => {
+        try {
+            return jsonText(await developerMemoryStore.listActionItems({ limit, offset, status }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "search_action_items",
+    "Search developer action items.",
+    {
+        query: z.string().min(1).describe("Search query"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum results"),
+    },
+    async ({ query, limit }) => {
+        try {
+            return jsonText(await developerMemoryStore.searchActionItems(query, { limit }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "create_action_item",
+    "Create a developer action item with optional session/memory linkage and evidence.",
+    {
+        title: z.string().min(1).describe("Action item title"),
+        description: z.string().optional().describe("Action item detail"),
+        priority: actionItemPrioritySchema.optional().describe("Priority"),
+        dueAt: z.string().optional().describe("Due timestamp"),
+        scope: memoryScopeSchema.describe("Workspace/repo/block scope"),
+        sourceSessionId: z.string().optional().describe("Linked workspace session ID"),
+        sourceMemoryId: z.string().optional().describe("Linked memory ID"),
+        evidence: z.array(memoryEvidenceSchema).optional().describe("Provenance evidence"),
+    },
+    async ({ title, description, priority, dueAt, scope, sourceSessionId, sourceMemoryId, evidence }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.createActionItem({
+                    title,
+                    description,
+                    priority,
+                    dueAt,
+                    scope,
+                    sourceSessionId,
+                    sourceMemoryId,
+                    evidence,
+                })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "update_action_item",
+    "Update a developer action item.",
+    {
+        actionItemId: z.string().min(1).describe("Action item ID"),
+        title: z.string().optional().describe("Updated title"),
+        description: z.string().optional().describe("Updated description"),
+        status: actionItemStatusSchema.optional().describe("Updated status"),
+        priority: actionItemPrioritySchema.optional().describe("Updated priority"),
+        dueAt: z.string().optional().describe("Updated due timestamp"),
+    },
+    async ({ actionItemId, title, description, status, priority, dueAt }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.updateActionItem(actionItemId, {
+                    title,
+                    description,
+                    status,
+                    priority,
+                    dueAt,
+                })
+            );
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "complete_action_item",
+    "Mark a developer action item done.",
+    {
+        actionItemId: z.string().min(1).describe("Action item ID"),
+    },
+    async ({ actionItemId }) => {
+        try {
+            return jsonText(await developerMemoryStore.updateActionItem(actionItemId, { status: "done" }));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "delete_action_item",
+    "Cancel a developer action item.",
+    {
+        actionItemId: z.string().min(1).describe("Action item ID"),
+    },
+    async ({ actionItemId }) => {
+        try {
+            return jsonText(await developerMemoryStore.deleteActionItem(actionItemId));
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    }
+);
+
+server.tool(
+    "ingest_workspace_event",
+    "Record a workspace event and optionally create a linked memory and action item. This is the first Omi-style pipeline adapter.",
+    {
+        sessionId: z
+            .string()
+            .optional()
+            .describe("Existing workspace session ID. If omitted, a new session is created."),
+        sessionTitle: z.string().optional().describe("Title when creating a new session"),
+        scope: memoryScopeSchema.describe("Workspace/repo/block scope"),
+        type: sessionEventTypeSchema.describe("Event type"),
+        title: z.string().optional().describe("Event title"),
+        detail: z.string().optional().describe("Event detail or excerpt"),
+        blockId: z.string().optional().describe("Related block ID"),
+        command: z.string().optional().describe("Terminal command"),
+        path: z.string().optional().describe("File path"),
+        url: z.string().optional().describe("Browser URL"),
+        exitCode: z.number().int().optional().describe("Command exit code"),
+        rememberContent: z.string().optional().describe("If provided, save this as a linked short-term memory"),
+        actionTitle: z.string().optional().describe("If provided, create a linked action item"),
+        actionDescription: z.string().optional().describe("Linked action item description"),
+        autoCreateActionItem: z.boolean().optional().describe("Create an action item from event context"),
+    },
+    async ({
+        sessionId,
+        sessionTitle,
+        scope,
+        type,
+        title,
+        detail,
+        blockId,
+        command,
+        path,
+        url,
+        exitCode,
+        rememberContent,
+        actionTitle,
+        actionDescription,
+        autoCreateActionItem,
+    }) => {
+        try {
+            return jsonText(
+                await developerMemoryStore.ingestWorkspaceEvent({
+                    sessionId,
+                    sessionTitle,
+                    scope,
+                    type,
+                    title,
+                    detail,
+                    blockId,
+                    command,
+                    path,
+                    url,
+                    exitCode,
+                    rememberContent,
+                    actionTitle,
+                    actionDescription,
+                    autoCreateActionItem,
+                })
+            );
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
