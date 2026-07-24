@@ -1138,7 +1138,7 @@ function PetNote({
     className?: string;
 }) {
     return (
-        <aside className={`pet-note ${className}`} aria-label="A note from the KronTerm pixel cat">
+        <aside className={`pet-note pet-note-${pose} ${className}`} aria-label="A note from the KronTerm pixel cat">
             <img
                 src={pose === "walk" ? assets.catWalk : assets.catGuide}
                 alt="KronTerm’s pixel cat mascot"
@@ -1221,16 +1221,16 @@ function Hero() {
             <div className="hero-aura" aria-hidden="true" />
             <div className="hero-topline reveal">
                 <span className="status-dot" />
-                Private beta for ambitious technical teams
+                Private beta · open canvas notebook
             </div>
             <div className="hero-heading">
                 <h1 className="reveal reveal-1">
-                    The command center for <span>human + agent</span> work.
+                    The living canvas for <span>human + agent</span> work.
                 </h1>
                 <div className="hero-side reveal reveal-2">
                     <p>
-                        KronTerm unifies terminal, browser, editor, files, sandboxes, desktop control, and AI agents in
-                        one living workspace.
+                        Pin terminals, browsers, files, sandboxes, desktop control, and AI agents to one programmable
+                        canvas—then keep every useful note in view.
                     </p>
                     <div className="hero-actions">
                         <Link className="button button-primary" to="/download">
@@ -1283,8 +1283,8 @@ function Hero() {
                     </div>
                 </div>
                 <div className="hero-stage-label" aria-hidden="true">
-                    <span>One workspace</span>
-                    <span>Visible approvals</span>
+                    <span>One living canvas</span>
+                    <span>Notes stay visible</span>
                     <span>Every agent in context</span>
                 </div>
             </div>
@@ -1508,7 +1508,7 @@ function ControlSection() {
         <section className="control-section section">
             <div className="control-shell">
                 <div className="control-copy">
-                    <p className="kicker">Control is a feature</p>
+                    <p className="kicker">Canvas map / control is a feature</p>
                     <h2>Powerful agents. Legible boundaries.</h2>
                     <p>
                         KronTerm keeps host, sandbox, browser, terminal, and remote actions distinct. Teams can bring
@@ -1558,8 +1558,8 @@ function FinalCta() {
             <div className="final-cta-mark" aria-hidden="true">
                 <Sparkles size={28} />
             </div>
-            <p className="kicker">A new home for technical work</p>
-            <h2>Put the whole workspace behind the next prompt.</h2>
+            <p className="kicker">Open a fresh page for technical work</p>
+            <h2>Put the whole canvas behind the next prompt.</h2>
             <p>Join the KronTerm private beta and help shape the command center for human + agent teams.</p>
             <div className="final-actions">
                 <Link className="button button-primary" to="/download">
@@ -1639,8 +1639,8 @@ function FieldGuidePrelude() {
                 <span>Vol. I</span>
             </div>
             <div>
-                <p className="kicker">A product you can read deeply</p>
-                <h2>The homepage is the cover. The product lives in the chapters.</h2>
+                <p className="kicker">A product notebook you can read deeply</p>
+                <h2>The homepage is the cover. Every canvas becomes a chapter.</h2>
             </div>
             <p>
                 KronTerm is not one feature repeated eight times. The canvas, terminal, browser, sandboxes, desktop,
@@ -1692,9 +1692,9 @@ function ReferenceManual() {
     return (
         <div className="reference-manual" id="reference-manual">
             <header className="reference-manual-header section">
-                <p className="kicker">Appendix / complete reference</p>
+                <p className="kicker">Appendix / complete canvas reference</p>
                 <div>
-                    <h2>The system, without the shorthand.</h2>
+                    <h2>The system, sketched without shorthand.</h2>
                     <p>
                         A plain-spoken record of what KronTerm contains, how the layers connect, and what is available
                         today. Built from the project README so the product story and technical story stay aligned.
@@ -1741,7 +1741,7 @@ function ReferenceManual() {
                 </div>
                 <div className="spread-content">
                     <div className="spread-heading spread-heading-light">
-                        <p className="kicker">KronosCode architecture</p>
+                        <p className="kicker">Canvas diagram / KronosCode architecture</p>
                         <h2 id="agent-architecture-title">One request. A routed team.</h2>
                         <p>
                             Every request follows a visible execution sequence. The router chooses a specialist based on
@@ -1785,7 +1785,7 @@ function ReferenceManual() {
                 </div>
                 <div className="spread-content">
                     <div className="spread-heading">
-                        <p className="kicker">Vertically integrated</p>
+                        <p className="kicker">Canvas diagram / vertically integrated</p>
                         <h2 id="architecture-title">Four layers, one control plane.</h2>
                         <p>
                             The product spans the desktop shell, widget protocol, agent engine, and model providers so
@@ -2040,7 +2040,7 @@ function CapabilityPage() {
 
             <section className="chapter-details section">
                 <div className="chapter-section-heading">
-                    <p className="kicker">The operating model</p>
+                    <p className="kicker">Canvas notes / the operating model</p>
                     <h2>What changes when this surface is part of the workspace.</h2>
                 </div>
                 <div className="chapter-detail-grid">
@@ -2059,7 +2059,7 @@ function CapabilityPage() {
             <section className="chapter-gallery section">
                 <div className="chapter-section-heading gallery-heading">
                     <div>
-                        <p className="kicker">Product plates</p>
+                        <p className="kicker">Pinned to the canvas / product plates</p>
                         <h2>A closer look at {capability.label.toLowerCase()}.</h2>
                     </div>
                     <span>Plate 01—03</span>
@@ -2082,7 +2082,7 @@ function CapabilityPage() {
 
             <section className="chapter-workflow section">
                 <div className="chapter-section-heading">
-                    <p className="kicker">A typical sequence</p>
+                    <p className="kicker">Canvas sequence / a typical flow</p>
                     <h2>From entry to evidence.</h2>
                 </div>
                 <ol>
@@ -2169,7 +2169,7 @@ function SecurityPage() {
             </section>
             <section className="data-flow section" aria-labelledby="data-flow-title">
                 <div className="data-flow-heading">
-                    <p className="kicker">Local-first data flow</p>
+                    <p className="kicker">Canvas diagram / local-first data flow</p>
                     <h2 id="data-flow-title">Your workspace is not routed through a KronTerm cloud.</h2>
                     <p>
                         Source code, terminal output, and local files stay on your machine. Only the context you
