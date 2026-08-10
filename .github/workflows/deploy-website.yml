@@ -1,0 +1,63 @@
+name: Deploy KronTerm Website
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "website/**"
+            - ".github/workflows/deploy-website.yml"
+    pull_request:
+        branches:
+            - main
+        paths:
+            - "website/**"
+            - ".github/workflows/deploy-website.yml"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+jobs:
+    validate:
+        name: Validate website
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+            - name: Build website
+              run: node website/build.mjs
+            - name: Validate source and assets
+              run: node website/check.mjs
+
+    deploy:
+        name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        needs: validate
+        runs-on: ubuntu-latest
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/configure-pages@v5
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+            - name: Build website
+              run: node website/build.mjs
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: website/dist
+            - name: Deploy website
+              id: deployment
+              uses: actions/deploy-pages@v4

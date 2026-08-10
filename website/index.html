@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="KronTerm brings your terminal, browser, files, sandboxes, and the KronosCode agent engine into one composable developer workspace."
+    />
+    <meta
+      name="keywords"
+      content="KronTerm, KronosCode, AI terminal, developer workspace, coding agent, sandbox"
+    />
+    <meta name="theme-color" content="#070a08" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="KronTerm" />
+    <meta
+      property="og:title"
+      content="KronTerm — The AI-native workspace for builders"
+    />
+    <meta
+      property="og:description"
+      content="Your terminal, browser, files, sandboxes, and KronosCode in one living workspace."
+    />
+    <meta property="og:image" content="assets/workspace.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="KronTerm — The AI-native workspace for builders"
+    />
+    <meta
+      name="twitter:description"
+      content="Your entire dev loop. One living workspace."
+    />
+    <meta name="twitter:image" content="assets/workspace.png" />
+    <link rel="canonical" href="https://kronterm.dev/" />
+    <link rel="icon" href="assets/kronterm-logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>KronTerm — The AI-native workspace for builders</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="nav-shell">
+        <a class="brand" href="#top" aria-label="KronTerm home">
+          <span class="brand-mark" aria-hidden="true">
+            <img src="assets/kronterm-logo.svg" alt="" />
+          </span>
+          <span>KronTerm</span>
+        </a>
+
+        <nav id="primary-navigation" class="nav-links" aria-label="Primary">
+          <a href="#product">Product</a>
+          <a href="#kronoscode">KronosCode</a>
+          <a href="#security">Security</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <div class="nav-actions">
+          <a
+            class="nav-community"
+            href="https://discord.gg/XfvZ334gwU"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Join the community
+          </a>
+          <button
+            class="menu-button"
+            type="button"
+            aria-controls="primary-navigation"
+            aria-expanded="false"
+            aria-label="Open navigation"
+          >
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero section-shell" id="top">
+        <div class="hero-grid" aria-hidden="true"></div>
+        <div class="hero-glow" aria-hidden="true"></div>
+
+        <div class="hero-copy" data-reveal>
+          <div class="eyebrow">
+            <span class="status-dot"></span>
+            AI-native workspace for builders
+          </div>
+          <h1>
+            Your entire dev loop.
+            <span>One living workspace.</span>
+          </h1>
+          <p>
+            Terminal, browser, files, sandboxes, and an agent that understands
+            the whole canvas. KronTerm keeps your tools—and your thinking—in one
+            place.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#product">
+              See KronTerm in action
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <path d="M3 8h9M9 4l4 4-4 4"></path>
+              </svg>
+            </a>
+            <a class="button button-quiet" href="#kronoscode">
+              Meet KronosCode
+            </a>
+          </div>
+          <div
+            class="platform-row"
+            role="group"
+            aria-label="Supported platforms"
+          >
+            <span>macOS</span>
+            <span>Windows</span>
+            <span>Linux</span>
+            <span class="platform-note">In active development</span>
+          </div>
+        </div>
+
+        <div class="hero-stage" data-reveal>
+          <div class="window-frame hero-window">
+            <div class="window-bar">
+              <div class="traffic-lights" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="window-title">
+                <span class="mini-logo">
+                  <img src="assets/kronterm-logo.svg" alt="" />
+                </span>
+                Focused workspace
+              </div>
+              <div class="window-status"><span></span>Local</div>
+            </div>
+            <div class="hero-shot">
+              <img
+                src="assets/workspace.png"
+                alt="KronTerm workspace showing KronosCode and a full desktop sandbox"
+              />
+              <div class="shot-vignette" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <div class="floating-card floating-command">
+            <span class="floating-label">KronosCode</span>
+            <code>Build and verify this inside a sandbox.</code>
+            <span class="command-state">
+              <i></i>
+              Planning 4 steps
+            </span>
+          </div>
+
+          <div class="floating-card floating-context">
+            <span>Workspace context</span>
+            <strong>6 blocks connected</strong>
+          </div>
+        </div>
+
+        <div class="hero-proof" data-reveal>
+          <span>One canvas</span>
+          <span>Bring your own model</span>
+          <span>Local + remote</span>
+          <span>Human approval</span>
+        </div>
+      </section>
+
+      <section class="workflow-section">
+        <div class="section-shell split-heading" data-reveal>
+          <div>
+            <span class="section-kicker">Built for uninterrupted flow</span>
+            <h2>Stop arranging windows. Start arranging work.</h2>
+          </div>
+          <p>
+            KronTerm replaces disconnected apps with blocks that share a
+            workspace, a context layer, and one agentic control surface.
+          </p>
+        </div>
+
+        <div class="section-shell workflow-grid">
+          <article class="workflow-card workflow-wide" data-reveal>
+            <div class="card-copy">
+              <span>01 / Compose</span>
+              <h3>Build a workspace around the task.</h3>
+              <p>
+                Drag terminal, browser, preview, and file blocks into the exact
+                layout your work needs.
+              </p>
+            </div>
+            <div class="video-shell">
+              <video
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                aria-hidden="true"
+              >
+                <source src="assets/drag-blocks.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </article>
+
+          <article class="workflow-card" data-reveal>
+            <div class="card-copy">
+              <span>02 / Focus</span>
+              <h3>Resize without breaking context.</h3>
+              <p>
+                Every block stays live while the layout moves with your
+                attention.
+              </p>
+            </div>
+            <div class="video-shell video-shell-tall">
+              <video
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                aria-hidden="true"
+              >
+                <source src="assets/resize-blocks.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </article>
+
+          <article class="workflow-card context-card" data-reveal>
+            <div class="context-visual" aria-hidden="true">
+              <div class="context-core">K</div>
+              <span class="context-node node-one">Terminal</span>
+              <span class="context-node node-two">Browser</span>
+              <span class="context-node node-three">Files</span>
+              <span class="context-node node-four">Sandbox</span>
+            </div>
+            <div class="card-copy">
+              <span>03 / Connect</span>
+              <h3>One context layer, across every block.</h3>
+              <p>
+                Your AI works from the same surface you do. No copying errors
+                between windows. No re-explaining the task.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="product-section section-shell" id="product">
+        <div class="product-copy" data-reveal>
+          <span class="section-kicker">The workspace</span>
+          <h2>More than a terminal. Less than five different apps.</h2>
+          <p>
+            Choose the surface you need. KronTerm keeps the rest of the
+            workspace close, live, and available to KronosCode.
+          </p>
+          <div class="product-tabs" role="tablist" aria-label="Product views">
+            <button
+              id="tab-workspace"
+              class="is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="product-view"
+              data-view="workspace"
+            >
+              <span>The canvas</span>
+              <strong>Everything stays in view.</strong>
+            </button>
+            <button
+              id="tab-kronoscode"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="product-view"
+              data-view="kronoscode"
+            >
+              <span>The intelligence layer</span>
+              <strong>An agent that sees the workspace.</strong>
+            </button>
+            <button
+              id="tab-chamber"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="product-view"
+              data-view="chamber"
+            >
+              <span>The agent chamber</span>
+              <strong>Start work with the right specialist.</strong>
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="product-view"
+          id="product-view"
+          role="tabpanel"
+          aria-labelledby="tab-workspace"
+          data-reveal
+        >
+          <div class="product-view-copy">
+            <span id="product-eyebrow">The canvas</span>
+            <h3 id="product-title">Everything stays in view.</h3>
+            <p id="product-description">
+              Arrange terminals, browser views, files, metrics, and sandboxes
+              into one workspace. Resize or focus any block without losing the
+              rest of your context.
+            </p>
+          </div>
+          <div class="window-frame product-window">
+            <div class="window-bar">
+              <div class="traffic-lights" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="window-title" id="product-window-title">
+                The canvas
+              </div>
+              <div class="window-status"><span></span>Ready</div>
+            </div>
+            <img
+              id="product-image"
+              class="product-image"
+              src="assets/workspace.png"
+              alt="KronTerm workspace with an isolated desktop sandbox"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="kronos-section" id="kronoscode">
+        <div class="kronos-glow" aria-hidden="true"></div>
+        <div class="section-shell">
+          <div class="kronos-heading" data-reveal>
+            <div>
+              <span class="section-kicker section-kicker-bright">
+                Meet the engine
+              </span>
+              <h2>
+                KronosCode doesn’t sit beside your work.
+                <span>It operates inside it.</span>
+              </h2>
+            </div>
+            <p>
+              A workspace-aware agent engine that can inspect what you see,
+              coordinate specialists, and take verifiable action through
+              KronTerm’s native controls.
+            </p>
+          </div>
+
+          <div class="agent-console" data-reveal>
+            <aside class="agent-sidebar">
+              <div class="agent-brand">
+                <span class="brand-mark">
+                  <img src="assets/kronterm-logo.svg" alt="" />
+                </span>
+                <div>
+                  <strong>KronosCode</strong>
+                  <span>Agent runtime</span>
+                </div>
+              </div>
+              <div class="agent-task is-complete">
+                <i>1</i><span>Read workspace</span><b>Done</b>
+              </div>
+              <div class="agent-task is-active">
+                <i>2</i><span>Plan changes</span><b>Active</b>
+              </div>
+              <div class="agent-task">
+                <i>3</i><span>Request approval</span><b>Next</b>
+              </div>
+              <div class="agent-task">
+                <i>4</i><span>Verify result</span><b>Queued</b>
+              </div>
+            </aside>
+
+            <div class="agent-main">
+              <div class="agent-prompt">
+                <span>›</span>
+                Find the failing workflow, fix it in a sandbox, and show me the
+                diff before applying.
+              </div>
+              <div class="agent-plan">
+                <div class="agent-line">
+                  <span>Observe</span>
+                  <p>Terminal output, browser state, files, active blocks</p>
+                  <strong>4 sources</strong>
+                </div>
+                <div class="agent-line">
+                  <span>Delegate</span>
+                  <p>Sisyphus routes implementation and review</p>
+                  <strong>2 agents</strong>
+                </div>
+                <div class="agent-line">
+                  <span>Act</span>
+                  <p>Sandbox commands and a reversible file patch</p>
+                  <strong>Approval required</strong>
+                </div>
+              </div>
+              <div class="approval-bar">
+                <div>
+                  <span class="approval-icon">✓</span>
+                  <p>
+                    <strong>You stay in control</strong>
+                    Review the action, scope, and diff before it runs.
+                  </p>
+                </div>
+                <button type="button">Review action</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="agent-grid">
+            <article data-reveal>
+              <span>01</span>
+              <h3>Sisyphus</h3>
+              <p>Orchestrates the plan and delegates work.</p>
+            </article>
+            <article data-reveal>
+              <span>02</span>
+              <h3>Hephaestus</h3>
+              <p>Builds, edits, and verifies implementation.</p>
+            </article>
+            <article data-reveal>
+              <span>03</span>
+              <h3>Oracle</h3>
+              <p>Reviews architecture and difficult failures.</p>
+            </article>
+            <article data-reveal>
+              <span>04</span>
+              <h3>Librarian</h3>
+              <p>Finds code, context, and documentation.</p>
+            </article>
+            <article data-reveal>
+              <span>05</span>
+              <h3>Kronos</h3>
+              <p>Operates the isolated desktop sandbox.</p>
+            </article>
+            <article data-reveal>
+              <span>06</span>
+              <h3>Browser Agent</h3>
+              <p>Navigates and acts inside web blocks.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="model-section section-shell">
+        <div class="model-media" data-reveal>
+          <img
+            src="assets/kronoscode-chat.jpg"
+            alt="KronosCode welcome screen with workspace task suggestions"
+          />
+          <div class="model-chip chip-one"><span></span>Workspace-aware</div>
+          <div class="model-chip chip-two"><span></span>Provider-flexible</div>
+        </div>
+        <div class="model-copy" data-reveal>
+          <span class="section-kicker">Your models. Your environment.</span>
+          <h2>Use cloud intelligence—or keep it local.</h2>
+          <p>
+            Bring your own OpenAI, Claude, or Gemini key. Run local models
+            through Ollama or LM Studio. KronTerm keeps the workspace constant
+            while you choose the intelligence behind it.
+          </p>
+          <ul>
+            <li>
+              <span>01</span>
+              Switch providers without rebuilding your workspace
+            </li>
+            <li>
+              <span>02</span>
+              Keep local work local when the task calls for it
+            </li>
+            <li>
+              <span>03</span>
+              Apply model and agent defaults across active sessions
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="security-section" id="security">
+        <div class="section-shell">
+          <div class="security-heading" data-reveal>
+            <span class="section-kicker">Control is a feature</span>
+            <h2>Powerful enough to act. Designed to ask.</h2>
+            <p>
+              KronTerm makes agent actions visible, scoped, and reversible—so
+              autonomy never means losing the thread.
+            </p>
+          </div>
+          <div class="security-grid">
+            <article data-reveal>
+              <span class="security-index">01</span>
+              <div class="security-icon shield"><i></i></div>
+              <h3>Native secret storage</h3>
+              <p>
+                Credentials use the security backend built into macOS, Windows,
+                or Linux.
+              </p>
+            </article>
+            <article data-reveal>
+              <span class="security-index">02</span>
+              <div class="security-icon rings"><i></i><i></i><i></i></div>
+              <h3>Approval boundaries</h3>
+              <p>
+                Review sensitive actions and their scope before the agent
+                proceeds.
+              </p>
+            </article>
+            <article data-reveal>
+              <span class="security-index">03</span>
+              <div class="security-icon diffs"><i></i><i></i><i></i></div>
+              <h3>Diffs and rollback</h3>
+              <p>
+                See proposed file changes clearly, then apply or reverse them
+                with confidence.
+              </p>
+            </article>
+            <article data-reveal>
+              <span class="security-index">04</span>
+              <div class="security-icon connection"><i></i><i></i></div>
+              <h3>Durable sessions</h3>
+              <p>
+                SSH work survives connection drops, sleep cycles, and restarts.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="launch-section section-shell">
+        <div class="launch-card" data-reveal>
+          <div class="launch-copy">
+            <span class="section-kicker section-kicker-bright">Pricing</span>
+            <h2>Built for individual flow. Growing toward teams.</h2>
+            <p>
+              Pricing is coming soon. The core workspace, KronosCode agent
+              power, and team controls will be announced with verified release
+              details.
+            </p>
+            <a
+              class="text-link"
+              href="https://x.com/krontermdev"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Follow release updates
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <path d="M3 8h9M9 4l4 4-4 4"></path>
+              </svg>
+            </a>
+          </div>
+          <div class="launch-list">
+            <div>
+              <span>Available now</span>
+              <strong>Active product development</strong>
+            </div>
+            <div>
+              <span>Coming next</span>
+              <strong>Verified downloads and pricing</strong>
+            </div>
+            <div>
+              <span>Built toward</span>
+              <strong>Team workspaces and controls</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mascot-section section-shell">
+        <div class="mascot-copy" data-reveal>
+          <span class="section-kicker">A quieter kind of companion</span>
+          <h2>Meet the little operator behind the terminal.</h2>
+          <p>
+            KronTerm’s desktop companion stays close while agents work, turning
+            long-running tasks into something you can understand at a glance.
+          </p>
+          <a class="text-link" href="#kronoscode">
+            See how agents work
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <path d="M3 8h9M9 4l4 4-4 4"></path>
+            </svg>
+          </a>
+        </div>
+        <div class="mascot-stage" data-reveal>
+          <div class="mascot-grid" aria-hidden="true"></div>
+          <div class="mascot-status">
+            <span></span>
+            KronosCode is working
+          </div>
+          <img
+            id="mascot"
+            class="mascot"
+            src="assets/idle/idle-1.png"
+            alt="Animated KronTerm cat companion"
+          />
+          <div class="mascot-shadow" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="faq-section section-shell" id="faq">
+        <div class="faq-heading" data-reveal>
+          <span class="section-kicker">The short version</span>
+          <h2>Questions, answered.</h2>
+        </div>
+        <div class="faq-list" data-reveal>
+          <article class="is-open">
+            <button type="button" aria-expanded="true">
+              <span>What is KronTerm?</span><i aria-hidden="true"></i>
+            </button>
+            <div class="faq-answer">
+              <p>
+                KronTerm is an AI-native developer workspace that combines a
+                terminal, browser, files, sandboxes, previews, and agents in one
+                composable canvas.
+              </p>
+            </div>
+          </article>
+          <article>
+            <button type="button" aria-expanded="false">
+              <span>What is KronosCode?</span><i aria-hidden="true"></i>
+            </button>
+            <div class="faq-answer" hidden>
+              <p>
+                KronosCode is KronTerm’s agent engine. It understands the
+                workspace, coordinates specialist agents, and operates
+                terminals, files, browsers, and blocks through explicit tools
+                and approval boundaries.
+              </p>
+            </div>
+          </article>
+          <article>
+            <button type="button" aria-expanded="false">
+              <span>Can I use my own AI provider?</span
+              ><i aria-hidden="true"></i>
+            </button>
+            <div class="faq-answer" hidden>
+              <p>
+                Yes. KronTerm is designed for bring-your-own-key providers
+                including OpenAI, Claude, and Gemini, plus local models through
+                Ollama and LM Studio.
+              </p>
+            </div>
+          </article>
+          <article>
+            <button type="button" aria-expanded="false">
+              <span>Which operating systems are supported?</span
+              ><i aria-hidden="true"></i>
+            </button>
+            <div class="faq-answer" hidden>
+              <p>
+                KronTerm is built for macOS, Windows, and Linux, with a shared
+                Electron interface and a native Go backend.
+              </p>
+            </div>
+          </article>
+          <article>
+            <button type="button" aria-expanded="false">
+              <span>When can I download it?</span><i aria-hidden="true"></i>
+            </button>
+            <div class="faq-answer" hidden>
+              <p>
+                KronTerm is under active development. Join the community or
+                follow the build for verified release updates—we will not send
+                you to placeholder installers.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="final-cta section-shell" data-reveal>
+        <div class="final-inner">
+          <div class="cta-grid" aria-hidden="true"></div>
+          <div class="cta-glow" aria-hidden="true"></div>
+          <span class="section-kicker section-kicker-bright">
+            Build without breaking focus
+          </span>
+          <h2>Your tools already work. Now let them work together.</h2>
+          <p>
+            Follow KronTerm as the workspace, KronosCode engine, and verified
+            desktop releases come together.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button button-primary"
+              href="https://discord.gg/XfvZ334gwU"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Join the KronTerm community
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <path d="M3 8h9M9 4l4 4-4 4"></path>
+              </svg>
+            </a>
+            <a
+              class="button button-quiet"
+              href="https://x.com/krontermdev"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Follow the build
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="section-shell footer-inner">
+        <div>
+          <a class="brand" href="#top" aria-label="KronTerm home">
+            <span class="brand-mark">
+              <img src="assets/kronterm-logo.svg" alt="" />
+            </span>
+            <span>KronTerm</span>
+          </a>
+          <p>The AI-native workspace for builders.</p>
+        </div>
+        <div class="footer-links">
+          <a href="#product">Product</a>
+          <a href="#kronoscode">KronosCode</a>
+          <a href="#security">Security</a>
+          <a href="#faq">FAQ</a>
+          <a
+            href="https://discord.gg/XfvZ334gwU"
+            target="_blank"
+            rel="noreferrer"
+            >Discord</a
+          >
+          <a href="https://x.com/krontermdev" target="_blank" rel="noreferrer"
+            >X</a
+          >
+        </div>
+        <div class="footer-meta">
+          <span>© <span id="year">2026</span> KronTerm</span>
+          <span>macOS · Windows · Linux</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
