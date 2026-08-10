@@ -1,0 +1,111 @@
+name: KronTerm Mobile iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/kronterm-mobile-openchamber]
+    paths:
+      - 'mobile/kronterm-mobile/**'
+      - '.github/workflows/kronterm-mobile-ios.yml'
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: mobile/kronterm-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/kronterm-mobile/package-lock.json
+      - name: Install dependencies
+        run: npm install
+      - name: Generate iOS project
+        run: npx cap add ios
+      - name: Sync web assets
+        run: npx cap sync ios
+      - name: Build simulator app
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Package simulator build
+        run: |
+          mkdir -p artifact
+          cp -R build/Build/Products/Debug-iphonesimulator/App.app artifact/KronTerm.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kronterm-ios-simulator
+          path: mobile/kronterm-mobile/artifact/KronTerm.app
+
+  signed-device:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-15
+    environment: ios-signing
+    defaults:
+      run:
+        working-directory: mobile/kronterm-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx cap add ios
+      - run: npx cap sync ios
+      - name: Require Apple signing secrets
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          test -n "$IOS_CERTIFICATE_BASE64"
+          test -n "$IOS_CERTIFICATE_PASSWORD"
+          test -n "$IOS_PROVISION_PROFILE_BASE64"
+          test -n "$IOS_KEYCHAIN_PASSWORD"
+      - name: Install signing certificate and profile
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/kronterm.p12
+          PROFILE_PATH=$RUNNER_TEMP/kronterm.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/kronterm-signing.keychain-db
+          echo -n "$IOS_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/kronterm.mobileprovision
+      - name: Archive signed app
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/KronTerm.xcarchive \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+            PRODUCT_BUNDLE_IDENTIFIER=dev.kronterm.mobile \
+            archive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kronterm-ios-signed-archive
+          path: mobile/kronterm-mobile/build/KronTerm.xcarchive
