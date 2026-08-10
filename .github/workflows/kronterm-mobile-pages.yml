@@ -24,11 +24,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable and configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload KronTerm Mobile PWA
+        uses: actions/upload-pages-artifact@v4
         with:
           path: mobile/kronterm-mobile/www
-      - name: Deploy
+
+      - name: Deploy KronTerm Mobile
         id: deployment
         uses: actions/deploy-pages@v4
