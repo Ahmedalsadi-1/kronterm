@@ -1,0 +1,44 @@
+name: Deploy KronTerm Mobile to Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kronterm-mobile-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout KronTerm Mobile branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/kronterm-mobile-openchamber
+
+      - name: Verify mobile PWA files
+        run: |
+          test -f mobile/kronterm-mobile/www/index.html
+          test -f mobile/kronterm-mobile/www/manifest.webmanifest
+          test -f mobile/kronterm-mobile/www/sw.js
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload KronTerm Mobile PWA
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: mobile/kronterm-mobile/www
+
+      - name: Deploy KronTerm Mobile
+        id: deployment
+        uses: actions/deploy-pages@v4
