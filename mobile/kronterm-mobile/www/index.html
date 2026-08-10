@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#09090a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="KronTerm" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<title>KronTerm Mobile</title>
+<style>
+:root{--bg:#09090a;--panel:#141416;--line:#29292c;--text:#f3f3f4;--muted:#85858a;--accent:#c7df52;--red:#ff6c66;--green:#a8d950}*{box-sizing:border-box}html,body{margin:0;height:100%;background:#000;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,sans-serif}button,input,textarea{font:inherit}#app{height:100dvh;overflow:hidden;background:radial-gradient(circle at top,#171718,#09090a 42%);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);display:flex;flex-direction:column}.top{height:58px;padding:8px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}.top button{border:0;background:transparent;color:#9b9ba0;width:36px;height:36px;border-radius:11px;font-size:18px}.top button.active{color:var(--accent);background:#222225}.workspace{margin-left:auto;border:1px solid #303034;border-radius:12px;padding:8px 11px;font-size:13px;color:#b8b8bd;display:flex;gap:7px;align-items:center}.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(199,223,82,.5)}main{position:relative;flex:1;min-height:0}.screen{height:100%;overflow:auto;padding:20px 16px 108px;display:none}.screen.active{display:block}.title{display:flex;align-items:center;gap:12px;margin-bottom:18px}.logo{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(199,223,82,.35);color:var(--accent);font-size:22px}.title h1{font-size:22px;margin:0 0 4px}.title p{margin:0;color:var(--muted);font-size:13px}.badge{display:inline-block;border:1px solid #303034;border-radius:7px;padding:3px 7px;font-size:11px;color:#aaa}.badge.accent{color:var(--accent)}.task{background:linear-gradient(135deg,rgba(94,49,18,.55),rgba(46,28,18,.3));border-radius:16px;padding:16px;line-height:1.5;margin:14px 0 18px}.label{display:flex;align-items:center;justify-content:space-between;color:#d5d5d8;margin:14px 0 8px}.live{color:var(--accent);font-size:12px}.feed{border-left:1px solid #343438;margin-left:8px;padding-left:18px}.event{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:10px 0;font-size:13px}.event .muted{color:#777;margin-left:4px}.event .time{color:#68686d}.composer{border:1px solid #303034;border-radius:16px;background:#131315;padding:10px 12px;margin-top:16px}.composer input{width:100%;border:0;outline:0;background:transparent;color:#eee;padding:6px 0 11px}.row{display:flex;align-items:center;gap:9px}.grow{flex:1}.send{width:36px;height:36px;border:0;border-radius:50%;background:#242427;color:var(--accent)}.tabs{display:flex;gap:8px;margin-bottom:10px}.pill{border:1px solid #303034;border-radius:9px;padding:8px 11px;font-size:12px;color:#aaa}.pill.active{color:#fff}.terminal{background:#0d0d0f;border:1px solid #27272a;border-radius:13px;padding:13px;min-height:430px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow:auto}.prompt{color:var(--accent)}.green{color:var(--green)}.red{color:var(--red)}.termrow{display:flex;gap:8px;margin-top:9px}.termrow input{flex:1;background:#111113;border:1px solid #2b2b2e;border-radius:10px;color:#eee;padding:11px;outline:0}.termrow button{border:1px solid #333;background:#1b1b1e;color:var(--accent);border-radius:10px;padding:0 14px}.quick{display:flex;gap:7px;overflow:auto;margin-top:11px}.quick button{white-space:nowrap;border:1px solid #303034;border-radius:999px;background:transparent;color:#999;padding:7px 10px}.editor{width:100%;height:540px;background:#0d0d0f;color:#ddd;border:1px solid #27272a;border-radius:12px;padding:13px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;resize:none;outline:0}.preview{width:230px;height:445px;border:5px solid #202023;border-radius:42px;margin:18px auto;padding:18px;background:#09090a;box-shadow:0 0 0 1px rgba(199,223,82,.2);font:10px/1.55 ui-monospace,monospace;white-space:pre-wrap}.status{border:1px solid #2d2d31;border-radius:12px;padding:11px 13px;color:#aaa;font-size:12px;display:flex;gap:8px;align-items:center}.browserbar{display:flex;gap:8px;margin-bottom:10px}.browserbar input{flex:1;border:1px solid #303034;border-radius:11px;background:#121214;color:#ddd;padding:11px}.browserbar button{border:1px solid #303034;border-radius:10px;background:#171719;color:#aaa;padding:0 12px}.webcard{border:1px solid #29292c;border-radius:14px;overflow:hidden;background:#101012}.webcard header{padding:13px 15px;border-bottom:1px solid #29292c}.hero{padding:23px 17px}.hero h2{font-size:31px;line-height:1.04;margin:0 0 10px}.hero p{color:#999;line-height:1.5}.files{width:100%;border-collapse:collapse;font-size:13px}.files td,.files th{border-bottom:1px solid #262629;padding:12px 7px;text-align:left}.files th{color:#777;font-weight:500}.folder{color:var(--accent)}.device{display:grid;grid-template-columns:50px 1fr auto;gap:11px;align-items:center;padding:15px 2px;border-bottom:1px solid #28282b}.dicon{width:46px;height:46px;border:1px solid #303034;border-radius:14px;display:grid;place-items:center;font-size:20px;position:relative}.dicon:after{content:"";position:absolute;right:3px;top:3px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.dname{font-weight:600}.dsub{font-size:12px;color:#7f7f84;margin-top:3px}.route{font-size:11px;border:1px solid #303034;border-radius:999px;padding:7px 9px;color:#aaa}.settings input{width:100%;background:#121214;border:1px solid #303034;border-radius:10px;color:#ddd;padding:10px;margin-top:8px}.settings button{width:100%;margin-top:8px;background:#19191b;border:1px solid #343438;border-radius:10px;color:var(--accent);padding:10px}.dockwrap{position:absolute;left:0;right:0;bottom:13px;padding:0 15px;pointer-events:none}.dock{height:68px;border-radius:27px;background:rgba(35,35,38,.84);backdrop-filter:blur(24px);display:flex;justify-content:space-around;align-items:center;padding:8px;pointer-events:auto;box-shadow:0 15px 50px rgba(0,0,0,.45)}.dock button{width:48px;height:48px;border:0;border-radius:14px;background:transparent;color:#aaa;font-size:21px}.dock button.active{color:var(--accent);background:rgba(199,223,82,.07);box-shadow:inset 0 0 0 1px rgba(199,223,82,.12),0 0 22px rgba(199,223,82,.12)}.small{font-size:11px;color:#777}@media(min-width:700px){#app{max-width:430px;margin:auto;border-left:1px solid #222;border-right:1px solid #222}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <button>◫</button><button class="active">▢</button><button>⑂</button><button>▱</button><button>⌁</button>
+    <div class="workspace"><span class="dot"></span>KronTerm Mobile⌄</div>
+  </div>
+  <main>
+    <section id="agent" class="screen active">
+      <div class="title"><div class="logo">⌘</div><div><h1>KronosChamber <span class="badge">Build</span></h1><p>Autonomous coding agent</p></div></div>
+      <div class="task">Build locally on this iPhone. Route only unsupported workloads to Kron Sandbox.</div>
+      <div class="label"><span>⌁ Activity</span><span class="live">Live ●</span></div>
+      <div class="feed" id="feed"><div class="event"><span>⌕</span><span>Inspect workspace <span class="muted">local</span></span><span class="time">0.2s</span></div><div class="event"><span>⚙</span><span>Capability router <span class="muted">auto</span></span><span class="time">0.3s</span></div><div class="event"><span>✓</span><span>Kron Local <span class="muted">ready</span></span><span class="time green">✓</span></div></div>
+      <div class="composer"><input id="agentInput" placeholder="@ files · / commands · ! shell"/><div class="row"><span>⌘</span><span class="grow"></span><span class="badge">Kronos</span><span class="badge accent">Auto</span><button class="send" onclick="agentSend()">➤</button></div></div>
+    </section>
+    <section id="terminal" class="screen">
+      <div class="tabs"><div class="pill active">● local</div><div class="pill">sandbox</div><div class="pill">＋</div></div>
+      <div id="termOut" class="terminal"><span class="prompt">kronterm@iphone</span> ~ % help
+Kron Local Shell
+help pwd ls cd cat touch mkdir write rm clear date whoami files runtime wasm-demo js
+
+<span class="prompt">kronterm@iphone</span> ~ % </div>
+      <div class="termrow"><input id="termInput" autocapitalize="off" autocomplete="off" placeholder="Type a command…"/><button onclick="runTerm()">↵</button></div>
+      <div class="quick"><button onclick="quick('ls')">ls</button><button onclick="quick('pwd')">pwd</button><button onclick="quick('wasm-demo')">WASM</button><button onclick="quick('runtime')">runtime</button><button onclick="quick('clear')">clear</button></div>
+    </section>
+    <section id="code" class="screen">
+      <div class="tabs"><div class="pill active">TerminalView.tsx ×</div></div>
+      <textarea id="codeArea" class="editor" spellcheck="false">import React from 'react';
+
+export function TerminalView() {
+  return <KronTerminal runtime="auto" />;
+}
+</textarea>
+      <div class="quick"><button onclick="saveCode()">Save</button><button onclick="loadCode()">Reload</button></div>
+    </section>
+    <section id="preview" class="screen">
+      <div class="title"><div class="logo">▶</div><div><h1>Live Preview</h1><p>Local build</p></div></div>
+      <div class="status"><span class="dot"></span><span class="green">Build ready</span><span>· iPhone</span></div>
+      <div class="preview"><span class="prompt">kronterm@iphone</span>:~$ wasm-demo
+WASM add(20,22) = 42
+
+<span class="green">Kron Local ready.</span>
+
+No host computer required.
+
+Heavy commands can route to Kron Sandbox.</div>
+    </section>
+    <section id="browser" class="screen">
+      <div class="browserbar"><input id="urlBox" value="https://kronterm.dev" inputmode="url"/><button onclick="openWeb()">Open</button></div>
+      <div class="webcard"><header>⌘ KronTerm</header><div class="hero"><h2>Build anywhere.<br/>Run anywhere.</h2><p>KronTerm Mobile combines an AI workspace, local execution, optional local Linux, and a direct cloud sandbox without requiring a host computer.</p></div></div>
+    </section>
+    <section id="files" class="screen">
+      <div class="title"><div class="logo">▱</div><div><h1>Files</h1><p>Local iPhone workspace</p></div></div>
+      <table class="files"><thead><tr><th>Name</th><th>Type</th><th></th></tr></thead><tbody id="fileRows"></tbody></table>
+      <div class="quick"><button onclick="newFile()">＋ New</button><button onclick="exportWorkspace()">Export</button></div>
+    </section>
+    <section id="devices" class="screen">
+      <div class="title"><div class="logo">▣</div><div><h1>Devices</h1><p>Execution environments</p></div></div>
+      <div class="device"><div class="dicon">▯</div><div><div class="dname">This iPhone <span class="badge accent">Local</span></div><div class="dsub">Files · JS · WASM · shell</div></div><span class="route">Direct</span></div>
+      <div class="device"><div class="dicon">◇</div><div><div class="dname">Local Linux <span class="badge">QEMU-SE</span></div><div class="dsub" id="qemuStatus">Native backend not bundled</div></div><span class="route">Local</span></div>
+      <div class="device"><div class="dicon">⬡</div><div><div class="dname">Kron Sandbox <span class="badge accent">API</span></div><div class="dsub" id="sandStatus">Not configured</div></div><span class="route">Cloud</span></div>
+      <div class="settings"><div class="label"><span>Sandbox gateway</span><span class="small">optional</span></div><input id="sandUrl" placeholder="https://sandbox.kronterm.dev"/><input id="sandToken" type="password" placeholder="short-lived session token"/><button onclick="saveSandbox()">Save sandbox connection</button></div>
+    </section>
+    <div class="dockwrap"><nav class="dock"><button data-tab="agent" class="active" onclick="nav('agent')">▢</button><button data-tab="terminal" onclick="nav('terminal')">⌁</button><button data-tab="code" onclick="nav('code')">‹/›</button><button data-tab="preview" onclick="nav('preview')">▶</button><button data-tab="browser" onclick="nav('browser')">◎</button><button data-tab="files" onclick="nav('files')">▱</button><button data-tab="devices" onclick="nav('devices')">▣</button></nav></div>
+  </main>
+</div>
+<script>
+const state={cwd:'/',files:JSON.parse(localStorage.getItem('kronterm.files')||'null')||{'/README.md':'# KronTerm Mobile\nHostless iPhone workspace.','/src/TerminalView.tsx':document.getElementById('codeArea').value,'/package.json':'{"name":"kronterm-mobile"}'}};
+const persist=()=>localStorage.setItem('kronterm.files',JSON.stringify(state.files));persist();
+function norm(p){if(!p)return state.cwd;if(!p.startsWith('/'))p=(state.cwd==='/'?'':state.cwd)+'/'+p;const a=[];p.split('/').forEach(x=>{if(!x||x==='.')return;x==='..'?a.pop():a.push(x)});return'/'+a.join('/')}
+function dirs(){const s=new Set(['/']);Object.keys(state.files).forEach(p=>{let c='';p.split('/').slice(1,-1).forEach(x=>{c+='/'+x;s.add(c)})});return s}
+function esc(s){return String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]))}
+class KronRuntimeRouter{constructor(){this.mode=localStorage.getItem('kronterm.runtime.mode')||'auto'}setMode(m){this.mode=m;localStorage.setItem('kronterm.runtime.mode',m)}config(){return{url:(localStorage.getItem('kronterm.sandbox.url')||'').replace(/\/$/,''),token:localStorage.getItem('kronterm.sandbox.token')||''}}async exec(command,cwd){const cloud=/(^|\s)(docker|podman|apt|apk|cargo|go|rustc|postgres|psql|npm\s+(install|run)|pnpm|yarn)(\s|$)/i.test(command);if(this.mode==='qemu')return this.qemu(command,cwd);if(this.mode==='sandbox'||(this.mode==='auto'&&cloud&&this.config().url))return this.sandbox(command,cwd);return null}async sandbox(command,cwd){const{url,token}=this.config();if(!url)throw Error('sandbox not configured');const r=await fetch(url+'/exec',{method:'POST',headers:{'content-type':'application/json',...(token?{'authorization':'Bearer '+token}:{})},body:JSON.stringify({command,cwd})});if(!r.ok)throw Error('sandbox HTTP '+r.status);const j=await r.json();return{backend:'sandbox',output:j.output??j.stdout??JSON.stringify(j)}}async qemu(command,cwd){const p=window.Capacitor?.Plugins?.KronQemu;if(!p)throw Error('QEMU-SE backend is not installed in this build');const r=await p.exec({command,cwd});return{backend:'qemu-se',output:r.output||''}}}
+window.KronRuntime=new KronRuntimeRouter();
+async function wasmDemo(){const b=new Uint8Array([0,97,115,109,1,0,0,0,1,7,1,96,2,127,127,1,127,3,2,1,0,7,7,1,3,97,100,100,0,0,10,9,1,7,0,32,0,32,1,106,11]);const{instance}=await WebAssembly.instantiate(b);return instance.exports.add(20,22)}
+function nav(id){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.dock button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));if(id==='files')renderFiles();if(id==='devices')refreshDevices()}
+function appendTerm(v){const o=document.getElementById('termOut');o.innerHTML+=v;o.scrollTop=o.scrollHeight}
+async function runTerm(){const i=document.getElementById('termInput'),raw=i.value.trim();if(!raw)return;i.value='';appendTerm(esc(raw)+'\n');const[cmd,...args]=raw.split(/\s+/);let out='';try{const routed=await window.KronRuntime.exec(raw,state.cwd);if(routed)out='['+routed.backend+']\n'+routed.output;else if(cmd==='help')out='help pwd ls cd cat touch mkdir write rm clear date whoami files runtime wasm-demo js';else if(cmd==='pwd')out=state.cwd;else if(cmd==='whoami')out='kronterm@iphone';else if(cmd==='date')out=new Date().toString();else if(cmd==='clear'){document.getElementById('termOut').innerHTML=''}else if(cmd==='ls'){const target=norm(args[0]||state.cwd),pre=target==='/'?'/':target+'/',set=new Set();dirs().forEach(d=>{if(d.startsWith(pre)&&d!==target){const r=d.slice(pre.length);if(r&&!r.includes('/'))set.add(r+'/')}});Object.keys(state.files).forEach(f=>{if(f.startsWith(pre)){const r=f.slice(pre.length);if(r&&!r.includes('/'))set.add(r)}});out=[...set].sort().join('  ')||'(empty)'}else if(cmd==='cd'){const p=norm(args[0]||'/');if(!dirs().has(p))throw Error('directory not found');state.cwd=p}else if(cmd==='cat'){const p=norm(args[0]);if(!(p in state.files))throw Error('file not found');out=state.files[p]}else if(cmd==='touch'){state.files[norm(args[0])]=state.files[norm(args[0])]||'';persist()}else if(cmd==='mkdir'){state.files[norm(args[0])+'/.keep']='';persist()}else if(cmd==='write'){const p=norm(args.shift());state.files[p]=args.join(' ');persist();out='wrote '+p}else if(cmd==='rm'){delete state.files[norm(args[0])];persist()}else if(cmd==='files'){nav('files');out='opened Files'}else if(cmd==='runtime'){if(args[0]){window.KronRuntime.setMode(args[0]);out='runtime mode: '+args[0]}else out='runtime mode: '+window.KronRuntime.mode+' (auto | local | sandbox | qemu)'}else if(cmd==='wasm-demo')out='WASM add(20,22) = '+await wasmDemo();else if(cmd==='js')out=String(Function('"use strict";return ('+raw.slice(3)+')')());else throw Error('command not found: '+cmd)}catch(e){out='error: '+e.message}if(out)appendTerm(esc(out)+'\n');appendTerm('<span class="prompt">kronterm@iphone</span> '+esc(state.cwd)+' % ')}
+document.getElementById('termInput').addEventListener('keydown',e=>{if(e.key==='Enter')runTerm()});function quick(c){document.getElementById('termInput').value=c;runTerm()}
+function agentSend(){const i=document.getElementById('agentInput'),v=i.value.trim();if(!v)return;i.value='';document.getElementById('feed').insertAdjacentHTML('beforeend','<div class="event"><span>➤</span><span>'+esc(v)+'</span><span class="time">now</span></div>')}
+function saveCode(){state.files['/src/TerminalView.tsx']=document.getElementById('codeArea').value;persist()}function loadCode(){document.getElementById('codeArea').value=state.files['/src/TerminalView.tsx']||''}
+function renderFiles(){const tb=document.getElementById('fileRows');tb.innerHTML='';[...dirs()].filter(x=>x!=='/').sort().forEach(p=>{const tr=document.createElement('tr');tr.innerHTML='<td><span class="folder">▱</span> '+esc(p)+'</td><td class="small">folder</td><td></td>';tb.appendChild(tr)});Object.keys(state.files).filter(p=>!p.endsWith('/.keep')).sort().forEach(p=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+esc(p)+'</td><td class="small">file</td><td class="small">'+state.files[p].length+' B</td>';tb.appendChild(tr)})}
+function newFile(){const n=prompt('File path','/src/new-file.ts');if(!n)return;state.files[n.startsWith('/')?n:'/'+n]='';persist();renderFiles()}function exportWorkspace(){const b=new Blob([JSON.stringify(state.files,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='kronterm-workspace.json';a.click()}
+function openWeb(){let u=document.getElementById('urlBox').value.trim();if(!/^https?:\/\//i.test(u))u='https://'+u;window.open(u,'_blank')}
+async function saveSandbox(){const u=document.getElementById('sandUrl').value.trim().replace(/\/$/,''),t=document.getElementById('sandToken').value.trim();localStorage.setItem('kronterm.sandbox.url',u);localStorage.setItem('kronterm.sandbox.token',t);refreshDevices()}
+async function refreshDevices(){const u=localStorage.getItem('kronterm.sandbox.url')||'';document.getElementById('sandUrl').value=u;document.getElementById('sandStatus').textContent=u?'Configured':'Not configured';const p=window.Capacitor?.Plugins?.KronQemu;if(p){try{const s=await p.status();document.getElementById('qemuStatus').textContent=s.available?'Alpine VM available':s.reason||'Unavailable'}catch{}}}
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderFiles();refreshDevices();
+</script>
+</body>
+</html>
