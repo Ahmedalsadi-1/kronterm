@@ -1,0 +1,11 @@
+{
+  "name": "KronTerm Mobile",
+  "short_name": "KronTerm",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#09090a",
+  "theme_color": "#09090a",
+  "description": "Hostless AI coding workspace for iPhone with local and sandbox execution.",
+  "icons": []
+}
