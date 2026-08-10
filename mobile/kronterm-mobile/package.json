@@ -1,0 +1,27 @@
+{
+  "name": "kronterm-mobile",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "serve www",
+    "cap:sync": "cap sync",
+    "cap:add:ios": "cap add ios",
+    "cap:open:ios": "cap open ios",
+    "cap:add:android": "cap add android",
+    "cap:open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/keyboard": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "serve": "^14.2.4",
+    "typescript": "^5.9.0"
+  }
+}
