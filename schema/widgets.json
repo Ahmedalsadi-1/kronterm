@@ -19,7 +19,8 @@
                     "preview",
                     "web",
                     "sysinfo",
-                    "launcher"
+                    "launcher",
+                    "hermes"
                   ]
                 },
                 {
@@ -187,6 +188,9 @@
       "properties": {
         "display:order": {
           "type": "number"
+        },
+        "display:group": {
+          "type": "string"
         },
         "display:hidden": {
           "type": "boolean"
