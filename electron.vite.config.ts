@@ -104,7 +104,8 @@ export default defineConfig({
         resolve: {
             alias: [
                 { find: /^@hermes\/shared\/(.*)/, replacement: path.resolve(process.cwd(), "frontend/hermes-shared/$1") },
-                { find: /^@hermes\/plugin-sdk$/, replacement: path.resolve(process.cwd(), "frontend/hermes/plugins/plugin-sdk.d.ts") },
+                { find: /^@hermes\/shared$/, replacement: path.resolve(process.cwd(), "frontend/hermes-shared/index.ts") },
+                { find: /^@hermes\/plugin-sdk$/, replacement: path.resolve(process.cwd(), "frontend/hermes/sdk/index.ts") },
                 { find: /^@hermes\/(.*)/, replacement: path.resolve(process.cwd(), "frontend/hermes/$1") },
                 { find: /^@hermes$/, replacement: path.resolve(process.cwd(), "frontend/hermes/index.ts") },
                 { find: /^bippy$/, replacement: path.resolve(process.cwd(), "frontend/hermes/debug/bippy.d.ts") },
