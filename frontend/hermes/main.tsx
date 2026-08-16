@@ -11,7 +11,7 @@ import './store/translucency'
 // (verified — a late install reports renderers=0, commits=0). `vite.config.ts`
 // aliases this specifier to a no-op module for non-dev builds, so neither the
 // counters nor bippy reach a shipped renderer.
-import '@/debug/dev-only'
+import '@hermes/debug/dev-only'
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
