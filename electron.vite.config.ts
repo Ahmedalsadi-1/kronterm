@@ -162,6 +162,10 @@ export default defineConfig({
         },
         resolve: {
             alias: {
+                "@hermes": path.resolve(process.cwd(), "frontend/hermes"),
+                "@hermes/shared": path.resolve(process.cwd(), "frontend/hermes-shared/index.ts"),
+                "@hermes/plugin-sdk": path.resolve(process.cwd(), "frontend/hermes/plugins/plugin-sdk.d.ts"),
+                "bippy": path.resolve(process.cwd(), "frontend/hermes/debug/bippy.d.ts"),
                 "vscode-jsonrpc/lib/common/cancellation.js": path.join(VscodeJsonRpcCommonPath, "cancellation.js"),
                 "vscode-jsonrpc/lib/common/events.js": path.join(VscodeJsonRpcCommonPath, "events.js"),
             },

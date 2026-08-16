@@ -1,0 +1,136 @@
+import { useStore } from '@nanostores/react'
+import { memo, useState } from 'react'
+
+import { StatusRow } from '@hermes/components/chat/status-row'
+import { Button } from '@hermes/components/ui/button'
+import { Codicon } from '@hermes/components/ui/codicon'
+import { Tip } from '@hermes/components/ui/tooltip'
+import { useI18n } from '@hermes/i18n'
+import { isDesktopFsRemoteMode } from '@hermes/lib/desktop-fs'
+import { normalizeOrLocalPreviewTarget, openPreviewTargetInBrowser } from '@hermes/lib/local-preview'
+import { cn } from '@hermes/lib/utils'
+import { notifyError } from '@hermes/store/notifications'
+import { $previewTabSources, closePreviewForSource, openPreview } from '@hermes/store/preview'
+import { type PreviewArtifact } from '@hermes/store/preview-status'
+
+interface PreviewStatusRowProps {
+  item: PreviewArtifact
+  onDismiss: (id: string) => void
+}
+
+/** One detected artifact, single line, always visible: filename + open + close. */
+export const PreviewStatusRow = memo(function PreviewStatusRow({ item, onDismiss }: PreviewStatusRowProps) {
+  const { t } = useI18n()
+  const openSources = useStore($previewTabSources)
+  const [opening, setOpening] = useState(false)
+  // A tab open IS a pane in the tree now, so its presence is the whole answer.
+  const isOpen = openSources.includes(item.target)
+
+  const resolveTarget = async () => {
+    const target = await normalizeOrLocalPreviewTarget(item.target, item.cwd || undefined)
+
+    if (!target) {
+      throw new Error(`Could not open preview target: ${item.target}`)
+    }
+
+    return target
+  }
+
+  const togglePreview = async () => {
+    if (opening) {
+      return
+    }
+
+    if (isOpen) {
+      closePreviewForSource(item.target)
+
+      return
+    }
+
+    setOpening(true)
+
+    try {
+      openPreview(await resolveTarget(), 'tool-result')
+    } catch (error) {
+      notifyError(error, t.preview.unavailable)
+    } finally {
+      setOpening(false)
+    }
+  }
+
+  const openDefaultTarget = async () => {
+    try {
+      const target = await resolveTarget()
+
+      // A file:// URL resolved in remote mode names a file on the backend
+      // host, not on the machine running Electron. Keep local files and
+      // ordinary URLs on the browser path, but route remote files through the
+      // in-app preview pane so its filesystem adapter reads via the gateway.
+      // (Remote HTML stays on openPreviewTargetInBrowser, which stages a
+      // sanitized local copy before opening it.)
+      if (target.kind === 'file' && target.previewKind !== 'html' && isDesktopFsRemoteMode()) {
+        openPreview(target, 'tool-result')
+
+        return
+      }
+
+      await openPreviewTargetInBrowser(target)
+    } catch (error) {
+      notifyError(error, t.preview.unavailable)
+    }
+  }
+
+  return (
+    <StatusRow
+      leading={
+        <Codicon
+          aria-hidden
+          className={cn('text-muted-foreground/70', opening && 'animate-pulse')}
+          name="globe"
+          size="0.8rem"
+        />
+      }
+      // Plain click opens the link in the browser, except remote files which
+      // only the in-app gateway-backed preview can read. ⌘/Ctrl-click always
+      // uses the in-app preview pane. (isOpen still toggles the pane closed.)
+      onActivate={event => {
+        if (event.metaKey || event.ctrlKey) {
+          void togglePreview()
+        } else {
+          void openDefaultTarget()
+        }
+      }}
+      trailing={
+        <Tip label={t.statusStack.dismiss}>
+          <Button
+            aria-label={t.statusStack.dismiss}
+            className="-my-1 size-4 rounded-md text-muted-foreground/60 hover:text-foreground/90"
+            onClick={event => {
+              event.stopPropagation()
+              onDismiss(item.id)
+            }}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <Codicon name="close" size="0.75rem" />
+          </Button>
+        </Tip>
+      }
+      trailingVisible
+    >
+      <Tip
+        label={
+          // inline-flex (not flex): a block child collapses Tip's decoration
+          // wrapper geometry and mis-positions the tooltip (#62022).
+          <span className="inline-flex flex-col gap-0.5">
+            <span>{item.target}</span>
+            <span className="opacity-70">{t.preview.linkHint}</span>
+          </span>
+        }
+      >
+        <span className="min-w-0 truncate text-[0.73rem] leading-4 text-foreground/92">{item.label}</span>
+      </Tip>
+    </StatusRow>
+  )
+})

@@ -18,7 +18,7 @@ export async function writeClipboardText(text: string) {
         return;
     }
 
-    const hermesDesktop = (window as Window & { hermesDesktop?: { writeClipboard?: (text: string) => Promise<void> } })
+    const hermesDesktop = (window as unknown as { hermesDesktop?: { writeClipboard?: (text: string) => Promise<void> } })
         .hermesDesktop;
     if (hermesDesktop?.writeClipboard) {
         await hermesDesktop.writeClipboard(text);
