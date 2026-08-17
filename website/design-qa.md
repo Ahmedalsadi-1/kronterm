@@ -2,64 +2,85 @@
 
 ## Comparison target
 
-- Source visual truth: `/var/folders/_1/w7l4468114zd9bd27_4kjrlm0000gn/T/codex-clipboard-973a5c4f-736e-4c4c-854b-8b675adb190e.png`
-- Browser-rendered implementation: `/Users/albsheralsadi/kronterm/output/playwright/kronterm-notebook-workflow-mobile.png`
-- Full-page desktop evidence: `/Users/albsheralsadi/kronterm/output/playwright/kronterm-notebook-diagram-desktop.png`
-- Combined comparison: `/Users/albsheralsadi/kronterm/output/playwright/kronterm-notebook-comparison.png`
-- Route and state: `http://localhost:5173/capabilities/acp-agents`, capability workflow scrolled into view
-- Viewport: 393 × 508 CSS px at device scale factor 1
-- Source pixels: 393 × 508
-- Implementation pixels: 393 × 508
-- Density normalization: none required; both images were compared at 1:1 pixel dimensions
-
-The source is a paper-surface reference rather than a complete application mock. The comparison therefore treats the
-blue rule spacing, red margin, white paper tone, and handwritten-notebook character as the visual truth while preserving
-KronTerm's existing navigation and product content.
+- Source visual truth:
+  `/Users/albsheralsadi/kronterm/output/playwright/kronterm-field-guide-home-desktop.png`, plus the user's browser
+  annotations requesting notebook navigation, a school composition-book hero, and chapter cards that read as bookmarks
+- Browser-rendered implementation:
+  `/Users/albsheralsadi/kronterm/output/playwright/kronterm-composition-cover-home.png`
+- Combined comparison:
+  `/Users/albsheralsadi/kronterm/output/playwright/kronterm-composition-cover-comparison.png`
+- Focused bookmark evidence:
+  `/Users/albsheralsadi/kronterm/output/playwright/kronterm-bookmark-library.png`
+- Mobile evidence:
+  `/Users/albsheralsadi/kronterm/output/playwright/kronterm-composition-cover-mobile.png`
+- Supporting notebook-system evidence:
+  - `/Users/albsheralsadi/kronterm/output/playwright/kronterm-agent-flow-graph-focused.png`
+  - `/Users/albsheralsadi/kronterm/output/playwright/kronterm-native-notebook-cta-footer.png`
+  - `/Users/albsheralsadi/kronterm/output/playwright/kronterm-native-notebook-footer.png`
+  - `/Users/albsheralsadi/kronterm/output/playwright/kronterm-page-turn-unobscured.png`
+- Route and state: `/` at page load and the chapter library scrolled into view
+- Comparison viewport: 1041 × 1026 CSS px at device scale factor 1
+- Source pixels: 1440 × 5326; the first-view region was cropped and normalized to 1041 × 1026
+- Implementation pixels: 1041 × 1026
+- Mobile viewport: 393 × 852 CSS px at device scale factor 1
 
 ## Findings
 
 - No actionable P0, P1, or P2 differences remain.
-- Typography: the source contains only a small sans-serif label. The implementation intentionally uses KronTerm's
-  established Newsreader display face for product information while retaining small mono red folio numbers. The
-  hierarchy is readable and the workflow wraps without clipping.
-- Spacing and layout: the cyan rule rhythm and red margin align closely with the supplied paper. Workflow rows use the
-  existing lines as dividers, and the 393 px layout has zero horizontal overflow.
-- Colors and tokens: the implementation uses the source asset directly, so paper white, cyan rules, and red margin are
-  not approximated. Dark ink and red indices maintain clear contrast.
-- Image quality and asset fidelity: the supplied PNG is used directly for the global canvas and notebook information
-  surfaces. The existing cat logo remains a real raster asset and is not replaced with CSS or placeholder artwork.
-- Copy and content: workflow steps contain real ACP-agent product information and the broader site retains the complete
-  documentation, blog, field-guide, security, pricing, and README-derived reference content.
-- Interaction and accessibility: route-level page-turn motion and cat motion are present; both are disabled by
-  `prefers-reduced-motion`. Focus styles remain intact. Fourteen primary routes returned HTTP 200, browser console
-  errors were empty, and the mobile viewport had zero horizontal overflow.
+- Typography: the cover uses Newsreader as a large editorial display face, mono folio text for the printed notebook
+  details, and compact readable body copy. The paper navigation and bookmark labels keep a quieter technical voice.
+- Spacing and layout: the hero now reads as one physical cover with a red spine, yellow page edge, paper title label,
+  and framed product photograph. The chapter library uses generous book-page margins and a consistent two-column
+  bookmark rhythm at the annotated desktop width.
+- Colors and tokens: warm paper, dark ink, muted cyan rules, red binding, blue cover stock, yellow page edges, and four
+  restrained bookmark colors all come from the established notebook token system.
+- Image quality and asset fidelity: the real KronTerm workspace image and cat logo remain sharp and correctly cropped.
+  No screenshot is used as a page background, and no placeholder artwork was introduced.
+- Copy and content: the existing hero, chapter, documentation, blog, and README-derived reference content remains
+  unchanged. Added folio labels reinforce the book metaphor without replacing product information.
+- Interaction and accessibility: the mobile menu opens and routes to `/capabilities`; the first chapter bookmark routes
+  to `/capabilities/workspace-canvas`; browser console errors are empty; and mobile horizontal overflow is zero.
+  Reduced-motion behavior remains in place.
 
 ## Focused region evidence
 
-The workflow region is the focused comparison because it contains the requested combination of notebook paper and a
-diagram made from KronTerm information. A second focused capture at
-`/Users/albsheralsadi/kronterm/output/playwright/kronterm-notebook-reference-mobile.png` verifies the same treatment on
-the capability reference ledger.
+The bookmark capture shows the selected chapter grid as layered paper markers: each chapter has a colored edge and tab,
+real product image, chapter number, title, concise description, and a clear enter action. The mobile capture verifies
+that the composition-cover label wraps cleanly and both primary actions remain reachable.
 
 ## Comparison history
 
-- Pass 1: no P0, P1, or P2 visual findings. The source paper asset, rule spacing, red margin, and 393 × 508 viewport
-  matched without a corrective QA iteration.
-- Post-build evidence: production build passed; route smoke test passed; `notebook-page-open` and `pet-logo-peek`
-  animations were active; no console errors or mobile horizontal overflow were found.
+- Earlier finding [P2]: the dark floating header felt separate from the notebook.
+  - Fix: converted it to a warm paper index strip with a red margin edge, cyan rule, dark ink controls, and notebook-style
+    navigation labels.
+  - Post-fix evidence: `kronterm-composition-cover-home.png`.
+- Earlier finding [P1]: the homepage hero looked like a dark SaaS panel rather than a school notebook cover.
+  - Fix: rebuilt the surface as a blue composition cover with a red spine, yellow page edge, printed folio, cream title
+    label, and framed workspace photograph.
+  - Post-fix evidence: `kronterm-composition-cover-comparison.png`.
+- Earlier finding [P1]: chapter tiles read as dashboard cards instead of bookmarks.
+  - Fix: moved them onto a light book page, introduced staggered colored bookmark edges and tabs, changed headings to
+    editorial type, and retained explicit chapter actions.
+  - Post-fix evidence: `kronterm-bookmark-library.png`.
+- Earlier finding [P1]: the pasted ruled-paper image overpowered content and the page turn obscured its destination.
+  - Fix: removed all runtime references to that background and retained only native paper tokens and unobscured page
+    rotation.
+  - Post-fix evidence: `kronterm-native-notebook-redesign-comparison.png` and
+    `kronterm-page-turn-unobscured.png`.
+- Earlier finding [P1]: the agent pipeline read as a table.
+  - Fix: rebuilt it as six connected descriptive nodes with desktop and mobile paths.
+  - Post-fix evidence: `kronterm-agent-flow-graph-focused.png`.
 
 ## Implementation checklist
 
-- [x] Use the supplied notebook paper as a real image asset.
-- [x] Apply it to the site canvas and information-diagram surfaces.
-- [x] Preserve readable hierarchy and responsive wrapping.
-- [x] Add smooth route page-turn motion and reduced-motion fallback.
-- [x] Animate the resident cat without blocking interaction.
-- [x] Verify production build, primary routes, console, and mobile overflow.
+- [x] Restyle the primary navigation as a notebook index strip.
+- [x] Make the hero read as a school composition-book cover.
+- [x] Turn chapter cards into layered, readable bookmarks.
+- [x] Preserve all existing routes, product imagery, copy, and prior notebook fixes.
+- [x] Verify production build, menu and bookmark navigation, desktop and mobile layout, console, and overflow.
 
 ## Follow-up polish
 
-- P3: the sticky mobile header intentionally covers the paper's small `Name` field while scrolling. This keeps primary
-  navigation available and does not obscure diagram content.
+- No blocking or moderate polish gaps remain in the annotated regions.
 
 final result: passed

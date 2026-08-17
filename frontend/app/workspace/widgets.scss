@@ -2,11 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 .widget-rail {
+    width: 56px;
     background: linear-gradient(
         180deg,
         rgb(from var(--surface-base-color) r g b / 0.48),
         rgb(from var(--main-bg-color) r g b / 0.24)
     );
+}
+
+.widget-rail-heading {
+    padding: 3px 0 4px;
+    color: var(--text-muted-color);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
 }
 
 .widget-rail-left {
@@ -18,20 +29,43 @@
 }
 
 .widget-rail-compact {
-    backdrop-filter: blur(20px);
-    background: rgba(0, 0, 0, 0.35);
-    border-top: 1px solid rgb(from var(--border-color) r g b / 0.3);
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+.widget-rail-compact-grid {
+    display: flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    overflow-x: auto;
+    border: 0;
+    background: transparent;
+    scrollbar-width: none;
 }
 
 .widget-rail-compact-item {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    gap: 7px;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    padding: 0;
     cursor: pointer;
-    border-radius: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
     color: var(--text-secondary-color);
+    font: inherit;
     transition:
         background-color 160ms ease,
         color 160ms ease;
@@ -44,6 +78,113 @@
     &:focus-visible {
         outline: none;
         box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.24);
+    }
+
+    &.is-chamber {
+        width: auto;
+        min-width: 104px;
+        flex-basis: auto;
+        justify-content: flex-start;
+        padding: 0 11px;
+        color: var(--accent-color);
+
+        span {
+            overflow: hidden;
+            font-size: 10px;
+            font-weight: 650;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &.is-add.is-active {
+        color: var(--accent-color);
+    }
+}
+
+.widget-rail-compact-divider {
+    width: 1px;
+    height: 24px;
+    flex: 0 0 1px;
+    margin: 0 1px;
+    background: rgb(from var(--border-color) r g b / 0.56);
+}
+
+.widget-rail-compact-menu {
+    position: absolute;
+    z-index: 300;
+    bottom: calc(100% + 8px);
+    left: 8px;
+    width: min(260px, calc(100vw - 24px));
+    overflow: hidden;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.7);
+    border-radius: 12px;
+    background: rgb(from var(--surface-raised-color) r g b / 0.98);
+    box-shadow: 0 18px 54px rgb(0 0 0 / 0.42);
+}
+
+.widget-rail-compact-menu-heading {
+    padding: 9px 10px 7px;
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.4);
+    color: var(--text-muted-color);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.widget-rail-compact-menu-grid,
+.widget-rail-compact-menu-system {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 7px;
+}
+
+.widget-rail-compact-menu-system {
+    border-top: 1px solid rgb(from var(--border-color) r g b / 0.4);
+}
+
+.widget-rail-compact-menu-item {
+    display: flex;
+    min-width: 0;
+    height: 30px;
+    cursor: pointer;
+    align-items: center;
+    gap: 7px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary-color);
+    font: inherit;
+    font-size: 9px;
+    text-align: left;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        color: var(--text-primary-color);
+    }
+
+    span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.workspace-collapsed-widget-launcher {
+    position: absolute;
+    z-index: 120;
+    bottom: 10px;
+    left: 50%;
+    max-width: calc(100% - 24px);
+    pointer-events: auto;
+    transform: translateX(-50%);
+
+    .widget-rail-compact {
+        padding: 0;
+        border: 0;
     }
 }
 
@@ -82,8 +223,30 @@
 }
 
 .widget-rail-item {
+    position: relative;
     flex-direction: column;
     padding: 6px 2px;
+    background: transparent;
+    font: inherit;
+
+    &::after {
+        position: absolute;
+        top: 3px;
+        right: 4px;
+        content: "+";
+        color: var(--accent-color);
+        font-size: 9px;
+        opacity: 0;
+        transform: scale(0.7);
+        transition:
+            opacity 160ms ease,
+            transform 160ms ease;
+    }
+
+    &:hover::after {
+        opacity: 0.85;
+        transform: scale(1);
+    }
 }
 
 .widget-rail-action {

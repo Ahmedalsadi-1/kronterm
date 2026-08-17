@@ -1,13 +1,12 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Toggle } from "@/app/element/toggle";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useState } from "react";
-import { SettingsCard, SectionHeader, ToggleSetting, SelectSetting } from "./kronsettings-shared";
 import type { KronSettingsViewModel } from "./kronsettings-model";
+import { SectionHeader, SelectSetting, SettingsCard, ToggleSetting } from "./kronsettings-shared";
 
 interface KronSettingsVisualContentProps {
     model: KronSettingsViewModel;
@@ -26,7 +25,7 @@ function publishLayoutMode(mode: string) {
 function getStoredLayoutMode() {
     try {
         const mode = window.localStorage.getItem(LayoutModeStorageKey);
-        return mode === "canvas" ? "canvas" : "widgets";
+        return mode === "canvas" || mode === "tabs" ? mode : "widgets";
     } catch {
         return "widgets";
     }
@@ -36,16 +35,12 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
     const fullConfig = useAtomValue(model.env.atoms.fullConfigAtom);
     const settings = fullConfig?.settings ?? {};
 
-    const setValues = useCallback(
-        (values: Record<string, any>) => {
-            void RpcApi.SetConfigCommand(TabRpcClient, values).catch((error) => {
-                console.warn("[KronTerm settings] config update failed", error);
-            });
-        },
-        []
-    );
+    const setValues = useCallback((values: Record<string, any>) => {
+        void RpcApi.SetConfigCommand(TabRpcClient, values).catch((error) => {
+            console.warn("[KronTerm settings] config update failed", error);
+        });
+    }, []);
 
-    const tabBar = settings["app:tabbar"] ?? "top";
     const reducedMotion = settings["window:reducedmotion"] ?? false;
     const cursorBlink = settings["term:cursorblink"] ?? false;
     const durableSessions = settings["term:durable"] ?? true;
@@ -53,33 +48,23 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
     const confirmTabClose = settings["tab:confirmclose"] ?? false;
     const hideAIButton = settings["app:hideaibutton"] ?? false;
     const focusFollowsCursor = settings["app:focusfollowscursor"] ?? "off";
-    const settingsLayoutMode = settings["app:layoutmode"] === "canvas" ? "canvas" : "widgets";
+    const settingsLayoutMode =
+        settings["app:layoutmode"] === "canvas" || settings["app:layoutmode"] === "tabs"
+            ? settings["app:layoutmode"]
+            : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
     const quickComposer = settings["app:quickcomposer"] ?? false;
     const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
     const telemetryEnabled = settings["telemetry:enabled"] ?? false;
 
     useEffect(() => {
-        if (settingsLayoutMode === "canvas") {
-            setLayoutMode("canvas");
-        }
+        setLayoutMode(settingsLayoutMode);
     }, [settingsLayoutMode]);
 
     return (
         <div>
             <SettingsCard>
                 <SectionHeader title="Theme" icon="palette" description="Customize the appearance of your terminal." />
-                <SelectSetting
-                    title="Tab Bar Position"
-                    description="Where to show the tab bar."
-                    value={tabBar}
-                    onChange={(v) => setValues({ "app:tabbar": v })}
-                    options={[
-                        { value: "top", label: "Top" },
-                        { value: "bottom", label: "Bottom" },
-                        { value: "hidden", label: "Hidden" },
-                    ]}
-                />
                 <ToggleSetting
                     title="Reduced Motion"
                     description="Reduce animations and transitions."
@@ -126,15 +111,16 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
                 />
                 <SelectSetting
                     title="Workspace Layout"
-                    description="Switch every workspace tab between tiled widgets and spatial canvas mode."
+                    description="Choose tiled widgets, browser-style widget tabs, or the spatial canvas."
                     value={layoutMode}
                     onChange={(v) => {
                         publishLayoutMode(v);
-                        setLayoutMode(v === "canvas" ? "canvas" : "widgets");
+                        setLayoutMode(v === "canvas" || v === "tabs" ? v : "widgets");
                         setValues({ "app:layoutmode": v });
                     }}
                     options={[
                         { value: "widgets", label: "Widgets" },
+                        { value: "tabs", label: "Widget tabs" },
                         { value: "canvas", label: "Canvas" },
                     ]}
                 />

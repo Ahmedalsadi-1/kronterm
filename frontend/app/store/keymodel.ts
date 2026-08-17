@@ -29,6 +29,7 @@ import { isWindows } from "@/util/platformutil";
 import { CHORD_TIMEOUT } from "@/util/sharedconst";
 import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
+import { routeBlockClose } from "./block-close-routing";
 import { modalsModel } from "./modalmodel";
 import { isBuilderWindow, isTabWindow } from "./windowtype";
 
@@ -145,7 +146,7 @@ function simpleCloseStaticTab() {
         });
 }
 
-function uxCloseBlock(blockId: string) {
+function uxCloseBlock(blockId: string, closeOwnedNode: () => void = () => {}) {
     const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
     const isAIPanelOpen = workspaceLayoutModel.getAIPanelVisible();
     if (isAIPanelOpen && getStaticTabBlockCount() === 1) {
@@ -171,12 +172,10 @@ function uxCloseBlock(blockId: string) {
 
     const layoutModel = getLayoutModelForStaticTab();
     const node = layoutModel.getNodeByBlockId(blockId);
-    if (node) {
-        fireAndForget(() => layoutModel.closeNode(node.id));
+    routeBlockClose(node, (nodeId) => fireAndForget(() => layoutModel.closeNode(nodeId)), closeOwnedNode);
 
-        if (isAIFileDiff && isAIPanelOpen) {
-            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-        }
+    if (isAIFileDiff && isAIPanelOpen) {
+        setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
     }
 }
 
@@ -731,6 +730,14 @@ function registerGlobalKeys() {
     globalKeyMap.set("Cmd:Shift:a", () => {
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
         WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+        return true;
+    });
+    globalKeyMap.set("Cmd:Shift:p", () => {
+        if (modalsModel.isModalOpen("CommandPaletteModal")) {
+            modalsModel.popModal();
+        } else {
+            modalsModel.pushModal("CommandPaletteModal");
+        }
         return true;
     });
     globalKeyMap.set("Ctrl:Shift:t", () => {

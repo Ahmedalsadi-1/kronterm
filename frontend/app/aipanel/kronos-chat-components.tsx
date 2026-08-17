@@ -9,7 +9,7 @@ import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcpAgentMark } from "./acp-agent-mark";
 import { CodeCard, CopyablePre, PreviewAttachmentCard, extractPreviewTargets } from "./chat-cards";
-import type { AcpAgentMessage, AcpBackendInfo, AcpModelInfo } from "./use-acp-session";
+import type { AcpAgentMessage, AcpBackendInfo, AcpCapabilityLease, AcpModelInfo } from "./use-acp-session";
 
 // ─── StatusChip ──────────────────────────────────────────────────────────────
 
@@ -299,6 +299,44 @@ export const ChatMessage = memo(({ message, assistantLabel, agentBackend, mode, 
 
     if (message.type === "tool_call" || message.type === "tool_call_update") {
         return <ToolCallMessage canvasBlockId={canvasBlockId} message={message} />;
+    }
+
+    if (message.type === "harness_lease") {
+        const data = message.data as { lease?: AcpCapabilityLease; profile?: { summary?: string } } | null;
+        const lease = data?.lease;
+        if (!lease) {
+            return null;
+        }
+        return (
+            <div className="ml-8 rounded-lg border border-[#1e2a3a] bg-[#121824] px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                    <i className="fa fa-shield-halved text-[11px] text-[#5b9ef5]" />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5b9ef5]">
+                        Specialist lease
+                    </span>
+                    <span className="rounded border border-[#273953] bg-[#161c28] px-1.5 py-0.5 text-[10px] text-[#a8c9f5]">
+                        {lease.taskClass}
+                    </span>
+                    <span className="ml-auto font-mono text-[9px] text-[#6b6863]">
+                        {lease.id.split(":")[0].slice(0, 8)}
+                    </span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-5 text-[#9e9a93]">{lease.reason}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                    {lease.capabilities.map((capability) => (
+                        <span
+                            key={capability}
+                            className="rounded border border-[#2a2a2a] bg-[#101010] px-1.5 py-0.5 font-mono text-[9px] text-[#8a8580]"
+                        >
+                            {capability}
+                        </span>
+                    ))}
+                </div>
+                <div className="mt-2 truncate font-mono text-[9px] text-[#6b6863]" title={lease.workspace}>
+                    workspace only · approval for writes and external effects · {lease.workspace}
+                </div>
+            </div>
+        );
     }
 
     const isUser = message.type === "user_message";

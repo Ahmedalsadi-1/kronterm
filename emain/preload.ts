@@ -125,9 +125,40 @@ contextBridge.exposeInMainWorld("api", {
     krondesignStart: () => ipcRenderer.invoke("krondesign-start"),
 
     // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
-    chathubv2Start: (context?: { tabId?: string; blockId?: string }) => ipcRenderer.invoke("chathubv2-start", context),
+    chathubv2Start: (context?: { tabId?: string; blockId?: string; surfaceId?: string }) =>
+        ipcRenderer.invoke("chathubv2-start", context),
     chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
     chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
+    kronoscodeGetConnection: () => ipcRenderer.invoke("kronoscode-get-connection"),
+    kronoscodeRevalidateConnection: () => ipcRenderer.invoke("kronoscode-revalidate-connection"),
+    kronoscodeTouchBackend: () => ipcRenderer.invoke("kronoscode-touch-backend"),
+    kronoscodeGetGatewayWsUrl: (input?: { directory?: string; surfaceId?: string }) =>
+        ipcRenderer.invoke("kronoscode-get-gateway-ws-url", input),
+    kronoscodeApi: (input) => ipcRenderer.invoke("kronoscode-api", input),
+    kronoscodeApplyConnection: (input) => ipcRenderer.invoke("kronoscode-apply-connection", input),
+    kronoscodeGetBootProgress: () => ipcRenderer.invoke("kronoscode-get-boot-progress"),
+    onKronosCodeBootProgress: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: KronosCodeBootProgress) => callback(payload);
+        ipcRenderer.on("kronoscode-boot-progress", handler);
+        return () => ipcRenderer.removeListener("kronoscode-boot-progress", handler);
+    },
+    onKronosCodeExit: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: { code: number | null; signal: string | null }) =>
+            callback(payload);
+        ipcRenderer.on("kronoscode-exit", handler);
+        return () => ipcRenderer.removeListener("kronoscode-exit", handler);
+    },
+    onKronosCodePowerResume: (callback) => {
+        const handler = () => callback();
+        ipcRenderer.on("kronoscode-power-resume", handler);
+        return () => ipcRenderer.removeListener("kronoscode-power-resume", handler);
+    },
+    onKronosCodeConnectionApplied: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: KronosCodeConnectionDescriptor) =>
+            callback(payload);
+        ipcRenderer.on("kronoscode-connection-applied", handler);
+        return () => ipcRenderer.removeListener("kronoscode-connection-applied", handler);
+    },
 
     // ── Audio / Voice Engine IPC ─────────────────────────────────────
     audioStart: () => ipcRenderer.invoke("audio-start"),

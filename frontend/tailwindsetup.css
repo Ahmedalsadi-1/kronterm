@@ -1,8 +1,12 @@
 /* Copyright 2026, Command Line Inc.
    SPDX-License-Identifier: Apache-2.0 */
 
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
+@source "./";
+@source "../index.html";
+@source "../overlay.html";
+@source "../pet.html";
 @source "../node_modules/streamdown/dist/index.js";
 
 @theme {

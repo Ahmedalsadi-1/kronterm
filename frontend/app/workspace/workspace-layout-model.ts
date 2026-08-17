@@ -27,6 +27,38 @@ const VTabBar_MaxWidth = 280;
 
 export type SidePanelMode = "hidden" | "compact" | "full";
 
+export function getWorkspaceTabPresentation(_sidePanelMode: SidePanelMode): {
+    showLeftTabBar: true;
+    showTopWorkspaceTabs: false;
+} {
+    return { showLeftTabBar: true, showTopWorkspaceTabs: false };
+}
+
+export function isEmptyPanelGroupLayoutError(error: unknown): boolean {
+    return error instanceof Error && /^Invalid 0 panel layout:/.test(error.message);
+}
+
+export function computeWorkspacePanelLayout({
+    windowWidth,
+    vtabWidth,
+    aiPanelWidth,
+}: {
+    windowWidth: number;
+    vtabWidth: number;
+    aiPanelWidth: number;
+}): { outer: number[]; inner: number[] } {
+    const remainingW = Math.max(0, windowWidth - vtabWidth);
+    const resolvedAIWidth = Math.min(aiPanelWidth, remainingW);
+    const contentW = Math.max(0, remainingW - resolvedAIWidth);
+    const vtabPct = windowWidth > 0 ? (vtabWidth / windowWidth) * 100 : 0;
+    const contentPct = remainingW > 0 ? (contentW / remainingW) * 100 : 100;
+
+    return {
+        outer: [vtabPct, Math.max(0, 100 - vtabPct)],
+        inner: [contentPct, Math.max(0, 100 - contentPct)],
+    };
+}
+
 function clampVTabWidth(w: number): number {
     return Math.max(VTabBar_MinWidth, Math.min(w, VTabBar_MaxWidth));
 }
@@ -177,8 +209,9 @@ class WorkspaceLayoutModel {
                 this.vtabWidth = savedVTabWidth;
             }
             if (savedSidePanelMode != null && ["hidden", "compact", "full"].includes(savedSidePanelMode)) {
-                this.sidePanelMode = savedSidePanelMode;
-                globalStore.set(this.sidePanelModeAtom, savedSidePanelMode);
+                const resolvedSidePanelMode = savedSidePanelMode === "hidden" ? "compact" : savedSidePanelMode;
+                this.sidePanelMode = resolvedSidePanelMode;
+                globalStore.set(this.sidePanelModeAtom, resolvedSidePanelMode);
             }
         } catch (e) {
             console.warn("Failed to initialize from tab meta:", e);
@@ -202,93 +235,53 @@ class WorkspaceLayoutModel {
         return clampVTabWidth(this.vtabWidth);
     }
 
-    // ---- Core layout computation ----
-    // All layout decisions flow through computeLayout.
-    // It takes the current state (visibility flags + stored px widths)
-    // and produces the two percentage arrays for the panel groups.
-
     private computeLayout(windowWidth: number): { outer: number[]; inner: number[] } {
         const vtabW = this.vtabVisible ? this.getResolvedVTabWidth() : 0;
-        const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
-        const leftGroupW = vtabW + aiW;
-
-        // outer: [leftGroupPct, contentPct]
-        const leftPct = windowWidth > 0 ? (leftGroupW / windowWidth) * 100 : 0;
-        const contentPct = Math.max(0, 100 - leftPct);
-
-        // inner: [vtabPct, aiPanelPct] relative to leftGroupW
-        let vtabPct: number;
-        let aiPct: number;
-        if (leftGroupW > 0) {
-            vtabPct = (vtabW / leftGroupW) * 100;
-            aiPct = 100 - vtabPct;
-        } else {
-            vtabPct = 50;
-            aiPct = 50;
-        }
-
-        return { outer: [leftPct, contentPct], inner: [vtabPct, aiPct] };
+        const remainingW = Math.max(0, windowWidth - vtabW);
+        const aiW = this.aiPanelVisible ? Math.min(this.getResolvedAIWidth(windowWidth), remainingW) : 0;
+        return computeWorkspacePanelLayout({ windowWidth, vtabWidth: vtabW, aiPanelWidth: aiW });
     }
 
     private commitLayouts(windowWidth: number): void {
         if (!this.outerPanelGroupRef || !this.innerPanelGroupRef) return;
         const { outer, inner } = this.computeLayout(windowWidth);
         this.inResize = true;
-        this.outerPanelGroupRef.setLayout(outer);
-        this.innerPanelGroupRef.setLayout(inner);
-        this.inResize = false;
+        try {
+            this.outerPanelGroupRef.setLayout(outer);
+            this.innerPanelGroupRef.setLayout(inner);
+        } catch (error) {
+            if (!isEmptyPanelGroupLayoutError(error)) {
+                throw error;
+            }
+            dlog("skipping layout commit for an unmounted panel group");
+        } finally {
+            this.inResize = false;
+        }
         this.updateWrapperWidth();
     }
 
-    // ---- Drag handlers ----
-    // These convert the percentage-based callback from react-resizable-panels
-    // back into pixel widths, update stored state, then re-commit.
-
     handleOuterPanelLayout(sizes: number[]): void {
         if (this.inResize) return;
+        if (!this.vtabVisible) return;
         const windowWidth = window.innerWidth;
-        const newLeftGroupPx = (sizes[0] / 100) * windowWidth;
-
-        if (this.vtabVisible && this.aiPanelVisible) {
-            // vtab stays constant, aipanel absorbs the change
-            const vtabW = this.getResolvedVTabWidth();
-            const newAIW = clampAIPanelWidth(newLeftGroupPx - vtabW, windowWidth);
-            this.aiPanelWidth = newAIW;
-            this.debouncedPersistAIWidth(newAIW);
-        } else if (this.vtabVisible) {
-            const clamped = clampVTabWidth(newLeftGroupPx);
-            this.vtabWidth = clamped;
-            this.debouncedPersistVTabWidth(clamped);
-        } else if (this.aiPanelVisible) {
-            const clamped = clampAIPanelWidth(newLeftGroupPx, windowWidth);
-            this.aiPanelWidth = clamped;
-            this.debouncedPersistAIWidth(clamped);
-        }
+        const newVTabW = (sizes[0] / 100) * windowWidth;
+        const clamped = clampVTabWidth(newVTabW);
+        this.vtabWidth = clamped;
+        this.debouncedPersistVTabWidth(clamped);
 
         this.commitLayouts(windowWidth);
     }
 
     handleInnerPanelLayout(sizes: number[]): void {
         if (this.inResize) return;
-        if (!this.vtabVisible || !this.aiPanelVisible) return;
+        if (!this.aiPanelVisible) return;
 
         const windowWidth = window.innerWidth;
-        const vtabW = this.getResolvedVTabWidth();
-        const aiW = this.getResolvedAIWidth(windowWidth);
-        const leftGroupW = vtabW + aiW;
-
-        const newVTabW = (sizes[0] / 100) * leftGroupW;
-        const clampedVTab = clampVTabWidth(newVTabW);
-        const newAIW = clampAIPanelWidth(leftGroupW - clampedVTab, windowWidth);
-
-        if (clampedVTab !== this.vtabWidth) {
-            this.vtabWidth = clampedVTab;
-            this.debouncedPersistVTabWidth(clampedVTab);
-        }
-        if (newAIW !== this.aiPanelWidth) {
-            this.aiPanelWidth = newAIW;
-            this.debouncedPersistAIWidth(newAIW);
-        }
+        const vtabW = this.vtabVisible ? this.getResolvedVTabWidth() : 0;
+        const remainingW = Math.max(0, windowWidth - vtabW);
+        const newAIW = clampAIPanelWidth((sizes[1] / 100) * remainingW, windowWidth);
+        this.aiPanelWidth = newAIW;
+        this.debouncedPersistAIWidth(newAIW);
 
         this.commitLayouts(windowWidth);
     }
@@ -326,6 +319,19 @@ class WorkspaceLayoutModel {
         globalStore.set(this.vtabVisibleAtom, this.vtabVisible);
         this.syncPanelCollapse();
         this.commitLayouts(window.innerWidth);
+    }
+
+    unregisterRefs(outerPanelGroupRef: ImperativePanelGroupHandle): void {
+        if (this.outerPanelGroupRef !== outerPanelGroupRef) {
+            return;
+        }
+        this.aiPanelRef = null;
+        this.vtabPanelRef = null;
+        this.outerPanelGroupRef = null;
+        this.innerPanelGroupRef = null;
+        this.panelContainerRef = null;
+        this.aiPanelWrapperRef = null;
+        this.inResize = false;
     }
 
     private syncPanelCollapse(): void {
@@ -386,31 +392,29 @@ class WorkspaceLayoutModel {
 
     // ---- Initial percentage helpers (used by workspace.tsx for defaultSize) ----
 
-    getLeftGroupInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
+    getVTabInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
         this.initializeFromMeta();
         if (windowWidth <= 0) return 0;
         const vtabW = showLeftTabBar && !isBuilderWindow() ? this.getResolvedVTabWidth() : 0;
-        const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
-        return ((vtabW + aiW) / windowWidth) * 100;
+        return (vtabW / windowWidth) * 100;
     }
 
-    getInnerVTabInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
-        if (!showLeftTabBar || isBuilderWindow()) return 0;
+    getInnerContentInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
         this.initializeFromMeta();
-        const vtabW = this.getResolvedVTabWidth();
-        const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
-        const total = vtabW + aiW;
-        if (total === 0) return 50;
-        return (vtabW / total) * 100;
+        const vtabW = showLeftTabBar && !isBuilderWindow() ? this.getResolvedVTabWidth() : 0;
+        const remainingW = Math.max(0, windowWidth - vtabW);
+        const aiW = this.aiPanelVisible ? Math.min(this.getResolvedAIWidth(windowWidth), remainingW) : 0;
+        if (remainingW === 0) return 100;
+        return ((remainingW - aiW) / remainingW) * 100;
     }
 
     getInnerAIPanelInitialPercentage(windowWidth: number, showLeftTabBar: boolean): number {
         this.initializeFromMeta();
         const vtabW = showLeftTabBar && !isBuilderWindow() ? this.getResolvedVTabWidth() : 0;
-        const aiW = this.aiPanelVisible ? this.getResolvedAIWidth(windowWidth) : 0;
-        const total = vtabW + aiW;
-        if (total === 0) return 100;
-        return (aiW / total) * 100;
+        const remainingW = Math.max(0, windowWidth - vtabW);
+        const aiW = this.aiPanelVisible ? Math.min(this.getResolvedAIWidth(windowWidth), remainingW) : 0;
+        if (remainingW === 0) return 0;
+        return (aiW / remainingW) * 100;
     }
 
     // ---- Toggle visibility ----
@@ -473,16 +477,15 @@ class WorkspaceLayoutModel {
     }
 
     setSidePanelMode(mode: SidePanelMode): void {
+        if (mode === "hidden") {
+            mode = "compact";
+        }
         if (this.sidePanelMode === mode) return;
         this.sidePanelMode = mode;
         globalStore.set(this.sidePanelModeAtom, mode);
         this.debouncedPersistSidePanelMode(mode);
 
-        // Update visibility based on mode
-        if (mode === "hidden") {
-            this.setShowLeftTabBar(false);
-            this.setAIPanelVisible(false);
-        } else if (mode === "compact") {
+        if (mode === "compact") {
             this.setShowLeftTabBar(true);
             this.setAIPanelVisible(false);
         } else if (mode === "full") {
@@ -494,7 +497,7 @@ class WorkspaceLayoutModel {
     }
 
     cycleSidePanelMode(): void {
-        const modes: SidePanelMode[] = ["hidden", "compact", "full"];
+        const modes: SidePanelMode[] = ["compact", "full"];
         const currentIndex = modes.indexOf(this.sidePanelMode);
         const nextIndex = (currentIndex + 1) % modes.length;
         this.setSidePanelMode(modes[nextIndex]);

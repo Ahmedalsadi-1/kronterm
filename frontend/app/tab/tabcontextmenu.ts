@@ -17,23 +17,8 @@ const FlagColors: { label: string; value: string }[] = [
     { label: "Yellow", value: "#FFE900" },
 ];
 
-export function buildTabBarContextMenu(env: TabEnv): ContextMenuItem[] {
-    const currentTabBar = globalStore.get(env.getSettingsKeyAtom("app:tabbar")) ?? "top";
-    const tabBarSubmenu: ContextMenuItem[] = [
-        {
-            label: "Top",
-            type: "checkbox",
-            checked: currentTabBar === "top",
-            click: () => fireAndForget(() => env.rpc.SetConfigCommand(TabRpcClient, { "app:tabbar": "top" })),
-        },
-        {
-            label: "Left",
-            type: "checkbox",
-            checked: currentTabBar === "left",
-            click: () => fireAndForget(() => env.rpc.SetConfigCommand(TabRpcClient, { "app:tabbar": "left" })),
-        },
-    ];
-    return [{ label: "Tab Bar Position", type: "submenu", submenu: tabBarSubmenu }];
+export function buildTabBarContextMenu(_env: TabEnv): ContextMenuItem[] {
+    return [{ label: "Workspace tabs stay on the left", enabled: false }];
 }
 
 export function buildTabContextMenu(
@@ -106,38 +91,41 @@ export function buildTabContextMenu(
     }
     menu.push(...buildTabBarContextMenu(env), { type: "separator" });
     const currentGroup = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:group" as keyof MetaType)) ?? null;
-    menu.push({
-        label: "Add to Group",
-        type: "submenu",
-        submenu: [
-            {
-                label: "New Group",
-                click: () => {
-                    const groupName = prompt("Group name:", "📁 Folder");
-                    if (groupName?.trim()) {
+    menu.push(
+        {
+            label: "Add to Group",
+            type: "submenu",
+            submenu: [
+                {
+                    label: "New Group",
+                    click: () => {
+                        const groupName = prompt("Group name:", "📁 Folder");
+                        if (groupName?.trim()) {
+                            fireAndForget(() =>
+                                env.rpc.SetMetaCommand(TabRpcClient, {
+                                    oref: tabORef,
+                                    meta: { "tab:group": groupName.trim(), "tab:groupcolor": "blue" } as MetaType,
+                                })
+                            );
+                        }
+                    },
+                },
+                {
+                    label: "No Group",
+                    type: "checkbox",
+                    checked: currentGroup == null,
+                    click: () =>
                         fireAndForget(() =>
                             env.rpc.SetMetaCommand(TabRpcClient, {
                                 oref: tabORef,
-                                meta: { "tab:group": groupName.trim(), "tab:groupcolor": "blue" } as MetaType,
+                                meta: { "tab:group": null, "tab:groupcolor": null } as MetaType,
                             })
-                        );
-                    }
+                        ),
                 },
-            },
-            {
-                label: "No Group",
-                type: "checkbox",
-                checked: currentGroup == null,
-                click: () =>
-                    fireAndForget(() =>
-                        env.rpc.SetMetaCommand(TabRpcClient, {
-                            oref: tabORef,
-                            meta: { "tab:group": null, "tab:groupcolor": null } as MetaType,
-                        })
-                    ),
-            },
-        ],
-    }, { type: "separator" });
+            ],
+        },
+        { type: "separator" }
+    );
     menu.push({ label: "Close Tab", click: () => onClose(null) });
     return menu;
 }

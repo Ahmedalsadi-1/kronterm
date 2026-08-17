@@ -4,7 +4,6 @@ import { getLayoutModelForStaticTab } from "@/layout/index";
 import { isLocalConnName } from "@/util/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { v7 as uuidv7 } from "uuid";
-import { blockIdFromToolInput, previewImageFromToolUpdate, reportDesktopPetActivity } from "./desktop-pet-activity";
 
 export type AcpBackendInfo = {
     backend: string;
@@ -17,6 +16,43 @@ export type AcpBackendInfo = {
     supportsStreaming?: boolean;
     acpArgs?: string[];
     skillsDirs?: string[];
+    harnessProfile?: AcpHarnessProfile;
+};
+
+export type AcpHarnessTaskClass =
+    | "architecture"
+    | "automation"
+    | "coding"
+    | "debugging"
+    | "research"
+    | "review"
+    | "workspace-control";
+
+export type AcpHarnessProfile = {
+    backend: string;
+    summary: string;
+    specialties: AcpHarnessTaskClass[];
+    patterns: Array<{ id: string; label: string; description: string }>;
+    source: "builtin" | "reference";
+};
+
+export type AcpCapabilityLease = {
+    id: string;
+    backend: string;
+    issuedAt: number;
+    expiresAt: number;
+    taskClass: AcpHarnessTaskClass;
+    reason: string;
+    workspace: string;
+    capabilities: string[];
+    constraints: {
+        filesystem: "workspace";
+        writes: "approval-required";
+        destructiveActions: "approval-required";
+        externalSideEffects: "approval-required";
+        credentialAccess: "brokered-only";
+        surface: "none" | "tab";
+    };
 };
 
 export type AcpAgentProfile = {
@@ -104,6 +140,8 @@ export type AcpSessionState = {
     usage: unknown | null;
     agentInfo: unknown | null;
     capabilities: AcpCapabilities | null;
+    harnessProfile: AcpHarnessProfile | null;
+    capabilityLease: AcpCapabilityLease | null;
     slashCommands: Record<string, AcpSlashCommand>;
 };
 
@@ -138,14 +176,6 @@ type AcpEvent = {
     timestamp: number;
 };
 
-function textFromAcpEvent(data: unknown): string | undefined {
-    if (typeof data === "string") {
-        return data;
-    }
-    const content = data as { text?: unknown } | undefined;
-    return typeof content?.text === "string" ? content.text : undefined;
-}
-
 const initialState: AcpSessionState = {
     conversationId: "",
     status: "idle",
@@ -161,6 +191,8 @@ const initialState: AcpSessionState = {
     usage: null,
     agentInfo: null,
     capabilities: null,
+    harnessProfile: null,
+    capabilityLease: null,
     slashCommands: {},
 };
 
@@ -328,6 +360,17 @@ export function applyAcpEvent(runtime: AcpRuntimeRecord, event: AcpEvent): AcpRu
             next.agentInfo = data?.agentInfo ?? event.data;
             next.modelInfo = data?.modelInfo ?? runtime.modelInfo;
             next.capabilities = data?.capabilities ?? runtime.capabilities;
+            break;
+        }
+        case "harness_profile": {
+            const data = event.data as any;
+            next.harnessProfile = data?.profile ?? runtime.harnessProfile;
+            break;
+        }
+        case "harness_lease": {
+            const data = event.data as any;
+            next.harnessProfile = data?.profile ?? runtime.harnessProfile;
+            next.capabilityLease = data?.lease ?? runtime.capabilityLease;
             break;
         }
         case "slash_commands": {
@@ -508,6 +551,8 @@ export function useAcpSession() {
                     currentMode: live.currentMode ?? prior.currentMode,
                     modelInfo: live.modelInfo ?? prior.modelInfo,
                     capabilities: live.capabilities ?? prior.capabilities,
+                    harnessProfile: live.harnessProfile ?? prior.harnessProfile,
+                    capabilityLease: live.capabilityLease ?? prior.capabilityLease,
                     isLive: true,
                     resumeState: "live",
                 };
@@ -620,6 +665,8 @@ export function useAcpSession() {
                     currentMode: initState.currentMode ?? current.currentMode,
                     modelInfo: initState.modelInfo ?? current.modelInfo,
                     capabilities: initState.capabilities ?? current.capabilities,
+                    harnessProfile: initState.harnessProfile ?? current.harnessProfile,
+                    capabilityLease: initState.capabilityLease ?? current.capabilityLease,
                 }));
             }
             const modeModes = initState?.modes ?? null;
@@ -894,97 +941,6 @@ export function useAcpSession() {
 
     useEffect(() => {
         const unsubscribe = electron.onAcpEvent((event: AcpEvent) => {
-            if (event.type === "status") {
-                const status = (event.data as { status?: string } | undefined)?.status;
-                if (status === "running" || status === "connecting") {
-                    reportDesktopPetActivity({ kind: "thinking", detail: "KronosCode working" }, undefined, undefined, {
-                        phase: "running",
-                        surface: "panel",
-                        action: "thinking",
-                    });
-                } else {
-                    reportDesktopPetActivity({ kind: "idle" }, undefined, undefined, {
-                        phase: status === "error" ? "failed" : "succeeded",
-                        surface: "panel",
-                        action: "focus",
-                    });
-                }
-            }
-            if (event.type === "agent_thought_chunk") {
-                reportDesktopPetActivity(
-                    {
-                        kind: "thinking",
-                        detail: "Reasoning",
-                        thought: textFromAcpEvent(event.data),
-                    },
-                    undefined,
-                    undefined,
-                    { phase: "running", surface: "panel", action: "thinking" }
-                );
-            }
-            if (event.type === "tool_call") {
-                const data = event.data as
-                    | { title?: string; rawInput?: Record<string, unknown>; status?: string }
-                    | undefined;
-                const blockId = blockIdFromToolInput(data?.rawInput);
-                reportDesktopPetActivity(
-                    { kind: "tool", detail: data?.title ?? "Using tool" },
-                    blockId,
-                    data?.rawInput,
-                    {
-                        phase: data?.status === "pending" ? "queued" : "running",
-                        blockid: blockId,
-                    }
-                );
-            }
-            if (event.type === "tool_call_update") {
-                const data = event.data as
-                    | { title?: string; rawInput?: Record<string, unknown>; status?: string }
-                    | undefined;
-                const previewImageUrl = previewImageFromToolUpdate(data);
-                if (data?.title || previewImageUrl) {
-                    const blockId = blockIdFromToolInput(data?.rawInput);
-                    reportDesktopPetActivity(
-                        {
-                            kind: "tool",
-                            detail: previewImageUrl ? "Computer use screenshot" : (data?.title ?? "Using tool"),
-                            previewImageUrl,
-                        },
-                        blockId,
-                        data?.rawInput,
-                        {
-                            phase: data?.status === "failed" ? "failed" : "verifying",
-                            blockid: blockId,
-                        }
-                    );
-                }
-            }
-            if (event.type === "tool_permission") {
-                const data = event.data as
-                    | { confirmation?: { title?: string }; toolCall?: { title?: string } }
-                    | undefined;
-                reportDesktopPetActivity(
-                    { kind: "tool", detail: data?.confirmation?.title ?? data?.toolCall?.title ?? "Review required" },
-                    undefined,
-                    undefined,
-                    { phase: "awaiting-approval", surface: "panel", action: "wait" }
-                );
-            }
-            if (event.type === "finish" || event.type === "error") {
-                reportDesktopPetActivity(
-                    {
-                        kind: "idle",
-                        detail: event.type === "finish" ? "Task complete" : "Task ended",
-                    },
-                    undefined,
-                    undefined,
-                    {
-                        phase: event.type === "finish" ? "succeeded" : "failed",
-                        surface: "panel",
-                        action: "focus",
-                    }
-                );
-            }
             updateRuntime(event.conversationId, (runtime) => applyAcpEvent(runtime, event));
         });
         return () => {

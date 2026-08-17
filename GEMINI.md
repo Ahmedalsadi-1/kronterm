@@ -1,51 +1,78 @@
-# Wave Terminal (Project Context)
+# KronTerm Agent Context
 
-Wave is an open-source, AI-integrated terminal for macOS, Linux, and Windows. It features durable SSH sessions, a flexible drag-and-drop interface, and a context-aware AI assistant.
+Read [`AGENTS.md`](./AGENTS.md) before changing this repository. It is the canonical source for architecture, commands,
+code style, generated-file rules, and task-specific skill guides. This file supplies the short product map needed by AI
+coding tools that load `GEMINI.md` automatically.
 
-## Architecture Overview
+## Product Vocabulary
 
-- **Frontend:** React 19 + TypeScript + Tailwind CSS 4. Built with `vite` and `electron-vite`.
-- **Backend (Main):** Go-based server (`wavesrv`) located in `cmd/server/main-server.go`. It handles terminal logic, SSH, and AI integrations.
-- **Desktop Wrapper:** Electron (v41+) manages the native window and bridges frontend to the Go backend.
-- **Communication:** Uses a custom RPC system (`wshrpc`) and a CLI helper `wsh` for workspace management.
-- **UI Framework:** Includes "Tsunami," a specialized framework for building terminal-native web components.
+- **KronTerm:** the desktop product and persistent developer workspace.
+- **KronosCode:** the local agent execution engine and tool layer.
+- **KronosChamber:** the main KronosCode chat, session, approval, artifact, and control surface.
+- **Widget Protocol:** the structured interaction layer used to inspect and operate visible blocks.
+- **Kron Sandbox:** an isolated Linux desktop surface.
 
-## Directory Structure
+Legacy `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and `github.com/wavetermdev/waveterm` identifiers remain for source and
+configuration compatibility. Use KronTerm and KronosCode in new user-facing copy. Do not rename compatibility identifiers
+without a dedicated migration.
 
-- `emain/`: Electron main process source code.
-- `frontend/`: React frontend application.
-  - `app/`: Core application logic and stores.
-  - `layout/`: UI layout components.
-  - `wave.ts`: Frontend entry point.
-- `pkg/`: Core Go logic organized by service.
-  - `service/`: RPC service definitions (block, object, window, workspace).
-  - `remote/`: SSH and remote connection handling.
-  - `aiusechat/`: AI SDK integrations.
-- `cmd/`: Go entry points.
-  - `server/`: The main `wavesrv` binary.
-  - `wsh/`: The Wave Shell CLI helper.
-  - `generatets/`: Tooling to generate TypeScript bindings from Go types.
-- `docs/`: Docusaurus-based documentation site.
-- `tsunami/`: Sub-project for terminal-native web component framework.
+## Current Capabilities
 
-## Key Commands (via Task)
+KronTerm combines terminal, browser, preview, editor, remote, sandbox, native-app, and AI surfaces. The desktop offers
+three presentations over the same workspace blocks:
 
-The project uses [Task](https://taskfile.dev/) (defined in `Taskfile.yml`) to coordinate builds.
+1. `widgets` — resizable tiled splits.
+2. `tabs` — focused widgets with browser-style tabs and pane splits.
+3. `canvas` — a spatial, pan-and-zoom workspace with live widgets, notes, shapes, connectors, and agent task cards.
 
-- `task init`: Initialize project (install dependencies for Node, Go, and Docs).
-- `task dev`: Start Electron in development mode with Hot Module Reloading (HMR).
-- `task start`: Start the Electron application directly.
-- `task build:backend`: Build `wavesrv` and `wsh` components.
-- `task package`: Create production-ready packages for the current platform.
-- `task check:ts`: Run TypeScript type checking.
-- `task test`: Run Vitest for frontend tests.
+The current development line includes live agent activity, task/evidence graphs, selection-to-agent context, a managed
+KronosChamber runtime with recovery state, LSP-backed editing, and computer-use streaming. The Python voice engine is
+experimental. The `mobile/` client and phone-control bridge are Labs work; describe them with that status.
 
-## Development Conventions
+## Architecture Map
 
-- **Language:** TypeScript for frontend/Electron, Go for backend.
-- **RPC:** When adding backend functionality, define services in `pkg/service` and use `task generate` to create frontend bindings.
-- **Styling:** Tailwind CSS 4 is the primary styling engine.
-- **State Management:** Uses `jotai` for atomic state in the frontend.
-- **Logging:** 
-  - Frontend: `console.log` (redirected to `emain-log`).
-  - Backend: Logs found in `~/.waveterm-dev/waveapp.log` during development.
+| Area                                      | Location                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| Electron main process and native IPC      | `emain/`                                                                      |
+| React renderer                            | `frontend/`                                                                   |
+| Workspace modes                           | `frontend/app/tab/`                                                           |
+| Jotai application state                   | `frontend/app/store/`                                                         |
+| KronosChamber UI                          | `frontend/app/view/chathubv2/`                                                |
+| Managed KronosCode/KronosChamber process  | `emain/chathubv2-*.ts`, `emain/kronoscode-runtime.ts`                         |
+| Agent activity overlays                   | `frontend/app/view/use-agent-overlays.ts`, `frontend/types/agent-activity.ts` |
+| Computer-use stream                       | `frontend/app/view/appstream/`                                                |
+| LSP services                              | `frontend/app/lsp/`, `emain/emain-lsp.ts`                                     |
+| Go PTY, SSH, RPC, config, and persistence | `pkg/`, `cmd/`                                                                |
+| KronTerm MCP server                       | `mcp-kron-term/`                                                              |
+| Optional voice process                    | `audio-engine/`                                                               |
+| iPhone Labs client                        | `mobile/`                                                                     |
+| Product website                           | `website/`                                                                    |
+| Docusaurus docs                           | `docs/`                                                                       |
+
+## Essential Commands
+
+```bash
+task init
+task dev
+task quickdev
+task check:ts
+task generate
+npm test -- --run
+go test ./pkg/...
+npm --prefix website run build
+npm --prefix docs run build
+```
+
+Never run `go build` inside a subpackage. Do not edit generated TypeScript bindings directly; update the Go source and run
+`task generate`.
+
+## Implementation Boundaries
+
+- Keep backend code out of frontend atoms. Cross the boundary through wsh RPC or Electron IPC.
+- Call React/Jotai hooks at component top level before conditional returns.
+- Access Electron through `getApi()` from `@/store/global`.
+- Use `globalStore` inside models; models do not call React hooks.
+- Keep host, browser, remote, and sandbox actions on their explicit surfaces.
+- Preserve user approval and runtime health states in agent-facing flows.
+- Treat `frontend/types/gotypes.d.ts`, `frontend/app/store/wshclientapi.ts`, and `pkg/wshrpc/metaconsts.go` as generated.
+- Preserve unrelated work in the repository; this workspace often contains concurrent product experiments.

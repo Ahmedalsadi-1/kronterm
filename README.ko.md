@@ -1,12 +1,7 @@
 <p align="center">
   <a href="https://www.kronterm.dev">
-	<picture>
-		<source media="(prefers-color-scheme: dark)" srcset="./assets/kron-dark.png">
-		<source media="(prefers-color-scheme: light)" srcset="./assets/kron-light.png">
-		<img alt="KronTerm Logo" src="./assets/kron-light.png" width="240">
-	</picture>
+    <img alt="KronTerm" src="./website/public/assets/product/kronterm-logo.svg" width="260">
   </a>
-  <br/>
 </p>
 
 # KronTerm
@@ -15,97 +10,125 @@
 
 [English](README.md) | [한국어](README.ko.md)
 
+**사람과 AI 에이전트가 함께 일하는 통합 개발 워크스페이스**
+
+터미널 · 브라우저 · 파일 · 샌드박스 · 데스크톱 제어 · AI
+
 </div>
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkrontermdev%2Fkronterm.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkrontermdev%2Fkronterm?ref=badge_shield)
+KronTerm은 개발자의 데스크톱을 하나의 지속 가능한 에이전트 워크스페이스로 구성합니다. 셸, 브라우저,
+파일, 미리보기, 원격 세션, 격리된 Linux 데스크톱, 네이티브 앱을 한 화면에서 함께 볼 수 있습니다.
+KronosCode는 복사해 붙인 채팅 내용이 아니라 실제 워크스페이스의 증거를 바탕으로 작업합니다.
 
-> 이 문서는 커뮤니티 한국어 번역본입니다. 최신 원문은 [README.md](README.md)에서 확인하세요.
+현재 KronTerm 데스크톱 앱은 macOS 비공개 베타입니다. Windows와 Linux 빌드는 검토 중입니다.
 
-KronTerm은 macOS, Linux, Windows에서 동작하는 오픈소스 AI 통합 터미널입니다. 어떤 AI 모델과도 함께 사용할 수 있습니다. OpenAI, Claude, Gemini는 API 키를 직접 연결해 사용할 수 있고, Ollama 및 LM Studio를 통해 로컬 모델도 실행할 수 있습니다. 계정 생성은 필요하지 않습니다.
+![터미널, 브라우저, 파일, KronosCode가 열린 KronTerm 워크스페이스](./assets/kronterm-section/kronterm-homepage.png)
 
-또한 KronTerm은 네트워크 중단이나 재시작 이후에도 유지되는 내구성 있는 SSH 세션을 지원하며, 자동 재연결 기능을 제공합니다. 내장 그래픽 에디터로 원격 파일을 편집하고, 터미널을 벗어나지 않고도 파일을 인라인으로 미리볼 수 있습니다.
+## 새 기능
 
-![KronTerm Screenshot](./assets/kron-screenshot.webp)
+| 기능                          | 설명                                                                                             | 상태                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
+| **세 가지 워크스페이스 모드** | 타일 분할, 브라우저형 위젯 탭, 자유 배치 캔버스 중에서 선택할 수 있습니다.                       | 비공개 베타 개발 빌드 |
+| **에이전트 캔버스**           | 실시간 위젯, 메모, 도형, 연결선, 에이전트 작업 카드를 하나의 확대/축소 가능한 화면에 배치합니다. | 비공개 베타 개발 빌드 |
+| **캔버스 컨텍스트**           | 선택한 위젯이나 작업 카드를 KronosCode의 현재 초점 또는 인용 증거로 전달합니다.                  | 비공개 베타 개발 빌드 |
+| **작업 그래프**               | 요청, 판단, 실행, 승인, 증거, 결과를 연결된 카드로 추적합니다.                                   | 비공개 베타 개발 빌드 |
+| **KronosChamber 런타임**      | 로컬 AI 런타임의 시작 및 상태를 확인하고, 재연결하며, 복구 안내를 표시합니다.                    | 비공개 베타 개발 빌드 |
+| **코드 인텔리전스**           | Monaco 편집기가 로컬 언어 서버와 연결되어 탐색 및 진단 정보를 제공합니다.                        | 비공개 베타 개발 빌드 |
+| **음성 상호작용**             | 로컬 음성 캡처 및 텍스트 변환을 채팅에 연결하고 음성 출력도 지원합니다.                          | 실험 기능             |
+| **iPhone용 KronTerm**         | KronosChamber를 중심으로 관리형 샌드박스 또는 명시적으로 페어링한 컴퓨터에 연결합니다.           | Labs                  |
 
-## 주요 기능
+실험 기능과 Labs 기능은 추가 로컬 의존성이 필요할 수 있으며 출시 전에 변경될 수 있습니다.
 
-- KronTerm AI - 터미널 출력과 위젯을 이해하고 파일 작업까지 수행할 수 있는 컨텍스트 인지형 터미널 어시스턴트
-- 내구성 있는 SSH 세션 - 연결 끊김, 네트워크 변경, KronTerm 재시작 상황에서도 자동 재연결로 세션 유지
-- 터미널 블록, 에디터, 웹 브라우저, AI 어시스턴트를 유연하게 배치할 수 있는 드래그 앤 드롭 인터페이스
-- 구문 강조와 최신 편집 기능을 제공하는 원격 파일 편집용 내장 에디터
-- 원격 파일용 풍부한 미리보기 시스템 (Markdown, 이미지, 동영상, PDF, CSV, 디렉터리)
-- 블록 단위 빠른 전체 화면 토글 - 터미널/에디터/미리보기를 크게 보고 즉시 멀티 블록 보기로 복귀
-- 다중 모델을 지원하는 AI 채팅 위젯 (OpenAI, Claude, Azure, Perplexity, Ollama)
-- 개별 명령을 분리하고 모니터링할 수 있는 Command Blocks
-- 한 번의 클릭으로 원격 연결 및 전체 터미널/파일 시스템 접근
-- 네이티브 시스템 백엔드를 사용하는 안전한 시크릿 저장 - API 키와 자격 증명을 로컬에 저장하고 SSH 세션 간 공유
-- 탭 테마, 터미널 스타일, 배경 이미지 등 폭넓은 커스터마이징
-- CLI에서 워크스페이스를 제어하고 세션 간 데이터를 공유하는 강력한 `wsh` 명령 시스템
-- `wsh file`을 통한 연결형 파일 관리 - 로컬과 원격 SSH 호스트 간 파일 복사/동기화
+## 세 가지 워크스페이스 모드
 
-## KronTerm AI
+### 타일 위젯
 
-KronTerm AI는 워크스페이스 맥락을 이해하는 터미널 어시스턴트입니다.
+터미널, 브라우저, 미리보기, 편집기, AI, 시스템, 샌드박스 블록을 크기 조절이 가능한 분할 화면에
+배치합니다. 블록을 드래그해 레이아웃을 바꾸거나 하나의 화면을 확대할 수 있습니다.
 
-- **터미널 컨텍스트**: 디버깅과 분석을 위해 터미널 출력과 스크롤백을 읽습니다.
-- **파일 작업**: 자동 백업 및 사용자 승인 기반으로 파일 읽기/쓰기/편집을 수행합니다.
-- **CLI 통합**: `wsh ai`로 명령줄에서 출력 파이프 연결 또는 파일 첨부가 가능합니다.
-- **BYOK 지원**: OpenAI, Claude, Gemini, Azure 등 다양한 제공자에 API 키를 직접 연결할 수 있습니다.
-- **로컬 모델**: Ollama, LM Studio 및 기타 OpenAI 호환 제공자를 통해 로컬 모델을 실행할 수 있습니다.
-- **무료 베타**: 경험 개선 기간 동안 AI 크레딧이 제공됩니다.
-- **곧 제공 예정**: 명령 실행 기능 (사용자 승인 기반)
+### 위젯 탭
 
-자세한 내용은 [KronTerm AI 문서](https://docs.kronterm.dev/kronai)와 [KronTerm AI Modes 문서](https://docs.kronterm.dev/kronai-modes)를 참고하세요.
+브라우저와 같은 탭 바에서 하나의 위젯에 집중합니다. 탭을 분할 창 사이로 이동하고 위, 오른쪽, 아래,
+왼쪽에 새 분할을 만들 수 있습니다.
 
-## 설치
+### 공간 캔버스
 
-KronTerm은 macOS, Linux, Windows에서 동작합니다.
+무한 캔버스에서 실시간 위젯을 이동하고 크기를 조절합니다. 화면 이동, 확대/축소, 전체 맞춤, 메모, 도형,
+연결선, 자유 그리기를 지원합니다. 에이전트 실행 과정도 같은 캔버스에 작업 그래프로 표시됩니다.
 
-플랫폼별 설치 방법은 [여기](https://docs.kronterm.dev/gettingstarted)에서 확인할 수 있습니다.
+KronSettings 또는 `app:layoutmode` 설정에서 모드를 선택할 수 있습니다. 값은 `widgets`, `tabs`,
+`canvas`입니다.
 
-직접 다운로드하여 설치하려면 [www.kronterm.dev/download](https://www.kronterm.dev/download)을 이용하세요.
+## KronosCode
 
-### 최소 요구 사항
+KronosCode는 KronTerm의 로컬 에이전트 실행 계층입니다. 사용자의 요청을 현재 워크스페이스 컨텍스트와
+결합하고, 적합한 실행 화면을 선택하며, 명령, 편집, 승인, 브라우저 증거, 복구 상태를 확인 가능한 형태로
+표시합니다.
 
-KronTerm은 다음 플랫폼에서 실행됩니다.
+| 화면               | 기능                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| **터미널**         | 스크롤백과 셸 상태 읽기, 명령 실행, 프로세스 모니터링, 종료 결과 보존           |
+| **파일 및 코드**   | 로컬/원격 파일 탐색, diff 검토 기반 편집, LSP 코드 인텔리전스                   |
+| **브라우저**       | 구조화된 페이지 상태 확인, 이동, 클릭, 입력, 스크롤, 스크린샷, 사용자 흐름 검증 |
+| **샌드박스**       | 독립된 브라우저, 편집기, 터미널, 파일시스템을 갖춘 격리 Linux 데스크톱          |
+| **macOS 데스크톱** | 접근성 정보를 사용한 명시적 권한 기반 클릭, 입력, 키보드, 스크롤, 드래그        |
+| **캔버스**         | 선택한 위젯 및 작업 카드 읽기, 작업 연결 관계 추적, 증거 인용                   |
+| **도구**           | 문서 및 웹 검색, MCP 서버 호출, 작업별 스킬 로드                                |
 
-- macOS 11 이상 (arm64, x64)
-- Windows 10 1809 이상 (x64)
-- glibc-2.28 이상 기반 Linux (Debian 10, RHEL 8, Ubuntu 20.04 등) (arm64, x64)
+KronosChamber는 KronosCode의 기본 대화 및 제어 화면입니다. KronTerm은 로컬 런타임을 시작하고 상태를
+확인하며, 연결 자격 증명을 갱신하고, 클라이언트를 재연결합니다. 런타임이 준비되지 않으면 복구 정보를
+표시합니다.
 
-WSH 헬퍼는 다음 플랫폼에서 실행됩니다.
+## 내장 화면
 
-- macOS 11 이상 (arm64, x64)
-- Windows 10 이상 (x64)
-- Linux Kernel 2.6.32 이상 (x64), Linux Kernel 3.1 이상 (arm64)
+- **터미널:** PTY, 셸 통합, 명령 기록, AI가 읽을 수 있는 스크롤백
+- **브라우저:** 문서, 대시보드, localhost, 에이전트 기반 검증을 위한 내장 Chromium
+- **미리보기 및 편집기:** Markdown, 이미지, 미디어, PDF, CSV, 디렉터리, Monaco 텍스트 편집
+- **KronosChamber:** 워크스페이스 컨텍스트 기반 채팅, 도구, 승인, 세션, 결과물, 모델 제어
+- **Kron Sandbox:** 화면을 확인할 수 있는 격리 Linux 데스크톱 실행
+- **App Stream:** 상호작용 상태와 커서 피드백을 제공하는 네이티브 또는 원격 앱 화면
+- **설정:** 모델, 에이전트, 스킬, 테마, 음성, 키 바인딩을 위한 시각적 설정
 
-## 로드맵
+## 원격 작업
 
-KronTerm은 계속 발전하고 있습니다. 로드맵은 릴리스 목표에 맞춰 지속적으로 업데이트됩니다. [여기](./ROADMAP.md)에서 확인하세요.
+SSH 세션은 네트워크 변경, 절전, 앱 재시작 후에도 유지됩니다. 원격 터미널, 파일, 디렉터리, 미리보기는
+로컬 작업과 같은 워크스페이스 모델을 사용합니다.
 
-향후 릴리스 방향에 의견을 주고 싶다면 [Discord](https://discord.gg/XfvZ334gwU)에 참여하거나 [Feature Request](https://github.com/krontermdev/kronterm/issues/new/choose)를 등록해 주세요.
+## 보안 경계
 
-## 링크
+- 호스트, 샌드박스, 브라우저, 터미널, 원격 실행은 서로 다른 경로를 사용합니다.
+- 민감한 파일, 명령, 컴퓨터 제어는 사용자 승인을 기다릴 수 있습니다.
+- 지원되는 플랫폼에서 자격 증명은 운영체제의 보안 저장소를 사용합니다.
+- OpenAI, Anthropic, Google, OpenAI 호환 서비스, Ollama, LM Studio를 직접 설정할 수 있습니다.
+- 도구 실행 및 워크스페이스 상태는 로컬에 유지되고, 모델 요청은 사용자가 선택한 제공자에게 전송됩니다.
 
-- 홈페이지 &mdash; https://www.kronterm.dev
-- 다운로드 페이지 &mdash; https://www.kronterm.dev/download
-- 문서 &mdash; https://docs.kronterm.dev
-- X &mdash; https://x.com/krontermdev
-- Discord 커뮤니티 &mdash; https://discord.gg/XfvZ334gwU
+클라우드 모델 또는 관리형 샌드박스를 선택한 경우 해당 기능에 필요한 데이터만 선택한 제공자에게
+전송됩니다. 로컬 모델을 사용하면 모델 추론도 컴퓨터 안에서 실행할 수 있습니다.
 
-## 소스에서 빌드
+## 설치 및 개발
 
-[Building KronTerm](BUILD.md)을 참고하세요.
+macOS 비공개 베타는 [다운로드 페이지](https://www.kronterm.dev/download)에서 신청할 수 있습니다.
 
-## 기여하기
+| 플랫폼                       | 현재 상태       |
+| ---------------------------- | --------------- |
+| macOS (Apple Silicon 및 x64) | 비공개 베타     |
+| Windows (x64)                | 검토 중         |
+| Linux (arm64 및 x64)         | 검토 중         |
+| iPhone                       | Labs 클라이언트 |
 
-KronTerm은 GitHub Issues를 이슈 추적에 사용합니다.
+소스에서 빌드하려면 [`BUILD.md`](./BUILD.md)를 참고하세요. iPhone 클라이언트의 구현 범위와 설정은
+[`mobile/README.md`](./mobile/README.md)에 설명되어 있습니다.
 
-[기여 가이드](CONTRIBUTING.md)에서 더 많은 정보를 확인할 수 있습니다.
+## 문서 및 커뮤니티
 
-- [기여 방법](CONTRIBUTING.md#contributing-to-kronterm)
-- [기여 가이드라인](CONTRIBUTING.md#high-level-expectations)
+- [KronTerm 웹사이트](https://www.kronterm.dev)
+- [KronTerm 문서](https://docs.kronterm.dev)
+- [기여 가이드](./CONTRIBUTING.md)
+- [로드맵](./ROADMAP.md)
+- [Discord](https://discord.gg/XfvZ334gwU)
+- [X / @krontermdev](https://x.com/krontermdev)
 
 ## 라이선스
 
-KronTerm은 Apache-2.0 라이선스를 따릅니다. 의존성 정보는 [여기](./ACKNOWLEDGEMENTS.md)에서 확인할 수 있습니다.
+KronTerm은 [Apache License 2.0](./LICENSE)으로 배포됩니다. 저작권 및 의존성 정보는 [`NOTICE`](./NOTICE)와
+[`ACKNOWLEDGEMENTS.md`](./ACKNOWLEDGEMENTS.md)를 참고하세요.

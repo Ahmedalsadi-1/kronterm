@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronTerm Marketability"
+  short_description: "Turn capabilities into a compelling product"
+  default_prompt: "Use $kronterm-marketability to evaluate KronTerm positioning and propose an evidence-backed marketability improvement."

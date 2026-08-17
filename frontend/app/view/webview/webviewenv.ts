@@ -18,8 +18,6 @@ export type WebViewEnv = WaveEnvSubset<{
     };
     wos: WaveEnv["wos"];
     createBlock: WaveEnv["createBlock"];
-    getSettingsKeyAtom: SettingsKeyAtomFnType<"web:defaulturl" | "web:defaultsearch">;
-    getBlockMetaKeyAtom: BlockMetaKeyAtomFnType<
-        "web:hidenav" | "web:useragenttype" | "web:zoom" | "web:partition"
-    >;
+    getSettingsKeyAtom: SettingsKeyAtomFnType<"web:defaulturl" | "web:defaultsearch" | "web:tabstripposition">;
+    getBlockMetaKeyAtom: BlockMetaKeyAtomFnType<"web:hidenav" | "web:useragenttype" | "web:zoom" | "web:partition">;
 }>;

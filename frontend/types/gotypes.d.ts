@@ -1925,6 +1925,10 @@ declare global {
         "acp:commands"?: {[key: string]: ACPCommandDefinition};
         "acp:skills"?: {[key: string]: ACPSkillDefinition};
         "acp:gitidentities"?: {[key: string]: ACPGitIdentity};
+        "kronoscode:endpoint"?: string;
+        "kronoscode:binary"?: string;
+        "kronoscode:username"?: string;
+        "kronoscode:passwordsecretname"?: string;
         "sandbox:enabled"?: boolean;
         "sandbox:cpu"?: number;
         "sandbox:memory"?: number;
@@ -2757,6 +2761,7 @@ declare global {
     // wconfig.WidgetConfigType
     type WidgetConfigType = {
         "display:order"?: number;
+        "display:group"?: string;
         "display:hidden"?: boolean;
         icon?: string;
         color?: string;

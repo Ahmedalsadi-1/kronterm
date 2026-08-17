@@ -267,21 +267,25 @@ export class PreviewModel implements ViewModel {
                     viewTextChildren.push({
                         elemtype: "textbutton",
                         text: "Loading ...",
-                        className: clsx(`grey rounded-[4px] !py-[2px] !px-[10px] text-[11px] font-[500]`),
+                        className: clsx("surface-header-action grey"),
                         onClick: () => {},
                     });
                 } else if (fileInfo.data.readonly) {
                     viewTextChildren.push({
                         elemtype: "textbutton",
                         text: "Read Only",
-                        className: clsx(`yellow rounded-[4px] !py-[2px] !px-[10px] text-[11px] font-[500]`),
+                        className: clsx("surface-header-action is-warning yellow"),
                         onClick: () => {},
                     });
                 } else {
                     viewTextChildren.push({
                         elemtype: "textbutton",
                         text: "Save",
-                        className: clsx(`${saveClassName} rounded-[4px] !py-[2px] !px-[10px] text-[11px] font-[500]`),
+                        className: clsx(
+                            "surface-header-action",
+                            saveClassName === "green" && "is-success",
+                            saveClassName
+                        ),
                         onClick: () => fireAndForget(this.handleFileSave.bind(this)),
                     });
                 }
@@ -289,7 +293,7 @@ export class PreviewModel implements ViewModel {
                     viewTextChildren.push({
                         elemtype: "textbutton",
                         text: "Preview",
-                        className: "grey rounded-[4px] !py-[2px] !px-[10px] text-[11px] font-[500]",
+                        className: "surface-header-action grey",
                         onClick: () => fireAndForget(() => this.setEditMode(false)),
                     });
                 }
@@ -297,7 +301,7 @@ export class PreviewModel implements ViewModel {
                 viewTextChildren.push({
                     elemtype: "textbutton",
                     text: "Edit",
-                    className: "grey rounded-[4px] !py-[2px] !px-[10px] text-[11px] font-[500]",
+                    className: "surface-header-action grey",
                     onClick: () => fireAndForget(() => this.setEditMode(true)),
                 });
             }

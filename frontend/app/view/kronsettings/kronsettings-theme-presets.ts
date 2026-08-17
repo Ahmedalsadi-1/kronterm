@@ -10,10 +10,10 @@ export interface ThemePreset {
 export const THEME_PRESETS: ThemePreset[] = [
     {
         id: "default",
-        label: "Default Dark",
+        label: "Kronos Chamber",
         colors: {
-            "--accent-color": "rgb(88, 193, 66)",
-            "accent-rgb": "88, 193, 66",
+            "--accent-color": "rgb(25, 170, 216)",
+            "accent-rgb": "25, 170, 216",
         },
     },
     {
@@ -85,7 +85,10 @@ export function applyThemePreset(presetId: string): void {
 
     const accentColor = preset.colors["--accent-color"];
     if (accentColor) {
-        root.style.setProperty("--surface-selected-color", accentColor.replace("rgb(", "rgba(").replace(")", ", 0.16)"));
+        root.style.setProperty(
+            "--surface-selected-color",
+            accentColor.replace("rgb(", "rgba(").replace(")", ", 0.16)")
+        );
         root.style.setProperty("--focus-ring-color", accentColor.replace("rgb(", "rgba(").replace(")", ", 0.72)"));
         root.style.setProperty("--tab-green", accentColor);
         root.style.setProperty("--toggle-checked-bg-color", accentColor);

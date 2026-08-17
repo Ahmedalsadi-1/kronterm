@@ -3,11 +3,11 @@
 
 .workspace-switcher-button {
     display: flex;
-    height: 24px;
+    height: 28px;
     padding: 0 9px;
     justify-content: flex-end;
     align-items: center;
-    gap: 12px;
+    gap: 7px;
     border-radius: 6px;
     margin-right: 4px;
     margin-bottom: 3px;
@@ -35,9 +35,32 @@
     .workspace-icon {
         width: 15px;
         height: 15px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    .workspace-switcher-name {
+        min-width: 0;
+        max-width: 132px;
+        overflow: hidden;
+        color: var(--text-primary-color);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .workspace-switcher-chevron {
+        color: var(--text-muted-color);
+        font-size: 8px;
+        transition: transform 160ms ease;
+    }
+
+    &[aria-expanded="true"] .workspace-switcher-chevron {
+        transform: rotate(180deg);
     }
 }
 

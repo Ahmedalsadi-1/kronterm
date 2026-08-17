@@ -63,7 +63,7 @@ func classifyToolSource(source string) toolregistry.ToolSource {
 	return toolregistry.ToolSourceBuiltin
 }
 
-func classifyMCPToolCapability(server mcp.MCPServer, tool mcp.MCPTool) toolregistry.Capability {
+func classifyMCPToolCapability(server *mcp.MCPServer, tool mcp.MCPTool) toolregistry.Capability {
 	return toolregistry.Capability{
 		ID:           fmt.Sprintf("mcp:%s:%s", server.Name, tool.Name),
 		Name:         firstCapabilityValue(tool.Name, "MCP tool"),

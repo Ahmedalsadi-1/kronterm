@@ -317,6 +317,7 @@ describe("NdjsonTransport", () => {
         await vi.waitFor(async () => {
             await expect(fs.readFile(path.join(workspace, "nested", "out.txt"), "utf-8")).resolves.toBe("saved");
         });
+        await vi.waitFor(() => expect(writes).toHaveLength(1));
 
         expect(JSON.parse(writes[0])).toEqual({
             jsonrpc: "2.0",
@@ -477,6 +478,60 @@ describe("AcpAgentManager protocol requests", () => {
         });
     });
 
+    it("provides Hermes with the scoped surface capability and shared project skills", async () => {
+        const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "kronterm-hermes-"));
+        try {
+            const sharedSkills = path.join(workspace, ".agents", "skills");
+            await fs.mkdir(sharedSkills, { recursive: true });
+            vi.mocked(RpcApi.CreateSurfaceTokenCommand).mockResolvedValueOnce({
+                token: "hermes-surface-token",
+                tabid: "tab-hermes",
+                blockid: "block-hermes",
+            } as any);
+            const manager = new AcpAgentManager({
+                conversationId: "conversation-hermes",
+                backend: "hermes",
+                workspace,
+                surfaceContext: { tabId: "tab-hermes", blockId: "block-hermes" },
+            });
+            const transport = makeManagerTransport();
+            manager.transport = transport as any;
+            manager.capabilities = {
+                loadSession: false,
+                promptCapabilities: { image: false, audio: false, embeddedContext: false },
+                mcpCapabilities: { stdio: true, http: false, sse: false },
+                sessionCapabilities: { fork: null, resume: null, list: null, close: null },
+                _meta: {},
+            };
+
+            await manager.sendMessage({ conversationId: "conversation-hermes", content: "inspect surface" });
+
+            expect(transport.sendRequest).toHaveBeenNthCalledWith(1, "session/new", {
+                cwd: ".",
+                mcpServers: [
+                    {
+                        type: "stdio",
+                        name: "kron-term",
+                        command: process.execPath,
+                        args: [path.join(process.cwd(), "mcp-kron-term", "dist", "index.js")],
+                        env: [
+                            { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+                            { name: "KRONTERM_SHARED_SKILL_DIRS", value: sharedSkills },
+                            { name: "KRONTERM_JWT", value: "hermes-surface-token" },
+                            { name: "WAVETERM_JWT", value: "hermes-surface-token" },
+                            { name: "KRONTERM_TABID", value: "tab-hermes" },
+                            { name: "WAVETERM_TABID", value: "tab-hermes" },
+                            { name: "KRONTERM_BLOCKID", value: "block-hermes" },
+                            { name: "WAVETERM_BLOCKID", value: "block-hermes" },
+                        ],
+                    },
+                ],
+            });
+        } finally {
+            await fs.rm(workspace, { recursive: true, force: true });
+        }
+    });
+
     it("falls back to session/new resume when session/load fails", async () => {
         const manager = new AcpAgentManager({
             conversationId: "conversation-1",
@@ -631,6 +686,46 @@ describe("AcpAgentManager protocol requests", () => {
                 },
             }),
         ]);
+    });
+
+    it("adds ordered privacy-safe trace metadata without copying event content", () => {
+        const manager = new AcpAgentManager({
+            conversationId: "conversation-trace",
+            backend: "kronoscode",
+            workspace: "/tmp/kronterm-workspace",
+        });
+        const events: any[] = [];
+        manager.on("event", (event) => events.push(event));
+
+        (manager as any).handleSessionUpdate({
+            sessionId: "session-1",
+            update: {
+                sessionUpdate: "agent_message_chunk",
+                content: { type: "text", text: "private response content" },
+            },
+        });
+        (manager as any).handleSessionUpdate({
+            sessionId: "session-1",
+            update: {
+                sessionUpdate: "tool_call_update",
+                toolCallId: "tool-1",
+                status: "failed",
+                rawInput: { secret: "must-not-appear-in-trace" },
+            },
+        });
+
+        expect(events[0].trace).toMatchObject({
+            schemaVersion: 1,
+            sequence: 1,
+            backend: "kronoscode",
+        });
+        expect(events[1].trace).toMatchObject({
+            sequence: 2,
+            traceId: events[0].trace.traceId,
+            failureCategory: "tool_failure",
+        });
+        expect(JSON.stringify(events.map((event) => event.trace))).not.toContain("private response content");
+        expect(JSON.stringify(events.map((event) => event.trace))).not.toContain("must-not-appear-in-trace");
     });
 
     it("does not send configured MCP servers when the runtime does not advertise stdio MCP", async () => {
@@ -857,6 +952,7 @@ describe("AcpAgentManager protocol requests", () => {
                 expect.objectContaining({
                     type: "error",
                     data: { error: expect.stringContaining("ACP process exited unexpectedly") },
+                    trace: expect.objectContaining({ failureCategory: "transport_exit" }),
                 }),
             ])
         );

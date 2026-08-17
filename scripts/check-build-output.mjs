@@ -1,14 +1,23 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
+import console from "node:console";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import process from "node:process";
 
 const MaxRendererChunkKb = 22000;
 const LargeRendererChunkKb = 8000;
+
+function globHasSourceMap(directory) {
+  return readdirSync(directory, { recursive: true }).some((entry) => String(entry).endsWith(".map"));
+}
 
 function readInput() {
   const path = process.argv[2];
   if (path) {
     return readFileSync(path, "utf8");
+  }
+  if (process.stdin.isTTY) {
+    return "";
   }
   return readFileSync(0, "utf8");
 }
@@ -16,6 +25,26 @@ function readInput() {
 const log = readInput();
 const failures = [];
 const notices = [];
+
+for (const requiredPath of [
+  "dist/kronoschamber-web/dist/index.html",
+  "dist/kronoschamber-web/server/index.js",
+  "dist/kronoschamber-web/node_modules/node-pty/package.json",
+  "dist/mcp-kron-term/dist/index.js",
+]) {
+  if (!existsSync(requiredPath)) {
+    failures.push(`Required packaged runtime artifact is missing: ${requiredPath}`);
+  }
+}
+
+if (!process.env.KRONTERM_SOURCEMAP) {
+  const sourceMapPaths = ["dist/main", "dist/frontend", "dist/preload"];
+  for (const sourceMapPath of sourceMapPaths) {
+    if (existsSync(sourceMapPath) && globHasSourceMap(sourceMapPath)) {
+      failures.push(`${sourceMapPath} contains production source maps without KRONTERM_SOURCEMAP=true.`);
+    }
+  }
+}
 
 if (/circular dependency between chunks|broken execution order/i.test(log)) {
   failures.push("Rollup reported circular chunks that may break execution order.");

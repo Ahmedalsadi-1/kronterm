@@ -7,20 +7,20 @@ import {
     type AgentWidgetVisualSettings,
     loadAgentWidgetVisualSettings,
 } from "@/app/block/agent-widget-settings";
-import { BlockContextRibbon } from "@/app/block/block-context-ribbon";
 import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
 import { blockViewToIcon, getViewIconElem } from "@/app/block/blockutil";
 import { ConnStatusOverlay } from "@/app/block/connstatusoverlay";
 import { FlickeringGrid } from "@/app/element/flickering-grid";
 import { ChangeConnectionBlockModal } from "@/app/modals/conntypeahead";
-import { getBlockComponentModel, globalStore, useBlockAtom } from "@/app/store/global";
+import { getBlockComponentModel, globalStore, refocusNode, useBlockAtom } from "@/app/store/global";
 import { useTabModel } from "@/app/store/tab-model";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { ErrorBoundary } from "@/element/errorboundary";
 import { NodeModel } from "@/layout/index";
+import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { makeORef } from "@/store/wos";
 import * as util from "@/util/util";
 import { makeIconClass } from "@/util/util";
@@ -32,6 +32,7 @@ import "./agent-aura.scss";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
 import "./typing-keyboard.scss";
+import { getAdjacentWidgetFocus } from "./widget-focus-utils";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     const waveEnv = useWaveEnv<BlockEnv>();
@@ -158,6 +159,43 @@ const TypingKeyboard = React.memo(({ text }: { text: string }) => {
 });
 TypingKeyboard.displayName = "TypingKeyboard";
 
+const WidgetFocusArrows = React.memo(() => {
+    const moveFocus = (offset: -1 | 1) => {
+        const layoutModel = getLayoutModelForStaticTab();
+        const focusedNode = globalStore.get(layoutModel.focusedNode);
+        const nextFocus = getAdjacentWidgetFocus(globalStore.get(layoutModel.leafOrder), focusedNode?.id, offset);
+        if (nextFocus == null) {
+            return;
+        }
+        layoutModel.focusNode(nextFocus.nodeid);
+        window.requestAnimationFrame(() => refocusNode(nextFocus.blockid));
+    };
+    const controls = [
+        { offset: -1 as const, name: "left", icon: "arrow-left" },
+        { offset: 1 as const, name: "right", icon: "arrow-right" },
+    ];
+    return (
+        <div className="widget-focus-arrows" aria-label="Move focus between widgets">
+            {controls.map((control) => (
+                <button
+                    type="button"
+                    key={control.name}
+                    className={`widget-focus-arrow widget-focus-arrow-${control.name}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        moveFocus(control.offset);
+                    }}
+                    aria-label={`Focus widget ${control.name}`}
+                    title={`Focus widget ${control.name}`}
+                >
+                    <i className={`fa-solid fa-${control.icon}`} aria-hidden="true" />
+                </button>
+            ))}
+        </div>
+    );
+});
+WidgetFocusArrows.displayName = "WidgetFocusArrows";
 const AgentWidgetOverlay = React.memo(
     ({ activity, settings }: { activity: AgentWidgetActivity; settings: AgentWidgetVisualSettings }) => {
         const cursorStyle = activity.point
@@ -360,6 +398,10 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
         >
             {agentActivity != null && <AgentWidgetOverlay activity={agentActivity} settings={agentSettings} />}
             <BlockMask nodeModel={nodeModel} />
+            {isFocused &&
+                !preview &&
+                numBlocksInTab > 1 &&
+                ((window as any).__krontermLayoutMode ?? "widgets") !== "canvas" && <WidgetFocusArrows />}
             {preview || viewModel == null || !manageConnection ? null : (
                 <ConnStatusOverlay
                     nodeModel={nodeModel}
@@ -369,7 +411,6 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
             )}
             <div className="block-frame-default-inner" style={innerStyle}>
                 {noHeader || <ErrorBoundary fallback={headerElemNoView}>{headerElem}</ErrorBoundary>}
-                {!noHeader && !preview && <BlockContextRibbon status="idle" blockType={metaView ?? "term"} />}
                 {preview ? previewElem : children}
             </div>
             {preview || viewModel == null || !connModalOpen ? null : (

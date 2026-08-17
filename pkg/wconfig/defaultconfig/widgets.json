@@ -43,27 +43,26 @@
             }
         }
     },
-    "defwidget@ai": {
-        "display:order": -2,
+    "defwidget@chat": {
+        "display:order": -5.5,
         "icon": "sparkles",
-        "label": "ChatHub V2",
+        "label": "Chamber V2",
         "color": "#e8c47c",
-        "description": "KronosChamber AI chat hub",
+        "description": "Open the canonical Kronos workspace",
         "blockdef": {
             "meta": {
                 "view": "chathubv2"
             }
         }
     },
-    "defwidget@chat": {
-        "display:order": -5.5,
-        "icon": "comment-dots",
-        "label": "ChatHub V2",
-        "color": "#429DFF",
-        "description": "KronosChamber AI chat widget",
+    "defwidget@warpagent": {
+        "display:order": -5.4,
+        "icon": "wand-magic-sparkles",
+        "label": "Warp Agent",
+        "description": "Warp-style agent chat surface",
         "blockdef": {
             "meta": {
-                "view": "chathubv2"
+                "view": "warpagent"
             }
         }
     },
@@ -110,6 +109,21 @@
         "blockdef": {
             "meta": {
                 "view": "installedapps"
+            }
+        }
+    },
+    "defwidget@hermesdesktop": {
+        "display:order": 1.5,
+        "display:group": "apps",
+        "icon": "sparkles",
+        "label": "Hermes Desktop",
+        "color": "#8b7cf6",
+        "description": "Open the Hermes Desktop agent UI inside KronTerm",
+        "blockdef": {
+            "meta": {
+                "view": "appstream",
+                "appstream:appid": "com.nousresearch.hermes",
+                "appstream:appname": "Hermes"
             }
         }
     }

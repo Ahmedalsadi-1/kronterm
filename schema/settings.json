@@ -240,6 +240,7 @@
           "type": "string",
           "enum": [
             "widgets",
+            "tabs",
             "canvas"
           ]
         },
@@ -296,6 +297,18 @@
             "$ref": "#/$defs/ACPGitIdentity"
           },
           "type": "object"
+        },
+        "kronoscode:endpoint": {
+          "type": "string"
+        },
+        "kronoscode:binary": {
+          "type": "string"
+        },
+        "kronoscode:username": {
+          "type": "string"
+        },
+        "kronoscode:passwordsecretname": {
+          "type": "string"
         },
         "sandbox:enabled": {
           "type": "boolean"

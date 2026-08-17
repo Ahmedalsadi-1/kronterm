@@ -654,16 +654,16 @@ func (m *MCPClientManager) ListServers() []string {
 	return names
 }
 
-func (m *MCPClientManager) GetServer(name string) (MCPServer, bool) {
+func (m *MCPClientManager) GetServer(name string) (*MCPServer, bool) {
 	m.mu.RLock()
 	server, ok := m.Servers[name]
 	m.mu.RUnlock()
 	if !ok {
-		return MCPServer{}, false
+		return nil, false
 	}
 	server.mu.RLock()
 	defer server.mu.RUnlock()
-	return MCPServer{
+	return &MCPServer{
 		Name:      server.Name,
 		Config:    server.Config,
 		Status:    server.Status,

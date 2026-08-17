@@ -103,6 +103,43 @@ declare global {
         health?: ChatHubV2RuntimeHealth;
     };
 
+    type KronosCodeConnectionDescriptor = {
+        mode: "managed" | "external";
+        baseUrl: string;
+        backendVersion: string;
+        protocolVersion: string;
+        serverInstanceId: string;
+        capabilities: {
+            gateway: boolean;
+            replay: boolean;
+            asyncPrompt: boolean;
+            promptIdempotency?: boolean;
+            pagedHistory?: boolean;
+        };
+        managed: boolean;
+    };
+
+    type KronosCodeBootProgress = {
+        phase: "idle" | "resolving" | "validating" | "launching" | "waiting" | "ready" | "recovering" | "error";
+        message: string;
+        progress: number;
+        attempt?: number;
+        error?: string;
+    };
+
+    type KronosCodeApiRequest = {
+        path: string;
+        method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+        body?: unknown;
+        directory?: string;
+    };
+
+    type KronosCodeApiResponse = {
+        status: number;
+        headers: Record<string, string>;
+        body: unknown;
+    };
+
     type SplitAtom<Item> = Atom<Atom<Item>[]>;
     type WritableSplitAtom<Item> = WritableAtom<PrimitiveAtom<Item>[], [SplitAtomAction<Item>], void>;
 
@@ -284,6 +321,7 @@ declare global {
                 supportsStreaming?: boolean;
                 acpArgs?: string[];
                 skillsDirs?: string[];
+                harnessProfile?: any;
             }>
         >;
         acpInitialize: (opts: {
@@ -329,6 +367,8 @@ declare global {
                 configOptions: any[];
                 modelInfo: any;
                 capabilities: any;
+                harnessProfile?: any;
+                capabilityLease?: any;
             };
         }>;
         acpSendMessage: (opts: {
@@ -354,6 +394,8 @@ declare global {
             configOptions?: any[];
             modelInfo?: any;
             capabilities?: any;
+            harnessProfile?: any;
+            capabilityLease?: any;
         }>;
         acpListRuntimes: () => Promise<
             Array<{
@@ -369,6 +411,8 @@ declare global {
                 configOptions?: any[];
                 modelInfo?: any;
                 capabilities?: any;
+                harnessProfile?: any;
+                capabilityLease?: any;
             }>
         >;
         acpGetMode: (opts: { conversationId: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
@@ -412,7 +456,7 @@ declare global {
         krondesignStart: () => Promise<{ success: boolean; error?: string }>;
 
         // ── ChatHub V2 / KronosChamber backend ──────────────────────
-        chathubv2Start: (context?: { tabId?: string; blockId?: string }) => Promise<{
+        chathubv2Start: (context?: { tabId?: string; blockId?: string; surfaceId?: string }) => Promise<{
             success: boolean;
             error?: string;
             data?: ChatHubV2ServerData;
@@ -424,6 +468,24 @@ declare global {
             health?: ChatHubV2RuntimeHealth;
         }>;
         chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
+        kronoscodeGetConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-get-connection
+        kronoscodeRevalidateConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-revalidate-connection
+        kronoscodeTouchBackend: () => Promise<boolean>; // kronoscode-touch-backend
+        kronoscodeGetGatewayWsUrl: (input?: { directory?: string; surfaceId?: string }) => Promise<string>; // kronoscode-get-gateway-ws-url
+        kronoscodeApi: (input: KronosCodeApiRequest) => Promise<KronosCodeApiResponse>; // kronoscode-api
+        kronoscodeApplyConnection: (input: {
+            endpoint?: string;
+            binary?: string;
+            username?: string;
+            password?: string;
+        }) => Promise<KronosCodeConnectionDescriptor>; // kronoscode-apply-connection
+        kronoscodeGetBootProgress: () => Promise<KronosCodeBootProgress>; // kronoscode-get-boot-progress
+        onKronosCodeBootProgress: (callback: (progress: KronosCodeBootProgress) => void) => () => void; // kronoscode-boot-progress
+        onKronosCodeExit: (
+            callback: (exit: { code: number | null; signal: string | null; managed?: boolean }) => void
+        ) => () => void; // kronoscode-exit
+        onKronosCodePowerResume: (callback: () => void) => () => void; // kronoscode-power-resume
+        onKronosCodeConnectionApplied: (callback: (connection: KronosCodeConnectionDescriptor) => void) => () => void; // kronoscode-connection-applied
 
         // ── Audio / Voice Engine IPC ──────────────────────────────
         audioStart: () => Promise<boolean>;
@@ -618,6 +680,8 @@ declare global {
 
         // Optional header text or elements for the view.
         viewText?: jotai.Atom<string | HeaderElem[]>;
+
+        headerTop?: jotai.Atom<React.ReactNode>;
 
         termDurableStatus?: jotai.Atom<BlockJobStatusData | null>;
         termConfigedDurable?: jotai.Atom<null | boolean>;

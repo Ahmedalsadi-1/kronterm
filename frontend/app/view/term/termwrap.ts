@@ -29,6 +29,7 @@ import debug from "debug";
 import * as jotai from "jotai";
 import { debounce } from "throttle-debounce";
 import { FitAddon } from "./fitaddon";
+import { FocusReportModeGuard } from "./focusreportguard";
 import {
     handleOsc16162Command,
     handleOsc52Command,
@@ -138,6 +139,7 @@ export class TermWrap {
     lastMode2026ResetTs: number = 0;
     inSyncTransaction: boolean = false;
     inRepaintTransaction: boolean = false;
+    focusReportModeGuard = new FocusReportModeGuard();
 
     constructor(
         tabId: string,
@@ -226,7 +228,7 @@ export class TermWrap {
                     this.lastMode2026SetTs = Date.now();
                     this.inSyncTransaction = true;
                 }
-                return false;
+                return this.focusReportModeGuard.handleEnable(params);
             })
         );
         this.toDispose.push(
@@ -243,7 +245,7 @@ export class TermWrap {
                         }, 20);
                     }
                 }
-                return false;
+                return this.focusReportModeGuard.handleDisable(params);
             })
         );
         this.toDispose.push(

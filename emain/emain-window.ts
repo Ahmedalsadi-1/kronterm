@@ -448,6 +448,8 @@ export class WaveBrowserWindow extends BaseWindow {
 
     private async setTabViewIntoWindow(tabView: WaveTabView, tabInitialized: boolean, primaryStartupTab = false) {
         if (this.activeTabView == tabView) {
+            this.finalizePositioning();
+            tabView.webContents.focus();
             return;
         }
         const oldActiveView = this.activeTabView;
@@ -572,6 +574,8 @@ export class WaveBrowserWindow extends BaseWindow {
                     case "switchtab":
                         tabId = entry.tabId;
                         if (this.activeTabView?.waveTabId == tabId) {
+                            this.finalizePositioning();
+                            this.activeTabView.webContents.focus();
                             continue;
                         }
                         if (entry.setInBackend) {
@@ -623,6 +627,7 @@ export class WaveBrowserWindow extends BaseWindow {
                 await this.setTabViewIntoWindow(tabView, tabInitialized, primaryStartupTabFlag);
             } catch (e) {
                 console.log("error caught in processActionQueue", e);
+                this.finalizePositioning();
             } finally {
                 this.actionQueue.shift();
             }

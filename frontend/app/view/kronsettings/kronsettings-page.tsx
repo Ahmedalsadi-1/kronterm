@@ -145,6 +145,7 @@ const KronSettingsPage = memo(({ model }: KronSettingsPageProps) => {
         <div className="kron-settings-content" key={selectedSection}>
             <div className="kron-settings-content-inner">
                 <div className="kron-settings-content-header">
+                    <div className="kron-settings-content-eyebrow">KronTerm × KronosChamber</div>
                     <div className="flex items-center gap-3 mb-1">
                         {Icon && <Icon className="w-6 h-6 text-accent" />}
                         <h1 className="kron-settings-content-title">{title}</h1>

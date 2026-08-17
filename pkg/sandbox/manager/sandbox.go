@@ -216,6 +216,17 @@ func (sm *SandboxManager) Start(ctx context.Context, opts StartOpts) (*Session, 
 
 func (sm *SandboxManager) startKrontermDesktop(ctx context.Context, sessionID string, mode string, browserURL string) (*Session, error) {
 	baseURL := krontermDesktopBaseURL()
+
+	sm.mu.Lock()
+	if existing := sm.sessions[sessionID]; existing != nil &&
+		existing.Runtime == SandboxRuntimeKrontermDesktop &&
+		(existing.Status == SandboxStatusStarting || existing.Status == SandboxStatusRunning) {
+		existing.Mode = mode
+		existing.BrowserURL = browserURL
+		sessionCopy := cloneSession(existing)
+		sm.mu.Unlock()
+		return sessionCopy, nil
+	}
 	session := &Session{
 		SessionID:  sessionID,
 		Status:     SandboxStatusStarting,
@@ -225,8 +236,6 @@ func (sm *SandboxManager) startKrontermDesktop(ctx context.Context, sessionID st
 		DesktopURL: baseURL,
 		MCPURL:     baseURL + "/computer-use",
 	}
-
-	sm.mu.Lock()
 	sm.sessions[sessionID] = session
 	sm.mu.Unlock()
 
@@ -253,19 +262,20 @@ func (sm *SandboxManager) waitForKrontermDesktopReady(ctx context.Context, sessi
 		}
 	}
 
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			sm.setSessionError(sessionID, ctx.Err())
 			return
-		case <-ticker.C:
-			conn, err := net.DialTimeout("tcp", host, 300*time.Millisecond)
+		case <-timer.C:
+			conn, err := net.DialTimeout("tcp", host, 200*time.Millisecond)
 			if err != nil {
 				if !sm.sessionStillActive(sessionID) {
 					return
 				}
+				timer.Reset(250 * time.Millisecond)
 				continue
 			}
 			conn.Close()

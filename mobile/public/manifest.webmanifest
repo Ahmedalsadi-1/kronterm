@@ -1,0 +1,18 @@
+{
+  "name": "KronTerm",
+  "short_name": "KronTerm",
+  "description": "A browser-first AI workspace with local and sandbox execution.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

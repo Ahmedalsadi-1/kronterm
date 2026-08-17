@@ -25,6 +25,7 @@ import * as React from "react";
 import { AgentActionButton } from "./agent-action-button";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
+import { getSurfaceChromeLabel, getSurfaceChromeName } from "./surface-chrome";
 
 function handleHeaderContextMenu(
     e: React.MouseEvent<HTMLDivElement>,
@@ -257,7 +258,7 @@ function handleHeaderContextMenu(
         },
         {
             label: "Close Block",
-            click: () => uxCloseBlock(blockId),
+            click: () => uxCloseBlock(blockId, () => nodeModel.onClose()),
         }
     );
     blockEnv.showContextMenu(menu, e);
@@ -310,26 +311,30 @@ HeaderTextElems.displayName = "HeaderTextElems";
 type HeaderEndIconsProps = {
     viewModel: ViewModel;
     nodeModel: NodeModel;
-    blockId: string;
-    metaView?: string;
 };
 
-const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndIconsProps) => {
+const HeaderEndIcons = React.memo(({ viewModel, nodeModel }: HeaderEndIconsProps) => {
     const endIconButtons = util.useAtomValueSafe(viewModel?.endIconButtons);
 
     const endIconsElem: React.ReactElement[] = [];
 
     if (endIconButtons && endIconButtons.length > 0) {
-        endIconsElem.push(...endIconButtons.map((button, idx) => <IconButton key={idx} decl={button} />));
+        endIconsElem.push(
+            ...endIconButtons.map((button, idx) => (
+                <IconButton key={idx} decl={button} className="block-frame-widget-action block-frame-view-action" />
+            ))
+        );
     }
 
     const closeDecl: IconButtonDecl = {
         elemtype: "iconbutton",
         icon: "xmark-large",
         title: "Close",
-        click: () => uxCloseBlock(nodeModel.blockId),
+        click: () => uxCloseBlock(nodeModel.blockId, () => nodeModel.onClose()),
     };
-    endIconsElem.push(<IconButton key="close" decl={closeDecl} className="block-frame-default-close" />);
+    endIconsElem.push(
+        <IconButton key="close" decl={closeDecl} className="block-frame-widget-action block-frame-default-close" />
+    );
 
     return <div className="block-frame-end-icons">{endIconsElem}</div>;
 });
@@ -412,16 +417,22 @@ const BlockFrame_Header = ({
     const useTermHeader = util.useAtomValueSafe(viewModel?.useTermHeader);
     const termConfigedDurable = util.useAtomValueSafe(viewModel?.termConfigedDurable);
     const hideViewName = util.useAtomValueSafe(viewModel?.hideViewName);
+    const headerTop = util.useAtomValueSafe(viewModel?.headerTop);
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
     const prevMagifiedState = React.useRef(magnified);
     const [settingsPanelOpen, setSettingsPanelOpen] = React.useState(false);
+    const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
+    const settingsPanelRef = React.useRef<HTMLDivElement>(null);
+    const settingsPanelId = React.useId();
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
     const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
     const isTerminalBlock = metaView === "term";
     viewName = metaFrameTitle ?? viewName;
     viewIconUnion = metaFrameIcon ?? viewIconUnion;
+    const surfaceLabel = getSurfaceChromeLabel(metaView, viewName);
+    const surfaceName = getSurfaceChromeName(metaView);
 
     React.useEffect(() => {
         if (magnified && !preview && !prevMagifiedState.current) {
@@ -431,122 +442,144 @@ const BlockFrame_Header = ({
         prevMagifiedState.current = magnified;
     }, [magnified]);
 
+    React.useEffect(() => {
+        if (!settingsPanelOpen) {
+            return;
+        }
+        const closeSettingsPanel = (restoreFocus: boolean) => {
+            setSettingsPanelOpen(false);
+            if (restoreFocus) {
+                window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
+            }
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") {
+                return;
+            }
+            event.preventDefault();
+            closeSettingsPanel(true);
+        };
+        const handlePointerDown = (event: PointerEvent) => {
+            const target = event.target as Node;
+            if (settingsPanelRef.current?.contains(target) || settingsButtonRef.current?.contains(target)) {
+                return;
+            }
+            closeSettingsPanel(false);
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("pointerdown", handlePointerDown);
+        const focusFrame = window.requestAnimationFrame(() => {
+            settingsPanelRef.current?.querySelector<HTMLElement>("input, button")?.focus();
+        });
+        return () => {
+            window.cancelAnimationFrame(focusFrame);
+            document.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("pointerdown", handlePointerDown);
+        };
+    }, [settingsPanelOpen]);
+
     const viewIconElem = getViewIconElem(viewIconUnion, iconColor);
 
+    const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) =>
+        handleHeaderContextMenu(event, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView);
+
     return (
-        <div
-            className={cn("block-frame-default-header", useTermHeader && "!pl-[2px]")}
-            data-role="block-header"
-            ref={dragHandleRef}
-            onContextMenu={(e) =>
-                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
-            }
-            onDoubleClick={(e) =>
-                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
-            }
-        >
-            {!useTermHeader && (
-                <>
-                    {preIconButton && <IconButton decl={preIconButton} className="block-frame-preicon-button" />}
-                    <div className="block-frame-default-header-iconview">
-                        {viewIconElem}
-                        {viewName && !hideViewName && <div className="block-frame-view-type">{viewName}</div>}
+        <>
+            {headerTop && (
+                <div className="block-frame-header-top" onContextMenu={handleContextMenu}>
+                    {headerTop}
+                </div>
+            )}
+            <div
+                className={cn("block-frame-default-header", useTermHeader && "!pl-[2px]")}
+                data-role="block-header"
+                data-surface={surfaceName}
+                role="toolbar"
+                aria-label={`${surfaceLabel} widget controls`}
+                ref={dragHandleRef}
+                onContextMenu={handleContextMenu}
+                onDoubleClick={handleContextMenu}
+            >
+                {!useTermHeader && preIconButton && (
+                    <IconButton decl={preIconButton} className="block-frame-widget-action block-frame-preicon-button" />
+                )}
+                <div className="block-frame-surface-identity" title={`${surfaceLabel} surface`}>
+                    {viewIconElem}
+                    <span className={cn("block-frame-surface-name", hideViewName && "is-compact")}>{surfaceLabel}</span>
+                </div>
+                {manageConnection && (
+                    <ConnectionButton
+                        ref={connBtnRef}
+                        key="connbutton"
+                        connection={metaConnection}
+                        changeConnModalAtom={changeConnModalAtom}
+                        isTerminalBlock={isTerminalBlock}
+                    />
+                )}
+                {useTermHeader && termConfigedDurable != null && (
+                    <DurableSessionFlyover
+                        key="durable-status"
+                        blockId={nodeModel.blockId}
+                        viewModel={viewModel}
+                        placement="bottom"
+                        divClassName="iconbutton disabled text-[13px] ml-[-4px]"
+                    />
+                )}
+                {useTermHeader && badge && (
+                    <div
+                        className="pointer-events-none flex items-center px-1"
+                        style={{ color: badge.color || "#fbbf24" }}
+                    >
+                        <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
                     </div>
-                </>
-            )}
-            {manageConnection && (
-                <ConnectionButton
-                    ref={connBtnRef}
-                    key="connbutton"
-                    connection={metaConnection}
-                    changeConnModalAtom={changeConnModalAtom}
-                    isTerminalBlock={isTerminalBlock}
-                />
-            )}
-            {useTermHeader && termConfigedDurable != null && (
-                <DurableSessionFlyover
-                    key="durable-status"
-                    blockId={nodeModel.blockId}
-                    viewModel={viewModel}
-                    placement="bottom"
-                    divClassName="iconbutton disabled text-[13px] ml-[-4px]"
-                />
-            )}
-            {useTermHeader && badge && (
-                <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#fbbf24" }}>
-                    <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
-                </div>
-            )}
-            {!useTermHeader && metaView !== "web" && (
-                <div className="block-frame-traffic-lights">
-                    <div
-                        className="traffic-light traffic-light-close"
-                        title="Close Block"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            uxCloseBlock(nodeModel.blockId);
-                        }}
-                    />
-                    <div
-                        className="traffic-light traffic-light-fold"
-                        title="Fold Block"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            nodeModel.toggleFold();
-                        }}
-                    />
-                    <div
-                        className="traffic-light traffic-light-expand"
-                        title="Expand/Squash"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            nodeModel.toggleMagnify();
-                        }}
-                    />
-                </div>
-            )}
-            <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
-            {!useTermHeader && metaView !== "web" && (
+                )}
+                <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
                 <div className="block-frame-standard-actions">
                     <IconButton
                         decl={{
                             elemtype: "iconbutton",
                             icon: magnified ? "compress" : "expand",
-                            title: magnified ? "Un-Magnify" : "Magnify",
+                            title: magnified ? "Restore Widget" : "Expand Widget",
                             click: () => {
                                 nodeModel.toggleMagnify();
                                 setTimeout(() => refocusNode(nodeModel.blockId), 50);
                             },
                         }}
+                        className="block-frame-widget-action block-frame-expand-action"
                     />
-                    <IconButton
-                        decl={{
-                            elemtype: "iconbutton",
-                            icon: "sliders",
-                            title: "Widget Settings",
-                            click: () => setSettingsPanelOpen((v) => !v),
-                        }}
-                        className={settingsPanelOpen ? "text-[#5b9ef5]" : undefined}
-                    />
+                    <button
+                        ref={settingsButtonRef}
+                        type="button"
+                        title="Widget Settings"
+                        aria-label="Widget Settings"
+                        aria-haspopup="dialog"
+                        aria-expanded={settingsPanelOpen}
+                        aria-controls={settingsPanelId}
+                        onClick={() => setSettingsPanelOpen((open) => !open)}
+                        className={cn(
+                            "wave-iconbutton block-frame-widget-action block-frame-settings-action cursor-pointer",
+                            settingsPanelOpen && "is-active"
+                        )}
+                    >
+                        <i className={makeIconClass("sliders", true)} aria-hidden="true" />
+                    </button>
                 </div>
-            )}
-            <HeaderEndIcons
-                viewModel={viewModel}
-                nodeModel={nodeModel}
-                blockId={nodeModel.blockId}
-                metaView={metaView}
-            />
-            {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
-            {settingsPanelOpen && !useTermHeader && metaView !== "web" && (
-                <div
-                    className="block-frame-settings-panel"
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseLeave={() => setSettingsPanelOpen(false)}
-                >
-                    <WidgetSettingsPanel blockId={nodeModel.blockId} />
-                </div>
-            )}
-        </div>
+                <HeaderEndIcons viewModel={viewModel} nodeModel={nodeModel} />
+                {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
+                {settingsPanelOpen && (
+                    <div
+                        ref={settingsPanelRef}
+                        id={settingsPanelId}
+                        className="block-frame-settings-panel"
+                        role="dialog"
+                        aria-label="Widget settings"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <WidgetSettingsPanel blockId={nodeModel.blockId} />
+                    </div>
+                )}
+            </div>
+        </>
     );
 };
 

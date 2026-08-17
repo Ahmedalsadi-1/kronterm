@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 .tab-bar-wrapper {
-    padding-top: 4px;
+    padding-top: 5px;
     position: relative;
     user-select: none;
     display: flex;
@@ -10,13 +10,9 @@
     align-items: end;
     width: 100vw;
     -webkit-app-region: drag;
-    height: max(33px, calc(33px * var(--zoomfactor-inv)));
+    height: max(39px, calc(39px * var(--zoomfactor-inv)));
     backdrop-filter: blur(20px);
-    background: linear-gradient(
-        180deg,
-        rgb(from var(--surface-base-color) r g b / 0.92),
-        rgb(from var(--main-bg-color) r g b / 0.72)
-    );
+    background: rgb(from var(--surface-base-color) r g b / 0.88);
     border-bottom: 1px solid transparent;
     border-image: linear-gradient(
             90deg,
@@ -35,14 +31,14 @@
 
     .tabs-wrapper {
         transition: var(--tabs-wrapper-transition);
-        height: 26px;
+        height: 31px;
     }
 
     .tab-bar {
         position: relative; // Needed for absolute positioning of child tabs
         display: flex;
         flex-direction: row;
-        height: 27px;
+        height: 32px;
         -webkit-app-region: no-drag;
         margin-bottom: 1px;
     }
@@ -56,9 +52,10 @@
 
     .add-tab {
         margin-inline: 4px;
-        width: 26px;
-        border: 1px dashed rgb(from var(--main-text-color) r g b / 0.2) !important;
-        border-radius: 50%;
+        width: 28px;
+        border: 1px solid rgb(from var(--border-color) r g b / 0.46) !important;
+        border-radius: 6px;
+        background: rgb(from var(--surface-raised-color) r g b / 0.48);
         color: var(--text-muted-color);
         font-size: 11px;
         transition:
@@ -69,10 +66,9 @@
 
         &:hover {
             border-color: var(--accent-color) !important;
-            border-style: solid;
             color: var(--accent-color);
             background: rgb(from var(--accent-color) r g b / 0.08);
-            transform: scale(1.08);
+            transform: translateY(-1px);
         }
     }
 
@@ -92,16 +88,16 @@
 .shell-toolbar-button {
     -webkit-app-region: no-drag;
     display: flex;
-    height: 24px;
-    min-width: 26px;
+    height: 28px;
+    min-width: 28px;
     margin-bottom: 3px;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.38);
     border-radius: 6px;
-    background: transparent;
+    background: rgb(from var(--main-bg-color) r g b / 0.24);
     color: var(--text-secondary-color);
     font-size: 12px;
     line-height: 1;
@@ -128,7 +124,7 @@
 }
 
 .shell-ai-button {
-    min-width: 34px;
+    min-width: 32px;
     margin-right: 3px;
 
     &.is-active {

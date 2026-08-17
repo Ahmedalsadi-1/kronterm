@@ -1,0 +1,97 @@
+---
+sidebar_position: 2
+id: "workspace-canvas"
+title: "Workspace Modes and Canvas"
+---
+
+KronTerm can present the same workspace blocks as tiled widgets, focused tabs, or a spatial canvas. Switching modes changes
+the presentation, not the identity of the open terminal, browser, file, AI, or sandbox surfaces.
+
+## Select a mode
+
+Choose a layout in **KronSettings → Visual**, or set `app:layoutmode`:
+
+```json
+{
+  "app:layoutmode": "canvas"
+}
+```
+
+| Value     | Presentation                                     | Best for                                               |
+| --------- | ------------------------------------------------ | ------------------------------------------------------ |
+| `widgets` | Resizable tiled splits                           | Monitoring several live surfaces with a compact layout |
+| `tabs`    | Focused widgets with a tab strip and pane splits | Concentrated work with quick switching                 |
+| `canvas`  | Freeform pan-and-zoom workspace                  | Spatial planning, agent evidence, and large workflows  |
+
+## Tiled widgets
+
+Drag a widget header to move, swap, or split it. Drag a shared edge to resize neighboring widgets. Magnification brings one
+widget forward without destroying the saved layout.
+
+## Focused tabs
+
+Each pane has a browser-style tab strip. Select one widget at a time, reorder tabs, move a tab between panes, or create a
+new split above, right, below, or left. Closing a tab closes its widget through the normal block lifecycle.
+
+## Spatial canvas
+
+The canvas stores its camera and objects with the tab. It supports:
+
+- moving and resizing live widget nodes;
+- panning, wheel or trackpad zoom, and fit-to-content;
+- sticky notes with color choices;
+- rectangles, ellipses, decision diamonds, and connectors;
+- freehand drawing;
+- full-screen expansion of a live widget;
+- a searchable add menu for widgets and canvas items.
+
+Canvas state saves after a short debounce. Avoid closing the app immediately after the final movement when testing a new
+serialization change.
+
+## Agent activity on the canvas
+
+KronTerm converts live tool activity into typed cards:
+
+- request;
+- decision;
+- action;
+- approval;
+- evidence;
+- output.
+
+Edges preserve parent-child lineage, and run aggregation groups related cards into a task graph. Active, awaiting-approval,
+verifying, degraded, failed, cancelled, and completed phases remain distinct so the canvas does not hide recovery work.
+
+## Send canvas context to KronosCode
+
+Open a widget or agent card's context menu and choose one of these actions:
+
+- **Focus in Kronos task / Ask about selection:** use the node as the active `follow` context.
+- **Use as evidence:** attach the node as `quote` context.
+- **Open as widget / side widget:** bring the related live surface into the workspace.
+
+The composer shows the selected context and lets you clear it before submission. KronosCode receives stable node and block
+identifiers together with readable labels, allowing later activity to reconnect to the same canvas objects.
+
+## Keyboard and accessibility
+
+Canvas tools expose shortcuts in their accessible labels:
+
+| Shortcut | Tool             |
+| -------- | ---------------- |
+| `V`      | Select and move  |
+| `H`      | Pan              |
+| `N`      | Sticky note      |
+| `R`      | Rectangle        |
+| `O`      | Ellipse          |
+| `D`      | Decision diamond |
+| `C`      | Connector        |
+| `P`      | Freehand draw    |
+
+The canvas, tools, widgets, resize handles, context controls, and task cards expose accessible names. Reduced-motion settings
+apply to presentation effects, but do not suppress meaningful agent state changes.
+
+## Availability
+
+The three presentation modes and agent-aware canvas are part of the current private-beta development line. Their storage
+format and interaction details may change before general release.

@@ -1,0 +1,157 @@
+- generic [ref=f3e3]:
+  - link "Skip to content" [ref=f3e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f3e5]:
+    - navigation "Main navigation" [ref=f3e6]:
+      - link "KronTerm home" [ref=f3e7] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f3e9]: KronTerm
+      - generic [ref=f3e10]:
+        - link "Field guide" [ref=f3e11] [cursor=pointer]:
+          - /url: /capabilities
+        - link "Workspace" [ref=f3e12] [cursor=pointer]:
+          - /url: /capabilities/workspace-canvas
+        - link "KronosCode" [ref=f3e13] [cursor=pointer]:
+          - /url: /capabilities/kronoscode
+        - link "Security" [ref=f3e14] [cursor=pointer]:
+          - /url: /security
+        - link "Pricing" [ref=f3e15] [cursor=pointer]:
+          - /url: /pricing
+      - generic [ref=f3e16]:
+        - link "Talk to us" [ref=f3e17] [cursor=pointer]:
+          - /url: /contact-sales
+        - link "Request access" [ref=f3e18] [cursor=pointer]:
+          - /url: /download
+  - main [ref=f3e21]:
+    - generic [ref=f3e22]:
+      - generic [ref=f3e23]: First edition / 2026
+      - paragraph [ref=f3e27]: The complete product
+      - heading "KronTerm Field Guide." [level=1] [ref=f3e28]: KronTermField Guide.
+      - paragraph [ref=f3e29]: A collection of dedicated product chapters for the surfaces, systems, and operating boundaries that make human-plus-agent work legible.
+    - generic [ref=f3e31]:
+      - link "Chapter 01 Command center Workspace canvas Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface. Enter chapter" [ref=f3e32] [cursor=pointer]:
+        - /url: /capabilities/workspace-canvas
+        - generic [ref=f3e33]: KT / 01
+        - generic [ref=f3e34]: Chapter 01
+        - generic [ref=f3e43]:
+          - generic [ref=f3e44]:
+            - paragraph [ref=f3e45]: Command center
+            - heading "Workspace canvas" [level=3] [ref=f3e46]
+          - paragraph [ref=f3e47]: Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface.
+          - generic [ref=f3e48]: Enter chapter
+      - link "Chapter 02 AI engine KronosCode KronosCode reasons across the live workspace, then acts through visible, inspectable steps. Enter chapter" [ref=f3e51] [cursor=pointer]:
+        - /url: /capabilities/kronoscode
+        - generic [ref=f3e52]: KT / 02
+        - generic [ref=f3e53]: Chapter 02
+        - generic [ref=f3e69]:
+          - generic [ref=f3e70]:
+            - paragraph [ref=f3e71]: AI engine
+            - heading "KronosCode" [level=3] [ref=f3e72]
+          - paragraph [ref=f3e73]: KronosCode reasons across the live workspace, then acts through visible, inspectable steps.
+          - generic [ref=f3e74]: Enter chapter
+      - link "Chapter 03 Command layer Terminal Local shells, durable sessions, logs, and dev servers stay connected to the rest of the workspace. Enter chapter" [ref=f3e77] [cursor=pointer]:
+        - /url: /capabilities/terminal
+        - generic [ref=f3e78]: KT / 03
+        - generic [ref=f3e79]: Chapter 03
+        - generic [ref=f3e85]:
+          - generic [ref=f3e86]:
+            - paragraph [ref=f3e87]: Command layer
+            - heading "Terminal" [level=3] [ref=f3e88]
+          - paragraph [ref=f3e89]: Local shells, durable sessions, logs, and dev servers stay connected to the rest of the workspace.
+          - generic [ref=f3e90]: Enter chapter
+      - link "Chapter 04 Product validation Browser automation Embedded Chromium keeps localhost, documentation, and live product flows beside the code that drives them. Enter chapter" [ref=f3e93] [cursor=pointer]:
+        - /url: /capabilities/browser-automation
+        - generic [ref=f3e94]: KT / 04
+        - generic [ref=f3e95]: Chapter 04
+        - generic [ref=f3e104]:
+          - generic [ref=f3e105]:
+            - paragraph [ref=f3e106]: Product validation
+            - heading "Browser automation" [level=3] [ref=f3e107]
+          - paragraph [ref=f3e108]: Embedded Chromium keeps localhost, documentation, and live product flows beside the code that drives them.
+          - generic [ref=f3e109]: Enter chapter
+      - link "Chapter 05 Isolated runtime Sandbox VMs Disposable Linux desktops let people and agents experiment without putting the host machine at risk. Enter chapter" [ref=f3e112] [cursor=pointer]:
+        - /url: /capabilities/sandbox-vms
+        - generic [ref=f3e113]: KT / 05
+        - generic [ref=f3e114]: Chapter 05
+        - generic [ref=f3e121]:
+          - generic [ref=f3e122]:
+            - paragraph [ref=f3e123]: Isolated runtime
+            - heading "Sandbox VMs" [level=3] [ref=f3e124]
+          - paragraph [ref=f3e125]: Disposable Linux desktops let people and agents experiment without putting the host machine at risk.
+          - generic [ref=f3e126]: Enter chapter
+      - link "Chapter 06 Native automation Desktop control Observe and operate native applications through accessibility and screenshot-based controls. Enter chapter" [ref=f3e129] [cursor=pointer]:
+        - /url: /capabilities/desktop-control
+        - generic [ref=f3e130]: KT / 06
+        - generic [ref=f3e131]: Chapter 06
+        - generic [ref=f3e137]:
+          - generic [ref=f3e138]:
+            - paragraph [ref=f3e139]: Native automation
+            - heading "Desktop control" [level=3] [ref=f3e140]
+          - paragraph [ref=f3e141]: Observe and operate native applications through accessibility and screenshot-based controls.
+          - generic [ref=f3e142]: Enter chapter
+      - link "Chapter 07 Distributed work Remote sessions Durable SSH, remote files, and reconnecting sessions stay attached to the workspace. Enter chapter" [ref=f3e145] [cursor=pointer]:
+        - /url: /capabilities/remote-sessions
+        - generic [ref=f3e146]: KT / 07
+        - generic [ref=f3e147]: Chapter 07
+        - generic [ref=f3e156]:
+          - generic [ref=f3e157]:
+            - paragraph [ref=f3e158]: Distributed work
+            - heading "Remote sessions" [level=3] [ref=f3e159]
+          - paragraph [ref=f3e160]: Durable SSH, remote files, and reconnecting sessions stay attached to the workspace.
+          - generic [ref=f3e161]: Enter chapter
+      - link "Chapter 08 Agent operations ACP agents Configure background and interactive agents for repeatable technical workflows. Enter chapter" [ref=f3e164] [cursor=pointer]:
+        - /url: /capabilities/acp-agents
+        - generic [ref=f3e165]: KT / 08
+        - generic [ref=f3e166]: Chapter 08
+        - generic [ref=f3e173]:
+          - generic [ref=f3e174]:
+            - paragraph [ref=f3e175]: Agent operations
+            - heading "ACP agents" [level=3] [ref=f3e176]
+          - paragraph [ref=f3e177]: Configure background and interactive agents for repeatable technical workflows.
+          - generic [ref=f3e178]: Enter chapter
+    - generic [ref=f3e181]:
+      - paragraph [ref=f3e186]: A new home for technical work
+      - heading "Put the whole workspace behind the next prompt." [level=2] [ref=f3e187]
+      - paragraph [ref=f3e188]: Join the KronTerm private beta and help shape the command center for human + agent teams.
+      - generic [ref=f3e189]:
+        - link "Request private beta" [ref=f3e190] [cursor=pointer]:
+          - /url: /download
+        - link "Talk to the team" [ref=f3e193] [cursor=pointer]:
+          - /url: /contact-sales
+  - contentinfo [ref=f3e194]:
+    - generic [ref=f3e195]:
+      - generic [ref=f3e196]:
+        - link "KronTerm home" [ref=f3e197] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f3e199]: KronTerm
+        - paragraph [ref=f3e200]: The command center for human + agent work.
+      - generic [ref=f3e201]:
+        - generic [ref=f3e202]:
+          - strong [ref=f3e203]: Product
+          - link "Field guide" [ref=f3e204] [cursor=pointer]:
+            - /url: /capabilities
+          - link "Workspace" [ref=f3e205] [cursor=pointer]:
+            - /url: /capabilities/workspace-canvas
+          - link "Pricing" [ref=f3e206] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=f3e207]:
+          - strong [ref=f3e208]: Company
+          - link "Contact" [ref=f3e209] [cursor=pointer]:
+            - /url: /contact-sales
+          - link "Security" [ref=f3e210] [cursor=pointer]:
+            - /url: /security
+          - link "Private beta" [ref=f3e211] [cursor=pointer]:
+            - /url: /download
+        - generic [ref=f3e212]:
+          - strong [ref=f3e213]: Capabilities
+          - link "Workspace canvas" [ref=f3e214] [cursor=pointer]:
+            - /url: /capabilities/workspace-canvas
+          - link "KronosCode" [ref=f3e215] [cursor=pointer]:
+            - /url: /capabilities/kronoscode
+          - link "Terminal" [ref=f3e216] [cursor=pointer]:
+            - /url: /capabilities/terminal
+          - link "Browser automation" [ref=f3e217] [cursor=pointer]:
+            - /url: /capabilities/browser-automation
+    - generic [ref=f3e218]:
+      - generic [ref=f3e219]: © 2026 KronTerm
+      - generic [ref=f3e220]: Built for serious technical work.

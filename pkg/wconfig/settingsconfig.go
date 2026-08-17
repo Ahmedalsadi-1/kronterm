@@ -131,7 +131,7 @@ type SettingsType struct {
 	AppDisableCtrlShiftDisplay    bool   `json:"app:disablectrlshiftdisplay,omitempty"`
 	AppFocusFollowsCursor         string `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
-	AppLayoutMode                 string `json:"app:layoutmode,omitempty" jsonschema:"enum=widgets,enum=canvas"`
+	AppLayoutMode                 string `json:"app:layoutmode,omitempty" jsonschema:"enum=widgets,enum=tabs,enum=canvas"`
 	AppQuickComposer              *bool  `json:"app:quickcomposer,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
@@ -147,6 +147,11 @@ type SettingsType struct {
 	ACPCommands       map[string]ACPCommandDefinition `json:"acp:commands,omitempty"`
 	ACPSkills         map[string]ACPSkillDefinition   `json:"acp:skills,omitempty"`
 	ACPGitIdentities  map[string]ACPGitIdentity       `json:"acp:gitidentities,omitempty"`
+
+	KronosCodeEndpoint           string `json:"kronoscode:endpoint,omitempty"`
+	KronosCodeBinary             string `json:"kronoscode:binary,omitempty"`
+	KronosCodeUsername           string `json:"kronoscode:username,omitempty"`
+	KronosCodePasswordSecretName string `json:"kronoscode:passwordsecretname,omitempty"`
 
 	SandboxEnabled   bool   `json:"sandbox:enabled,omitempty"`
 	SandboxCPUCores  int    `json:"sandbox:cpu,omitempty"`
@@ -926,6 +931,7 @@ func SetConnectionsConfigValue(connName string, toMerge waveobj.MetaMapType) err
 
 type WidgetConfigType struct {
 	DisplayOrder  float64          `json:"display:order,omitempty"`
+	DisplayGroup  string           `json:"display:group,omitempty"`
 	DisplayHidden bool             `json:"display:hidden,omitempty"`
 	Icon          string           `json:"icon,omitempty"`
 	Color         string           `json:"color,omitempty"`

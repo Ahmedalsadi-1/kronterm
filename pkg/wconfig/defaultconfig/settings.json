@@ -4,7 +4,7 @@
     "ai:maxtokens": 4000,
     "ai:timeoutms": 60000,
     "app:defaultnewblock": "chathubv2",
-    "app:tabbar": "top",
+    "app:tabbar": "left",
     "app:layoutmode": "widgets",
     "app:quickcomposer": false,
     "app:confirmquit": true,
@@ -42,5 +42,6 @@
     "waveai:showcloudmodes": false,
     "waveai:defaultmode": "waveai@kronos",
     "acp:defaultbackend": "kronoscode",
+    "kronoscode:username": "kronoscode",
     "preview:defaultsort": "name"
 }

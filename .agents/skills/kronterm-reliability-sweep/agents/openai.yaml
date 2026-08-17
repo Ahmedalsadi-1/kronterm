@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronTerm Reliability Sweep"
+  short_description: "Find, prioritize, fix, and prevent regressions"
+  default_prompt: "Use $kronterm-reliability-sweep to run an evidence-driven reliability pass on a bounded KronTerm surface."

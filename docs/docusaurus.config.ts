@@ -5,20 +5,20 @@ import { docOgRenderer } from "./src/renderer/image-renderers";
 const baseUrl = process.env.EMBEDDED ? "/docsite/" : "/";
 
 const config: Config = {
-    title: "Wave Terminal Documentation",
-    tagline: "Level Up Your Terminal With Graphical Widgets",
-    favicon: "img/logo/wave-logo_appicon.svg",
+    title: "KronTerm Documentation",
+    tagline: "The living workspace for human + agent development",
+    favicon: "img/logo/kronterm-icon.svg",
 
     // Set the production url of your site here
-    url: "https://docs.waveterm.dev/",
+    url: "https://docs.kronterm.dev/",
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl,
 
     // GitHub pages deployment config.
     // If you aren't using GitHub pages, you don't need these.
-    organizationName: "wavetermdev", // Usually your GitHub org/user name.
-    projectName: "waveterm-docs", // Usually your repo name.
+    organizationName: "Ahmedalsadi-1",
+    projectName: "kronterm",
     deploymentBranch: "main",
 
     onBrokenAnchors: "ignore",
@@ -40,7 +40,9 @@ const config: Config = {
                 path: "docs",
                 routeBasePath: "/",
                 exclude: ["features/**"],
-                editUrl: !process.env.EMBEDDED ? "https://github.com/wavetermdev/waveterm/edit/main/docs/" : undefined,
+                editUrl: !process.env.EMBEDDED
+                    ? "https://github.com/Ahmedalsadi-1/kronterm/edit/main/docs/"
+                    : undefined,
                 rehypePlugins: [rehypeHighlight],
             } as import("@docusaurus/plugin-content-docs").Options,
         ],
@@ -82,9 +84,10 @@ const config: Config = {
         },
         navbar: {
             logo: {
-                src: "img/logo/wave-light.png",
-                srcDark: "img/logo/wave-dark.png",
-                href: "https://www.waveterm.dev/",
+                alt: "KronTerm",
+                src: "img/logo/kronterm-icon.svg",
+                srcDark: "img/logo/kronterm-icon.svg",
+                href: "https://www.kronterm.dev/",
             },
             hideOnScroll: true,
             items: [
@@ -98,17 +101,17 @@ const config: Config = {
                     ? [
                           {
                               position: "left",
-                              href: "https://docs.waveterm.dev/storybook",
+                              href: "https://docs.kronterm.dev/storybook",
                               label: "Storybook",
                           },
                           {
-                              href: "https://discord.gg/zUeP2aAjaP",
+                              href: "https://discord.gg/XfvZ334gwU",
                               position: "right",
                               className: "header-link-custom custom-icon-discord",
                               "aria-label": "Discord invite",
                           },
                           {
-                              href: "https://github.com/wavetermdev/waveterm",
+                              href: "https://github.com/Ahmedalsadi-1/kronterm",
                               position: "right",
                               className: "header-link-custom custom-icon-github",
                               "aria-label": "GitHub repository",
@@ -121,7 +124,7 @@ const config: Config = {
             {
                 name: "keywords",
                 content:
-                    "terminal, developer, development, command, line, wave, linux, macos, windows, connection, ssh, cli, waveterm, documentation, docs, ai, graphical, widgets, remote, open, source, open-source, go, golang, react, typescript, javascript",
+                    "KronTerm, KronosCode, KronosChamber, terminal, developer workspace, AI agent, canvas, browser automation, sandbox, computer use, SSH, remote development, widgets, macOS, documentation",
             },
             {
                 name: "og:type",
@@ -129,15 +132,15 @@ const config: Config = {
             },
             {
                 name: "og:site_name",
-                content: "Wave Terminal Documentation",
+                content: "KronTerm Documentation",
             },
             {
                 name: "application-name",
-                content: "Wave Terminal Documentation",
+                content: "KronTerm Documentation",
             },
             {
                 name: "apple-mobile-web-app-title",
-                content: "Wave Terminal Documentation",
+                content: "KronTerm Documentation",
             },
         ],
         footer: {
@@ -183,7 +186,7 @@ const config: Config = {
             tagName: "script",
             attributes: {
                 defer: "true",
-                "data-domain": "docs.waveterm.dev",
+                "data-domain": "docs.kronterm.dev",
                 src: "https://plausible.io/js/script.file-downloads.outbound-links.tagged-events.js",
             },
         },

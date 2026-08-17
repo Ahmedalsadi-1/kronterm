@@ -405,7 +405,7 @@ export function cleanPasteText(text: string): string {
     const cleanedLines = lines.map((line) => {
         // Remove leading $ or % prompts (common in tutorials)
         // Matches start of line, optional whitespace, then $ or %, then space
-        return line.replace(/^(\s*[\$%]\s+)/, "");
+        return line.replace(/^(\s*[$%]\s+)/, "");
     });
 
     return cleanedLines.join("\n");

@@ -126,6 +126,7 @@ tasks:
     package:
         desc: Package the application for the current platform.
         cmds:
+            - node scripts/validate-kronoscode-artifact.mjs
             - npm run build:prod && npm exec electron-builder -- -c electron-builder.config.cjs -p never {{.CLI_ARGS}}
         deps:
             - clean

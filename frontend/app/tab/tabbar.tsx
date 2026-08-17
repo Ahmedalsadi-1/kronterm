@@ -373,6 +373,15 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         };
     }, [handleResizeTabs]);
 
+    useEffect(() => {
+        if (workspaceSwitcherRef.current == null) {
+            return;
+        }
+        const resizeObserver = new ResizeObserver(handleResizeTabs);
+        resizeObserver.observe(workspaceSwitcherRef.current);
+        return () => resizeObserver.disconnect();
+    }, [handleResizeTabs]);
+
     // update layout on changed tabIds, tabsLoaded, newTabId, hideAiButton, appUpdateStatus, or zoomFactor
     useEffect(() => {
         // Check if all tabs are loaded
@@ -728,14 +737,20 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 divRef={workspaceSwitcherRef}
                 divClassName="flex items-center"
             >
-                <WorkspaceSwitcher />
+                <WorkspaceSwitcher showLabel />
             </Tooltip>
             <FoldedWidgetsBar />
             <div ref={projectPillsRef}>
                 <KronchatProjectPills projects={kronchatProjects} />
             </div>
             <BrowserTabsBar currentTabId={activeTabId} />
-            <div className="tab-bar" ref={tabBarRef} data-overlayscrollbars-initialize>
+            <div
+                className="tab-bar"
+                ref={tabBarRef}
+                role="tablist"
+                aria-label="Workspace tabs"
+                data-overlayscrollbars-initialize
+            >
                 <div
                     className="tabs-wrapper"
                     ref={tabsWrapperRef}

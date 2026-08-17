@@ -1393,8 +1393,24 @@ export const SettingsPanel = memo(
                                             <span className="min-w-0 flex-1">
                                                 <span className="block font-medium text-[#d4d4d4]">{agent.name}</span>
                                                 <span className="block truncate text-[#8a8580]">
-                                                    {agent.description ?? agent.cliPath}
+                                                    {agent.harnessProfile?.summary ??
+                                                        agent.description ??
+                                                        agent.cliPath}
                                                 </span>
+                                                {agent.harnessProfile?.specialties?.length ? (
+                                                    <span className="mt-1 flex flex-wrap gap-1">
+                                                        {agent.harnessProfile.specialties
+                                                            .slice(0, 4)
+                                                            .map((specialty) => (
+                                                                <span
+                                                                    key={specialty}
+                                                                    className="rounded border border-[#2a2a2a] bg-[#151515] px-1.5 py-0.5 text-[9px] text-[#8a8580]"
+                                                                >
+                                                                    {specialty}
+                                                                </span>
+                                                            ))}
+                                                    </span>
+                                                ) : null}
                                             </span>
                                             <span
                                                 className={cn(

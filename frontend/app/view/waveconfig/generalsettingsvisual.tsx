@@ -91,7 +91,6 @@ export const GeneralSettingsVisualContent = memo(({ model }: GeneralSettingsVisu
     const confirmWindowClose = settings["window:confirmclose"] ?? false;
     const reducedMotion = settings["window:reducedmotion"] ?? false;
     const hideAIButton = settings["app:hideaibutton"] ?? false;
-    const tabBar = settings["app:tabbar"] ?? "top";
     const focusFollowsCursor = settings["app:focusfollowscursor"] ?? "off";
 
     return (
@@ -214,15 +213,6 @@ export const GeneralSettingsVisualContent = memo(({ model }: GeneralSettingsVisu
                         checked={hideAIButton}
                         onChange={(checked) => setValues({ "app:hideaibutton": checked })}
                     />
-                    <SelectSetting
-                        title="Tab bar position"
-                        description="Choose whether tabs sit across the top or in a vertical bar on the left."
-                        value={tabBar}
-                        onChange={(value) => setValues({ "app:tabbar": value })}
-                    >
-                        <option value="top">Top</option>
-                        <option value="left">Left</option>
-                    </SelectSetting>
                     <SelectSetting
                         title="Focus follows cursor"
                         description="Decide whether moving the pointer should also move focus between blocks."

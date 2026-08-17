@@ -1,6 +1,8 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { AcpTraceEnvelope } from "./acp-observability";
+
 /**
  * ACP (Agent Client Protocol) types and backend configurations.
  * Adapted from AionUi's acpTypes.ts for kronterm integration.
@@ -252,6 +254,7 @@ export const ACP_BACKENDS_ALL: Record<string, AcpBackendConfig> = {
         enabled: true,
         supportsStreaming: false,
         acpArgs: ["acp"],
+        skillsDirs: [".hermes/skills"],
         avatar: "✦",
         description: "Nous Research Hermes Agent",
     },
@@ -636,6 +639,7 @@ export interface AcpDetectedAgent {
     supportsStreaming?: boolean;
     acpArgs?: string[];
     skillsDirs?: string[];
+    harnessProfile?: import("./acp-harness").AcpHarnessProfile;
 }
 
 // ── ACP Event Types (Electron → Frontend via IPC) ────────────────────
@@ -655,6 +659,8 @@ export type AcpEventType =
     | "usage"
     | "session_id"
     | "agent_info"
+    | "harness_profile"
+    | "harness_lease"
     | "slash_commands";
 
 export interface AcpEvent {
@@ -663,6 +669,7 @@ export interface AcpEvent {
     msgId: string;
     data?: unknown;
     timestamp: number;
+    trace?: AcpTraceEnvelope;
 }
 
 // ── Utility Functions ────────────────────────────────────────────────

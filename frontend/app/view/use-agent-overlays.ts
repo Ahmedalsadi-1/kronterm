@@ -15,25 +15,39 @@ interface OverlayMarker {
 interface AgentOverlayState {
     waterflowActive: boolean;
     markers: OverlayMarker[];
+    cursorPoint: { x: number; y: number } | null;
+    cursorActive: boolean;
+    clickFlashCount?: number;
 }
 
-/**
- * Subscribe to agent activity events and derive WaterFlow + ActionMarker state.
- *
- * - WaterFlow active ONLY during real tool execution (not during thinking/reasoning)
- * - Action markers created from action events with coordinates (click, type, hotkey)
- * - Markers auto-dismiss after their timeout via ActionMarker component
- * - Markers are cleared on new run or terminal/desktop surface switch
- */
-export function useAgentOverlays(surface?: string): AgentOverlayState {
+export function matchesAgentOverlayTarget(
+    activity: Pick<LiveAgentSurfaceActivity, "surface" | "blockid">,
+    surface?: string,
+    blockId?: string
+): boolean {
+    if (surface != null && activity.surface !== surface) {
+        return false;
+    }
+    if (blockId != null && activity.blockid != null && activity.blockid !== blockId) {
+        return false;
+    }
+    return true;
+}
+
+export function useAgentOverlays(surface?: string, blockId?: string): AgentOverlayState {
     const [waterflowActive, setWaterflowActive] = useState(false);
     const [markers, setMarkers] = useState<OverlayMarker[]>([]);
+    const [cursorPoint, setCursorPoint] = useState<{ x: number; y: number } | null>(null);
+    const [cursorActive, setCursorActive] = useState(false);
+    const [clickFlashCount, setClickFlashCount] = useState<number>();
 
     useEffect(() => {
         const unsub = subscribeAgentActivityStream((activity: LiveAgentSurfaceActivity) => {
+            if (!matchesAgentOverlayTarget(activity, surface, blockId)) {
+                return;
+            }
             const isToolAction = activity.action !== "thinking" && activity.action !== "wait";
 
-            // Always turn off waterflow for terminal/phases that end or pause
             if (
                 activity.phase === "succeeded" ||
                 activity.phase === "failed" ||
@@ -43,10 +57,10 @@ export function useAgentOverlays(surface?: string): AgentOverlayState {
                 activity.phase === "awaiting-approval"
             ) {
                 setWaterflowActive(false);
+                setCursorActive(false);
                 return;
             }
 
-            // Only activate waterflow for actual tool actions, never for thinking
             if (!isToolAction) {
                 return;
             }
@@ -60,6 +74,11 @@ export function useAgentOverlays(surface?: string): AgentOverlayState {
             if (activity.phase === "running" || activity.phase === "verifying") {
                 setWaterflowActive(true);
                 if (activity.point && activity.surface !== "terminal") {
+                    setCursorPoint(activity.point);
+                    setCursorActive(true);
+                    if (activity.action === "click" || activity.action === "doubleClick") {
+                        setClickFlashCount((count) => (count ?? 0) + 1);
+                    }
                     setMarkers((prev) => {
                         const marker = {
                             id: activity.id ?? `${activity.action}-${Date.now()}`,
@@ -78,7 +97,7 @@ export function useAgentOverlays(surface?: string): AgentOverlayState {
             }
         });
         return unsub;
-    }, [surface]);
+    }, [surface, blockId]);
 
-    return { waterflowActive, markers };
+    return { waterflowActive, markers, cursorPoint, cursorActive, clickFlashCount };
 }

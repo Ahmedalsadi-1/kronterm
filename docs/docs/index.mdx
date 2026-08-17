@@ -8,93 +8,86 @@ hide_table_of_contents: true
 
 import { Card, CardGroup } from "@site/src/components/card";
 
-# Welcome to Wave Terminal
+# Welcome to KronTerm
 
-Wave is an [open-source](https://github.com/wavetermdev/waveterm) terminal that combines traditional terminal features with graphical capabilities like file previews, web browsing, and AI assistance. It runs on MacOS, Linux, and Windows.
+KronTerm is a persistent developer workspace where terminals, browsers, files, previews, remote sessions, isolated Linux
+desktops, native applications, and AI agents stay visible together. KronosCode can work from the same terminal output,
+browser state, files, diffs, and task evidence that you see.
 
-Modern development involves constantly switching between terminals and browsers - checking documentation, previewing files, monitoring systems, and using AI tools. Wave brings these graphical tools directly into the terminal, letting you control them from the command line. This means you can stay in your terminal workflow while still having access to the visual interfaces you need.
+KronTerm is currently a macOS private beta. Windows and Linux builds remain under evaluation. The optional voice engine is
+experimental, and the iPhone client is a Labs project.
 
-Check out [Getting Started](./gettingstarted) for installation instructions.
-
-![Wave Screenshot](./img/wave-screenshot.webp)
+[Request private-beta access](https://www.kronterm.dev/download) or start with [Getting Started](./gettingstarted).
 
 <CardGroup>
   <Card
+    href="./workspace-canvas"
+    icon="fa-grid-2"
+    title="Workspace modes"
+    description="Use tiled widgets, focused tabs, or a spatial canvas without losing the underlying project context."
+  />
+  <Card
     href="./waveai"
     icon="fa-sparkles"
-    title="Wave AI"
-    description="Context-aware terminal assistant with access to terminal output, widgets, and filesystem."
-  />
-  <Card
-    href="./customization"
-    icon="fa-paintbrush"
-    title="Customization"
-    description="Set up tabs and terminals to match your workflow needs."
-  />
-  <Card
-    href="./keybindings"
-    icon="fa-keyboard"
-    title="Key Bindings"
-    description="Boost efficiency with keyboard shortcuts for faster navigation."
-  />
-  <Card
-    href="./layout"
-    icon="fa-grid-2"
-    title="Layout"
-    description="Organize your workspace using our layout system."
-  />
-  <Card
-    href="./connections"
-    icon="fa-network-wired"
-    title="Remote Connections"
-    description="Quickly SSH or connect to remote machines in one step."
+    title="KronosCode"
+    description="Work with a routed agent that can inspect terminal, file, browser, sandbox, desktop, and canvas evidence."
   />
   <Card
     href="./widgets"
     icon="fa-rocket"
-    title="Widgets"
-    description="Explore built-in tools to extend your terminal’s functionality."
+    title="Surfaces and widgets"
+    description="Open terminals, browsers, previews, editors, sandboxes, AI, settings, and system tools."
+  />
+  <Card
+    href="./connections"
+    icon="fa-network-wired"
+    title="Remote connections"
+    description="Keep SSH terminal and file context alive through network changes, sleep, and app restarts."
+  />
+  <Card
+    href="./voice"
+    icon="fa-microphone"
+    title="Voice (experimental)"
+    description="Connect optional local speech capture and transcription to the active KronosCode composer."
   />
   <Card
     href="./wsh"
     icon="fa-rectangle-terminal"
-    title="wsh Command"
-    description="Control Wave and launch widgets directly from the command line."
+    title="wsh command"
+    description="Open and control KronTerm surfaces from the command line."
   />
 </CardGroup>
 
-<div style={{ marginBottom: 30 }} />
+## The operating model
 
-:::info
+KronTerm separates actions by surface. Terminal commands, browser interaction, native desktop control, remote hosts, and
+sandbox actions use distinct routes. Sensitive work can pause for approval, and the UI keeps commands, diffs, screenshots,
+tool state, and recovery information visible.
 
-If you have a question, please feel free to ask us in [Discord](https://discord.gg/XfvZ334gwU). If you'd like to file a bug/enchancement, please use [Github Issues](https://github.com/wavetermdev/waveterm/issues). These docs are also open-source and we do accept PRs for docs [here](https://github.com/wavetermdev/waveterm/blob/main/docs). You can click the "Edit this page" link at the bottom of the page to get taken directly to the editor page for that document in GitHub.
+The desktop offers three presentations over the same workspace:
 
-:::
+- **Widgets:** resizable tiled splits.
+- **Tabs:** focused widgets in a browser-style tab strip with pane splitting.
+- **Canvas:** a freeform, pan-and-zoom workspace for live widgets, notes, diagrams, and agent task/evidence cards.
 
-<div className="reference-links">
-
-Other References:
+## References
 
 - [Configuration](./config)
-- [Custom Widgets](./customwidgets)
+- [KronosCode providers and local models](./waveai-modes)
+- [Custom widgets](./customwidgets)
 - [Full wsh reference](./wsh-reference)
+- [Durable sessions](./durable-sessions)
+- [Key bindings](./keybindings)
+- [Security and secrets](./secrets)
 - [Telemetry](./telemetry)
 - [FAQ](./faq)
-- [Release Notes](./releasenotes)
+- [Release notes](./releasenotes)
 
-</div>
+## Community
 
-## Roadmap
+- [KronTerm website](https://www.kronterm.dev)
+- [GitHub repository](https://github.com/Ahmedalsadi-1/kronterm)
+- [Discord](https://discord.gg/XfvZ334gwU)
+- [X / @krontermdev](https://x.com/krontermdev)
 
-Want to provide input to our future releases? Connect with us on [Discord](https://discord.gg/XfvZ334gwU) or open a [Feature Request](https://github.com/wavetermdev/waveterm/issues/new/choose)!
-
-## Links
-
-- **Homepage** https://waveterm.dev
-- **Download** https://waveterm.dev/download
-- **Discord** https://discord.gg/XfvZ334gwU
-- **GitHub** https://github.com/wavetermdev/waveterm/
-
-## Looking for WaveLegacy documentation?
-
-WaveLegacy docs can be found at [legacydocs.waveterm.dev](https://legacydocs.waveterm.dev).
+These docs are part of the KronTerm repository. Use the **Edit this page** link to propose a correction.

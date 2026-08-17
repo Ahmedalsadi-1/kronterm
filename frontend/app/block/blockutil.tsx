@@ -12,38 +12,38 @@ import * as React from "react";
 export const colorRegex = /^((#[0-9a-f]{6,8})|([a-z]+))$/;
 export const NumActiveConnColors = 8;
 
+const ViewIconMap: Record<string, string> = {
+    aifilediff: "file-lines",
+    appstream: "desktop",
+    chathubv2: "sparkles",
+    cpuplot: "chart-line",
+    design: "palette",
+    help: "circle-question",
+    installedapps: "desktop",
+    kronoscanvas: "diagram-project",
+    kronoschamber: "sliders",
+    kronoschat: "sparkles",
+    kronsettings: "sliders",
+    launcher: "shapes",
+    preview: "file",
+    sandbox: "desktop",
+    sysinfo: "chart-line",
+    term: "terminal",
+    tips: "lightbulb",
+    tsunami: "cube",
+    vdom: "bolt",
+    waveai: "sparkles",
+    waveconfig: "gear",
+    web: "globe",
+};
+
 export function blockViewToIcon(view: string): string {
-    if (view == "term") {
-        return "terminal";
-    }
-    if (view == "preview") {
-        return "file";
-    }
-    if (view == "web") {
-        return "globe";
-    }
-    if (view == "waveai" || view == "kronoschat" || view == "chathubv2") {
-        return "sparkles";
-    }
-    if (view == "help") {
-        return "circle-question";
-    }
-    if (view == "tips") {
-        return "lightbulb";
-    }
-    if (view == "installedapps") {
-        return "desktop";
-    }
-    if (view == "kronsettings" || view == "kronoschamber") {
-        return "sliders";
-    }
-    if (view == "kronoscanvas") {
-        return "diagram-project";
-    }
-    if (view == "design") {
-        return "palette";
-    }
-    return "square";
+    return ViewIconMap[view] ?? "square";
+}
+
+export function resolveBlockIcon(view: string, meta?: Record<string, any>): string {
+    const metaIcon = meta?.["frame:icon"] ?? meta?.icon;
+    return typeof metaIcon === "string" && !util.isBlank(metaIcon) ? metaIcon : blockViewToIcon(view);
 }
 
 export function blockViewToName(view: string): string {
@@ -60,7 +60,7 @@ export function blockViewToName(view: string): string {
         return "Web";
     }
     if (view == "waveai" || view == "kronoschat" || view == "chathubv2") {
-        return "ChatHub V2";
+        return "Chamber V2";
     }
     if (view == "help") {
         return "Help";

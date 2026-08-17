@@ -6,6 +6,7 @@ import { NewInstallOnboardingModal } from "@/app/onboarding/onboarding";
 import { UpgradeOnboardingModal } from "@/app/onboarding/onboarding-upgrade";
 import { UpgradeOnboardingPatch } from "@/app/onboarding/onboarding-upgrade-patch";
 import { AboutModal } from "./about";
+import { CommandPaletteModal } from "./command-palette";
 import { UserInputModal } from "./userinputmodal";
 
 const modalRegistry: { [key: string]: React.ComponentType<any> } = {
@@ -15,6 +16,7 @@ const modalRegistry: { [key: string]: React.ComponentType<any> } = {
     [UserInputModal.displayName || "UserInputModal"]: UserInputModal,
     [AboutModal.displayName || "AboutModal"]: AboutModal,
     [MessageModal.displayName || "MessageModal"]: MessageModal,
+    [CommandPaletteModal.displayName || "CommandPaletteModal"]: CommandPaletteModal,
 };
 
 export const getModalComponent = (key: string): React.ComponentType<any> | undefined => {

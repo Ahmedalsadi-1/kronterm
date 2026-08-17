@@ -5,6 +5,7 @@ import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeAgentActivityStream } from "../../../types/agent-activity";
 import { AppStreamViewModel } from "./appstream-model";
 
 type StreamFitMode = "fit" | "fill" | "actual";
@@ -53,11 +54,49 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
     const dragStartRef = useRef<CanvasPoint | null>(null);
     const suppressClickRef = useRef(false);
     const streamingRef = useRef(false);
+    const lastPreviewImageUrlRef = useRef<string>(undefined);
     const [fitMode, setFitMode] = useState<StreamFitMode>("fit");
     const [fps, setFps] = useState(6);
     const [quality, setQuality] = useState(80);
     const [frameInfo, setFrameInfo] = useState<{ width: number; height: number; updatedAt: number } | null>(null);
     const { waterflowActive, markers } = useAgentOverlays("desktop");
+
+    const reportAppActivity = useCallback(
+        (detail: string, input?: Record<string, unknown>) => {
+            reportDesktopPetActivity(
+                { kind: "tool", detail, previewImageUrl: lastPreviewImageUrlRef.current },
+                model.blockId,
+                input,
+                { surface: "desktop", appname: appName }
+            );
+        },
+        [appName, model.blockId]
+    );
+
+    useEffect(() => {
+        return subscribeAgentActivityStream((activity) => {
+            const activityAppName = activity.appname?.trim().toLowerCase();
+            const currentAppName = appName.trim().toLowerCase();
+            const targetsView =
+                activity.blockid === model.blockId || (currentAppName.length > 0 && activityAppName === currentAppName);
+            const previewImageUrl = lastPreviewImageUrlRef.current;
+            if (activity.surface !== "desktop" || activity.previewimageurl || !targetsView || !previewImageUrl) {
+                return;
+            }
+            reportDesktopPetActivity(
+                { kind: "tool", detail: activity.detail ?? `Controlling ${appName}`, previewImageUrl },
+                model.blockId,
+                undefined,
+                {
+                    ...activity,
+                    blockid: model.blockId,
+                    surface: "desktop",
+                    appname: activity.appname ?? appName,
+                    previewimageurl: previewImageUrl,
+                }
+            );
+        });
+    }, [appName, model.blockId]);
 
     useEffect(() => {
         model.startStream().catch(console.error);
@@ -69,6 +108,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
     useEffect(() => {
         if (!streamUrl || status !== "streaming") {
             streamingRef.current = false;
+            lastPreviewImageUrlRef.current = undefined;
             return;
         }
 
@@ -83,6 +123,12 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                 const data = await response.json();
                 if (disposed || !data.image) return;
 
+                const previewImageUrl = `data:image/png;base64,${data.image}`;
+                const shouldAnnouncePreview = lastPreviewImageUrlRef.current == null;
+                lastPreviewImageUrlRef.current = previewImageUrl;
+                if (shouldAnnouncePreview) {
+                    reportAppActivity(`${appName} app preview`);
+                }
                 const img = new Image();
                 img.onload = () => {
                     if (disposed) return;
@@ -115,7 +161,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
                         setTimeout(pollFrame, Math.max(80, Math.round(1000 / fps)));
                     }
                 };
-                img.src = "data:image/png;base64," + data.image;
+                img.src = previewImageUrl;
             } catch {
                 if (!disposed) {
                     setTimeout(pollFrame, Math.max(150, Math.round(1000 / fps)));
@@ -129,7 +175,7 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             disposed = true;
             streamingRef.current = false;
         };
-    }, [streamUrl, status, fps, quality]);
+    }, [appName, fps, quality, reportAppActivity, status, streamUrl]);
 
     const handleClick = useCallback(
         (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -142,13 +188,13 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             const rect = canvas.getBoundingClientRect();
             const point = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
             cursorPosRef.current = point;
-            reportDesktopPetActivity({ kind: "tool", detail: "desktop app click" }, model.blockId, {
+            reportAppActivity("desktop app click", {
                 x: Math.round(e.clientX - rect.left),
                 y: Math.round(e.clientY - rect.top),
             });
             void model.sendClick(point.x, point.y);
         },
-        [fitMode, model]
+        [fitMode, model, reportAppActivity]
     );
 
     const handlePointerDown = useCallback(
@@ -156,7 +202,14 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            dragStartRef.current = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
+            dragStartRef.current = clientPointToCanvasPoint(
+                e.clientX,
+                e.clientY,
+                rect,
+                canvas.width,
+                canvas.height,
+                fitMode
+            );
             e.currentTarget.setPointerCapture(e.pointerId);
         },
         [fitMode]
@@ -172,13 +225,13 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             const end = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
             if (Math.hypot(end.x - start.x, end.y - start.y) < 6) return;
             suppressClickRef.current = true;
-            reportDesktopPetActivity({ kind: "tool", detail: "desktop app drag" }, model.blockId, {
+            reportAppActivity("desktop app drag", {
                 x: Math.round(e.clientX - rect.left),
                 y: Math.round(e.clientY - rect.top),
             });
             void model.sendDrag(start.x, start.y, end.x, end.y);
         },
-        [fitMode, model]
+        [fitMode, model, reportAppActivity]
     );
 
     const handleKeyDown = useCallback(
@@ -187,17 +240,19 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             const keys = [e.metaKey && "Meta", e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift", e.key]
                 .filter(Boolean)
                 .join("+");
+            reportAppActivity("desktop app key press");
             void model.sendKeyPress(keys);
         },
-        [model]
+        [model, reportAppActivity]
     );
 
     const handlePaste = useCallback(
         (e: React.ClipboardEvent<HTMLCanvasElement>) => {
             e.preventDefault();
+            reportAppActivity("desktop app paste");
             void model.sendPaste(e.clipboardData.getData("text"));
         },
-        [model]
+        [model, reportAppActivity]
     );
 
     const handleMouseMove = useCallback(
@@ -224,13 +279,13 @@ export function AppStreamView({ model }: ViewComponentProps<AppStreamViewModel>)
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
             const point = clientPointToCanvasPoint(e.clientX, e.clientY, rect, canvas.width, canvas.height, fitMode);
-            reportDesktopPetActivity({ kind: "tool", detail: "desktop app right click" }, model.blockId, {
+            reportAppActivity("desktop app right click", {
                 x: Math.round(e.clientX - rect.left),
                 y: Math.round(e.clientY - rect.top),
             });
             void model.sendClick(point.x, point.y, "right");
         },
-        [fitMode, model]
+        [fitMode, model, reportAppActivity]
     );
 
     if (status === "starting") {

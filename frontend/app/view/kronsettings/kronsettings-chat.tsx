@@ -5,9 +5,16 @@ import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useState } from "react";
-import { SettingsCard, SectionHeader, ToggleSetting, InputSetting, InfoCallout, SelectSetting } from "./kronsettings-shared";
-import { useToggleField, useSettingField } from "./kronsettings-hooks";
+import { useSettingField, useToggleField } from "./kronsettings-hooks";
 import type { KronSettingsViewModel } from "./kronsettings-model";
+import {
+    InfoCallout,
+    InputSetting,
+    SectionHeader,
+    SelectSetting,
+    SettingsCard,
+    ToggleSetting,
+} from "./kronsettings-shared";
 
 interface KronSettingsChatContentProps {
     model: KronSettingsViewModel;
@@ -26,7 +33,7 @@ function publishLayoutMode(mode: string) {
 function getStoredLayoutMode() {
     try {
         const mode = window.localStorage.getItem(LayoutModeStorageKey);
-        return mode === "canvas" ? "canvas" : "widgets";
+        return mode === "canvas" || mode === "tabs" ? mode : "widgets";
     } catch {
         return "widgets";
     }
@@ -42,7 +49,10 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
     const [maxTokens, setMaxTokens] = useSettingField("ai:maxtokens");
     const [autoNameChats, setAutoNameChats] = useToggleField("waveai:autoname" as keyof SettingsType);
     const quickComposer = settings["app:quickcomposer"] ?? false;
-    const settingsLayoutMode = settings["app:layoutmode"] === "canvas" ? "canvas" : "widgets";
+    const settingsLayoutMode =
+        settings["app:layoutmode"] === "canvas" || settings["app:layoutmode"] === "tabs"
+            ? settings["app:layoutmode"]
+            : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
     const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
 
@@ -52,37 +62,38 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
         });
     }, []);
 
-    const applyPreset = useCallback((preset: "kronos" | "openai" | "ollama") => {
-        if (preset === "kronos") {
+    const applyPreset = useCallback(
+        (preset: "kronos" | "openai" | "ollama") => {
+            if (preset === "kronos") {
+                setValues({
+                    "waveai:defaultmode": "waveai@kronos",
+                    "app:quickcomposer": false,
+                    "app:layoutmode": "widgets",
+                });
+                publishLayoutMode("widgets");
+                setLayoutMode("widgets");
+                return;
+            }
+            if (preset === "openai") {
+                setValues({
+                    "ai:provider": "openai",
+                    "ai:model": "gpt-4.1",
+                    "waveai:defaultmode": "waveai@openai",
+                });
+                return;
+            }
             setValues({
-                "waveai:defaultmode": "waveai@kronos",
-                "app:quickcomposer": false,
-                "app:layoutmode": "widgets",
+                "ai:provider": "ollama",
+                "ai:baseurl": "http://localhost:11434/v1",
+                "ai:model": "llama3.3",
+                "waveai:defaultmode": "waveai@ollama",
             });
-            publishLayoutMode("widgets");
-            setLayoutMode("widgets");
-            return;
-        }
-        if (preset === "openai") {
-            setValues({
-                "ai:provider": "openai",
-                "ai:model": "gpt-4.1",
-                "waveai:defaultmode": "waveai@openai",
-            });
-            return;
-        }
-        setValues({
-            "ai:provider": "ollama",
-            "ai:baseurl": "http://localhost:11434/v1",
-            "ai:model": "llama3.3",
-            "waveai:defaultmode": "waveai@ollama",
-        });
-    }, [setValues]);
+        },
+        [setValues]
+    );
 
     useEffect(() => {
-        if (settingsLayoutMode === "canvas") {
-            setLayoutMode("canvas");
-        }
+        setLayoutMode(settingsLayoutMode);
     }, [settingsLayoutMode]);
 
     return (
@@ -104,7 +115,8 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
                             Recommended
                         </div>
                         <p className="text-xs leading-relaxed text-secondary">
-                            Use KronosCode defaults, keep the dock as the main chat, and leave the floating composer off.
+                            Use KronosCode defaults, keep the dock as the main chat, and leave the floating composer
+                            off.
                         </p>
                     </button>
                     <button
@@ -136,7 +148,11 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
                 </div>
             </SettingsCard>
             <SettingsCard>
-                <SectionHeader title="Chat Configuration" icon="comment" description="Plain-language chat behavior and provider settings." />
+                <SectionHeader
+                    title="Chat Configuration"
+                    icon="comment"
+                    description="Plain-language chat behavior and provider settings."
+                />
                 <InputSetting
                     title="Default Assistant"
                     description="Which assistant setup KronTerm should use when a new chat starts."
@@ -197,15 +213,16 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
                 />
                 <SelectSetting
                     title="Workspace Layout"
-                    description="Switch between tiled widgets and canvas mode."
+                    description="Choose tiled widgets, browser-style widget tabs, or canvas mode."
                     value={layoutMode}
                     onChange={(v) => {
                         publishLayoutMode(v);
-                        setLayoutMode(v === "canvas" ? "canvas" : "widgets");
+                        setLayoutMode(v === "canvas" || v === "tabs" ? v : "widgets");
                         setValues({ "app:layoutmode": v });
                     }}
                     options={[
                         { value: "widgets", label: "Widgets" },
+                        { value: "tabs", label: "Widget tabs" },
                         { value: "canvas", label: "Canvas" },
                     ]}
                 />

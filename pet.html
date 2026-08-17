@@ -48,71 +48,91 @@
         <span id="detail" class="detail">KronosCode ready</span>
       </div>
 
-      <!-- macOS-style menu -->
+      <!-- Modern Settings Panel -->
       <section id="pet-menu" class="pet-menu no-drag" hidden>
         <div class="pet-menu-title">
           <span class="pet-menu-app-icon">K</span>
-          <span><strong>KronosCode</strong><small>Computer use controls</small></span>
+          <div class="pet-menu-title-text">
+            <strong>KronosCode Pet</strong>
+            <small>Desktop assistant controls</small>
+          </div>
         </div>
 
-        <!-- Mode group -->
-        <div class="pet-menu-mode-group" id="pet-mode-group">
-          <div class="pet-menu-mode-item mode-selected" data-mode="off">Off</div>
-          <div class="pet-menu-mode-item" data-mode="status-only">Status only</div>
-          <div class="pet-menu-mode-item" data-mode="docked">Docked</div>
-          <div class="pet-menu-mode-item" data-mode="expressive">Expressive</div>
-        </div>
-
-        <div class="pet-menu-separator"></div>
-
-        <!-- Toggle items -->
-        <div class="pet-menu-item" id="menu-toggle-glow" data-option="glow">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Activity glow
-          </span>
-        </div>
-        <div class="pet-menu-item" id="menu-toggle-thoughts" data-option="thoughts">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Thought bubbles
-          </span>
-        </div>
-        <div class="pet-menu-item" id="menu-toggle-actions" data-option="actions">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Action bubbles
-          </span>
-        </div>
-        <div class="pet-menu-item" id="menu-toggle-roam" data-option="roam">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Dock near Kronterm when idle
-          </span>
-        </div>
-        <div class="pet-menu-item" id="menu-toggle-follow-cursor" data-option="followUserCursor">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Follow cursor during tool use
-          </span>
-          <span class="pet-menu-shortcut">⌘⇧F</span>
-        </div>
-        <div class="pet-menu-item" id="menu-toggle-clickthrough" data-option="clickthrough">
-          <span class="pet-menu-label">
-            <span class="pet-menu-check">✓</span>
-            Click-through mode
-          </span>
+        <div class="pet-menu-section">
+          <div class="pet-menu-section-title">PET MODE</div>
+          <div class="pet-menu-segmented-control" id="pet-mode-group">
+            <button type="button" class="pet-menu-segment" data-mode="off">Off</button>
+            <button type="button" class="pet-menu-segment" data-mode="status-only">Status</button>
+            <button type="button" class="pet-menu-segment" data-mode="docked">Docked</button>
+            <button type="button" class="pet-menu-segment" data-mode="expressive">Expressive</button>
+          </div>
         </div>
 
         <div class="pet-menu-separator"></div>
 
-        <!-- Action items -->
-        <button class="pet-menu-action" id="reasoning-toggle" type="button">Reasoning Log</button>
-        <button class="pet-menu-action" id="chat-toggle" type="button">Mini Chat</button>
+        <div class="pet-menu-section">
+          <div class="pet-menu-section-title">BEHAVIOR OPTIONS</div>
+          
+          <div class="pet-toggle-row" id="menu-toggle-glow" data-option="glow">
+            <span class="pet-toggle-label">Activity glow</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-thoughts" data-option="thoughts">
+            <span class="pet-toggle-label">Thought bubbles</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-actions" data-option="actions">
+            <span class="pet-toggle-label">Action bubbles</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-roam" data-option="roam">
+            <span class="pet-toggle-label">Dock near KronTerm</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-follow-cursor" data-option="followUserCursor">
+            <span class="pet-toggle-label">Follow cursor</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-clickthrough" data-option="clickthrough">
+            <span class="pet-toggle-label">Click-through mode</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pet-menu-separator"></div>
+
+        <!-- Action Panel -->
+        <div class="pet-menu-actions-row">
+          <button class="pet-menu-btn" id="reasoning-toggle" type="button">Reasoning Log</button>
+          <button class="pet-menu-btn" id="chat-toggle" type="button">Mini Chat</button>
+        </div>
       </section>
 
       <figure id="capture-preview" class="capture-preview no-drag" hidden>
-        <figcaption>Computer use view</figcaption>
+        <figcaption id="capture-preview-caption">Computer use view</figcaption>
         <img id="capture-preview-image" alt="Latest agent screenshot" />
       </figure>
 

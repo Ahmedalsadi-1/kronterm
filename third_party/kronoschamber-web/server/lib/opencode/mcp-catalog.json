@@ -1,0 +1,98 @@
+{
+  "integrations": [
+    {
+      "id": "jaaz",
+      "name": "Jaaz AI Design",
+      "description": "AI-powered image and video generation, creative design canvas, and visual content creation via API integration (no iframe required).",
+      "publisher": "KronosCode",
+      "icon": "ri:paint-brush-line",
+      "category": "Creative",
+      "verified": true,
+      "type": "local",
+      "command": ["python", ["third_party/upstream/jaaz/server/main.py"]],
+      "env": [
+        {
+          "key": "JAAZ_API_URL",
+          "label": "Jaaz API URL",
+          "required": false,
+          "sensitive": false,
+          "default": "http://localhost:8001"
+        }
+      ],
+      "tools": ["generate_image", "generate_video", "create_design", "export_design", "list_projects", "get_canvas"],
+      "alternativeTo": "iframe",
+      "note": "Runs as MCP tool server instead of iframe embed"
+    },
+    {
+      "id": "nocobase",
+      "name": "NocoBase No-Code Platform",
+      "description": "Open-source no-code/low-code platform for building business applications and databases without coding.",
+      "publisher": "NocoBase",
+      "icon": "ri:database-2-line",
+      "category": "Database",
+      "verified": true,
+      "type": "local",
+      "command": ["yarn", ["start"]],
+      "cwd": "third_party/upstream/nocobase",
+      "env": [{ "key": "DATABASE_URL", "label": "Database Connection String", "required": true, "sensitive": true }],
+      "tools": ["create_collection", "query_data", "create_record", "update_schema"],
+      "requiresSetup": true,
+      "setupInstructions": "1. cd third_party/upstream/nocobase && cp .env.example .env 2. Edit .env with your database credentials 3. Run: yarn install && yarn build"
+    },
+    {
+      "id": "excalidraw-mcp",
+      "name": "Excalidraw Canvas",
+      "description": "Hand-drawn style diagramming and whiteboarding tool integrated via MCP.",
+      "publisher": "Excalidraw",
+      "icon": "ri:draft-line",
+      "category": "Creative",
+      "verified": true,
+      "type": "local",
+      "command": ["npx", ["-y", "@excalidraw/mcp-server"]],
+      "tools": ["create_diagram", "export_svg", "export_png"]
+    },
+    {
+      "id": "personalization-mcp",
+      "name": "Personalization Engine",
+      "description": "Content personalization and recommendation engine for tailored user experiences.",
+      "publisher": "KronosCode",
+      "icon": "ri:user-heart-line",
+      "category": "AI",
+      "verified": true,
+      "type": "local",
+      "command": ["python", ["third_party/upstream/personalizationmcp/server.py"]],
+      "tools": ["personalize_content", "get_recommendations", "analyze_preferences"]
+    },
+    {
+      "id": "n8n-mcp",
+      "name": "n8n Workflow Automation",
+      "description": "Model Context Protocol server providing AI assistants with comprehensive access to n8n node documentation, properties, validation, and workflow management. Access to 1,650+ n8n nodes, templates, and workflow operations.",
+      "publisher": "n8n Community",
+      "icon": "ri:flow-chart",
+      "category": "Automation",
+      "verified": true,
+      "type": "local",
+      "command": ["node", ["n8n-mcp/dist/mcp/stdio-wrapper.js"]],
+      "cwd": "n8n-mcp",
+      "env": [
+        {
+          "key": "N8N_API_URL",
+          "label": "n8n API URL",
+          "required": true,
+          "sensitive": false,
+          "default": "http://localhost:5678"
+        },
+        {
+          "key": "N8N_API_KEY",
+          "label": "n8n API Key",
+          "required": true,
+          "sensitive": true,
+          "default": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNjEyYzZlYi05YTIwLTQxMzgtOTg5NC1lMzBiZWRkZTgwNmQiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZWY5ZTY4MGItOTViZi00NzY0LWI1ZGYtYzEwODAxNmU1MTYwIiwiaWF0IjoxNzc4MjA1NzM5fQ.VxEOwq_TYvnNk0uwEyZYSpgRAZcOo-zy5gptPgklLjo"
+        }
+      ],
+      "tools": ["tools_documentation", "search_nodes", "get_node", "validate_node", "validate_workflow", "search_templates", "get_template", "n8n_create_workflow", "n8n_get_workflow", "n8n_update_partial_workflow", "n8n_delete_workflow", "n8n_list_workflows", "n8n_validate_workflow", "n8n_executions", "n8n_manage_credentials"],
+      "requiresSetup": false,
+      "note": "Connected to http://localhost:5678"
+    }
+  ]
+}

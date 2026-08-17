@@ -26,7 +26,7 @@ import "./widgets.scss";
 
 export type WidgetsEnv = WaveEnvSubset<{
     isDev: WaveEnv["isDev"];
-    electron: {};
+    electron: object;
     rpc: {
         ListInstalledAppsCommand: WaveEnv["rpc"]["ListInstalledAppsCommand"];
     };
@@ -71,6 +71,19 @@ const WidgetGroupColors: Record<string, string> = {
     apps: "#a78bfa",
     tools: "#94a3b8",
 };
+
+const CompactPrimaryWidgetViews = ["chathubv2", "term", "preview", "web", "appstream"];
+
+function getCompactPrimaryWidgets(widgets: WidgetConfigType[]): WidgetConfigType[] {
+    const selected = new Set<WidgetConfigType>();
+    for (const view of CompactPrimaryWidgetViews) {
+        const match = widgets.find((widget) => widget.blockdef?.meta?.view === view && !selected.has(widget));
+        if (match) {
+            selected.add(match);
+        }
+    }
+    return Array.from(selected);
+}
 
 function widgetGroupKey(widget: WidgetConfigType): WidgetGroupKey {
     const group = widget["display:group"];
@@ -128,14 +141,14 @@ function isChatHubWidget(widget: WidgetConfigType): boolean {
 
 function getWidgetLabel(widget: WidgetConfigType): string {
     if (isChatHubWidget(widget)) {
-        return "ChatHub V2";
+        return "Chamber V2";
     }
     return widget.label;
 }
 
 function getWidgetDescription(widget: WidgetConfigType): string {
     if (isChatHubWidget(widget)) {
-        return "KronosChamber AI chat hub";
+        return "Open the canonical Kronos workspace";
     }
     return widget.description || widget.label;
 }
@@ -165,28 +178,29 @@ const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
     const shouldDisableTooltip = mode !== "normal" ? false : !isTruncated;
 
     return (
-        <Tooltip
-            content={getWidgetDescription(widget)}
-            placement="left"
-            disable={shouldDisableTooltip}
-            divClassName={clsx(
-                "widget-rail-item",
-                mode === "supercompact" ? "text-sm" : "text-lg",
-                widget["display:hidden"] && "hidden"
-            )}
-            divOnClick={() => handleWidgetSelect(widget, env)}
-        >
-            <div style={{ color: widget.color }}>
-                <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
-            </div>
-            {mode === "normal" && !isBlank(label) ? (
-                <div
-                    ref={labelRef}
-                    className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis"
-                >
-                    {label}
+        <Tooltip content={getWidgetDescription(widget)} placement="left" disable={shouldDisableTooltip}>
+            <button
+                type="button"
+                className={clsx(
+                    "widget-rail-item",
+                    mode === "supercompact" ? "text-sm" : "text-lg",
+                    widget["display:hidden"] && "hidden"
+                )}
+                onClick={() => handleWidgetSelect(widget, env)}
+                aria-label={`Open ${label || "widget"}`}
+            >
+                <div style={{ color: widget.color }}>
+                    <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
                 </div>
-            ) : null}
+                {mode === "normal" && !isBlank(label) ? (
+                    <div
+                        ref={labelRef}
+                        className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                    >
+                        {label}
+                    </div>
+                ) : null}
+            </button>
         </Tooltip>
     );
 });
@@ -219,6 +233,7 @@ type FloatingWindowPropsType = {
     onClose: () => void;
     referenceElement: HTMLElement;
     hasConfigErrors?: boolean;
+    placement?: "left-start" | "right-start";
 };
 
 type LauncherAppInfo = {
@@ -232,324 +247,331 @@ type LauncherAppInfo = {
     };
 };
 
-const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: FloatingWindowPropsType) => {
-    const [apps, setApps] = useState<LauncherAppInfo[]>([]);
-    const [desktopApps, setDesktopApps] = useState<InstalledAppInfo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [query, setQuery] = useState("");
-    const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentApps());
-    const env = useWaveEnv<WidgetsEnv>();
+const AppsFloatingWindow = memo(
+    ({ isOpen, onClose, referenceElement, placement = "left-start" }: FloatingWindowPropsType) => {
+        const [apps, setApps] = useState<LauncherAppInfo[]>([]);
+        const [desktopApps, setDesktopApps] = useState<InstalledAppInfo[]>([]);
+        const [loading, setLoading] = useState(true);
+        const [query, setQuery] = useState("");
+        const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentApps());
+        const env = useWaveEnv<WidgetsEnv>();
 
-    const { refs, floatingStyles, context } = useFloating({
-        open: isOpen,
-        onOpenChange: onClose,
-        placement: "left-start",
-        middleware: [offset(-2), shift({ padding: 12 })],
-        whileElementsMounted: autoUpdate,
-        elements: {
-            reference: referenceElement,
-        },
-    });
-
-    const dismiss = useDismiss(context);
-    const { getFloatingProps } = useInteractions([dismiss]);
-    const handleOpenBuilder = useCallback(() => {
-        (env.electron as { openBuilder?: (appId: string | null) => void }).openBuilder?.(null);
-        onClose();
-    }, [onClose, env]);
-
-    const rememberRecent = useCallback((id: string) => {
-        setRecentIds((prev) => {
-            const next = [id, ...prev.filter((item) => item !== id)].slice(0, 12);
-            saveRecentApps(next);
-            return next;
+        const { refs, floatingStyles, context } = useFloating({
+            open: isOpen,
+            onOpenChange: onClose,
+            placement,
+            middleware: [offset(-2), shift({ padding: 12 })],
+            whileElementsMounted: autoUpdate,
+            elements: {
+                reference: referenceElement,
+            },
         });
-    }, []);
 
-    useEffect(() => {
-        if (!isOpen) return;
+        const dismiss = useDismiss(context);
+        const { getFloatingProps } = useInteractions([dismiss]);
+        const handleOpenBuilder = useCallback(() => {
+            (env.electron as { openBuilder?: (appId: string | null) => void }).openBuilder?.(null);
+            onClose();
+        }, [onClose, env]);
 
-        const fetchApps = async () => {
-            setLoading(true);
-            try {
-                const rpc = env.rpc as WidgetsEnv["rpc"] & {
-                    ListAllAppsCommand?: (client: typeof TabRpcClient) => Promise<LauncherAppInfo[]>;
-                };
-                const listWaveApps = rpc.ListAllAppsCommand;
-                const [waveAppsResult, desktopAppsResult] = await Promise.allSettled([
-                    typeof listWaveApps === "function" ? listWaveApps(TabRpcClient) : Promise.resolve([]),
-                    env.rpc.ListInstalledAppsCommand(TabRpcClient),
-                ]);
-                const allApps = waveAppsResult.status === "fulfilled" ? waveAppsResult.value : [];
-                const installedApps = desktopAppsResult.status === "fulfilled" ? desktopAppsResult.value : [];
-                const localApps = allApps
-                    .filter((app) => !app.appid.startsWith("draft/"))
-                    .sort((a, b) => {
-                        const aName = a.appid.replace(/^local\//, "");
-                        const bName = b.appid.replace(/^local\//, "");
-                        return aName.localeCompare(bName);
-                    });
-                setApps(localApps);
-                setDesktopApps(installedApps.sort((a, b) => a.name.localeCompare(b.name)));
-                if (waveAppsResult.status === "rejected") {
-                    console.error("Failed to fetch WaveApps:", waveAppsResult.reason);
+        const rememberRecent = useCallback((id: string) => {
+            setRecentIds((prev) => {
+                const next = [id, ...prev.filter((item) => item !== id)].slice(0, 12);
+                saveRecentApps(next);
+                return next;
+            });
+        }, []);
+
+        useEffect(() => {
+            if (!isOpen) return;
+
+            const fetchApps = async () => {
+                setLoading(true);
+                try {
+                    const rpc = env.rpc as WidgetsEnv["rpc"] & {
+                        ListAllAppsCommand?: (client: typeof TabRpcClient) => Promise<LauncherAppInfo[]>;
+                    };
+                    const listWaveApps = rpc.ListAllAppsCommand;
+                    const [waveAppsResult, desktopAppsResult] = await Promise.allSettled([
+                        typeof listWaveApps === "function" ? listWaveApps(TabRpcClient) : Promise.resolve([]),
+                        env.rpc.ListInstalledAppsCommand(TabRpcClient),
+                    ]);
+                    const allApps = waveAppsResult.status === "fulfilled" ? waveAppsResult.value : [];
+                    const installedApps = desktopAppsResult.status === "fulfilled" ? desktopAppsResult.value : [];
+                    const localApps = allApps
+                        .filter((app) => !app.appid.startsWith("draft/"))
+                        .sort((a, b) => {
+                            const aName = a.appid.replace(/^local\//, "");
+                            const bName = b.appid.replace(/^local\//, "");
+                            return aName.localeCompare(bName);
+                        });
+                    setApps(localApps);
+                    setDesktopApps(installedApps.sort((a, b) => a.name.localeCompare(b.name)));
+                    if (waveAppsResult.status === "rejected") {
+                        console.error("Failed to fetch WaveApps:", waveAppsResult.reason);
+                    }
+                    if (desktopAppsResult.status === "rejected") {
+                        console.error("Failed to fetch desktop apps:", desktopAppsResult.reason);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch apps:", error);
+                    setApps([]);
+                    setDesktopApps([]);
+                } finally {
+                    setLoading(false);
                 }
-                if (desktopAppsResult.status === "rejected") {
-                    console.error("Failed to fetch desktop apps:", desktopAppsResult.reason);
-                }
-            } catch (error) {
-                console.error("Failed to fetch apps:", error);
-                setApps([]);
-                setDesktopApps([]);
-            } finally {
-                setLoading(false);
-            }
-        };
+            };
 
-        fetchApps();
-    }, [isOpen]);
+            fetchApps();
+        }, [isOpen]);
 
-    if (!isOpen) return null;
+        if (!isOpen) return null;
 
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredDesktopApps = normalizedQuery
-        ? desktopApps.filter((app) =>
-              `${app.name} ${app.appid} ${app.bundleid ?? ""}`.toLowerCase().includes(normalizedQuery)
-          )
-        : desktopApps;
-    const filteredApps = normalizedQuery
-        ? apps.filter((app) =>
-              `${app.appid} ${app.manifest?.appmeta?.displayname ?? ""}`.toLowerCase().includes(normalizedQuery)
-          )
-        : apps;
-    const allLaunchables = [
-        ...desktopApps.map((app) => ({ kind: "desktop" as const, id: `desktop:${app.appid}`, label: app.name, app })),
-        ...apps.map((app) => ({
-            kind: "wave" as const,
-            id: `wave:${app.appid}`,
-            label: app.appid.replace(/^local\//, ""),
-            app,
-        })),
-    ];
-    const recentLaunchables = recentIds
-        .map((id) => allLaunchables.find((item) => item.id === id))
-        .filter(Boolean)
-        .slice(0, 8);
-    const gridSize = calculateGridSize(
-        Math.max(filteredApps.length, filteredDesktopApps.length, recentLaunchables.length)
-    );
+        const normalizedQuery = query.trim().toLowerCase();
+        const filteredDesktopApps = normalizedQuery
+            ? desktopApps.filter((app) =>
+                  `${app.name} ${app.appid} ${app.bundleid ?? ""}`.toLowerCase().includes(normalizedQuery)
+              )
+            : desktopApps;
+        const filteredApps = normalizedQuery
+            ? apps.filter((app) =>
+                  `${app.appid} ${app.manifest?.appmeta?.displayname ?? ""}`.toLowerCase().includes(normalizedQuery)
+              )
+            : apps;
+        const allLaunchables = [
+            ...desktopApps.map((app) => ({
+                kind: "desktop" as const,
+                id: `desktop:${app.appid}`,
+                label: app.name,
+                app,
+            })),
+            ...apps.map((app) => ({
+                kind: "wave" as const,
+                id: `wave:${app.appid}`,
+                label: app.appid.replace(/^local\//, ""),
+                app,
+            })),
+        ];
+        const recentLaunchables = recentIds
+            .map((id) => allLaunchables.find((item) => item.id === id))
+            .filter(Boolean)
+            .slice(0, 8);
+        const gridSize = calculateGridSize(
+            Math.max(filteredApps.length, filteredDesktopApps.length, recentLaunchables.length)
+        );
 
-    const renderIcon = (icon: string | undefined, fallback: string, color?: string) => {
-        if (icon?.startsWith("data:") || icon?.startsWith("file:") || icon?.startsWith("http")) {
-            return (
-                <img
-                    src={icon}
-                    alt=""
-                    className="h-8 w-8 rounded-lg object-contain"
-                    onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                    }}
-                />
-            );
-        }
-        return <i className={makeIconClass(icon || fallback, false)} style={{ color }}></i>;
-    };
-
-    const launchDesktopApp = (app: InstalledAppInfo) => {
-        const blockDef: BlockDef = {
-            meta: {
-                view: "appstream",
-                "appstream:appid": app.bundleid || app.appid,
-                "appstream:appname": app.name,
-            } as unknown as MetaType,
-        };
-        Promise.resolve(env.createBlock(blockDef)).then((blockId) => {
-            if (blockId) {
-                window.dispatchEvent(
-                    new CustomEvent(AppStreamCreatedEvent, { detail: { appName: app.name, blockId } })
+        const renderIcon = (icon: string | undefined, fallback: string, color?: string) => {
+            if (icon?.startsWith("data:") || icon?.startsWith("file:") || icon?.startsWith("http")) {
+                return (
+                    <img
+                        src={icon}
+                        alt=""
+                        className="h-8 w-8 rounded-lg object-contain"
+                        onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                        }}
+                    />
                 );
             }
-        });
-        rememberRecent(`desktop:${app.appid}`);
-        onClose();
-    };
-
-    const launchWaveApp = (app: LauncherAppInfo) => {
-        const blockDef: BlockDef = {
-            meta: {
-                view: "tsunami",
-                controller: "tsunami",
-                "tsunami:appid": app.appid,
-            },
+            return <i className={makeIconClass(icon || fallback, false)} style={{ color }}></i>;
         };
-        env.createBlock(blockDef);
-        rememberRecent(`wave:${app.appid}`);
-        onClose();
-    };
 
-    return (
-        <FloatingPortal>
-            <div
-                ref={refs.setFloating}
-                style={floatingStyles}
-                {...getFloatingProps()}
-                className="bg-modalbg border border-border rounded-xl shadow-xl z-50 overflow-hidden min-w-[360px]"
-            >
-                <div className="border-b border-border/70 p-3">
-                    <div className="flex items-center gap-2 rounded-lg border border-border bg-black/20 px-3 py-2">
-                        <i className="fa-solid fa-magnifying-glass text-muted text-xs" />
-                        <input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search apps, desktop streams, tools..."
-                            className="min-w-0 flex-1 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
-                        />
-                    </div>
-                </div>
-                <div className="p-4">
-                    {loading ? (
-                        <div className="flex items-center justify-center p-8">
-                            <i className="fa fa-solid fa-spinner fa-spin text-2xl text-muted"></i>
+        const launchDesktopApp = (app: InstalledAppInfo) => {
+            const blockDef: BlockDef = {
+                meta: {
+                    view: "appstream",
+                    "appstream:appid": app.bundleid || app.appid,
+                    "appstream:appname": app.name,
+                } as unknown as MetaType,
+            };
+            Promise.resolve(env.createBlock(blockDef)).then((blockId) => {
+                if (blockId) {
+                    window.dispatchEvent(
+                        new CustomEvent(AppStreamCreatedEvent, { detail: { appName: app.name, blockId } })
+                    );
+                }
+            });
+            rememberRecent(`desktop:${app.appid}`);
+            onClose();
+        };
+
+        const launchWaveApp = (app: LauncherAppInfo) => {
+            const blockDef: BlockDef = {
+                meta: {
+                    view: "tsunami",
+                    controller: "tsunami",
+                    "tsunami:appid": app.appid,
+                },
+            };
+            env.createBlock(blockDef);
+            rememberRecent(`wave:${app.appid}`);
+            onClose();
+        };
+
+        return (
+            <FloatingPortal>
+                <div
+                    ref={refs.setFloating}
+                    style={floatingStyles}
+                    {...getFloatingProps()}
+                    className="bg-modalbg border border-border rounded-xl shadow-xl z-50 overflow-hidden min-w-[360px]"
+                >
+                    <div className="border-b border-border/70 p-3">
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-black/20 px-3 py-2">
+                            <i className="fa-solid fa-magnifying-glass text-muted text-xs" />
+                            <input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search apps, desktop streams, tools..."
+                                className="min-w-0 flex-1 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
+                            />
                         </div>
-                    ) : apps.length === 0 && desktopApps.length === 0 ? (
-                        <div className="text-muted text-sm p-4 text-center">No desktop apps found</div>
-                    ) : filteredApps.length === 0 && filteredDesktopApps.length === 0 ? (
-                        <div className="text-muted text-sm p-4 text-center">No apps match “{query}”</div>
-                    ) : (
-                        <div className="max-h-[65vh] overflow-y-auto">
-                            {!normalizedQuery && recentLaunchables.length > 0 ? (
-                                <>
-                                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                        Recent
-                                    </div>
-                                    <div
-                                        className="grid gap-3 mb-4"
-                                        style={{
-                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                            maxWidth: `${gridSize * 88}px`,
-                                        }}
-                                    >
-                                        {recentLaunchables.map((item) => {
-                                            if (!item) return null;
-                                            const app = item.app as any;
-                                            return (
+                    </div>
+                    <div className="p-4">
+                        {loading ? (
+                            <div className="flex items-center justify-center p-8">
+                                <i className="fa fa-solid fa-spinner fa-spin text-2xl text-muted"></i>
+                            </div>
+                        ) : apps.length === 0 && desktopApps.length === 0 ? (
+                            <div className="text-muted text-sm p-4 text-center">No desktop apps found</div>
+                        ) : filteredApps.length === 0 && filteredDesktopApps.length === 0 ? (
+                            <div className="text-muted text-sm p-4 text-center">No apps match “{query}”</div>
+                        ) : (
+                            <div className="max-h-[65vh] overflow-y-auto">
+                                {!normalizedQuery && recentLaunchables.length > 0 ? (
+                                    <>
+                                        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                            Recent
+                                        </div>
+                                        <div
+                                            className="grid gap-3 mb-4"
+                                            style={{
+                                                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                                maxWidth: `${gridSize * 88}px`,
+                                            }}
+                                        >
+                                            {recentLaunchables.map((item) => {
+                                                if (!item) return null;
+                                                const app = item.app as any;
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={item.id}
+                                                        className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                        title={item.label}
+                                                        onClick={() =>
+                                                            item.kind === "desktop"
+                                                                ? launchDesktopApp(item.app as InstalledAppInfo)
+                                                                : launchWaveApp(item.app as LauncherAppInfo)
+                                                        }
+                                                    >
+                                                        <div className="text-3xl mb-1 text-accent">
+                                                            {renderIcon(
+                                                                app.icon || app.manifest?.appmeta?.icon,
+                                                                "cube",
+                                                                app.manifest?.appmeta?.iconcolor
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                            {item.label}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                ) : null}
+                                {filteredDesktopApps.length > 0 ? (
+                                    <>
+                                        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                            Desktop Apps
+                                        </div>
+                                        <div
+                                            className="grid gap-3"
+                                            style={{
+                                                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                                maxWidth: `${gridSize * 88}px`,
+                                            }}
+                                        >
+                                            {filteredDesktopApps.map((app) => (
                                                 <button
                                                     type="button"
-                                                    key={item.id}
-                                                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
-                                                    title={item.label}
-                                                    onClick={() =>
-                                                        item.kind === "desktop"
-                                                            ? launchDesktopApp(item.app as InstalledAppInfo)
-                                                            : launchWaveApp(item.app as LauncherAppInfo)
-                                                    }
-                                                >
-                                                    <div className="text-3xl mb-1 text-accent">
-                                                        {renderIcon(
-                                                            app.icon || app.manifest?.appmeta?.icon,
-                                                            "cube",
-                                                            app.manifest?.appmeta?.iconcolor
-                                                        )}
-                                                    </div>
-                                                    <div className="text-xxs text-center text-secondary break-words w-full px-1">
-                                                        {item.label}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            ) : null}
-                            {filteredDesktopApps.length > 0 ? (
-                                <>
-                                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                        Desktop Apps
-                                    </div>
-                                    <div
-                                        className="grid gap-3"
-                                        style={{
-                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                            maxWidth: `${gridSize * 88}px`,
-                                        }}
-                                    >
-                                        {filteredDesktopApps.map((app) => (
-                                            <button
-                                                type="button"
-                                                key={app.appid}
-                                                className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
-                                                title={`Stream ${app.name} in KronTerm`}
-                                                onClick={() => launchDesktopApp(app)}
-                                            >
-                                                <div className="text-3xl mb-1 text-accent">
-                                                    {renderIcon(app.icon, "cube")}
-                                                </div>
-                                                <div className="text-xxs text-center text-secondary break-words w-full px-1">
-                                                    {app.name}
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </>
-                            ) : null}
-                            {filteredApps.length > 0 ? (
-                                <>
-                                    <div className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                        WaveApps
-                                    </div>
-                                    <div
-                                        className="grid gap-3"
-                                        style={{
-                                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                            maxWidth: `${gridSize * 88}px`,
-                                        }}
-                                    >
-                                        {filteredApps.map((app) => {
-                                            const appMeta = app.manifest?.appmeta;
-                                            const displayName = app.appid.replace(/^local\//, "");
-                                            const icon = appMeta?.icon || "cube";
-                                            const iconColor = appMeta?.iconcolor || "white";
-
-                                            return (
-                                                <div
                                                     key={app.appid}
                                                     className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
-                                                    onClick={() => launchWaveApp(app)}
+                                                    title={`Stream ${app.name} in KronTerm`}
+                                                    onClick={() => launchDesktopApp(app)}
                                                 >
-                                                    <div style={{ color: iconColor }} className="text-3xl mb-1">
-                                                        {renderIcon(icon, "cube", iconColor)}
+                                                    <div className="text-3xl mb-1 text-accent">
+                                                        {renderIcon(app.icon, "cube")}
                                                     </div>
                                                     <div className="text-xxs text-center text-secondary break-words w-full px-1">
-                                                        {displayName}
+                                                        {app.name}
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            ) : null}
-                        </div>
-                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : null}
+                                {filteredApps.length > 0 ? (
+                                    <>
+                                        <div className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                                            WaveApps
+                                        </div>
+                                        <div
+                                            className="grid gap-3"
+                                            style={{
+                                                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                                                maxWidth: `${gridSize * 88}px`,
+                                            }}
+                                        >
+                                            {filteredApps.map((app) => {
+                                                const appMeta = app.manifest?.appmeta;
+                                                const displayName = app.appid.replace(/^local\//, "");
+                                                const icon = appMeta?.icon || "cube";
+                                                const iconColor = appMeta?.iconcolor || "white";
+
+                                                return (
+                                                    <div
+                                                        key={app.appid}
+                                                        className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                        onClick={() => launchWaveApp(app)}
+                                                    >
+                                                        <div style={{ color: iconColor }} className="text-3xl mb-1">
+                                                            {renderIcon(icon, "cube", iconColor)}
+                                                        </div>
+                                                        <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                            {displayName}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                ) : null}
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        className="w-full px-4 py-2 border-t border-border text-xs text-secondary text-center hover:bg-hoverbg hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-2"
+                        onClick={handleOpenBuilder}
+                    >
+                        <i className="fa fa-solid fa-hammer"></i>
+                        Build/Edit Apps
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    className="w-full px-4 py-2 border-t border-border text-xs text-secondary text-center hover:bg-hoverbg hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-2"
-                    onClick={handleOpenBuilder}
-                >
-                    <i className="fa fa-solid fa-hammer"></i>
-                    Build/Edit Apps
-                </button>
-            </div>
-        </FloatingPortal>
-    );
-});
+            </FloatingPortal>
+        );
+    }
+);
 
 const SettingsFloatingWindow = memo(
-    ({ isOpen, onClose, referenceElement, hasConfigErrors }: FloatingWindowPropsType) => {
+    ({ isOpen, onClose, referenceElement, hasConfigErrors, placement = "left-start" }: FloatingWindowPropsType) => {
         const env = useWaveEnv<WidgetsEnv>();
         const { refs, floatingStyles, context } = useFloating({
             open: isOpen,
             onOpenChange: onClose,
-            placement: "left-start",
+            placement,
             middleware: [offset(-2), shift({ padding: 12 })],
             whileElementsMounted: autoUpdate,
             elements: {
@@ -567,15 +589,15 @@ const SettingsFloatingWindow = memo(
                 icon: "gear",
                 label: "Settings",
                 hasError: hasConfigErrors,
-                    onClick: () => {
-                        const blockDef: BlockDef = {
-                            meta: {
-                                view: "kronsettings",
-                            },
-                        };
-                        env.createBlock(blockDef, false, true);
-                        onClose();
-                    },
+                onClick: () => {
+                    const blockDef: BlockDef = {
+                        meta: {
+                            view: "kronsettings",
+                        },
+                    };
+                    env.createBlock(blockDef, false, true);
+                    onClose();
+                },
             },
             {
                 icon: "lightbulb",
@@ -783,6 +805,7 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
     const appsButtonRef = useRef<HTMLButtonElement>(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const settingsButtonRef = useRef<HTMLButtonElement>(null);
+    const [compactMenuOpen, setCompactMenuOpen] = useState(false);
 
     const checkModeNeeded = useCallback(() => {
         if (!containerRef.current || !measurementRef.current) return;
@@ -886,66 +909,111 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
         return aOrder - bOrder;
     });
 
-    // Compact mode: vertical column at bottom of sidebar, no labels
     if (compact) {
+        const primaryWidgets = getCompactPrimaryWidgets(widgets);
+        const primaryWidgetSet = new Set(primaryWidgets);
+        const overflowWidgets = widgets.filter((widget) => !primaryWidgetSet.has(widget));
         return (
             <>
-                <div
-                    ref={containerRef}
-                    className="widget-rail-compact flex flex-col items-center justify-center gap-1 px-2 py-2 border-t border-border/30 shrink-0"
-                    onContextMenu={handleWidgetsBarContextMenu}
-                >
-                    {widgets?.map((widget, idx) => (
-                        <Tooltip
-                            key={`compact-widget-${idx}`}
-                            content={widget.description || widget.label}
-                            placement="right"
-                            disable={false}
-                            divClassName="widget-rail-compact-item"
-                            divOnClick={() => handleWidgetSelect(widget, env)}
-                        >
-                            <div style={{ color: widget.color }} className="text-sm">
-                                <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
-                            </div>
-                        </Tooltip>
-                    ))}
-                    {(env.isDev() || featureWaveAppBuilder) && (
+                <div ref={containerRef} className="widget-rail-compact" onContextMenu={handleWidgetsBarContextMenu}>
+                    <div className="widget-rail-compact-grid">
+                        {primaryWidgets.map((widget, idx) => {
+                            const chamber = isChatHubWidget(widget);
+                            const label = chamber ? "Chamber V2" : getWidgetLabel(widget);
+                            return (
+                                <Tooltip
+                                    key={`compact-widget-${idx}`}
+                                    content={widget.description || label}
+                                    placement="right"
+                                    disable={false}
+                                >
+                                    <button
+                                        type="button"
+                                        className={clsx("widget-rail-compact-item", chamber && "is-chamber")}
+                                        onClick={() => handleWidgetSelect(widget, env)}
+                                        aria-label={`Open ${label || "widget"}`}
+                                    >
+                                        <div style={{ color: widget.color }} className="text-sm">
+                                            <i
+                                                className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}
+                                            ></i>
+                                        </div>
+                                        {chamber && <span>Chamber V2</span>}
+                                    </button>
+                                </Tooltip>
+                            );
+                        })}
+                        <span className="widget-rail-compact-divider" aria-hidden="true" />
                         <button
                             type="button"
-                            ref={appsButtonRef}
-                            className="widget-rail-compact-item"
-                            onClick={() => setIsAppsOpen(!isAppsOpen)}
-                            aria-label="Local WaveApps"
+                            className={clsx("widget-rail-compact-item", "is-add", compactMenuOpen && "is-active")}
+                            onClick={() => setCompactMenuOpen((open) => !open)}
+                            aria-label="Show more widgets"
+                            aria-expanded={compactMenuOpen}
                         >
-                            <Tooltip content="Local WaveApps" placement="right" disable={isAppsOpen}>
-                                <Boxes className="widget-rail-compact-icon" />
-                            </Tooltip>
+                            <i className="fa-solid fa-plus" aria-hidden="true" />
                         </button>
-                    )}
-                    <button
-                        type="button"
-                        ref={settingsButtonRef}
-                        className="widget-rail-compact-item"
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                        aria-label="Settings and help"
-                    >
-                        <Tooltip
-                            content={<SettingsTooltipContent hasConfigErrors={hasConfigErrors} />}
-                            placement="right"
-                            disable={isSettingsOpen}
-                        >
-                            <div className="relative">
-                                <Settings className="widget-rail-compact-icon" />
-                                {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
+                    </div>
+                    {compactMenuOpen && (
+                        <div className="widget-rail-compact-menu" role="menu" aria-label="More widgets">
+                            <div className="widget-rail-compact-menu-heading">More widgets</div>
+                            <div className="widget-rail-compact-menu-grid">
+                                {overflowWidgets.map((widget, idx) => (
+                                    <button
+                                        type="button"
+                                        key={`compact-overflow-${idx}`}
+                                        className="widget-rail-compact-menu-item"
+                                        onClick={() => {
+                                            void handleWidgetSelect(widget, env);
+                                            setCompactMenuOpen(false);
+                                        }}
+                                        role="menuitem"
+                                        title={getWidgetDescription(widget)}
+                                    >
+                                        <i
+                                            className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}
+                                            style={{ color: widget.color }}
+                                        />
+                                        <span>{getWidgetLabel(widget)}</span>
+                                    </button>
+                                ))}
                             </div>
-                        </Tooltip>
-                    </button>
+                            <div className="widget-rail-compact-menu-system">
+                                {(env.isDev() || featureWaveAppBuilder) && (
+                                    <button
+                                        type="button"
+                                        ref={appsButtonRef}
+                                        className="widget-rail-compact-menu-item"
+                                        onClick={() => setIsAppsOpen(!isAppsOpen)}
+                                        role="menuitem"
+                                    >
+                                        <Boxes className="widget-rail-compact-icon" />
+                                        <span>Local apps</span>
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    ref={settingsButtonRef}
+                                    className="widget-rail-compact-menu-item"
+                                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                    role="menuitem"
+                                >
+                                    <span className="relative">
+                                        <Settings className="widget-rail-compact-icon" />
+                                        {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
+                                    </span>
+                                    <span>Settings</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {(env.isDev() || featureWaveAppBuilder) && appsButtonRef.current && (
                     <AppsFloatingWindow
                         isOpen={isAppsOpen}
                         onClose={() => setIsAppsOpen(false)}
                         referenceElement={appsButtonRef.current}
+                        placement="right-start"
                     />
                 )}
                 {settingsButtonRef.current && (
@@ -954,6 +1022,7 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
                         onClose={() => setIsSettingsOpen(false)}
                         referenceElement={settingsButtonRef.current}
                         hasConfigErrors={hasConfigErrors}
+                        placement="right-start"
                     />
                 )}
             </>
@@ -965,11 +1034,12 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
             <div
                 ref={containerRef}
                 className={clsx(
-                    "widget-rail flex flex-col w-12 overflow-hidden py-1 select-none shrink-0",
+                    "widget-rail flex flex-col overflow-hidden py-1 select-none shrink-0",
                     position === "left" ? "widget-rail-left -mr-1" : "widget-rail-right -ml-1"
                 )}
                 onContextMenu={handleWidgetsBarContextMenu}
             >
+                {mode === "normal" && <div className="widget-rail-heading">Launch</div>}
                 {mode === "supercompact" ? (
                     <>
                         <div className="grid grid-cols-2 gap-0 w-full">

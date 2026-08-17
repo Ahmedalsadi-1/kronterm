@@ -1,33 +1,48 @@
 // Copyright 2024, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("/fonts/jetbrains-mono-v13-latin-regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("/fonts/jetbrains-mono-v13-latin-700.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+}
+
 :root {
-    --main-text-color: #f7f7f7;
+    --main-text-color: #f2f2f2;
     --title-font-size: 18px;
     --window-opacity: 1;
-    --secondary-text-color: rgb(195, 200, 194);
-    --grey-text-color: #666;
-    --main-bg-color: rgb(34, 34, 34);
-    --border-color: rgba(255, 255, 255, 0.16);
-    --surface-base-color: rgba(18, 20, 18, 0.92);
-    --surface-raised-color: rgba(31, 33, 31, 0.86);
-    --surface-overlay-color: rgba(35, 37, 35, 0.96);
-    --surface-hover-color: rgba(255, 255, 255, 0.09);
-    --surface-active-color: rgba(255, 255, 255, 0.14);
-    --surface-selected-color: rgba(88, 193, 66, 0.16);
-    --focus-ring-color: rgba(88, 193, 66, 0.72);
-    --text-primary-color: #f7f7f7;
-    --text-secondary-color: #c8cec7;
-    --text-muted-color: #8b918a;
-    --base-font: normal 14px / normal "Inter", sans-serif;
-    --font-default: "Inter", sans-serif;
-    --fixed-font: normal 12px / normal "Hack", monospace;
-    --accent-color: rgb(88, 193, 66);
+    --secondary-text-color: #a3a3a3;
+    --grey-text-color: #6b6b6b;
+    --main-bg-color: #050505;
+    --border-color: rgba(255, 255, 255, 0.12);
+    --surface-base-color: rgba(5, 5, 5, 0.96);
+    --surface-raised-color: rgba(13, 13, 13, 0.96);
+    --surface-overlay-color: rgba(18, 18, 18, 0.98);
+    --surface-hover-color: rgba(255, 255, 255, 0.06);
+    --surface-active-color: rgba(25, 170, 216, 0.13);
+    --surface-selected-color: rgba(25, 170, 216, 0.15);
+    --focus-ring-color: rgba(25, 170, 216, 0.68);
+    --text-primary-color: #f2f2f2;
+    --text-secondary-color: #a3a3a3;
+    --text-muted-color: #6f6f6f;
+    --font-default: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    --font-mono-family: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    --base-font: normal 13px / 1.45 var(--font-default);
+    --fixed-font: normal 12px / 1.45 var(--font-mono-family);
+    --accent-color: rgb(25, 170, 216);
     --panel-bg-color: var(--surface-raised-color);
     --highlight-bg-color: var(--surface-active-color);
-    --markdown-font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji",
-        "Segoe UI Emoji";
+    --markdown-font-family: var(--font-default);
     --markdown-font-size: 14px;
     --markdown-fixed-font-size: 12px;
     --error-color: rgb(229, 77, 46);
@@ -48,12 +63,12 @@
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.5);
     --scrollbar-thumb-active-color: rgba(255, 255, 255, 0.6);
 
-    --header-font: 700 11px / normal "Inter", sans-serif;
+    --header-font: 700 11px / normal var(--font-default);
     --header-icon-size: 14px;
     --header-icon-width: 16px;
     --header-height: 30px;
 
-    --tab-green: rgb(88, 193, 66);
+    --tab-green: var(--accent-color);
 
     /* z-index values */
     --zindex-header-hover: 100;
@@ -91,9 +106,9 @@
 
     // modal colors
     --modal-bg-color: var(--surface-overlay-color);
-    --modal-header-bottom-border-color: rgba(241, 246, 243, 0.15);
-    --modal-border-color: rgba(255, 255, 255, 0.12); /* toggle colors */
-    --modal-border-radius: 6px;
+    --modal-header-bottom-border-color: var(--border-color);
+    --modal-border-color: var(--border-color); /* toggle colors */
+    --modal-border-radius: 12px;
     --toggle-bg-color: var(--border-color);
     --modal-shadow-color: rgba(0, 0, 0, 0.8);
     --modal-box-shadow: 0px 8px 24px 0px var(--modal-shadow-color);
@@ -102,17 +117,17 @@
     --toggle-checked-bg-color: var(--accent-color);
 
     // link color
-    --link-color: #58c142;
+    --link-color: var(--accent-color);
 
     // form colors
-    --form-element-border-color: rgba(241, 246, 243, 0.15);
+    --form-element-border-color: var(--border-color);
     --form-element-bg-color: var(--main-bg-color);
     --form-element-text-color: var(--main-text-color);
     --form-element-primary-text-color: var(--main-text-color);
     --form-element-primary-color: var(--accent-color);
-    --form-element-secondary-color: rgba(255, 255, 255, 0.2);
+    --form-element-secondary-color: rgba(255, 255, 255, 0.12);
     --form-element-error-color: var(--error-color);
-    --form-element-placeholder-color: rgba(195, 200, 194, 0.58);
+    --form-element-placeholder-color: rgba(163, 163, 163, 0.58);
 
     --conn-icon-color: #53b4ea;
     --conn-icon-color-1: #53b4ea;
@@ -132,34 +147,34 @@
 
     // term colors (16 + 6) form the base terminal theme
     // for consistency these colors should be used by plugins/applications
-    --term-black: #000000;
-    --term-red: #cc0000;
-    --term-green: #4e9a06;
-    --term-yellow: #c4a000;
-    --term-blue: #3465a4;
-    --term-magenta: #bc3fbc;
-    --term-cyan: #06989a;
-    --term-white: #d0d0d0;
-    --term-bright-black: #555753;
-    --term-bright-red: #ef2929;
-    --term-bright-green: #58c142;
-    --term-bright-yellow: #fce94f;
-    --term-bright-blue: #32afff;
-    --term-bright-magenta: #ad7fa8;
-    --term-bright-cyan: #34e2e2;
-    --term-bright-white: #e7e7e7;
+    --term-black: #616161;
+    --term-red: #ff8272;
+    --term-green: #b4fa72;
+    --term-yellow: #fefdc2;
+    --term-blue: #a5d5fe;
+    --term-magenta: #ff8ffd;
+    --term-cyan: #d0d1fe;
+    --term-white: #f1f1f1;
+    --term-bright-black: #9a9a9a;
+    --term-bright-red: #ff9e94;
+    --term-bright-green: #c8ff9e;
+    --term-bright-yellow: #fffec2;
+    --term-bright-blue: #c4e3ff;
+    --term-bright-magenta: #ffb3fd;
+    --term-bright-cyan: #e3e4ff;
+    --term-bright-white: #ffffff;
 
-    --term-gray: #8b918a; // not an official terminal color
+    --term-gray: #8f8f8f; // not an official terminal color
     --term-cmdtext: #ffffff;
-    --term-foreground: #d3d7cf;
-    --term-background: #000000;
+    --term-foreground: #f1f1f1;
+    --term-background: #050505;
     --term-selection-background: #ffffff60;
     --term-cursor-accent: #000000;
 
     // button colors
     --button-text-color: #000000;
-    --button-green-bg: var(--term-green);
-    --button-green-border-color: #29f200;
+    --button-green-bg: var(--accent-color);
+    --button-green-border-color: rgba(25, 170, 216, 0.72);
     --button-grey-bg: rgba(255, 255, 255, 0.04);
     --button-grey-hover-bg: rgba(255, 255, 255, 0.09);
     --button-grey-border-color: rgba(255, 255, 255, 0.1);

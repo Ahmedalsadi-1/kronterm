@@ -49,7 +49,12 @@ type WorkspaceList = WorkspaceListEntry[];
 const workspaceMapAtom = atom<WorkspaceList>([]);
 const workspaceSplitAtom = splitAtom(workspaceMapAtom);
 const editingWorkspaceAtom = atom<string>();
-const WorkspaceSwitcher = forwardRef<HTMLButtonElement>((_, ref) => {
+
+interface WorkspaceSwitcherProps {
+    showLabel?: boolean;
+}
+
+const WorkspaceSwitcher = forwardRef<HTMLButtonElement, WorkspaceSwitcherProps>(({ showLabel = false }, ref) => {
     const env = useWaveEnv<WorkspaceSwitcherEnv>();
     const setWorkspaceList = useSetAtom(workspaceMapAtom);
     const activeWorkspace = useAtomValueSafe(env.atoms.workspace);
@@ -115,7 +120,19 @@ const WorkspaceSwitcher = forwardRef<HTMLButtonElement>((_, ref) => {
             onTriggerClick={() => {
                 fireAndForget(updateWorkspaceList);
             }}
-            trigger={<span className="workspace-icon">{workspaceIcon}</span>}
+            trigger={
+                <>
+                    <span className="workspace-icon">{workspaceIcon}</span>
+                    {showLabel && (
+                        <>
+                            <span className="workspace-switcher-name">
+                                {isActiveWorkspaceSaved ? activeWorkspace.name : "Workspace"}
+                            </span>
+                            <i className="fa-solid fa-chevron-down workspace-switcher-chevron" aria-hidden="true" />
+                        </>
+                    )}
+                </>
+            }
         >
             <div className="title">{isActiveWorkspaceSaved ? "Switch workspace" : "Open workspace"}</div>
             <OverlayScrollbarsComponent className={"scrollable"} options={{ scrollbars: { autoHide: "leave" } }}>

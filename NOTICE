@@ -1,1 +1,6 @@
 Copyright 2025, Command Line Inc.
+
+Portions of the KronosCode JSON-RPC gateway client are adapted from
+Nous Research's Hermes Agent, licensed under the MIT License.
+Copyright 2025 Nous Research.
+https://github.com/NousResearch/hermes-agent

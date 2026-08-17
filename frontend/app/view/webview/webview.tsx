@@ -1,18 +1,12 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
-import {
-    AgentWidgetSettingsEvent,
-    type AgentWidgetVisualSettings,
-    loadAgentWidgetVisualSettings,
-    updateAgentWidgetVisualSetting,
-} from "@/app/block/agent-widget-settings";
+import { reportDesktopPetActivity, type AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { BlockNodeModel } from "@/app/block/blocktypes";
 import { Search, useSearch } from "@/app/element/search";
-import { getSettingsKeyAtom, refocusNode } from "@/app/store/global";
+import { getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
-import { getSimpleControlShiftAtom, uxCloseBlock } from "@/app/store/keymodel";
+import { getSimpleControlShiftAtom } from "@/app/store/keymodel";
 import type { TabModel } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -35,6 +29,7 @@ import { Atom, PrimitiveAtom, atom, useAtomValue, useSetAtom } from "jotai";
 import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { subscribeAgentActivityStream } from "../../../types/agent-activity";
 import { makeBrowserPayload, publishCrossViewEvent } from "../../../types/cross-view-bus";
+import { getBrowserTabIdAfterClose, getNextBrowserTabIndex, type BrowserTabOrientation } from "./webview-tabs";
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
 
@@ -44,6 +39,128 @@ type BrowserTabRecord = {
     title?: string;
     favicon?: string;
 };
+
+type WebViewTabStripProps = {
+    model: WebViewModel;
+    tabs: BrowserTabRecord[];
+    activeTabId: string;
+    left?: boolean;
+};
+
+const WebViewTabStrip = memo(({ model, tabs, activeTabId, left = false }: WebViewTabStripProps) => {
+    const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+    const tabListRef = useRef<HTMLDivElement>(null);
+    const orientation: BrowserTabOrientation = left ? "vertical" : "horizontal";
+
+    const activateAndFocusTab = (index: number) => {
+        const tab = tabs[index];
+        if (!tab) {
+            return;
+        }
+        model.activateBrowserTab(tab.id);
+        window.requestAnimationFrame(() => tabRefs.current.get(tab.id)?.focus());
+    };
+
+    const closeAndRestoreFocus = (index: number) => {
+        const closedTab = tabs[index];
+        const nextTabId = getBrowserTabIdAfterClose(
+            tabs.map((tab) => tab.id),
+            activeTabId,
+            closedTab.id
+        );
+        model.closeBrowserTab(closedTab.id);
+        window.requestAnimationFrame(() => {
+            if (nextTabId && tabRefs.current.get(nextTabId)) {
+                tabRefs.current.get(nextTabId)?.focus();
+                return;
+            }
+            tabListRef.current?.querySelector<HTMLButtonElement>('[role="tab"][tabindex="0"]')?.focus();
+        });
+    };
+
+    return (
+        <div
+            ref={tabListRef}
+            className={clsx("webview-tab-strip", left && "is-left")}
+            role="tablist"
+            aria-label="Browser tabs"
+            aria-orientation={orientation}
+        >
+            <div className="webview-tab-scroll">
+                {tabs.map((tab, index) => {
+                    const isActive = tab.id === activeTabId;
+                    return (
+                        <div key={tab.id} className={clsx("webview-tab", isActive && "is-active")}>
+                            <button
+                                ref={(element) => {
+                                    if (element) {
+                                        tabRefs.current.set(tab.id, element);
+                                    } else {
+                                        tabRefs.current.delete(tab.id);
+                                    }
+                                }}
+                                type="button"
+                                role="tab"
+                                aria-selected={isActive}
+                                tabIndex={isActive ? 0 : -1}
+                                className="webview-tab-main"
+                                title={tab.url}
+                                onClick={() => model.activateBrowserTab(tab.id)}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Delete") {
+                                        event.preventDefault();
+                                        closeAndRestoreFocus(index);
+                                        return;
+                                    }
+                                    const nextIndex = getNextBrowserTabIndex(
+                                        event.key,
+                                        index,
+                                        tabs.length,
+                                        orientation
+                                    );
+                                    if (nextIndex == null) {
+                                        return;
+                                    }
+                                    event.preventDefault();
+                                    activateAndFocusTab(nextIndex);
+                                }}
+                            >
+                                {tab.favicon ? (
+                                    <img className="webview-tab-favicon" src={tab.favicon} alt="" />
+                                ) : (
+                                    <i className="fa-solid fa-globe webview-tab-icon" aria-hidden="true" />
+                                )}
+                                <span className="webview-tab-title">{tab.title || tab.url || "New tab"}</span>
+                            </button>
+                            <button
+                                type="button"
+                                tabIndex={isActive ? 0 : -1}
+                                className="webview-tab-close"
+                                aria-label={`Close ${tab.title || tab.url || "new tab"}`}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeAndRestoreFocus(index);
+                                }}
+                            >
+                                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+            <button
+                type="button"
+                className="webview-tab-add"
+                title="New tab"
+                aria-label="New browser tab"
+                onClick={() => model.addBrowserTab()}
+            >
+                <i className="fa-solid fa-plus" aria-hidden="true" />
+            </button>
+        </div>
+    );
+});
+WebViewTabStrip.displayName = "WebViewTabStrip";
 
 // User agent strings for mobile emulation
 const USER_AGENT_IPHONE =
@@ -102,6 +219,7 @@ export class WebViewModel implements ViewModel {
     viewIcon: Atom<string | IconButtonDecl>;
     viewName: Atom<string>;
     viewText: Atom<HeaderElem[]>;
+    headerTop: Atom<React.ReactNode>;
     hideViewName: Atom<boolean>;
     url: PrimitiveAtom<string>;
     homepageUrl: Atom<string>;
@@ -117,7 +235,6 @@ export class WebViewModel implements ViewModel {
     mediaMuted: PrimitiveAtom<boolean>;
     canGoBack: PrimitiveAtom<boolean>;
     canGoForward: PrimitiveAtom<boolean>;
-    settingsPanelOpen: PrimitiveAtom<boolean>;
     modifyExternalUrl?: (url: string) => string;
     domReady: PrimitiveAtom<boolean>;
     hideNav: Atom<boolean>;
@@ -161,7 +278,6 @@ export class WebViewModel implements ViewModel {
         this.mediaMuted = atom(false);
         this.canGoBack = atom(false);
         this.canGoForward = atom(false);
-        this.settingsPanelOpen = atom(false);
 
         this.viewText = atom((get) => {
             const homepageUrl = get(this.homepageUrl);
@@ -171,7 +287,6 @@ export class WebViewModel implements ViewModel {
             const refreshIcon = get(this.refreshIcon);
             const mediaPlaying = get(this.mediaPlaying);
             const mediaMuted = get(this.mediaMuted);
-            const magnified = get(this.nodeModel.isMagnified);
             const canGoBack = get(this.canGoBack);
             const canGoForward = get(this.canGoForward);
             const url = currUrl ?? metaUrl ?? homepageUrl ?? "";
@@ -179,35 +294,6 @@ export class WebViewModel implements ViewModel {
             if (get(this.hideNav)) {
                 return rtn;
             }
-
-            // Traffic light buttons (macOS Safari style) — functional window controls
-            rtn.push({
-                elemtype: "iconbutton",
-                icon: "circle",
-                iconColor: "#ff5f57",
-                title: "Close Block",
-                click: () => uxCloseBlock(this.blockId),
-                className: "traffic-light-btn traffic-light-close",
-            });
-            rtn.push({
-                elemtype: "iconbutton",
-                icon: "circle",
-                iconColor: "#febc2e",
-                title: "Minimize Block",
-                click: () => this.nodeModel.toggleFold(),
-                className: "traffic-light-btn traffic-light-minimize",
-            });
-            rtn.push({
-                elemtype: "iconbutton",
-                icon: "circle",
-                iconColor: "#28c840",
-                title: "Expand Block",
-                click: () => {
-                    this.nodeModel.toggleMagnify();
-                    setTimeout(() => refocusNode(this.blockId), 50);
-                },
-                className: "traffic-light-btn traffic-light-zoom",
-            });
 
             rtn.push({
                 elemtype: "iconbutton",
@@ -257,28 +343,23 @@ export class WebViewModel implements ViewModel {
                 onMouseOut: this.handleUrlWrapperMouseOut.bind(this),
                 children: divChildren,
             });
-            // Expand (magnify) button — Safari header level (after URL bar)
-            rtn.push({
-                elemtype: "iconbutton",
-                icon: magnified ? "compress" : "expand",
-                title: magnified ? "Minimize" : "Expand",
-                click: () => {
-                    this.nodeModel.toggleMagnify();
-                    setTimeout(() => refocusNode(this.blockId), 50);
-                },
-                className: "webview-nav-btn webview-nav-expand",
-            });
-            // Settings button — Safari header level (after URL bar)
-            rtn.push({
-                elemtype: "iconbutton",
-                icon: "sliders",
-                title: "Widget Settings",
-                click: () => {
-                    globalStore.set(this.settingsPanelOpen, !globalStore.get(this.settingsPanelOpen));
-                },
-                className: "webview-nav-btn webview-nav-settings",
-            });
             return rtn;
+        });
+
+        const tabStripPositionAtom = this.env.getSettingsKeyAtom("web:tabstripposition");
+        this.headerTop = atom((get) => {
+            if (get(this.hideNav) || (get(tabStripPositionAtom) ?? "top") === "left") {
+                return null;
+            }
+            const blockData = get(this.blockAtom);
+            const meta = blockData?.meta as Record<string, any> | undefined;
+            const fallbackUrl = meta?.url || get(this.homepageUrl) || "about:blank";
+            const tabs = normalizeBrowserTabs(blockData, fallbackUrl);
+            const requestedActiveTabId = typeof meta?.["web:activetabid"] === "string" ? meta["web:activetabid"] : "";
+            const activeTabId = tabs.some((tab) => tab.id === requestedActiveTabId)
+                ? requestedActiveTabId
+                : tabs[0]?.id;
+            return <WebViewTabStrip model={this} tabs={tabs} activeTabId={activeTabId} />;
         });
 
         this.endIconButtons = atom((get) => {
@@ -1341,6 +1422,46 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             return;
         }
 
+        let previewCapturePending = false;
+        let previewCaptureTimer: number | null = null;
+
+        const requestPreviewCapture = (detail: AgentWidgetActivity) => {
+            if (detail.previewImageUrl || previewCapturePending || typeof webview.capturePage !== "function") {
+                return;
+            }
+            previewCapturePending = true;
+            previewCaptureTimer = window.setTimeout(() => {
+                void webview
+                    .capturePage()
+                    .then((image) => {
+                        const previewImageUrl = image.toDataURL();
+                        if (!previewImageUrl || previewImageUrl === "data:image/png;base64,") {
+                            return;
+                        }
+                        const action =
+                            detail.action === "typing"
+                                ? "type"
+                                : detail.action === "scroll"
+                                  ? "scroll"
+                                  : detail.action === "cursor"
+                                    ? "click"
+                                    : detail.action === "view"
+                                      ? "inspect"
+                                      : "open";
+                        reportDesktopPetActivity(
+                            { kind: "tool", detail: detail.detail, previewImageUrl },
+                            model.blockId,
+                            detail.point,
+                            { surface: "browser", action }
+                        );
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        previewCapturePending = false;
+                    });
+            }, 90);
+        };
+
         const handleWidgetActivity = (e: Event) => {
             const detail = (e as CustomEvent<AgentWidgetActivity>).detail;
             if (detail.blockId !== model.blockId) {
@@ -1350,6 +1471,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             if (detail.point) {
                 reportCursorToPet(detail.point, "browser");
             }
+            requestPreviewCapture(detail);
         };
 
         const unsubscribeSurfaceActivity = subscribeAgentActivityStream((detail) => {
@@ -1367,60 +1489,20 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         window.addEventListener("agent-widget-activity", handleWidgetActivity);
 
         return () => {
+            if (previewCaptureTimer != null) {
+                window.clearTimeout(previewCaptureTimer);
+            }
             window.removeEventListener("agent-widget-activity", handleWidgetActivity);
             unsubscribeSurfaceActivity();
         };
     }, [model.blockId]);
 
-    const { waterflowActive, markers } = useAgentOverlays("browser");
+    const { waterflowActive, markers } = useAgentOverlays("browser", model.blockId);
 
-    const settingsPanelOpen = useAtomValue(model.settingsPanelOpen);
-
-    const tabStrip = !hideNav ? (
-        <div className={clsx("webview-tab-strip", tabStripPosition === "left" && "is-left")}>
-            <div className="webview-tab-scroll">
-                {browserTabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        className={clsx("webview-tab", tab.id === activeTabId && "is-active")}
-                        title={tab.url}
-                        onClick={() => model.activateBrowserTab(tab.id)}
-                    >
-                        {tab.favicon ? (
-                            <img className="webview-tab-favicon" src={tab.favicon} alt="" />
-                        ) : (
-                            <i className="fa-solid fa-globe webview-tab-icon" />
-                        )}
-                        <span className="webview-tab-title">{tab.title || tab.url || "New tab"}</span>
-                        <span
-                            role="button"
-                            tabIndex={0}
-                            className="webview-tab-close"
-                            title="Close tab"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                model.closeBrowserTab(tab.id);
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    model.closeBrowserTab(tab.id);
-                                }
-                            }}
-                        >
-                            <i className="fa-solid fa-xmark" />
-                        </span>
-                    </button>
-                ))}
-            </div>
-            <button type="button" className="webview-tab-add" title="New tab" onClick={() => model.addBrowserTab()}>
-                <i className="fa-solid fa-plus" />
-            </button>
-        </div>
-    ) : null;
+    const tabStrip =
+        !hideNav && tabStripPosition === "left" ? (
+            <WebViewTabStrip model={model} tabs={browserTabs} activeTabId={activeTabId} left />
+        ) : null;
 
     return (
         <Fragment>
@@ -1460,135 +1542,10 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
                     ))}
                 </div>
             </div>
-            {settingsPanelOpen && (
-                <div className="webview-settings-wrapper">
-                    <WebViewSettingsPanel
-                        model={model}
-                        blockId={model.blockId}
-                        onClose={() => globalStore.set(model.settingsPanelOpen, false)}
-                    />
-                </div>
-            )}
             <Search {...searchProps} />
             <BookmarkTypeahead model={model} blockRef={blockRef} />
         </Fragment>
     );
 });
-
-const SETTINGS_LABELS: Record<string, string> = {
-    glow: "Glow",
-    aura: "Pixel Aura",
-    actionChip: "Action Chip",
-    cursor: "Agent Cursor",
-    screenshots: "Screenshot Preview",
-};
-
-const WebViewSettingsPanel = memo(
-    ({ model, blockId, onClose }: { model: WebViewModel; blockId: string; onClose: () => void }) => {
-        const [settings, setSettings] = useState<AgentWidgetVisualSettings>(() =>
-            loadAgentWidgetVisualSettings(blockId)
-        );
-        const panelRef = useRef<HTMLDivElement>(null);
-
-        // Listen for settings updates from other components
-        useEffect(() => {
-            const handleSettings = (event: Event) => {
-                const detail = (event as CustomEvent<{ blockId: string; settings: AgentWidgetVisualSettings }>).detail;
-                if (detail.blockId === blockId) {
-                    setSettings(detail.settings);
-                }
-            };
-            window.addEventListener(AgentWidgetSettingsEvent, handleSettings);
-            setSettings(loadAgentWidgetVisualSettings(blockId));
-            return () => window.removeEventListener(AgentWidgetSettingsEvent, handleSettings);
-        }, [blockId]);
-
-        // Close on Escape
-        useEffect(() => {
-            const handleKey = (e: KeyboardEvent) => {
-                if (e.key === "Escape") {
-                    onClose();
-                }
-            };
-            window.addEventListener("keydown", handleKey);
-            return () => window.removeEventListener("keydown", handleKey);
-        }, [onClose]);
-
-        // Close on click outside
-        useEffect(() => {
-            if (!panelRef.current) return;
-            const handleClickOutside = (e: MouseEvent) => {
-                if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-                    onClose();
-                }
-            };
-            // Delay attaching to avoid immediately closing from the settings button click
-            const timer = setTimeout(() => {
-                document.addEventListener("mousedown", handleClickOutside);
-            }, 0);
-            return () => {
-                clearTimeout(timer);
-                document.removeEventListener("mousedown", handleClickOutside);
-            };
-        }, [onClose]);
-
-        const toggleSetting = (key: string) => {
-            const newVal = !(settings as any)[key];
-            updateAgentWidgetVisualSetting(blockId, key as any, newVal);
-            setSettings((prev) => ({ ...prev, [key]: newVal }));
-        };
-
-        const setPointer = (style: "pixel" | "smooth" | "minimal") => {
-            updateAgentWidgetVisualSetting(blockId, "pointerStyle", style);
-            setSettings((prev) => ({ ...prev, pointerStyle: style }));
-        };
-
-        const pointerStyles: { value: string; label: string }[] = [
-            { value: "pixel", label: "Pixel (Stepped)" },
-            { value: "smooth", label: "Smooth" },
-            { value: "minimal", label: "Minimal" },
-        ];
-
-        const booleanKeys = ["glow", "aura", "actionChip", "cursor", "screenshots"] as const;
-
-        return (
-            <div className="webview-settings-panel" ref={panelRef}>
-                <div className="webview-settings-header">
-                    <span>Agent Widget Settings</span>
-                    <button
-                        className="webview-settings-close"
-                        onClick={onClose}
-                        type="button"
-                        aria-label="Close settings"
-                    >
-                        <i className="fa-solid fa-xmark" />
-                    </button>
-                </div>
-                <div className="webview-settings-body">
-                    {booleanKeys.map((key) => (
-                        <label key={key} className="webview-settings-row">
-                            <input type="checkbox" checked={settings[key]} onChange={() => toggleSetting(key)} />
-                            <span>{SETTINGS_LABELS[key]}</span>
-                        </label>
-                    ))}
-                    <div className="webview-settings-divider" />
-                    <div className="webview-settings-row-label">Pointer Style</div>
-                    {pointerStyles.map(({ value, label }) => (
-                        <label key={value} className="webview-settings-row">
-                            <input
-                                type="radio"
-                                name="pointerStyle"
-                                checked={settings.pointerStyle === value}
-                                onChange={() => setPointer(value as any)}
-                            />
-                            <span>{label}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-);
-WebViewSettingsPanel.displayName = "WebViewSettingsPanel";
 
 export { WebView, WebViewPreviewFallback, getWebPreviewDisplayUrl };

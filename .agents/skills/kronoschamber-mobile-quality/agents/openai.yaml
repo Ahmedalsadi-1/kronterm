@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronosChamber Mobile Quality"
+  short_description: "Polish the Capacitor iPhone Labs client"
+  default_prompt: "Use $kronoschamber-mobile-quality to improve and verify a bounded KronosChamber iPhone Labs workflow."

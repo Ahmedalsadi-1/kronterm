@@ -117,7 +117,6 @@ function widthToPx(value: WidthValue | undefined) {
             return n * remPx();
 
         case "vw":
-
         case "%":
             return (n * viewportPx()) / 100;
 
@@ -133,12 +132,9 @@ function isRole(child: unknown, role: "pane" | "main"): child is ReactElement {
 function collectPanes(children: ReactNode) {
     const left: CollectedPane[] = [];
     const right: CollectedPane[] = [];
-    let mainCount = 0;
 
     Children.forEach(children, (child) => {
         if (isRole(child, "main")) {
-            mainCount++;
-
             return;
         }
 
@@ -161,7 +157,7 @@ function collectPanes(children: ReactNode) {
         (props.side === "left" ? left : right).push(entry);
     });
 
-    return { left, mainCount, right };
+    return { left, right };
 }
 
 function trackForPane(pane: CollectedPane, states: Record<string, { open?: boolean; widthOverride?: number }>) {
@@ -179,11 +175,7 @@ function trackForPane(pane: CollectedPane, states: Record<string, { open?: boole
 
 export function PaneShell({ children, className, style }: PaneShellProps) {
     const paneStates = getPaneStates();
-    const { left, mainCount, right } = useMemo(() => collectPanes(children), [children]);
-
-    if (false && mainCount > 1) {
-        console.warn("[PaneShell] expected at most one <PaneMain>, got", mainCount);
-    }
+    const { left, right } = useMemo(() => collectPanes(children), [children]);
 
     const ctxValue = useMemo(() => {
         const paneById = new Map<string, PaneSlot>();
@@ -342,10 +334,6 @@ export function Pane({
     );
 
     if (!ctx) {
-        if (false) {
-            console.warn(`[Pane:${id}] must be rendered inside <PaneShell>`);
-        }
-
         return null;
     }
 
@@ -444,10 +432,6 @@ export function PaneMain({ children, className }: PaneMainProps) {
     const ctx = useContext(PaneShellContext);
 
     if (!ctx) {
-        if (false) {
-            console.warn("[PaneMain] must be rendered inside <PaneShell>");
-        }
-
         return null;
     }
 

@@ -35,6 +35,11 @@ const (
 	ConfigKey_ACPSkills                      = "acp:skills"
 	ConfigKey_ACPGitIdentities               = "acp:gitidentities"
 
+	ConfigKey_KronosCodeEndpoint             = "kronoscode:endpoint"
+	ConfigKey_KronosCodeBinary               = "kronoscode:binary"
+	ConfigKey_KronosCodeUsername             = "kronoscode:username"
+	ConfigKey_KronosCodePasswordSecretName   = "kronoscode:passwordsecretname"
+
 	ConfigKey_SandboxEnabled                 = "sandbox:enabled"
 	ConfigKey_SandboxCPUCores                = "sandbox:cpu"
 	ConfigKey_SandboxMemoryMB                = "sandbox:memory"

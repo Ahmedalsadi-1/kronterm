@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3.3
 id: "widgets"
-title: "Widgets"
+title: "Surfaces and Widgets"
 ---
 
 import { Kbd } from "@site/src/components/kbd";
@@ -9,50 +9,74 @@ import { PlatformProvider, PlatformSelectorButton } from "@site/src/components/p
 
 <PlatformProvider>
 
-# Widgets
+# Surfaces and Widgets
 
-Every individual Component is contained in its own widget. These can be added, removed, moved and resized. Each widget has its own header which can be right clicked to reveal more operations you can do with that widget.
+Every interactive KronTerm surface lives in a widget. A widget keeps the identity and state of its terminal, browser, file,
+AI session, sandbox, or system tool while the workspace presents it as a tiled block, a focused tab, or a node on the
+spatial canvas.
 
 <PlatformSelectorButton />
 
-### How to Add a Widget
+## Add a widget
 
-Adding a widget can be done using the widget bar on the right hand side of the window. This will add a widget of the selected type to the current tab.
+Use the widget bar or add menu in the current workspace. Tiled mode adds the widget to the split layout, tab mode adds it
+to the focused pane's tab strip, and canvas mode places it near the visible camera center.
 
-### How to Close a Widget
+## Close a widget
 
 Widgets can be closed by clicking the **<code><i className="fa-solid fa-sharp fa-xmark"/></code>** button on the right side of the header. Alternatively, the currently focused widget can be closed by pressing <Kbd k="Cmd:w"/>
 
-### How to Navigate Widgets
+## Focus and navigate widgets
 
 At most, it is possible to have one widget be focused. Depending on the type of widget, this allows you to directly interact with the content in that widget. A focused widget is always outlined with a distinct border. A widget may be focused by clicking on it. Alternatively, you can change the focused widget by pressing <Kbd k="Ctrl:Shift:Arrows"/> (Ctrl + Shift + Arrow Keys) to navigate relative to the currently selected widget.
 
-### How to Magnify Widgets
+## Magnify or expand a widget
 
-Magnifying a widget will pop the widget out in front of everything else. You can magnify using the header icon, or with <Kbd k="Cmd:m"/>.
+Magnification brings the focused widget in front of a tiled layout without destroying the saved split. On the canvas, the
+expand control fills the canvas viewport and can restore the previous node size. Use the header control or
 
-### How to Reorganize Widgets
+<Kbd k="Cmd:m" /> where supported.
+
+## Reorganize widgets
 
 By dragging and dropping their headers, widgets can be moved to different locations in the layout. This effectively allows you to reorganize your screen however you see fit. When dragging, you will see a preview of the widget that is being dragged. When the widget is over a valid drop point, the area where it would be moved to will turn green. Releasing the click will place the widget there and reflow the other widgets around it. If you see a green box cover half of two different widgets, the drop will place the widget between the two. If you see the green box cover half of one widget at the edge of the screen, the widget will be placed between that widget and the edge of the screen. If you see the green box cover one widget entirely, the two widgets will swap locations.
 
 See [Tab Layout System](./layout#move-a-block) for more information.
 
-### How to Resize Widgets
+## Resize widgets
 
 Hovering the mouse between two widgets changes your cursor to <i className="fa-sharp fa-arrows-left-right"/> or <i className="fa-sharp fa-arrows-up-down"/>; and reveals a green line dividing the widgets. By dragging and dropping this green line, you are able to resize the widgets adjacent to it.
 
 See [Tab Layout System](./layout#resize-a-block) for more information.
 
-## Types of Widgets
+For tab and canvas behavior, see [Workspace Modes and Canvas](./workspace-canvas).
 
-### Term
+## Widget types
+
+| Widget                 | Purpose                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| **Terminal**           | Full local or remote PTY with shell integration and AI-readable scrollback                 |
+| **Browser**            | Embedded Chromium for documentation, dashboards, localhost, and agent-driven validation    |
+| **Preview**            | Directories, Markdown, images, media, PDFs, CSV, and other file presentations              |
+| **Code editor**        | Monaco-based text editing with local LSP services where configured                         |
+| **KronosChamber**      | KronosCode chat, sessions, tools, approvals, artifacts, models, and recovery state         |
+| **Kron Sandbox**       | Isolated Linux desktop with its own terminal, browser, editor, and filesystem              |
+| **App stream**         | Live native or remote application content with computer-use state and cursor feedback      |
+| **Launcher**           | Commands, navigation, and workspace actions                                                |
+| **KronSettings**       | Models, providers, agents, MCP, skills, themes, voice, keybindings, and visual preferences |
+| **System information** | CPU, memory, disk, and network monitoring                                                  |
+
+The sections below document detailed behavior for established terminal and preview widgets.
+
+### Terminal
 
 The usual terminal you know and love. We add a few plugins via the `wsh` command that you can read more about further below.
 
 ### Preview
 
 Preview is the generic type of widget used for viewing files. This can take many different forms based on the type of file being viewed.
-You can use \`wsh view [path]\` from any Wave terminal window to open a preview widget with the contents of the specified path (e.g. `wsh view .` or `wsh view ~/myimage.jpg`).
+Use `wsh view [path]` from a KronTerm terminal to open a preview widget with the contents of the specified path (for
+example, `wsh view .` or `wsh view ~/myimage.jpg`).
 
 #### Directory
 

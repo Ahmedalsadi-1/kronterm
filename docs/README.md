@@ -1,27 +1,47 @@
-# Wave Terminal Documentation
+# KronTerm Documentation
 
-This is the home for Wave Terminal's documentation site. This README is specifically about _building_ and contributing to the docs site. If you are looking for the actual hosted docs, go here -- https://docs.waveterm.dev
+This directory contains the Docusaurus source for [docs.kronterm.dev](https://docs.kronterm.dev). The product website
+lives in [`../website`](../website); this site contains setup, workflow, configuration, and reference documentation.
 
-### Installation
+## Install dependencies
 
-Our docs are built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+From the repository root:
 
-### Local Development
+```bash
+task init
+```
 
-```sh
+To install only this package's dependencies:
+
+```bash
+npm --prefix docs install
+```
+
+## Run locally
+
+```bash
 task docsite
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+This starts the documentation server with live reload. You can also run `npm --prefix docs start` directly.
 
-### Build
+## Validate
 
-```sh
-task docsite:build:public
+```bash
+npm --prefix docs run typecheck
+npm --prefix docs run build
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+The production build writes static output to `docs/build`. Broken internal links fail the build; broken Markdown links are
+reported as warnings by the current Docusaurus configuration.
 
-### Deployment
+## Writing rules
 
-Deployments are handled automatically by the [Docsite CI/CD workflow](../.github/workflows/deploy-docsite.yml)
+- Use KronTerm, KronosCode, and KronosChamber in user-facing copy.
+- Preserve `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and related names when they identify compatibility-sensitive config,
+  commands, paths, or historical releases.
+- Mark the Python voice engine as experimental and the iPhone client as Labs.
+- Verify behavior in the current code before documenting availability.
+- Keep examples small, runnable, and explicit about the operating surface they affect.
+
+Deployments run through [the documentation workflow](../.github/workflows/deploy-docsite.yml).

@@ -1,6 +1,22 @@
 import "./pet.scss";
 
 type PetContext = "idle" | "terminal" | "browser" | "desktop" | "file" | "thinking";
+type PetSurface = "browser" | "sandbox" | "desktop" | "terminal" | "file" | "panel";
+type PetAction =
+    | "open"
+    | "focus"
+    | "inspect"
+    | "move"
+    | "click"
+    | "doubleClick"
+    | "type"
+    | "press"
+    | "scroll"
+    | "drag"
+    | "screenshot"
+    | "thinking"
+    | "verify"
+    | "wait";
 type PetLifecycle =
     | "idle"
     | "queued"
@@ -25,6 +41,9 @@ type PetState = {
     cursorPoint?: { x: number; y: number } | null;
     reasoningLog?: string[];
     previewImageUrl?: string;
+    surface?: PetSurface;
+    action?: PetAction;
+    appName?: string;
 };
 type PetOptions = {
     mode: PetMode;
@@ -74,6 +93,83 @@ const walkFrames = sortedFrames(
         query: "?url",
     }) as unknown as Record<string, string>
 );
+const terminalOperatorFrames = sortedFrames(
+    import.meta.glob("../../assets/pet/sprite-sheets/iterations/terminal-operator/frames/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
+);
+const browserScoutFrames = sortedFrames(
+    import.meta.glob("../../assets/pet/sprite-sheets/iterations/browser-scout/frames/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
+);
+const codeReviewFrames = sortedFrames(
+    import.meta.glob("../../assets/pet/sprite-sheets/iterations/code-review-detective/frames/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
+);
+const sandboxBuilderFrames = sortedFrames(
+    import.meta.glob("../../assets/pet/sprite-sheets/iterations/sandbox-builder/frames/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
+);
+const expressiveStatusFrames = sortedFrames(
+    import.meta.glob("../../assets/pet/sprite-sheets/iterations/expressive-status/frames/*.png", {
+        eager: true,
+        import: "default",
+        query: "?url",
+    }) as unknown as Record<string, string>
+);
+
+function sequence(frames: string[], start: number, end: number): string[] {
+    return frames.slice(start - 1, end);
+}
+
+const TerminalSequences = {
+    input: sequence(terminalOperatorFrames, 1, 4),
+    logs: sequence(terminalOperatorFrames, 5, 8),
+    running: sequence(terminalOperatorFrames, 9, 10),
+    succeeded: sequence(terminalOperatorFrames, 11, 12),
+    failed: sequence(terminalOperatorFrames, 13, 14),
+    recovery: sequence(terminalOperatorFrames, 15, 16),
+};
+const BrowserSequences = {
+    open: sequence(browserScoutFrames, 1, 4),
+    interact: sequence(browserScoutFrames, 5, 8),
+    inspect: sequence(browserScoutFrames, 9, 12),
+    recover: sequence(browserScoutFrames, 13, 15),
+    succeeded: sequence(browserScoutFrames, 16, 16),
+};
+const ReviewSequences = {
+    read: sequence(codeReviewFrames, 1, 4),
+    inspect: sequence(codeReviewFrames, 5, 8),
+    decide: sequence(codeReviewFrames, 9, 12),
+    resolve: sequence(codeReviewFrames, 13, 16),
+};
+const SandboxSequences = {
+    open: sequence(sandboxBuilderFrames, 1, 4),
+    build: sequence(sandboxBuilderFrames, 5, 8),
+    complete: sequence(sandboxBuilderFrames, 9, 12),
+    recover: sequence(sandboxBuilderFrames, 13, 16),
+};
+const StatusSequences = {
+    idle: sequence(expressiveStatusFrames, 1, 4),
+    thinking: sequence(expressiveStatusFrames, 5, 8),
+    approval: sequence(expressiveStatusFrames, 9, 9),
+    warning: sequence(expressiveStatusFrames, 10, 10),
+    failed: sequence(expressiveStatusFrames, 11, 11),
+    paused: sequence(expressiveStatusFrames, 12, 12),
+    active: sequence(expressiveStatusFrames, 13, 14),
+    succeeded: sequence(expressiveStatusFrames, 15, 16),
+};
 const root = document.getElementById("pet-root");
 const sprite = document.getElementById("pet-sprite") as HTMLImageElement;
 const spriteShell = document.querySelector(".sprite-shell") as HTMLElement;
@@ -87,10 +183,10 @@ const chatToggle = document.getElementById("chat-toggle") as HTMLButtonElement;
 const chat = document.getElementById("pet-chat") as HTMLFormElement;
 const chatInput = document.getElementById("pet-chat-input") as HTMLInputElement;
 
-// macOS menu mode items
-const modeItems = document.querySelectorAll<HTMLElement>(".pet-menu-mode-item");
+// Menu mode items (segmented control)
+const modeItems = document.querySelectorAll<HTMLElement>(".pet-menu-segment");
 
-// Menu toggle items (checkmark-style)
+// Menu toggle items (switch-style)
 const optionMenuItems: Record<string, HTMLElement> = {
     glow: document.getElementById("menu-toggle-glow"),
     thoughts: document.getElementById("menu-toggle-thoughts"),
@@ -108,6 +204,7 @@ const reasoningFeedClose = document.getElementById("reasoning-feed-close") as HT
 const resizeHandle = document.getElementById("resize-handle") as HTMLElement;
 const capturePreview = document.getElementById("capture-preview") as HTMLElement;
 const capturePreviewImage = document.getElementById("capture-preview-image") as HTMLImageElement;
+const capturePreviewCaption = document.getElementById("capture-preview-caption") as HTMLElement;
 
 const petCursor = document.getElementById("pet-cursor") as HTMLElement;
 const petCursorRing = document.getElementById("pet-cursor-ring") as HTMLElement;
@@ -115,15 +212,23 @@ const petCursorLabel = document.getElementById("pet-cursor-label") as HTMLElemen
 
 let clickThroughEnabled = false;
 
+function updateToggleSlider(item: HTMLElement | null, enabled: boolean) {
+    if (!item) return;
+    const input = item.querySelector("input") as HTMLInputElement;
+    if (input) {
+        input.checked = enabled;
+    }
+}
+
 window.petApi?.isClickThrough().then((enabled) => {
     clickThroughEnabled = enabled;
     root.classList.toggle("click-through", clickThroughEnabled);
-    updateCheckmark(clickthroughMenuItem, clickThroughEnabled);
+    updateToggleSlider(clickthroughMenuItem, clickThroughEnabled);
 });
 window.petApi?.onClickThroughChange((enabled) => {
     clickThroughEnabled = enabled;
     root.classList.toggle("click-through", enabled);
-    updateCheckmark(clickthroughMenuItem, enabled);
+    updateToggleSlider(clickthroughMenuItem, enabled);
     if (enabled) {
         const toast = document.createElement("div");
         toast.className = "click-through-toast";
@@ -158,24 +263,23 @@ let state: PetState = {
     cursorAction: "idle",
     cursorPoint: null,
     reasoningLog: [],
+    surface: "panel",
+    action: "focus",
 };
 let resizeActive = false;
 let resizeStartX = 0;
 let resizeStartY = 0;
 let resizeStartW = 0;
 let resizeStartH = 0;
-// Cursor follow state for sprite
+// Cursor follow state for sprite & physics-based carrying
 let cursorFollowActive = false;
 let cursorTargetX = 0;
 let cursorTargetY = 0;
-
-function updateCheckmark(item: HTMLElement | null, enabled: boolean) {
-    if (!item) return;
-    const check = item.querySelector(".pet-menu-check") as HTMLElement;
-    if (check) {
-        check.style.visibility = enabled ? "visible" : "hidden";
-    }
-}
+let currentSpriteX = 0;
+let currentSpriteY = 0;
+let currentSpriteTilt = 0;
+let currentCursorX = 0;
+let currentCursorY = 0;
 
 function applyOptions() {
     root.classList.remove("mode-off", "mode-status-only", "mode-docked", "mode-expressive");
@@ -194,7 +298,7 @@ function applyOptions() {
     });
     // Update toggle checkmarks
     Object.entries(optionMenuItems).forEach(([key, el]) => {
-        updateCheckmark(el, options[key as BooleanPetOption]);
+        updateToggleSlider(el, options[key as BooleanPetOption]);
     });
     renderState(state);
 }
@@ -223,8 +327,6 @@ function renderCursor(action: PetCursorAction, point: { x: number; y: number } |
     if (petCursorLabel) {
         petCursorLabel.textContent = cursorActionLabels[action] ?? "Act";
     }
-    petCursor.style.left = "";
-    petCursor.style.top = "";
     petCursor.removeAttribute("hidden");
 
     // CARRY THE CURSOR: move the pet sprite to the cursor position
@@ -236,41 +338,95 @@ function renderCursor(action: PetCursorAction, point: { x: number; y: number } |
             const maxY = root.clientHeight - 60;
             cursorTargetX = Math.max(10, Math.min(maxX, local.x));
             cursorTargetY = Math.max(10, Math.min(maxY, local.y));
+            
+            // Initialize positions if it just started following to prevent huge jumps
+            if (!cursorFollowActive) {
+                currentCursorX = cursorTargetX;
+                currentCursorY = cursorTargetY;
+                
+                const shellRect = spriteShell.getBoundingClientRect();
+                const rootRect = root.getBoundingClientRect();
+                const shellW = shellRect.width || 160;
+                const shellH = shellRect.height || 148;
+                const naturalCenterX = shellRect.left - rootRect.left + shellW / 2;
+                const naturalCenterY = shellRect.top - rootRect.top + shellH / 2;
+                
+                currentSpriteX = cursorTargetX - naturalCenterX;
+                currentSpriteY = cursorTargetY + 54 - naturalCenterY;
+                currentSpriteTilt = 0;
+            }
+            
             startCursorFollow();
         }
     }
 }
 
-let cursorFollowAnimFrame: number | null = null;
-
 function startCursorFollow() {
     if (!spriteShell) return;
     cursorFollowActive = true;
     spriteShell.classList.add("cursor-following");
-    // Use a transform to offset the sprite from its natural position
-    // We store the baseline position, then apply the cursor offset as a translate
-    const shellRect = spriteShell.getBoundingClientRect();
-    const rootRect = root.getBoundingClientRect();
-    // Natural position of the sprite center relative to root
-    const naturalCenterX = shellRect.left - rootRect.left + shellRect.width / 2;
-    const naturalCenterY = shellRect.top - rootRect.top + shellRect.height / 2;
-    // Offset to move the center of the sprite to the cursor point
-    const dx = cursorTargetX - naturalCenterX;
-    const dy = cursorTargetY - naturalCenterY;
-    spriteShell.style.transform = `translate(${dx}px, ${dy}px)`;
-    // Don't interfere with default flex layout
 }
 
 function clearCursorFollow() {
     if (!spriteShell) return;
     cursorFollowActive = false;
     spriteShell.classList.remove("cursor-following");
-    spriteShell.style.transform = "";
-    if (cursorFollowAnimFrame != null) {
-        cancelAnimationFrame(cursorFollowAnimFrame);
-        cursorFollowAnimFrame = null;
-    }
 }
+
+function updateAnimationLoop() {
+    if (!spriteShell || !root) {
+        requestAnimationFrame(updateAnimationLoop);
+        return;
+    }
+
+    const shellRect = spriteShell.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const shellW = shellRect.width || 160;
+    const shellH = shellRect.height || 148;
+    const naturalCenterX = shellRect.left - rootRect.left + shellW / 2;
+    const naturalCenterY = shellRect.top - rootRect.top + shellH / 2;
+
+    if (cursorFollowActive && petCursor) {
+        // Fast-lerp the cursor overlay to follow the target coordinates smoothly
+        currentCursorX += (cursorTargetX - currentCursorX) * 0.35;
+        currentCursorY += (cursorTargetY - currentCursorY) * 0.35;
+        
+        petCursor.style.left = `${currentCursorX}px`;
+        petCursor.style.top = `${currentCursorY}px`;
+        petCursor.style.transform = "translate(-50%, -50%)";
+        
+        // Target offset for the sprite (below the cursor to appear carrying it)
+        const targetDx = cursorTargetX - naturalCenterX;
+        const targetDy = cursorTargetY + 54 - naturalCenterY;
+        
+        // Interpolate position with inertia
+        currentSpriteX += (targetDx - currentSpriteX) * 0.12;
+        currentSpriteY += (targetDy - currentSpriteY) * 0.12;
+        
+        // Dynamic tilt proportional to horizontal distance/velocity
+        const diffX = targetDx - currentSpriteX;
+        const targetTilt = Math.max(-16, Math.min(16, diffX * 0.18));
+        currentSpriteTilt += (targetTilt - currentSpriteTilt) * 0.1;
+        
+        spriteShell.style.transform = `translate(${currentSpriteX}px, ${currentSpriteY}px) rotate(${currentSpriteTilt}deg)`;
+    } else {
+        // Return smoothly to natural resting position
+        currentSpriteX += (0 - currentSpriteX) * 0.15;
+        currentSpriteY += (0 - currentSpriteY) * 0.15;
+        currentSpriteTilt += (0 - currentSpriteTilt) * 0.15;
+        
+        if (Math.abs(currentSpriteX) > 0.05 || Math.abs(currentSpriteY) > 0.05 || Math.abs(currentSpriteTilt) > 0.05) {
+            spriteShell.style.transform = `translate(${currentSpriteX}px, ${currentSpriteY}px) rotate(${currentSpriteTilt}deg)`;
+        } else {
+            spriteShell.style.transform = "";
+        }
+    }
+    
+    requestAnimationFrame(updateAnimationLoop);
+}
+
+// Start the physics loop
+requestAnimationFrame(updateAnimationLoop);
 
 function renderReasoningLog(log: string[] | undefined) {
     if (!reasoningFeedBody) {
@@ -349,8 +505,15 @@ function renderState(nextState: PetState) {
 
     renderCursor(state.cursorAction, state.cursorPoint);
     if (capturePreview && capturePreviewImage) {
-        if (options.mode === "expressive" && state.previewImageUrl) {
+        const previewSurface =
+            state.surface === "browser" || state.surface === "desktop" || state.surface === "sandbox";
+        const showPreview =
+            options.mode !== "off" && options.mode !== "status-only" && previewSurface && state.previewImageUrl;
+        root.classList.toggle("has-preview", Boolean(showPreview));
+        if (showPreview) {
             capturePreviewImage.src = state.previewImageUrl;
+            capturePreviewCaption.textContent =
+                state.surface === "browser" ? "Browser view" : `${state.appName ?? "App"} view`;
             capturePreview.removeAttribute("hidden");
         } else {
             capturePreview.setAttribute("hidden", "");
@@ -359,13 +522,68 @@ function renderState(nextState: PetState) {
     }
 }
 
+function framesForState(): string[] {
+    if (state.moving) {
+        return walkFrames;
+    }
+    if (state.lifecycle === "awaiting-approval") {
+        return StatusSequences.approval;
+    }
+    if (state.lifecycle === "degraded") {
+        return StatusSequences.warning;
+    }
+    if (state.lifecycle === "failed" || state.lifecycle === "cancelled") {
+        if (state.surface === "terminal") return TerminalSequences.failed;
+        if (state.surface === "browser") return BrowserSequences.recover;
+        if (state.surface === "file") return ReviewSequences.decide;
+        if (state.surface === "sandbox" || state.surface === "desktop") return SandboxSequences.recover;
+        return StatusSequences.failed;
+    }
+    if (state.lifecycle === "paused") {
+        return StatusSequences.paused;
+    }
+    if (state.lifecycle === "succeeded") {
+        if (state.surface === "terminal") return TerminalSequences.succeeded;
+        if (state.surface === "browser") return BrowserSequences.succeeded;
+        if (state.surface === "file") return ReviewSequences.resolve;
+        if (state.surface === "sandbox" || state.surface === "desktop") return SandboxSequences.complete;
+        return StatusSequences.succeeded;
+    }
+    if (state.surface === "terminal") {
+        if (state.cursorAction === "type" || state.action === "press") return TerminalSequences.input;
+        if (state.action === "wait") return TerminalSequences.running;
+        if (state.action === "verify") return TerminalSequences.recovery;
+        return TerminalSequences.logs;
+    }
+    if (state.surface === "browser") {
+        if (state.action === "open" || state.action === "focus") return BrowserSequences.open;
+        if (state.action === "inspect" || state.action === "screenshot" || state.cursorAction === "scroll") {
+            return BrowserSequences.inspect;
+        }
+        return BrowserSequences.interact;
+    }
+    if (state.surface === "file") {
+        if (state.action === "inspect" || state.action === "verify") return ReviewSequences.inspect;
+        if (state.action === "click" || state.action === "press") return ReviewSequences.decide;
+        return ReviewSequences.read;
+    }
+    if (state.surface === "sandbox" || state.surface === "desktop") {
+        if (state.action === "open" || state.action === "inspect") return SandboxSequences.open;
+        if (state.action === "verify") return SandboxSequences.complete;
+        return SandboxSequences.build;
+    }
+    if (state.context === "thinking" || state.action === "thinking" || state.action === "wait") {
+        return StatusSequences.thinking;
+    }
+    if (state.active) {
+        return StatusSequences.active;
+    }
+    return StatusSequences.idle.length > 0 ? StatusSequences.idle : idleFrames;
+}
+
 function animate() {
     const isFollowingCursor = cursorFollowActive && state.cursorAction && state.cursorAction !== "idle";
-    const frames = isFollowingCursor
-        ? walkFrames
-        : options.mode === "expressive" && state.moving
-          ? walkFrames
-          : idleFrames;
+    const frames = isFollowingCursor ? walkFrames : framesForState();
     if (frames.length > 0) {
         sprite.src = frames[frame % frames.length];
         frame++;

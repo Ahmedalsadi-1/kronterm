@@ -189,8 +189,18 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
             })}
             onMouseDown={onDragStart}
             onClick={onClick}
+            onKeyDown={(event) => {
+                if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) {
+                    return;
+                }
+                event.preventDefault();
+                onClick();
+            }}
             onContextMenu={onContextMenu}
             data-tab-id={tabId}
+            role="tab"
+            aria-selected={active}
+            tabIndex={0}
         >
             {groupColor && (
                 <div
@@ -209,6 +219,9 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
             )}
             {showDivider && <div className="tab-divider" />}
             <div className="tab-inner">
+                {!badges?.length && !flagColor && (
+                    <i className="fa-regular fa-file-lines tab-document-icon" aria-hidden="true" />
+                )}
                 <div
                     ref={editableRef}
                     className={clsx("name", { focused: isEditable })}

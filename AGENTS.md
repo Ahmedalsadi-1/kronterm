@@ -1,22 +1,57 @@
-# Wave Terminal — Project Knowledge Base
+# KronTerm — Project Knowledge Base
 
-**Type:** Hybrid Electron + Go Desktop Application
-**Version:** 0.14.3
-**Module:** `github.com/wavetermdev/waveterm`
+**Type:** Agent-aware Electron + Go desktop workspace
+**Base version:** Wave Terminal 0.14.3 with the KronTerm private-beta product layer
+**Go module:** `github.com/wavetermdev/waveterm` (retained for source compatibility)
+
+## Product Model
+
+KronTerm is the user-facing product name. It combines terminal, browser, file, preview, sandbox, remote, native-app, and
+AI surfaces in one persistent workspace. KronosCode is the agent execution engine; KronosChamber is its primary chat and
+control surface.
+
+The desktop has three workspace presentations that share the same blocks:
+
+- `widgets`: resizable tiled splits.
+- `tabs`: focused widgets in a browser-style tab strip with pane splitting.
+- `canvas`: a pan-and-zoom spatial workspace with live widgets, notes, shapes, connectors, and agent task cards.
+
+The current development line also includes live agent activity overlays, task/evidence graphs, selection-to-agent context,
+a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, and an optional voice engine. The
+`mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally
+available.
+
+Legacy `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and Go module names remain in compatibility-sensitive code and config.
+Use KronTerm and KronosCode in new user-facing copy, but never rename compatibility identifiers as part of an unrelated
+change.
 
 ## Quick Reference
 
-| Need                | Location                                                |
-| ------------------- | ------------------------------------------------------- |
-| Add RPC call        | `pkg/wshrpc/wshrpctypes.go` → `task generate`           |
-| Add config setting  | `pkg/wconfig/` → `.kilocode/skills/add-config/SKILL.md` |
-| Frontend state      | `frontend/app/store/` (Jotai)                           |
-| AI backends         | `pkg/waveai/`                                           |
-| SSH connections     | `pkg/remote/`                                           |
-| Electron IPC        | `emain/emain-ipc.ts`                                    |
-| Terminal views      | `frontend/app/view/term/`                               |
-| Tsunami VDOM        | `tsunami/engine/`                                       |
-| Electron API access | `getApi()` from `@/store/global`                        |
+| Need                        | Location                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| Add RPC call                | `pkg/wshrpc/wshrpctypes.go` → `task generate`                                  |
+| Add config setting          | `pkg/wconfig/` → `.kilocode/skills/add-config/SKILL.md`                        |
+| Frontend state              | `frontend/app/store/` (Jotai)                                                  |
+| Workspace presentations     | `frontend/app/tab/` (`widget-tabs-layout.tsx`, `workspace-canvas.tsx`)         |
+| Workspace layout model      | `frontend/app/workspace/workspace-layout-model.ts`                             |
+| KronosChamber view          | `frontend/app/view/chathubv2/`                                                 |
+| KronosChamber runtime       | `emain/chathubv2-*.ts`, `emain/kronoscode-runtime.ts`                          |
+| Agent activity and overlays | `frontend/types/agent-activity.ts`, `frontend/app/view/use-agent-overlays.ts`  |
+| KronosCode package boundary | `agents/kronoscode/`                                                           |
+| AI backends                 | `pkg/waveai/`, `pkg/aiusechat/`                                                |
+| KronTerm MCP bridge         | `mcp-kron-term/`                                                               |
+| Code intelligence           | `frontend/app/lsp/`, `emain/emain-lsp.ts`                                      |
+| Voice                       | `audio-engine/`, `emain/emain-audio.ts`, `frontend/app/aipanel/voice-model.ts` |
+| Sandbox                     | `pkg/sandbox/`, `frontend/app/view/sandbox/`                                   |
+| Computer-use stream         | `frontend/app/view/appstream/`                                                 |
+| SSH connections             | `pkg/remote/`                                                                  |
+| Electron IPC                | `emain/emain-ipc.ts`, `emain/preload.ts`                                       |
+| Terminal views              | `frontend/app/view/term/`                                                      |
+| Tsunami VDOM                | `tsunami/engine/`                                                              |
+| Electron API access         | `getApi()` from `@/store/global`                                               |
+| iPhone Labs client          | `mobile/`                                                                      |
+| Product website             | `website/`                                                                     |
+| Documentation site          | `docs/`                                                                        |
 
 ## Build, Lint, Test
 
@@ -29,6 +64,8 @@ task preview            # Component preview (localhost:7007, no Electron)
 task check:ts           # TypeScript typecheck (tsc --noEmit)
 task generate           # Regenerate TS bindings from Go types
 task init               # Full project init (npm install + go mod tidy)
+npm --prefix website run build  # Validate the product website
+npm --prefix docs run build     # Validate the Docusaurus site
 
 # Lint & format
 npx eslint .            # Lint TS/TSX (config: eslint.config.js)
@@ -55,7 +92,7 @@ go vet ./pkg/...                     # Static analysis
 
 ```
 kronterm/
-├── emain/              # Electron main process (TypeScript)
+├── emain/              # Electron main process, native bridges, managed agent runtime
 ├── frontend/           # React renderer (TypeScript/TSX)
 │   ├── app/            # Components: block/, tab/, view/, store/, aipanel/, element/
 │   ├── builder/        # Builder app
@@ -65,8 +102,13 @@ kronterm/
 │   └── types/          # TypeScript types (gotypes.d.ts is GENERATED)
 ├── cmd/                # Go CLI apps (wsh daemon, server, generators)
 ├── pkg/                # Go packages (wshrpc, waveai, wps, wconfig, etc.)
+├── agents/             # Packaged ACP agent boundaries
+├── mcp-kron-term/      # KronTerm workspace and computer-use MCP server
+├── audio-engine/       # Optional Python speech capture, STT, and TTS process
+├── mobile/             # KronTerm for iPhone Labs client and connector
 ├── tsunami/            # Embedded VDOM rendering engine (Go + frontend)
 ├── db/                 # SQLite migrations
+├── website/            # Vite product website
 └── docs/               # Docusaurus documentation site
 ```
 

@@ -58,6 +58,7 @@ import {
     WaveBrowserWindow,
 } from "./emain-window";
 import { ElectronWshClient, initElectronWshClient } from "./emain-wsh";
+import { KronosCodeRuntime } from "./kronoscode-runtime";
 import { getLaunchSettings } from "./launchsettings";
 import { configureAutoUpdater, updater } from "./updater";
 
@@ -295,6 +296,7 @@ electronApp.on("before-quit", (e) => {
     setGlobalIsQuitting(true);
     void stopAllAgentManagers();
     stopChatHubV2Server();
+    KronosCodeRuntime.stop();
     stopAllLanguageServers();
     stopKrondesignDaemon();
     stopAudioEngine();
@@ -422,6 +424,13 @@ async function appMain() {
         console.log("error initializing wshrpc", e);
     }
     const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+    fireAndForget(async () => {
+        try {
+            await KronosCodeRuntime.ensure(fullConfig);
+        } catch (error) {
+            console.log("background KronosCode startup failed", error);
+        }
+    });
     checkIfRunningUnderARM64Translation(fullConfig);
     if (fullConfig?.settings?.["app:confirmquit"] != null) {
         confirmQuit = fullConfig.settings["app:confirmquit"];
@@ -450,6 +459,18 @@ async function appMain() {
     });
     electron.powerMonitor.on("resume", () => {
         console.log("system resumed from sleep, notifying server");
+        for (const webContents of electron.webContents.getAllWebContents()) {
+            if (!webContents.isDestroyed()) {
+                webContents.send("kronoscode-power-resume");
+            }
+        }
+        fireAndForget(async () => {
+            try {
+                await KronosCodeRuntime.revalidate();
+            } catch (error) {
+                console.log("KronosCode revalidation after system resume failed", error);
+            }
+        });
         fireAndForget(async () => {
             try {
                 await RpcApi.NotifySystemResumeCommand(ElectronWshClient, { noresponse: true });

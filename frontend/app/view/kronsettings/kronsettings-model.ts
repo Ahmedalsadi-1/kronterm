@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BlockNodeModel } from "@/app/block/blocktypes";
+import { globalStore, WOS } from "@/app/store/global";
 import type { TabModel } from "@/app/store/tab-model";
-import type { KronSettingsEnv } from "@/app/view/kronsettings/kronsettings-env";
 import { KronSettingsView } from "@/app/view/kronsettings/kronsettings";
+import type { KronSettingsEnv } from "@/app/view/kronsettings/kronsettings-env";
 import { atom, type PrimitiveAtom } from "jotai";
 
 export type SettingsSection =
@@ -30,7 +31,7 @@ export interface SettingsSectionConfig {
     id: SettingsSection;
     label: string;
     group: "appearance" | "features" | "integrations" | "kronoscode" | "other";
-    icon: string; // FontAwesome icon name (without "fa-" prefix)
+    icon: string;
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionConfig[] = [
@@ -70,6 +71,14 @@ export const SECTION_GROUP_LABELS: Record<string, string> = {
     other: "Other",
 };
 
+const SettingsSectionIds = new Set<SettingsSection>(SETTINGS_SECTIONS.map((section) => section.id));
+
+export function resolveKronSettingsSection(value: unknown, fallback: SettingsSection = "visual"): SettingsSection {
+    return typeof value === "string" && SettingsSectionIds.has(value as SettingsSection)
+        ? (value as SettingsSection)
+        : fallback;
+}
+
 export class KronSettingsViewModel implements ViewModel {
     blockId: string;
     viewType = "kronsettings";
@@ -89,7 +98,10 @@ export class KronSettingsViewModel implements ViewModel {
         this.tabModel = tabModel;
         this.env = waveEnv as KronSettingsEnv;
 
-        this.selectedSectionAtom = atom<SettingsSection>("visual");
+        const blockAtom = WOS.getWaveObjectAtom<Block>(`block:${blockId}`);
+        const blockMeta = globalStore.get(blockAtom)?.meta as (MetaType & Record<string, unknown>) | undefined;
+        const initialSection = blockMeta?.["kronsettings:section"];
+        this.selectedSectionAtom = atom<SettingsSection>(resolveKronSettingsSection(initialSection));
     }
 
     giveFocus(): boolean {

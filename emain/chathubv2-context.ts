@@ -1,13 +1,28 @@
 export type ChatHubV2SurfaceContext = {
     tabId?: string;
     blockId?: string;
+    surfaceId?: string;
 };
 
 export function makeStartupSurfaceContext(context: ChatHubV2SurfaceContext): ChatHubV2SurfaceContext {
     return {
         ...(context.tabId ? { tabId: context.tabId } : {}),
         ...(context.blockId ? { blockId: context.blockId } : {}),
+        ...(context.surfaceId ? { surfaceId: context.surfaceId } : {}),
     };
+}
+
+export function preferScopedSurfaceContext(
+    current: ChatHubV2SurfaceContext | null,
+    incoming: ChatHubV2SurfaceContext
+): ChatHubV2SurfaceContext | null {
+    if (!incoming.tabId) {
+        return current;
+    }
+    if (current?.tabId === incoming.tabId && current.blockId && !incoming.blockId) {
+        return current;
+    }
+    return makeStartupSurfaceContext(incoming);
 }
 
 export function makeSurfaceTokenRequest(context: ChatHubV2SurfaceContext): CommandCreateSurfaceTokenData {
@@ -32,14 +47,19 @@ export function makeSurfaceEnvironment(token: CommandCreateSurfaceTokenRtnData):
     };
 }
 
-export function makeRuntimeTokenPayload(token: CommandCreateSurfaceTokenRtnData): {
+export function makeRuntimeTokenPayload(
+    token: CommandCreateSurfaceTokenRtnData,
+    surfaceId?: string
+): {
     token: string;
     tabId: string;
     blockId: string;
+    surfaceId?: string;
 } {
     return {
         token: token.token,
         tabId: token.tabid,
         blockId: token.blockid ?? "",
+        ...(surfaceId ? { surfaceId } : {}),
     };
 }

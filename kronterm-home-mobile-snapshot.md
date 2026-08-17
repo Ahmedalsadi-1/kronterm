@@ -1,0 +1,46 @@
+- generic [ref=e3] [box=0,0,390,7252]:
+  - banner [ref=e4] [box=0,0,390,107]:
+    - link "Private beta now routing workspace-native AI teams Explore ACP agents" [ref=e5] [cursor=pointer] [box=0,0,390,36]:
+      - /url: /capabilities/acp-agents
+      - generic [ref=e6] [box=18,8,305,20]: Private beta now routing workspace-native AI teams
+      - strong [ref=e7] [box=333,8,120,20]: Explore ACP agents
+    - navigation "Main navigation" [ref=e9] [box=0,36,390,70]:
+      - link "KronTerm" [ref=e10] [cursor=pointer] [box=24,56,133,31]:
+        - /url: /
+      - button "Toggle menu" [ref=e13] [cursor=pointer] [box=322,49,44,44]
+  - main [ref=e16] [box=0,107,390,5045]:
+    - generic [ref=e319] [box=0,107,390,1140]:
+      - generic [ref=e320] [box=16,193,383,700]
+      - generic [ref=e342] [box=16,931,383,274]
+    - generic [ref=e349] [box=0,1247,390,488]:
+      - generic [ref=e350] [box=16,1285,358,136]
+      - generic [ref=e353] [box=16,1435,358,136]
+      - generic [ref=e356] [box=16,1585,358,112]
+    - generic [ref=e359] [box=0,1735,390,901]:
+      - generic [ref=e360] [box=16,1831,358,79]
+      - generic [ref=e363] [box=16,1948,358,592]
+    - generic [ref=e379] [box=0,2636,390,845]:
+      - generic [ref=e380] [box=16,2732,358,67]
+      - generic [ref=e383] [box=16,2827,358,558]
+    - generic [ref=e396] [box=0,3481,390,1262]:
+      - generic [ref=e397] [box=16,3577,358,150]
+      - generic [ref=e400] [box=16,3769,358,878]
+    - generic [ref=e428] [box=0,4743,390,409]:
+      - generic [ref=e429] [box=29,4772,332,230]
+      - generic [ref=e432] [box=29,5026,332,97]
+  - contentinfo [ref=e250] [box=0,5224,390,2028]:
+    - generic [ref=e252] [box=24,5312,342,783]:
+      - paragraph [ref=e253] [box=24,5312,342,20]: All downloads
+      - heading "Get KronTerm today" [level=2] [ref=e254] [box=24,5332,342,71]
+      - paragraph [ref=e255] [box=24,5417,342,79]: Request private beta access for macOS now. Windows and Linux evaluation paths are included for planning.
+      - generic [ref=e256] [box=24,5530,342,565]
+    - generic [ref=e288] [box=0,6181,390,932]:
+      - generic [ref=e289] [box=24,6239,342,121]
+      - generic [ref=e292] [box=24,6384,342,126]
+      - generic [ref=e297] [box=24,6534,342,188]
+      - generic [ref=e304] [box=24,6747,342,157]
+      - generic [ref=e310] [box=24,6928,342,126]
+    - generic [ref=e315] [box=0,7112,390,140]:
+      - generic [ref=e316] [box=24,7135,342,20]: All Rights Reserved © 2026 KronTerm
+      - generic [ref=e317] [box=24,7167,342,20]: Commercial private beta
+      - generic [ref=e318] [box=24,7198,342,20]: SOC 2-ready control model

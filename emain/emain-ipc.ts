@@ -7,7 +7,7 @@ import fs from "fs";
 import * as child_process from "node:child_process";
 import * as path from "path";
 import { PNG } from "pngjs";
-import { Readable } from "stream";
+import { pipeline, Readable, Transform } from "stream";
 import { RpcApi } from "../frontend/app/store/wshclientapi";
 import { getWebServerEndpoint } from "../frontend/util/endpoints";
 import * as keyutil from "../frontend/util/keyutil";
@@ -19,6 +19,7 @@ import {
     createAgentManager,
     getAgentManager,
     listAgentManagers,
+    rehomeIdleKronosCodeAgents,
     removeAgentManager,
 } from "./acp";
 import {
@@ -62,11 +63,22 @@ import { handleCtrlShiftState } from "./emain-util";
 import { getWaveVersion } from "./emain-wavesrv";
 import { createNewWaveWindow, getWaveWindowByWebContentsId } from "./emain-window";
 import { ElectronWshClient } from "./emain-wsh";
+import {
+    isKronosCodeLoopbackUrl,
+    KronosCodeRuntime,
+    withKronosCodeAttachArgs,
+    type KronosCodeApiRequest,
+    type KronosCodeBootProgress,
+    type KronosCodeConnectionDescriptor,
+} from "./kronoscode-runtime";
 
 const electronApp = electron.app;
 
 let webviewFocusId: number = null;
 let webviewKeys: string[] = [];
+
+const MaxImageDownloadBytes = 50 * 1024 * 1024;
+const ImageHeadersTimeoutMs = 15_000;
 
 type UrlInSessionResult = {
     stream: Readable;
@@ -109,6 +121,9 @@ function getUrlInSession(session: Electron.Session, url: string): Promise<UrlInS
             try {
                 const parsed = parseDataUrl(url);
                 const buffer = Buffer.from(parsed.buffer);
+                if (buffer.byteLength > MaxImageDownloadBytes) {
+                    throw new Error("Image exceeds the 50 MB download limit");
+                }
                 const readable = Readable.from(buffer);
                 resolve({ stream: readable, mimeType: parsed.mimeType, fileName: "image" });
             } catch (err) {
@@ -121,35 +136,63 @@ function getUrlInSession(session: Electron.Session, url: string): Promise<UrlInS
             method: "GET",
             session,
         });
-        const readable = new Readable({
-            read() {},
-        });
+        let readable: Transform;
+        let settled = false;
+        const headersTimeout = setTimeout(() => {
+            request.abort();
+            if (!settled) {
+                settled = true;
+                reject(new Error("Timed out waiting for image response headers"));
+            }
+        }, ImageHeadersTimeoutMs);
         request.on("response", (response) => {
+            clearTimeout(headersTimeout);
             const statusCode = response.statusCode;
             if (statusCode < 200 || statusCode >= 300) {
-                readable.destroy();
                 request.abort();
+                settled = true;
                 reject(new Error(`HTTP request failed with status ${statusCode}: ${response.statusMessage || ""}`));
                 return;
             }
 
             const mimeType = cleanMimeType(getSingleHeaderVal(response.headers, "content-type"));
             const fileName = getFileNameFromUrl(url) || "image";
-            response.on("data", (chunk) => {
-                readable.push(chunk);
+            const contentLength = Number(getSingleHeaderVal(response.headers, "content-length"));
+            if (Number.isFinite(contentLength) && contentLength > MaxImageDownloadBytes) {
+                request.abort();
+                settled = true;
+                reject(new Error("Image exceeds the 50 MB download limit"));
+                return;
+            }
+
+            let receivedBytes = 0;
+            readable = new Transform({
+                transform(chunk, _encoding, callback) {
+                    receivedBytes += chunk.length;
+                    if (receivedBytes > MaxImageDownloadBytes) {
+                        callback(new Error("Image exceeds the 50 MB download limit"));
+                        return;
+                    }
+                    callback(null, chunk);
+                },
             });
-            response.on("end", () => {
-                readable.push(null);
-                resolve({ stream: readable, mimeType, fileName });
+            pipeline(response as unknown as Readable, readable, (err) => {
+                if (err && !readable.destroyed) {
+                    readable.destroy(err);
+                }
             });
-            response.on("error", (err) => {
-                readable.destroy(err);
-                reject(err);
-            });
+            settled = true;
+            resolve({ stream: readable, mimeType, fileName });
         });
         request.on("error", (err) => {
-            readable.destroy(err);
-            reject(err);
+            clearTimeout(headersTimeout);
+            if (readable && !readable.destroyed) {
+                readable.destroy(err);
+            }
+            if (!settled) {
+                settled = true;
+                reject(err);
+            }
         });
         request.end();
     });
@@ -218,6 +261,17 @@ function saveImageFileWithNativeDialog(
 }
 
 export function initIpcHandlers() {
+    const broadcastKronosCodeEvent = (channel: string, payload: unknown) => {
+        for (const webContents of electron.webContents.getAllWebContents()) {
+            if (!webContents.isDestroyed()) {
+                webContents.send(channel, payload);
+            }
+        }
+    };
+    KronosCodeRuntime.on("boot-progress", (payload: KronosCodeBootProgress) =>
+        broadcastKronosCodeEvent("kronoscode-boot-progress", payload)
+    );
+    KronosCodeRuntime.on("exit", (payload) => broadcastKronosCodeEvent("kronoscode-exit", payload));
     electron.ipcMain.on("desktop-pet-options", (_event, options) => {
         updateDesktopPetOptions(options ?? {});
     });
@@ -667,6 +721,21 @@ export function initIpcHandlers() {
                 };
             }
         ) => {
+            if (opts.backend === "kronoscode") {
+                const connection = await KronosCodeRuntime.ensure();
+                const internal = KronosCodeRuntime.getInternalConnection();
+                const allowDesktopCapabilities = isKronosCodeLoopbackUrl(connection.baseUrl);
+                opts = {
+                    ...opts,
+                    surfaceContext: allowDesktopCapabilities ? opts.surfaceContext : undefined,
+                    customArgs: withKronosCodeAttachArgs(opts.customArgs, connection.baseUrl),
+                    customEnv: {
+                        ...opts.customEnv,
+                        KRONOSCODE_SERVER_USERNAME: internal?.username ?? "kronoscode",
+                        ...(internal?.password ? { KRONOSCODE_SERVER_PASSWORD: internal.password } : {}),
+                    },
+                };
+            }
             const manager = createAgentManager(opts);
 
             const senderWc = event.sender;
@@ -693,6 +762,8 @@ export function initIpcHandlers() {
                         configOptions: manager.configOptions,
                         modelInfo: manager.modelInfo,
                         capabilities: manager.capabilities,
+                        harnessProfile: manager.harnessProfile,
+                        capabilityLease: manager.capabilityLease,
                     },
                 };
             } catch (err) {
@@ -778,6 +849,8 @@ export function initIpcHandlers() {
             configOptions: manager.configOptions,
             modelInfo: manager.modelInfo,
             capabilities: manager.capabilities,
+            harnessProfile: manager.harnessProfile,
+            capabilityLease: manager.capabilityLease,
         };
     });
 
@@ -951,18 +1024,21 @@ export function initIpcHandlers() {
 
     // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
 
-    electron.ipcMain.handle("chathubv2-start", async (_event, context?: { tabId?: string; blockId?: string }) => {
-        try {
-            const data = await startChatHubV2Server(context);
-            return { success: true, data, health: data.health };
-        } catch (err) {
-            return {
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-                health: getChatHubV2RuntimeHealth(),
-            };
+    electron.ipcMain.handle(
+        "chathubv2-start",
+        async (_event, context?: { tabId?: string; blockId?: string; surfaceId?: string }) => {
+            try {
+                const data = await startChatHubV2Server(context);
+                return { success: true, data, health: data.health };
+            } catch (err) {
+                return {
+                    success: false,
+                    error: err instanceof Error ? err.message : String(err),
+                    health: getChatHubV2RuntimeHealth(),
+                };
+            }
         }
-    });
+    );
 
     electron.ipcMain.handle("chathubv2-status", async () => {
         return { success: true, data: getChatHubV2ServerStatus(), health: getChatHubV2RuntimeHealth() };
@@ -971,5 +1047,52 @@ export function initIpcHandlers() {
     electron.ipcMain.handle("chathubv2-stop", async () => {
         stopChatHubV2Server();
         return { success: true };
+    });
+
+    electron.ipcMain.handle("kronoscode-get-connection", async () => {
+        return KronosCodeRuntime.ensure();
+    });
+
+    electron.ipcMain.handle("kronoscode-revalidate-connection", async () => {
+        return KronosCodeRuntime.revalidate();
+    });
+
+    electron.ipcMain.handle("kronoscode-touch-backend", async () => {
+        return KronosCodeRuntime.touch();
+    });
+
+    electron.ipcMain.handle(
+        "kronoscode-get-gateway-ws-url",
+        async (_event, input?: { directory?: string; surfaceId?: string }) => {
+            return KronosCodeRuntime.getGatewayWsUrl(input);
+        }
+    );
+
+    electron.ipcMain.handle("kronoscode-api", async (_event, input: KronosCodeApiRequest) => {
+        return KronosCodeRuntime.api(input);
+    });
+
+    electron.ipcMain.handle(
+        "kronoscode-apply-connection",
+        async (
+            _event,
+            input: { endpoint?: string; binary?: string; username?: string; password?: string }
+        ): Promise<KronosCodeConnectionDescriptor> => {
+            const descriptor = await KronosCodeRuntime.applyConnection(input);
+            const internal = KronosCodeRuntime.getInternalConnection();
+            stopChatHubV2Server();
+            await rehomeIdleKronosCodeAgents({
+                baseUrl: descriptor.baseUrl,
+                username: internal?.username ?? "kronoscode",
+                password: internal?.password,
+                allowDesktopCapabilities: isKronosCodeLoopbackUrl(descriptor.baseUrl),
+            });
+            broadcastKronosCodeEvent("kronoscode-connection-applied", descriptor);
+            return descriptor;
+        }
+    );
+
+    electron.ipcMain.handle("kronoscode-get-boot-progress", async () => {
+        return KronosCodeRuntime.progress;
     });
 }

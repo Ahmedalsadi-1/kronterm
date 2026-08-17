@@ -1,52 +1,46 @@
-import React from 'react';
-import type { ComponentType } from 'react';
-import type { Part } from '../../../../types/sdk';
-import { RiArrowDownSLine, RiArrowRightSLine, RiBrainAi3Line, RiChatAi3Line } from '@remixicon/react';
-import { cn } from '@/lib/utils';
-import type { ContentChangeReason } from '../../../../types/scroll';
-import { ScrollableOverlay } from './ScrollableOverlay';
+import { cn } from "@/lib/utils";
+import { RiArrowDownSLine, RiArrowRightSLine, RiBrainAi3Line, RiChatAi3Line } from "@remixicon/react";
+import type { ComponentType } from "react";
+import React from "react";
+import type { ContentChangeReason } from "../../../../types/scroll";
+import type { Part } from "../../../../types/sdk";
+import { ScrollableOverlay } from "./ScrollableOverlay";
 
 type PartWithText = Part & { text?: string; content?: string };
 
-export type ReasoningVariant = 'thinking' | 'justification';
+export type ReasoningVariant = "thinking" | "justification";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IconComponent = ComponentType<any>;
 
-const variantConfig: Record<
-    ReasoningVariant,
-    { label: string; Icon: IconComponent }
-> = {
-    thinking: { label: 'Thinking', Icon: RiBrainAi3Line },
-    justification: { label: 'Justification', Icon: RiChatAi3Line },
+const variantConfig: Record<ReasoningVariant, { label: string; Icon: IconComponent }> = {
+    thinking: { label: "Thinking", Icon: RiBrainAi3Line },
+    justification: { label: "Justification", Icon: RiChatAi3Line },
 };
 
 const cleanReasoningText = (text: string): string => {
-    if (typeof text !== 'string' || text.trim().length === 0) {
-        return '';
+    if (typeof text !== "string" || text.trim().length === 0) {
+        return "";
     }
 
     return text
-        .split('\n')
-        .map((line: string) => line.replace(/^>\s?/, '').trimEnd())
+        .split("\n")
+        .map((line: string) => line.replace(/^>\s?/, "").trimEnd())
         .filter((line: string) => line.trim().length > 0)
-        .join('\n')
+        .join("\n")
         .trim();
 };
 
 const getReasoningSummary = (text: string): string => {
     if (!text) {
-        return '';
+        return "";
     }
 
     const trimmed = text.trim();
-    const newlineIndex = trimmed.indexOf('\n');
-    const periodIndex = trimmed.indexOf('.');
+    const newlineIndex = trimmed.indexOf("\n");
+    const periodIndex = trimmed.indexOf(".");
 
-    const cutoffCandidates = [
-        newlineIndex >= 0 ? newlineIndex : Infinity,
-        periodIndex >= 0 ? periodIndex : Infinity,
-    ];
+    const cutoffCandidates = [newlineIndex >= 0 ? newlineIndex : Infinity, periodIndex >= 0 ? periodIndex : Infinity];
     const cutoff = Math.min(...cutoffCandidates);
 
     if (!Number.isFinite(cutoff)) {
@@ -78,7 +72,7 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
         if (text.trim().length === 0) {
             return;
         }
-        onContentChange?.('structural');
+        onContentChange?.("structural");
     }, [onContentChange, isExpanded, text]);
 
     if (!text || text.trim().length === 0) {
@@ -89,7 +83,7 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
         <div className="my-1" data-reasoning-block-id={blockId}>
             <div
                 className={cn(
-                    'group/tool flex items-center gap-2 pr-2 pl-px py-1.5 rounded-xl cursor-pointer hover:bg-white/5 transition-colors'
+                    "group/tool flex items-center gap-2 pr-2 pl-px py-1.5 rounded-xl cursor-pointer hover:bg-white/5 transition-colors"
                 )}
                 onClick={() => setIsExpanded((prev) => !prev)}
             >
@@ -97,21 +91,25 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
                     <div className="relative h-3.5 w-3.5 flex-shrink-0">
                         <div
                             className={cn(
-                                'absolute inset-0 transition-opacity',
-                                isExpanded && 'opacity-0',
-                                !isExpanded && 'group-hover/tool:opacity-0'
+                                "absolute inset-0 transition-opacity",
+                                isExpanded && "opacity-0",
+                                !isExpanded && "group-hover/tool:opacity-0"
                             )}
                         >
                             <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div
                             className={cn(
-                                'absolute inset-0 transition-opacity flex items-center justify-center',
-                                isExpanded && 'opacity-100',
-                                !isExpanded && 'opacity-0 group-hover/tool:opacity-100'
+                                "absolute inset-0 transition-opacity flex items-center justify-center",
+                                isExpanded && "opacity-100",
+                                !isExpanded && "opacity-0 group-hover/tool:opacity-100"
                             )}
                         >
-                            {isExpanded ? <RiArrowDownSLine className="h-3.5 w-3.5" /> : <RiArrowRightSLine className="h-3.5 w-3.5" />}
+                            {isExpanded ? (
+                                <RiArrowDownSLine className="h-3.5 w-3.5" />
+                            ) : (
+                                <RiArrowRightSLine className="h-3.5 w-3.5" />
+                            )}
                         </div>
                     </div>
                     <span className="text-[11px] font-medium opacity-80">{label}</span>
@@ -127,9 +125,9 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
             {isExpanded && (
                 <div
                     className={cn(
-                        'relative pr-2 pb-2 pt-2 pl-[1.4375rem]',
+                        "relative pr-2 pb-2 pt-2 pl-[1.4375rem]",
                         'before:absolute before:left-[0.4375rem] before:w-px before:bg-white/10 before:content-[""]',
-                        'before:top-[-0.25rem] before:bottom-0'
+                        "before:top-[-0.25rem] before:bottom-0"
                     )}
                 >
                     <ScrollableOverlay
@@ -151,13 +149,9 @@ type ReasoningPartProps = {
     messageId: string;
 };
 
-const ReasoningPart: React.FC<ReasoningPartProps> = ({
-    part,
-    onContentChange,
-    messageId,
-}) => {
+const ReasoningPart: React.FC<ReasoningPartProps> = ({ part, onContentChange, messageId }) => {
     const partWithText = part as PartWithText;
-    const rawText = partWithText.text || partWithText.content || '';
+    const rawText = partWithText.text || partWithText.content || "";
     const textContent = React.useMemo(() => cleanReasoningText(rawText), [rawText]);
 
     if (!textContent || textContent.trim().length === 0) {
@@ -174,7 +168,6 @@ const ReasoningPart: React.FC<ReasoningPartProps> = ({
     );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const formatReasoningText = (text: string): string => cleanReasoningText(text);
 
 export default ReasoningPart;

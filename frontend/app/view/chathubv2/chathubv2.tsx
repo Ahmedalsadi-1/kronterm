@@ -2,12 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { VoiceModel } from "@/app/aipanel/voice-model";
-import { createBlock, getApi } from "@/app/store/global";
+import { createBlock, getApi, refocusNode } from "@/app/store/global";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { useAtomValue } from "jotai";
 import { RefreshCw, Settings, Terminal, TriangleAlert } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { installComposerGuard } from "./chathubv2-composer";
+import { AgentSurfaceUiActivityEvent, type LiveAgentSurfaceActivity } from "../../../types/agent-activity";
+import {
+    isActivityForChatHubSurface,
+    projectChatHubActivity,
+    rememberChatHubActivityIdentity,
+    type ChatHubV2ActivityStatus,
+} from "./chathubv2-activity";
+import { ChatHubV2ActivityStatusBar } from "./chathubv2-activity-status";
+import {
+    makeEmbeddedChatUrl,
+    makeKronSettingsBlockDef,
+    makeKronTermPowerResumeMessage,
+    makeKronTermSurfaceActivityMessage,
+    makeKronTermThemeMessage,
+    readKronTermThemeSnapshot,
+} from "./chathubv2-bridge";
+import { installComposerGuard, type ComposerGuardOptions } from "./chathubv2-composer";
 import type { ChatHubV2ViewModel } from "./chathubv2-model";
 import {
     resolveBackendStateFromStartResult,
@@ -28,7 +44,6 @@ const KronTermWidgetBlocks: Record<string, BlockDef> = {
     design: { meta: { view: "design" } },
     apps: { meta: { view: "installedapps" } },
     diff: { meta: { view: "aifilediff" } },
-    settings: { meta: { view: "kronsettings" } },
 };
 
 async function getBackendState(): Promise<ChatHubV2State> {
@@ -36,19 +51,13 @@ async function getBackendState(): Promise<ChatHubV2State> {
     return resolveBackendStateFromStatus(status);
 }
 
-async function startBackend(context?: { tabId?: string; blockId?: string }): Promise<ChatHubV2State> {
+async function startBackend(context?: {
+    tabId?: string;
+    blockId?: string;
+    surfaceId?: string;
+}): Promise<ChatHubV2State> {
     const result = await getApi().chathubv2Start(context);
     return resolveBackendStateFromStartResult(result);
-}
-
-function makeEmbeddedChatUrl(url: string): string {
-    try {
-        const chatUrl = new URL(url);
-        chatUrl.searchParams.set("apiBaseUrl", new URL("/api", chatUrl.origin).toString());
-        return chatUrl.toString();
-    } catch {
-        return url;
-    }
 }
 
 const RuntimeStatusCopy: Record<ChatHubV2RuntimeHealth["status"], string> = {
@@ -58,6 +67,10 @@ const RuntimeStatusCopy: Record<ChatHubV2RuntimeHealth["status"], string> = {
     error: "KronosChamber needs repair",
     stopped: "KronosChamber stopped",
 };
+
+export type ChatHubV2Presentation = "full" | "composer";
+
+export type ChatHubV2ComposerBridge = Pick<ComposerGuardOptions, "onSubmit" | "transformSubmit">;
 
 const RuntimeHealthRow = ({ label, value }: { label: string; value?: string }) => {
     if (!value) {
@@ -154,170 +167,356 @@ const RuntimeRepairPanel = ({
     );
 };
 
-const ChatHubV2LoadedFrame = memo(({ blockId, url }: { blockId: string; url: string }) => {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
-    const frameUrl = useMemo(() => makeEmbeddedChatUrl(url), [url]);
-    const frameOrigin = useMemo(() => new URL(frameUrl).origin, [frameUrl]);
-    const [iframeReady, setIframeReady] = useState(false);
-    const voiceModel = VoiceModel.getInstance();
-    const voiceStatus = useAtomValue(voiceModel.statusAtom);
-    const voiceListening = useAtomValue(voiceModel.listeningAtom);
-    const voiceTranscript = useAtomValue(voiceModel.transcriptAtom);
-    const voiceError = useAtomValue(voiceModel.errorAtom);
-    const guardComposer = useCallback(() => {
-        try {
-            const iframe = iframeRef.current;
-            const doc = iframe?.contentDocument;
-            if (!doc) {
+const ComposerRuntimeStatus = ({
+    error,
+    onRetry,
+    status,
+}: {
+    error?: string;
+    onRetry?: () => void;
+    status: "error" | "starting";
+}) => {
+    return (
+        <div className="flex h-full w-full items-center justify-center bg-transparent px-4 text-foreground">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div
+                    className={
+                        status === "error"
+                            ? "grid h-8 w-8 place-items-center rounded-md border border-destructive/30 bg-destructive/10 text-destructive"
+                            : "grid h-8 w-8 place-items-center rounded-md border border-accent/25 bg-accent/10 text-accent"
+                    }
+                >
+                    {status === "error" ? (
+                        <TriangleAlert className="h-4 w-4" />
+                    ) : (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                    )}
+                </div>
+                <div className="min-w-0">
+                    <div className="font-semibold text-foreground">
+                        {status === "error" ? "KronosChamber is unavailable" : "Connecting to KronosChamber"}
+                    </div>
+                    {error && <div className="mt-0.5 max-w-80 truncate text-[10px]">{error}</div>}
+                </div>
+                {onRetry && (
+                    <button
+                        type="button"
+                        onClick={onRetry}
+                        className="h-8 cursor-pointer rounded border border-border/80 bg-background px-3 font-semibold text-foreground transition-colors hover:bg-accent/20"
+                    >
+                        Retry
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
+type ChatHubV2LoadedFrameProps = {
+    blockId: string;
+    composerBridge?: ChatHubV2ComposerBridge;
+    presentation: ChatHubV2Presentation;
+    url: string;
+    surfaceId: string;
+};
+
+const ChatHubV2LoadedFrame = memo(
+    ({ blockId, composerBridge, presentation, surfaceId, url }: ChatHubV2LoadedFrameProps) => {
+        const iframeRef = useRef<HTMLIFrameElement>(null);
+        const frameUrl = useMemo(() => makeEmbeddedChatUrl(url, surfaceId), [surfaceId, url]);
+        const frameOrigin = useMemo(() => new URL(frameUrl).origin, [frameUrl]);
+        const [iframeReady, setIframeReady] = useState(false);
+        const [activityStatus, setActivityStatus] = useState<ChatHubV2ActivityStatus>();
+        const activityIdentityRef = useRef({ runIds: new Set<string>(), sessionIds: new Set<string>() });
+        const voiceModel = VoiceModel.getInstance();
+        const voiceStatus = useAtomValue(voiceModel.statusAtom);
+        const voiceListening = useAtomValue(voiceModel.listeningAtom);
+        const voiceTranscript = useAtomValue(voiceModel.transcriptAtom);
+        const voiceError = useAtomValue(voiceModel.errorAtom);
+        const syncTheme = useCallback(() => {
+            if (iframeRef.current?.contentWindow == null) {
                 return;
             }
-            installComposerGuard(doc);
-        } catch {
-            return;
-        }
-    }, []);
+            const themeTarget = document.body ?? document.documentElement;
+            const theme = readKronTermThemeSnapshot(window.getComputedStyle(themeTarget));
+            iframeRef.current.contentWindow.postMessage(makeKronTermThemeMessage(theme), frameOrigin);
+        }, [frameOrigin]);
+        const guardComposer = useCallback(() => {
+            try {
+                const iframe = iframeRef.current;
+                const doc = iframe?.contentDocument;
+                if (!doc) {
+                    return;
+                }
+                installComposerGuard(doc, {
+                    onSubmit: composerBridge?.onSubmit,
+                    presentation: presentation === "composer" ? "mini" : "full",
+                    transformSubmit: composerBridge?.transformSubmit,
+                });
+            } catch {
+                return;
+            }
+        }, [composerBridge?.onSubmit, composerBridge?.transformSubmit, presentation]);
 
-    useEffect(() => {
-        const handleVoiceTranscript = (event: Event) => {
-            const customEvent = event as CustomEvent<{ text?: string; mode?: "append" | "submit" }>;
-            const text = customEvent.detail?.text?.trim();
-            if (!text || !iframeReady || iframeRef.current?.contentWindow == null) {
+        useEffect(() => {
+            if (iframeReady) {
+                guardComposer();
+            }
+        }, [guardComposer, iframeReady]);
+
+        useEffect(() => {
+            const handleVoiceTranscript = (event: Event) => {
+                const customEvent = event as CustomEvent<{ text?: string; mode?: "append" | "submit" }>;
+                const text = customEvent.detail?.text?.trim();
+                if (!text || !iframeReady || iframeRef.current?.contentWindow == null) {
+                    return;
+                }
+                try {
+                    iframeRef.current.contentWindow.postMessage(
+                        {
+                            type: "kronterm:voice-transcript",
+                            text,
+                            mode: customEvent.detail?.mode ?? "submit",
+                        },
+                        frameOrigin
+                    );
+                } catch {
+                    return;
+                }
+            };
+
+            window.addEventListener("kronterm:voice-transcript", handleVoiceTranscript);
+            return () => window.removeEventListener("kronterm:voice-transcript", handleVoiceTranscript);
+        }, [frameOrigin, iframeReady]);
+
+        useEffect(() => {
+            const handleSurfaceActivity = (event: Event) => {
+                const activity = (event as CustomEvent<LiveAgentSurfaceActivity>).detail;
+                if (!activity) {
+                    return;
+                }
+                const identity = activityIdentityRef.current;
+                if (
+                    isActivityForChatHubSurface(activity, {
+                        blockId,
+                        runIds: identity.runIds,
+                        sessionIds: identity.sessionIds,
+                        surfaceId,
+                    })
+                ) {
+                    rememberChatHubActivityIdentity(activity, identity);
+                    setActivityStatus(projectChatHubActivity(activity));
+                    if (iframeReady && iframeRef.current?.contentWindow != null) {
+                        iframeRef.current.contentWindow.postMessage(
+                            makeKronTermSurfaceActivityMessage(activity),
+                            frameOrigin
+                        );
+                    }
+                }
+            };
+
+            window.addEventListener(AgentSurfaceUiActivityEvent, handleSurfaceActivity);
+            return () => window.removeEventListener(AgentSurfaceUiActivityEvent, handleSurfaceActivity);
+        }, [blockId, frameOrigin, iframeReady, surfaceId]);
+
+        useEffect(() => {
+            if (!activityStatus?.dismissAfterMs) {
+                return;
+            }
+            const activityTimestamp = activityStatus.activity.timestamp;
+            const timeout = window.setTimeout(() => {
+                setActivityStatus((current) =>
+                    current?.activity.timestamp === activityTimestamp ? undefined : current
+                );
+            }, activityStatus.dismissAfterMs);
+            return () => window.clearTimeout(timeout);
+        }, [activityStatus]);
+
+        useEffect(() => {
+            const handleMessage = (event: MessageEvent) => {
+                if (event.source !== iframeRef.current?.contentWindow || event.origin !== frameOrigin) {
+                    return;
+                }
+                const data = event.data;
+                if (data?.type === "kronterm:bridge-ready") {
+                    syncTheme();
+                    return;
+                }
+                if (data?.type === "kronterm:open-widget") {
+                    const widget = String(data.widget ?? "");
+                    const existingBlockId =
+                        typeof data.blockId === "string" && data.blockId.trim() ? data.blockId.trim() : "";
+                    if (existingBlockId) {
+                        refocusNode(existingBlockId);
+                        return;
+                    }
+                    if (widget === "settings") {
+                        void createBlock(
+                            makeKronSettingsBlockDef(data.settingsSection),
+                            false,
+                            data.ephemeral === true
+                        );
+                        return;
+                    }
+                    if (widget === "appstream") {
+                        const appId = typeof data.appId === "string" && data.appId.trim() ? data.appId.trim() : "";
+                        const appName =
+                            typeof data.appName === "string" && data.appName.trim() ? data.appName.trim() : appId;
+                        if (appId) {
+                            void createBlock(
+                                {
+                                    meta: {
+                                        view: "appstream",
+                                        "appstream:appid": appId,
+                                        "appstream:appname": appName,
+                                    } as unknown as MetaType,
+                                },
+                                false,
+                                data.ephemeral === true
+                            );
+                        }
+                        return;
+                    }
+                    const blockDef = KronTermWidgetBlocks[widget];
+                    if (blockDef != null) {
+                        const url = typeof data.url === "string" && data.url.trim() ? data.url.trim() : "";
+                        const nextBlockDef =
+                            url && blockDef.meta?.view === "web"
+                                ? ({ ...blockDef, meta: { ...blockDef.meta, url } } as BlockDef)
+                                : blockDef;
+                        void createBlock(nextBlockDef, false, data.ephemeral === true);
+                    }
+                    return;
+                }
+                if (!data || data.type !== "kronterm:voice-command") {
+                    return;
+                }
+                if (data.action === "start") {
+                    void voiceModel.startListening();
+                    return;
+                }
+                if (data.action === "stop") {
+                    if (voiceListening) {
+                        void voiceModel.toggleListening();
+                    }
+                    return;
+                }
+                if (data.action === "toggle") {
+                    void voiceModel.toggleListening();
+                }
+            };
+
+            window.addEventListener("message", handleMessage);
+            return () => window.removeEventListener("message", handleMessage);
+        }, [frameOrigin, syncTheme, voiceListening, voiceModel]);
+
+        useEffect(() => {
+            if (!iframeReady) {
+                return;
+            }
+            syncTheme();
+            const observer = new MutationObserver(syncTheme);
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["class", "style"],
+            });
+            if (document.body) {
+                observer.observe(document.body, {
+                    attributes: true,
+                    attributeFilter: ["class", "style"],
+                });
+            }
+            return () => observer.disconnect();
+        }, [iframeReady, syncTheme]);
+
+        useEffect(() => {
+            if (!iframeReady || iframeRef.current?.contentWindow == null) {
                 return;
             }
             try {
                 iframeRef.current.contentWindow.postMessage(
                     {
-                        type: "kronterm:voice-transcript",
-                        text,
-                        mode: customEvent.detail?.mode ?? "submit",
+                        type: "kronterm:voice-state",
+                        status: voiceStatus,
+                        listening: voiceListening,
+                        transcript: voiceTranscript,
+                        error: voiceError,
                     },
                     frameOrigin
                 );
             } catch {
                 return;
             }
-        };
+        }, [frameOrigin, iframeReady, voiceError, voiceListening, voiceStatus, voiceTranscript]);
 
-        window.addEventListener("kronterm:voice-transcript", handleVoiceTranscript);
-        return () => window.removeEventListener("kronterm:voice-transcript", handleVoiceTranscript);
-    }, [frameOrigin, iframeReady]);
+        useEffect(() => {
+            return getApi().onKronosCodePowerResume(() => {
+                iframeRef.current?.contentWindow?.postMessage(makeKronTermPowerResumeMessage(), frameOrigin);
+            });
+        }, [frameOrigin]);
 
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            if (event.source !== iframeRef.current?.contentWindow || event.origin !== frameOrigin) {
-                return;
-            }
-            const data = event.data;
-            if (data?.type === "kronterm:open-widget") {
-                const widget = String(data.widget ?? "");
-                if (widget === "appstream") {
-                    const appId = typeof data.appId === "string" && data.appId.trim() ? data.appId.trim() : "";
-                    const appName =
-                        typeof data.appName === "string" && data.appName.trim() ? data.appName.trim() : appId;
-                    if (appId) {
-                        void createBlock(
-                            {
-                                meta: {
-                                    view: "appstream",
-                                    "appstream:appid": appId,
-                                    "appstream:appname": appName,
-                                } as unknown as MetaType,
-                            },
-                            false,
-                            data.ephemeral === true
-                        );
-                    }
-                    return;
-                }
-                const blockDef = KronTermWidgetBlocks[widget];
-                if (blockDef != null) {
-                    const url = typeof data.url === "string" && data.url.trim() ? data.url.trim() : "";
-                    const nextBlockDef =
-                        url && blockDef.meta?.view === "web"
-                            ? ({ ...blockDef, meta: { ...blockDef.meta, url } } as BlockDef)
-                            : blockDef;
-                    void createBlock(nextBlockDef, false, data.ephemeral === true);
-                }
-                return;
-            }
-            if (!data || data.type !== "kronterm:voice-command") {
-                return;
-            }
-            if (data.action === "start") {
-                void voiceModel.startListening();
-                return;
-            }
-            if (data.action === "stop") {
-                if (voiceListening) {
-                    void voiceModel.toggleListening();
-                }
-                return;
-            }
-            if (data.action === "toggle") {
-                void voiceModel.toggleListening();
-            }
-        };
-
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, [frameOrigin, voiceListening, voiceModel]);
-
-    useEffect(() => {
-        if (!iframeReady || iframeRef.current?.contentWindow == null) {
-            return;
-        }
-        try {
-            iframeRef.current.contentWindow.postMessage(
-                {
-                    type: "kronterm:voice-state",
-                    status: voiceStatus,
-                    listening: voiceListening,
-                    transcript: voiceTranscript,
-                    error: voiceError,
-                },
-                frameOrigin
-            );
-        } catch {
-            return;
-        }
-    }, [frameOrigin, iframeReady, voiceError, voiceListening, voiceStatus, voiceTranscript]);
-
-    return (
-        <div className="flex h-full w-full flex-col overflow-hidden bg-background" data-chathubv2-block={blockId}>
-            <iframe
-                ref={iframeRef}
-                title="ChatHub V2"
-                name="chathubv2"
-                src={frameUrl}
-                onLoad={() => {
-                    setIframeReady(true);
-                    guardComposer();
-                    let attempts = 0;
-                    const interval = window.setInterval(() => {
-                        attempts += 1;
+        return (
+            <div
+                className={`relative flex h-full w-full flex-col overflow-hidden ${
+                    presentation === "composer" ? "bg-transparent" : "bg-background"
+                }`}
+                data-chathubv2-block={blockId}
+                data-chathubv2-presentation={presentation}
+            >
+                {presentation === "full" && activityStatus && (
+                    <div className="pointer-events-none absolute inset-x-0 top-3 z-50 flex justify-center px-3">
+                        <ChatHubV2ActivityStatusBar status={activityStatus} onOpenEvidence={refocusNode} />
+                    </div>
+                )}
+                <iframe
+                    ref={iframeRef}
+                    title="ChatHub V2"
+                    name="chathubv2"
+                    src={frameUrl}
+                    onLoad={() => {
+                        setIframeReady(true);
                         guardComposer();
-                        if (attempts >= 24) {
-                            window.clearInterval(interval);
-                        }
-                    }, 250);
-                }}
-                className="min-h-0 flex-1 border-0 bg-background"
-                allow="clipboard-read; clipboard-write; fullscreen; microphone"
-            />
-        </div>
-    );
-});
+                        let attempts = 0;
+                        const interval = window.setInterval(() => {
+                            attempts += 1;
+                            guardComposer();
+                            if (attempts >= 24) {
+                                window.clearInterval(interval);
+                            }
+                        }, 250);
+                    }}
+                    className={`min-h-0 flex-1 border-0 ${
+                        presentation === "composer" ? "bg-transparent" : "bg-background"
+                    }`}
+                    allow="clipboard-read; clipboard-write; fullscreen; microphone"
+                />
+            </div>
+        );
+    }
+);
 
 ChatHubV2LoadedFrame.displayName = "ChatHubV2LoadedFrame";
 
+type ChatHubV2FrameProps = {
+    blockId?: string;
+    composerBridge?: ChatHubV2ComposerBridge;
+    presentation?: ChatHubV2Presentation;
+    surfaceBlockId?: string;
+    tabId?: string;
+};
+
 export const ChatHubV2Frame = memo(
-    ({ blockId = "panel", tabId, surfaceBlockId }: { blockId?: string; tabId?: string; surfaceBlockId?: string }) => {
+    ({ blockId = "panel", composerBridge, presentation = "full", surfaceBlockId, tabId }: ChatHubV2FrameProps) => {
         const [state, setState] = useState<ChatHubV2State>({ status: "idle" });
+        const surfaceId = useMemo(
+            () => `kronterm:${tabId ?? "global"}:${surfaceBlockId ?? blockId}`,
+            [blockId, surfaceBlockId, tabId]
+        );
 
         const load = useCallback(
             (ignoreResult?: () => boolean) => {
                 setState((current) => ({ status: "starting", url: current.url }));
-                void startBackend({ tabId, blockId: surfaceBlockId }).then(
+                void startBackend({ tabId, blockId: surfaceBlockId, surfaceId }).then(
                     (nextState) => {
                         if (!ignoreResult?.()) {
                             setState(nextState);
@@ -330,7 +529,7 @@ export const ChatHubV2Frame = memo(
                     }
                 );
             },
-            [surfaceBlockId, tabId]
+            [surfaceBlockId, surfaceId, tabId]
         );
 
         useEffect(() => {
@@ -339,6 +538,24 @@ export const ChatHubV2Frame = memo(
             return () => {
                 cancelled = true;
             };
+        }, [load]);
+
+        useEffect(() => {
+            return getApi().onKronosCodeConnectionApplied(() => load());
+        }, [load]);
+
+        useEffect(() => {
+            return getApi().onKronosCodePowerResume(() => {
+                void getApi()
+                    .kronoscodeRevalidateConnection()
+                    .then(() => getBackendState())
+                    .then((nextState) => {
+                        if (nextState.status !== "ready") {
+                            load();
+                        }
+                    })
+                    .catch(() => load());
+            });
         }, [load]);
 
         useEffect(() => {
@@ -370,22 +587,56 @@ export const ChatHubV2Frame = memo(
         }, [load, state.status]);
 
         if (state.status === "error") {
+            if (presentation === "composer") {
+                return <ComposerRuntimeStatus error={state.error} status="error" onRetry={() => load()} />;
+            }
             return <RuntimeRepairPanel error={state.error} health={state.health} onRetry={() => load()} />;
         }
 
         if (state.status === "ready") {
-            return <ChatHubV2LoadedFrame blockId={blockId} url={state.url} />;
+            return (
+                <ChatHubV2LoadedFrame
+                    blockId={blockId}
+                    composerBridge={composerBridge}
+                    presentation={presentation}
+                    surfaceId={surfaceId}
+                    url={state.url}
+                />
+            );
         }
 
         if (state.status === "starting" && state.url) {
             return (
-                <div className="relative h-full w-full overflow-hidden bg-background" data-chathubv2-block={blockId}>
-                    <ChatHubV2LoadedFrame blockId={blockId} url={state.url} />
-                    <div className="pointer-events-none absolute left-1/2 top-3 z-50 -translate-x-1/2 rounded-full border border-border/70 bg-background/90 px-3 py-1 text-[11px] text-muted-foreground shadow-lg backdrop-blur">
-                        Connecting KronosCode…
-                    </div>
+                <div
+                    className={`relative h-full w-full overflow-hidden ${
+                        presentation === "composer" ? "bg-transparent" : "bg-background"
+                    }`}
+                    data-chathubv2-block={blockId}
+                >
+                    <ChatHubV2LoadedFrame
+                        blockId={blockId}
+                        composerBridge={composerBridge}
+                        presentation={presentation}
+                        surfaceId={surfaceId}
+                        url={state.url}
+                    />
+                    {presentation === "full" && (
+                        <div className="pointer-events-none absolute left-1/2 top-3 z-50 -translate-x-1/2 rounded-full border border-border/70 bg-background/90 px-3 py-1 text-[11px] text-muted-foreground shadow-lg backdrop-blur">
+                            Connecting KronosCode…
+                        </div>
+                    )}
+                    {presentation === "composer" && (
+                        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-[#080a0d]/88 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground backdrop-blur-sm">
+                            <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin text-accent" />
+                            Connecting KronosChamber
+                        </div>
+                    )}
                 </div>
             );
+        }
+
+        if (presentation === "composer") {
+            return <ComposerRuntimeStatus status="starting" />;
         }
 
         return (

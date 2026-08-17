@@ -1,0 +1,67 @@
+- generic [ref=e3] [box=0,-621,1200,6104]:
+  - banner [ref=e4] [box=0,-621,1200,107]:
+    - link "Private beta now routing workspace-native AI teams Explore ACP agents" [ref=e5] [cursor=pointer] [box=0,-621,1200,36]:
+      - /url: /capabilities/acp-agents
+      - generic [ref=e6] [box=370,-613,305,20]: Private beta now routing workspace-native AI teams
+      - strong [ref=e7] [box=685,-613,120,20]: Explore ACP agents
+      - img [ref=e8] [box=815,-611,15,15]
+    - navigation "Main navigation" [ref=e10] [box=0,-585,1200,70]:
+      - link "KronTerm" [ref=e11] [cursor=pointer] [box=24,-565,133,31]:
+        - /url: /
+      - generic [ref=e13] [box=314,-569,460,38]
+      - generic [ref=e19] [box=931,-569,245,38]
+  - main [ref=e22] [box=0,-514,1200,5018]:
+    - generic [ref=e24] [box=24,-432,1152,800]:
+      - generic [ref=e25] [box=24,-432,418,800]
+      - generic [ref=e42] [box=480,-267,696,470]
+    - region "KronTerm capability stack" [ref=e64] [box=0,436,1200,89]:
+      - generic [ref=e65] [box=41,436,92,40]: OpenAI
+      - generic [ref=e66] [box=143,436,92,40]: Claude
+      - generic [ref=e67] [box=245,436,92,40]: Gemini
+      - generic [ref=e68] [box=347,436,92,40]: Ollama
+      - generic [ref=e69] [box=449,436,92,40]: Terminal
+      - generic [ref=e70] [box=551,436,92,40]: Chromium
+      - generic [ref=e71] [box=653,436,92,40]: SSH
+      - generic [ref=e72] [box=755,436,92,40]: E2B
+      - generic [ref=e73] [box=857,436,92,40]: MCP
+      - generic [ref=e74] [box=959,436,97,40]: Screenpipe
+      - generic [ref=e75] [box=1067,436,92,40]: GitHub
+      - generic [ref=e76] [box=554,485,92,40]: Localhost
+    - region "Product metrics" [ref=e77] [box=0,595,1200,130]:
+      - generic [ref=e78] [box=24,595,376,130]
+      - generic [ref=e81] [box=412,595,376,130]
+      - generic [ref=e84] [box=800,595,376,130]
+    - generic [ref=e87] [box=0,725,1200,381]:
+      - generic [ref=e88] [box=24,821,496,189]
+      - paragraph [ref=e91] [box=570,821,606,119]: AI coding gets dramatically more useful when it can reason across shell output, product previews, project files, sandboxes, native app state, and prior sessions. KronTerm makes that context visible, structured, and supervised.
+    - generic [ref=e92] [box=0,1106,1200,943]:
+      - generic [ref=e93] [box=205,1202,790,149]
+      - generic [ref=e96] [box=24,1393,1152,560]
+    - generic [ref=e166] [box=0,2049,1200,956]:
+      - generic [ref=e167] [box=205,2145,790,208]
+      - generic [ref=e171] [box=24,2394,1152,514]
+    - generic [ref=e194] [box=0,3004,1200,648]:
+      - generic [ref=e195] [box=205,3100,790,149]
+      - generic [ref=e198] [box=24,3291,1152,266]
+    - generic [ref=e236] [box=0,3652,1200,578]:
+      - generic [ref=e237] [box=24,3748,710,386]
+      - generic [ref=e242] [box=750,3748,426,386]
+    - generic [ref=e247] [box=0,4230,1200,273]:
+      - generic [ref=e248] [box=49,4279,741,175]
+      - generic [ref=e251] [box=814,4345,337,44]
+  - contentinfo [ref=e256] [box=0,4576,1200,907]:
+    - generic [ref=e258] [box=24,4664,1152,352]:
+      - paragraph [ref=e259] [box=24,4664,720,20]: All downloads
+      - heading "Get KronTerm today" [level=2] [ref=e260] [box=24,4683,830,52]
+      - paragraph [ref=e261] [box=24,4750,720,53]: Request private beta access for macOS now. Windows and Linux evaluation paths are included for planning.
+      - generic [ref=e262] [box=24,4837,1152,179]
+    - generic [ref=e294] [box=0,5102,1200,304]:
+      - generic [ref=e295] [box=24,5160,244,188]
+      - generic [ref=e298] [box=292,5160,203,188]
+      - generic [ref=e303] [box=519,5160,203,188]
+      - generic [ref=e310] [box=746,5160,203,188]
+      - generic [ref=e316] [box=973,5160,203,188]
+    - generic [ref=e321] [box=0,5406,1200,77]:
+      - generic [ref=e322] [box=24,5429,220,20]: All Rights Reserved © 2026 KronTerm
+      - generic [ref=e323] [box=560,5429,143,20]: Commercial private beta
+      - generic [ref=e324] [box=1018,5429,158,20]: SOC 2-ready control model

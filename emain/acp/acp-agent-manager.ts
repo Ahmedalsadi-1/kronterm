@@ -7,7 +7,15 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { RpcApi } from "../../frontend/app/store/wshclientapi";
 import { ElectronWshClient } from "../emain-wsh";
+import { withKronosCodeAttachArgs } from "../kronoscode-runtime";
 import { detectInstalledAgents, spawnAcpAgent } from "./acp-connector";
+import {
+    AcpCapabilityLease,
+    formatAcpCapabilityLease,
+    getAcpHarnessProfile,
+    makeAcpCapabilityLease,
+} from "./acp-harness";
+import { AcpFailureEvidence, makeAcpTraceEnvelope } from "./acp-observability";
 import { NdjsonTransport } from "./acp-transport";
 import {
     AcpAgentCapabilities,
@@ -47,9 +55,10 @@ interface AcpAgentManagerOptions {
 
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 3;
 const DEFAULT_RECONNECT_DELAY_MS = 2000;
+const SharedSkillDirectories = [".agents/skills", ".kronoscode/skills", ".hermes/skills"];
 
 const waveSurfaceBootstrap = `[KronTerm Surface Capability]
-This chat is connected to the kron-term MCP server with a temporary Wave surface-session capability. Prefer Wave surface tools for Kronterm tabs, widgets, terminals, the in-app browser, and host-scoped file context; use other desktop or browser tools only when the Wave surface cannot perform the operation. Use surface_status before diagnosing failures, list_blocks before block operations, and widget_snapshot before interacting with block content. Full guidance is available from the MCP prompt "kron-term-guide" or resource "kron-term://skill".`;
+This chat is connected to the kron-term MCP server with a temporary Wave surface-session capability. Prefer Wave surface tools for Kronterm tabs, widgets, terminals, the in-app browser, and host-scoped file context; use other desktop or browser tools only when the Wave surface cannot perform the operation. Use surface_status before diagnosing failures, list_blocks before block operations, and widget_snapshot before interacting with block content. Project skills shared with KronTerm and KronosCode are available through shared_skill_list and shared_skill_read. Full guidance is available from the MCP prompt "kron-term-guide" or resource "kron-term://skill".`;
 
 type AcpSessionMcpNameValue = {
     name: string;
@@ -88,10 +97,17 @@ export class AcpAgentManager extends EventEmitter {
     modelInfo: AcpModelInfo | null = null;
     agentInfo: unknown = null;
     capabilities: AcpAgentCapabilities | null = null;
+    harnessProfile = getAcpHarnessProfile("custom");
+    capabilityLease: AcpCapabilityLease | null = null;
     private msgCounter = 0;
+    private readonly traceId = uuidv4();
+    private readonly traceStartedAt = Date.now();
+    private traceLastEventAt = this.traceStartedAt;
+    private traceOperationId: string | undefined;
     private surfaceMcpAvailable = false;
     private surfaceInstructionsInjected = false;
     private hasReceivedUsageUpdate = false;
+    private readonly hostSurfaceContext: { tabId: string; blockId?: string } | undefined;
     private surfaceContext: { tabId: string; blockId?: string } | undefined;
     private requestedMcpServers: AcpSessionMcpServer[] = [];
     private savedOpts: AcpAgentManagerOptions | null = null;
@@ -105,7 +121,9 @@ export class AcpAgentManager extends EventEmitter {
         super();
         this.conversationId = opts.conversationId;
         this.backend = opts.backend;
+        this.harnessProfile = getAcpHarnessProfile(opts.backend);
         this.workspace = opts.workspace || process.cwd();
+        this.hostSurfaceContext = opts.surfaceContext;
         this.surfaceContext = opts.surfaceContext;
         this.requestedMcpServers = opts.mcpServers ?? [];
         this.maxReconnectAttempts = opts.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
@@ -136,6 +154,10 @@ export class AcpAgentManager extends EventEmitter {
             this.modes = initResult.modes;
             this.currentMode = initResult.modes?.currentModeId ?? initResult.modes?.availableModes?.[0]?.id ?? null;
             this.agentInfo = initResult.agentInfo;
+            this.emitEvent("harness_profile", {
+                profile: this.harnessProfile,
+                advertisedCapabilities: this.capabilities,
+            });
             if (initResult.agentInfo) {
                 this.emitEvent("agent_info", {
                     agentInfo: initResult.agentInfo,
@@ -160,6 +182,7 @@ export class AcpAgentManager extends EventEmitter {
             this.confirmations = [];
             this.error = err instanceof Error ? err.message : String(err);
             this.setStatus("error");
+            this.emitEvent("error", { error: this.error }, { source: "initialization", message: this.error });
             throw err;
         }
     }
@@ -196,14 +219,13 @@ export class AcpAgentManager extends EventEmitter {
         transport.on("error", (err: Error) => {
             this.error = err.message;
             this.setStatus("error");
-            this.emitEvent("error", { error: err.message });
+            this.emitEvent("error", { error: err.message }, { source: "transport", message: err.message });
         });
 
         transport.on("disconnect", (data: { code: number | null; signal: NodeJS.Signals | string | null }) => {
             if (this.transport !== transport) {
                 return;
             }
-            const isKeepaliveTimeout = data.signal === "keepalive-timeout";
             const message = `ACP process exited unexpectedly (code=${data.code ?? "unknown"}, signal=${
                 data.signal ?? "none"
             })`;
@@ -214,7 +236,7 @@ export class AcpAgentManager extends EventEmitter {
             this.surfaceInstructionsInjected = false;
             this.error = message;
             this.setStatus("error");
-            this.emitEvent("error", { error: message });
+            this.emitEvent("error", { error: message }, { source: "transport", message, signal: data.signal });
 
             if (!this.intentionalStop && this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = this.reconnectDelayMs * Math.pow(2, this.reconnectAttempts);
@@ -249,12 +271,20 @@ export class AcpAgentManager extends EventEmitter {
         }
 
         if (updateType === "tool_call") {
-            this.emitEvent("tool_call", update.update);
+            this.emitEvent(
+                "tool_call",
+                update.update,
+                update.update.status === "failed" ? { source: "tool" } : undefined
+            );
             return;
         }
 
         if (updateType === "tool_call_update") {
-            this.emitEvent("tool_call_update", update.update);
+            this.emitEvent(
+                "tool_call_update",
+                update.update,
+                update.update.status === "failed" ? { source: "tool" } : undefined
+            );
             return;
         }
 
@@ -443,6 +473,12 @@ export class AcpAgentManager extends EventEmitter {
         const surfaceServerPath = this.resolveSurfaceServerPath();
         if (this.supportsMcpType("stdio") && surfaceServerPath) {
             const surfaceEnv: AcpSessionMcpNameValue[] = [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }];
+            const sharedSkillDirs = SharedSkillDirectories.map((directory) =>
+                path.join(this.workspace, directory)
+            ).filter((directory) => fs.existsSync(directory));
+            if (sharedSkillDirs.length > 0) {
+                surfaceEnv.push({ name: "KRONTERM_SHARED_SKILL_DIRS", value: sharedSkillDirs.join(path.delimiter) });
+            }
             if (this.surfaceContext?.tabId) {
                 const sessionToken = await RpcApi.CreateSurfaceTokenCommand(ElectronWshClient, {
                     tabid: this.surfaceContext.tabId,
@@ -565,13 +601,29 @@ export class AcpAgentManager extends EventEmitter {
             throw new Error("Agent not initialized");
         }
 
+        this.traceOperationId = uuidv4();
         this.setStatus("running");
         await this.ensureSession();
 
+        this.capabilityLease = makeAcpCapabilityLease({
+            backend: this.backend,
+            capabilities: this.capabilities,
+            content: opts.content,
+            surfaceAvailable: this.surfaceMcpAvailable,
+            workspace: this.workspace,
+        });
+        this.emitEvent("harness_lease", {
+            lease: this.capabilityLease,
+            profile: this.harnessProfile,
+        });
+
         let content = opts.content;
+        const leaseInstructions = formatAcpCapabilityLease(this.capabilityLease);
         if (this.surfaceMcpAvailable && !this.surfaceInstructionsInjected) {
-            content = `${waveSurfaceBootstrap}\n\n[User Request]\n${content}`;
+            content = `${waveSurfaceBootstrap}\n\n${leaseInstructions}\n\n[User Request]\n${content}`;
             this.surfaceInstructionsInjected = true;
+        } else {
+            content = `${leaseInstructions}\n\n[User Request]\n${content}`;
         }
         const promptResult = await this.transport.sendRequest("session/prompt", {
             sessionId: this.sessionId,
@@ -717,7 +769,43 @@ export class AcpAgentManager extends EventEmitter {
         this.configOptions = [];
         this.modelInfo = null;
         this.capabilities = null;
+        this.capabilityLease = null;
         this.setStatus("idle");
+    }
+
+    async rehomeKronosCode(input: {
+        baseUrl: string;
+        username: string;
+        password?: string;
+        allowDesktopCapabilities: boolean;
+    }): Promise<boolean> {
+        if (
+            this.backend !== "kronoscode" ||
+            !this.savedOpts ||
+            this.status === "running" ||
+            this.status === "connecting" ||
+            this.confirmations.length > 0
+        ) {
+            return false;
+        }
+        const surfaceContext = input.allowDesktopCapabilities ? this.hostSurfaceContext : undefined;
+        this.surfaceContext = surfaceContext;
+        const resumeSessionId = this.sessionId ?? this.savedOpts.resumeSessionId;
+        const nextOptions: AcpAgentManagerOptions = {
+            ...this.savedOpts,
+            customArgs: withKronosCodeAttachArgs(this.savedOpts.customArgs, input.baseUrl),
+            customEnv: {
+                ...this.savedOpts.customEnv,
+                KRONOSCODE_SERVER_USERNAME: input.username,
+                ...(input.password ? { KRONOSCODE_SERVER_PASSWORD: input.password } : {}),
+            },
+            resumeSessionId,
+            resumeSessionConversationId: resumeSessionId ? this.conversationId : undefined,
+            surfaceContext,
+        };
+        await this.stop();
+        await this.initialize(nextOptions);
+        return true;
     }
 
     private async tryReconnect(): Promise<void> {
@@ -744,14 +832,27 @@ export class AcpAgentManager extends EventEmitter {
         this.emitEvent("status", { status });
     }
 
-    private emitEvent(type: AcpEventType, data: unknown): void {
+    private emitEvent(type: AcpEventType, data: unknown, failure?: AcpFailureEvidence): void {
+        const timestamp = Date.now();
+        const sequence = ++this.msgCounter;
         const event: AcpEvent = {
             conversationId: this.conversationId,
             type,
-            msgId: `${this.conversationId}-${++this.msgCounter}`,
+            msgId: `${this.conversationId}-${sequence}`,
             data,
-            timestamp: Date.now(),
+            timestamp,
+            trace: makeAcpTraceEnvelope({
+                traceId: this.traceId,
+                operationId: this.traceOperationId,
+                sequence,
+                emittedAtMs: timestamp,
+                startedAtMs: this.traceStartedAt,
+                previousEventAtMs: this.traceLastEventAt,
+                backend: this.backend,
+                failure,
+            }),
         };
+        this.traceLastEventAt = timestamp;
         this.emit("event", event);
     }
 
@@ -768,6 +869,7 @@ export class AcpAgentManager extends EventEmitter {
             supportsStreaming: a.supportsStreaming,
             acpArgs: a.acpArgs,
             skillsDirs: a.skillsDirs,
+            harnessProfile: getAcpHarnessProfile(a.backend),
         }));
     }
 }
@@ -812,7 +914,28 @@ export function listAgentManagers() {
         configOptions: manager.configOptions,
         modelInfo: manager.modelInfo,
         capabilities: manager.capabilities,
+        harnessProfile: manager.harnessProfile,
+        capabilityLease: manager.capabilityLease,
     }));
+}
+
+export async function rehomeIdleKronosCodeAgents(input: {
+    baseUrl: string;
+    username: string;
+    password?: string;
+    allowDesktopCapabilities: boolean;
+}): Promise<void> {
+    await Promise.all(
+        Array.from(agentManagers.values()).map((manager) =>
+            manager.rehomeKronosCode(input).catch((error) => {
+                console.warn(
+                    `[acp:kronoscode] failed to apply backend connection for ${manager.conversationId}`,
+                    error
+                );
+                return false;
+            })
+        )
+    );
 }
 
 export async function stopAllAgentManagers(): Promise<void> {

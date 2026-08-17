@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
     ArrowRight,
+    ArrowUpRight,
     BookOpen,
     Bot,
     Boxes,
@@ -10,14 +11,18 @@ import {
     Command,
     FileCode2,
     FileText,
+    Film,
     GitBranch,
     Globe2,
     Laptop,
     LayoutDashboard,
     Menu,
+    Mic,
     MousePointer2,
     Network,
+    Pause,
     PenLine,
+    Play,
     Search,
     Server,
     ShieldCheck,
@@ -26,7 +31,7 @@ import {
     X,
     Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { setPageMeta } from "./lib/meta";
 
@@ -62,6 +67,9 @@ const assets = {
     catMark: "/assets/product/kronterm-cat-mark.png",
     catGuide: "/assets/product/kronterm-cat-guide.png",
     catWalk: "/assets/product/kronterm-cat-walk.png",
+    workflowOrbit: "/assets/generated/workflow-orbit-v4.webp",
+    blueprintPet: "/assets/generated/blueprint-pet.webp",
+    finalePet: "/assets/generated/finale-pet.webp",
     workspace: "/assets/product/kronterm-homepage.webp",
     sidepanel: "/assets/product/kronterm-sidepanel.webp",
     sandbox: "/assets/product/kronterm-sandbox.webp",
@@ -75,17 +83,151 @@ const assets = {
     sandboxVideo: "/assets/video/sandbox-demo.mp4",
     devServerVideo: "/assets/video/dev-server.mp4",
     acpVideo: "/assets/video/acp-management.mp4",
+    fieldGuideVideo: "/assets/video/kronterm-field-guide.mp4",
+    fieldGuidePoster: "/assets/generated/visual-stories/kronterm-field-guide-poster.png",
 };
+
+type VisualStory = {
+    id: string;
+    title: string;
+    eyebrow: string;
+    description: string;
+    format: "wide" | "square" | "portrait";
+    src: string;
+};
+
+const VisualStories: VisualStory[] = [
+    {
+        id: "human-agent-orchestra",
+        title: "Human + Agent Orchestra",
+        eyebrow: "Living canvas / 01",
+        description: "Every technical surface stays visible while people and agents coordinate the work.",
+        format: "wide",
+        src: "/assets/generated/visual-stories/01-human-agent-orchestra.webp",
+    },
+    {
+        id: "terminal-night-shift",
+        title: "Terminal Night Shift",
+        eyebrow: "Command layer / 02",
+        description: "Commands, logs, tests, and product state share one focused operating picture.",
+        format: "wide",
+        src: "/assets/generated/visual-stories/02-terminal-night-shift.webp",
+    },
+    {
+        id: "browser-evidence-trail",
+        title: "Browser Evidence Trail",
+        eyebrow: "Product validation / 03",
+        description: "Browser evidence remains attached to the terminal output and diff that produced it.",
+        format: "wide",
+        src: "/assets/generated/visual-stories/03-browser-evidence-trail.webp",
+    },
+    {
+        id: "sandbox-launch",
+        title: "Sandbox Launch",
+        eyebrow: "Isolated runtime / 04",
+        description: "A complete disposable desktop gives uncertain work room to run inside a clear boundary.",
+        format: "wide",
+        src: "/assets/generated/visual-stories/04-sandbox-launch.webp",
+    },
+    {
+        id: "living-workspace",
+        title: "The Living Workspace",
+        eyebrow: "KronTerm / 05",
+        description: "Terminal, browser, files, code review, sandboxes, and agents become one persistent map.",
+        format: "wide",
+        src: "/assets/generated/visual-stories/05-living-workspace.webp",
+    },
+    {
+        id: "code-review-detective",
+        title: "Code Review Detective",
+        eyebrow: "Diff-first / 06",
+        description: "The pet follows the exact line from a suspicious change to a verified fix.",
+        format: "square",
+        src: "/assets/generated/visual-stories/06-code-review-detective.webp",
+    },
+    {
+        id: "remote-session-bridge",
+        title: "Remote Session Bridge",
+        eyebrow: "Durable sessions / 07",
+        description: "Local and remote context stay connected through reconnects, sleep, and app restarts.",
+        format: "square",
+        src: "/assets/generated/visual-stories/07-remote-session-bridge.webp",
+    },
+    {
+        id: "desktop-app-pilot",
+        title: "Desktop App Pilot",
+        eyebrow: "Native control / 08",
+        description: "Visible cursor paths keep desktop automation understandable and inspectable.",
+        format: "square",
+        src: "/assets/generated/visual-stories/08-desktop-app-pilot.webp",
+    },
+    {
+        id: "agent-command-center",
+        title: "Agent Command Center",
+        eyebrow: "Agent operations / 09",
+        description: "Specialist agents coordinate through one workspace instead of isolated transcripts.",
+        format: "square",
+        src: "/assets/generated/visual-stories/09-agent-command-center.webp",
+    },
+    {
+        id: "test-lab",
+        title: "Test Lab",
+        eyebrow: "Verification / 10",
+        description: "Failures become evidence, fixes become reruns, and results stay beside the code.",
+        format: "square",
+        src: "/assets/generated/visual-stories/10-test-lab.webp",
+    },
+    {
+        id: "field-guide-cartographer",
+        title: "Field Guide Cartographer",
+        eyebrow: "Product map / 11",
+        description: "Nine dedicated product chapters make the full operating model easier to understand.",
+        format: "portrait",
+        src: "/assets/generated/visual-stories/11-field-guide-cartographer.webp",
+    },
+    {
+        id: "widget-builder",
+        title: "Widget Builder",
+        eyebrow: "Composable blocks / 12",
+        description: "Build the workspace around the problem instead of forcing the problem into a fixed shell.",
+        format: "portrait",
+        src: "/assets/generated/visual-stories/12-widget-builder.webp",
+    },
+    {
+        id: "security-sentinel",
+        title: "Security Sentinel",
+        eyebrow: "Visible boundaries / 13",
+        description: "Host, browser, terminal, remote, and sandbox actions remain intentionally distinct.",
+        format: "portrait",
+        src: "/assets/generated/visual-stories/13-security-sentinel.webp",
+    },
+    {
+        id: "deploy-celebration",
+        title: "Deploy Celebration",
+        eyebrow: "Ship with evidence / 14",
+        description: "The entire build loop resolves into a product result the team can inspect.",
+        format: "portrait",
+        src: "/assets/generated/visual-stories/14-deploy-celebration.webp",
+    },
+    {
+        id: "welcome-living-canvas",
+        title: "Welcome to the Living Canvas",
+        eyebrow: "Field guide / 15",
+        description: "Open one technical notebook and keep every useful surface inside the same story.",
+        format: "portrait",
+        src: "/assets/generated/visual-stories/15-welcome-living-canvas.webp",
+    },
+];
 
 const capabilities: Capability[] = [
     {
         slug: "workspace-canvas",
         label: "Workspace canvas",
         eyebrow: "01 / Command center",
-        title: "Your entire builder loop, composed on one canvas.",
-        summary: "Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface.",
+        title: "One workspace, presented as tiles, tabs, or a living canvas.",
+        summary: "Keep the same terminal, browser, files, sandboxes, and AI while changing how the work is arranged.",
         description:
-            "KronTerm replaces the pile of disconnected windows with a block-based workspace. Arrange the exact surfaces a project needs, keep them visible together, and return to the same working context later.",
+            "KronTerm can present a project as resizable splits, focused browser-style tabs, or a freeform spatial canvas. The canvas adds notes, diagram tools, live agent task cards, and direct selection-to-KronosCode context without losing the underlying widgets.",
         icon: LayoutDashboard,
         media: {
             type: "video",
@@ -94,9 +236,9 @@ const capabilities: Capability[] = [
             alt: "KronTerm workspace canvas in motion",
         },
         points: [
-            "Resizable block-based layouts",
-            "Persistent project workspaces",
-            "Shared context across every surface",
+            "Tiled, tabbed, and spatial presentations",
+            "Live request, action, approval, evidence, and output cards",
+            "Follow or quote canvas selections in KronosCode",
         ],
     },
     {
@@ -208,34 +350,50 @@ const capabilities: Capability[] = [
         },
         points: ["Multiple specialist agents", "Scoped background work", "Inspectable session history"],
     },
+    {
+        slug: "voice",
+        label: "Voice",
+        eyebrow: "09 / Experimental",
+        title: "Speak into the same agent context already on the canvas.",
+        summary: "Optional speech capture and local transcription connect directly to the active KronosCode composer.",
+        description:
+            "KronTerm can start an optional local Python audio process, capture microphone input, transcribe speech with faster-whisper, and submit the final text through the active composer. Speech output is also available when an online or offline TTS engine is configured.",
+        icon: Mic,
+        media: {
+            type: "image",
+            src: assets.sidepanel,
+            alt: "The KronTerm side panel where voice transcripts enter the active agent session",
+        },
+        points: ["Local speech-to-text", "Visible listening and transcription state", "Opt-in process lifecycle"],
+    },
 ];
 
 const chapters: Record<string, Chapter> = {
     "workspace-canvas": {
-        thesis: "The workspace should preserve the shape of the problem, not force every problem into a row of tabs.",
+        thesis: "The workspace should preserve the shape of the problem and still let the operator choose the right level of focus.",
         narrative: [
-            "Most technical work is spatial. A terminal explains what is running, a browser shows what the customer sees, an editor exposes the change, and an agent follows the evidence between them. Conventional desktops scatter that story across windows and ask the operator to rebuild it mentally.",
-            "KronTerm turns those surfaces into blocks on a persistent canvas. A project can have its own composition, with the terminal, preview, files, sandbox, and agent arranged around the work. The layout becomes part of the project memory and remains useful when the team returns tomorrow.",
+            "Most technical work changes shape during the day. A broad investigation benefits from several visible surfaces; a focused edit needs one active pane; planning and agent review become easier when evidence can be arranged spatially. A fixed layout forces the operator to rebuild context whenever the work changes.",
+            "KronTerm keeps the same live widgets underneath three presentations: resizable tiles, browser-style tabs with pane splitting, and a persistent pan-and-zoom canvas. On the canvas, notes and diagrams can sit beside a live agent graph, and any selected widget or task card can become the next prompt's focus or quoted evidence.",
         ],
         details: [
             {
-                title: "Compose the loop",
-                text: "Arrange blocks around the workflow instead of adapting the workflow to a fixed application shell.",
+                title: "Change the presentation, keep the work",
+                text: "Move between tiled monitoring, focused tabs, and spatial planning without replacing the underlying widgets.",
             },
             {
-                title: "Keep context visible",
-                text: "Output, previews, files, and agent state remain present at the same time and in the same place.",
+                title: "See the agent's lineage",
+                text: "Requests, decisions, actions, approvals, evidence, and outputs remain connected as live task cards.",
             },
             {
-                title: "Return without reconstruction",
-                text: "Persistent layouts retain the operational shape of a project between sessions.",
+                title: "Prompt from the selection",
+                text: "Use a selected widget or task card as the active focus, or quote it as supporting evidence.",
             },
         ],
         workflow: [
-            "Open a project workspace",
-            "Compose the surfaces the work needs",
-            "Route context between blocks",
-            "Return to the same operating picture",
+            "Choose tiles, tabs, or canvas",
+            "Arrange the surfaces and notes",
+            "Follow live agent and evidence cards",
+            "Send the right selection back to KronosCode",
         ],
         gallery: [
             { type: "image", src: assets.workspace, alt: "A complete KronTerm workspace composition" },
@@ -501,6 +659,42 @@ const chapters: Record<string, Chapter> = {
             { type: "image", src: assets.agent, alt: "An active specialist agent session" },
         ],
     },
+    voice: {
+        thesis: "Voice is useful when it enters the same visible, reviewable context as every other instruction.",
+        narrative: [
+            "A microphone should not create a second assistant with a second session. Spoken input is most useful when it arrives in the composer that already knows the selected model, workspace, files, canvas nodes, and approval state.",
+            "KronTerm's experimental voice path starts an optional local Python process, captures microphone input, transcribes speech with faster-whisper, and submits the final transcript through the active KronosCode composer. Listening, transcribing, speaking, idle, and error states remain visible, and turning voice off terminates the process.",
+        ],
+        details: [
+            {
+                title: "One composer",
+                text: "Voice transcripts enter the active KronosCode session instead of opening a parallel AI experience.",
+            },
+            {
+                title: "Local transcription",
+                text: "Speech-to-text runs in the optional local Python process with faster-whisper.",
+            },
+            {
+                title: "Explicit lifecycle",
+                text: "The UI reports audio state and can stop capture and shut down the engine from KronSettings.",
+            },
+        ],
+        workflow: [
+            "Enable the optional voice engine",
+            "Start listening from the composer",
+            "Review the submitted transcript",
+            "Disable the engine when voice is no longer needed",
+        ],
+        gallery: [
+            { type: "image", src: assets.sidepanel, alt: "KronTerm's active agent composer" },
+            { type: "image", src: assets.settings, alt: "KronTerm settings for models and optional capabilities" },
+            {
+                type: "image",
+                src: assets.workspace,
+                alt: "Voice entering the same workspace context as the open surfaces",
+            },
+        ],
+    },
 };
 
 const _useCases = [
@@ -537,10 +731,26 @@ type ReferenceItem = {
 
 const chapterReference: Record<string, { eyebrow: string; title: string; intro: string; items: ReferenceItem[] }> = {
     "workspace-canvas": {
-        eyebrow: "Block catalogue",
-        title: "Eight surfaces. One shared operating picture.",
-        intro: "Every block is interactive, composable, and exposed to KronosCode through the Widget Protocol.",
+        eyebrow: "Workspace catalogue",
+        title: "Three presentations. One shared operating picture.",
+        intro: "The same live widgets can become tiles, focused tabs, or nodes on an agent-aware spatial canvas.",
         items: [
+            {
+                label: "Presentations",
+                value: "Resizable tiled widgets, browser-style tabs with pane splits, or a freeform spatial canvas.",
+            },
+            {
+                label: "Canvas tools",
+                value: "Pan, zoom, fit, move, resize, add notes, draw, and connect shapes around live widgets.",
+            },
+            {
+                label: "Agent graph",
+                value: "Requests, decisions, actions, approvals, evidence, and outputs remain connected as task cards.",
+            },
+            {
+                label: "Canvas context",
+                value: "Send a selected widget or agent card to KronosCode as active focus or quoted evidence.",
+            },
             {
                 label: "Terminal",
                 value: "Full PTY, shell integration, scrollback capture, SSH, and AI-readable output.",
@@ -579,6 +789,10 @@ const chapterReference: Record<string, { eyebrow: string; title: string; intro: 
             { label: "Network", value: "Fetch URLs, search the web and documentation, scrape pages, and call APIs." },
             { label: "Memory", value: "Recall recent screen and audio history through Screenpipe." },
             { label: "Tooling", value: "69+ built-in tools, MCP integrations, and loadable domain-specific skills." },
+            {
+                label: "Runtime",
+                value: "Managed local startup, health, credential refresh, reconnection, and visible repair guidance.",
+            },
         ],
     },
     terminal: {
@@ -737,6 +951,19 @@ const chapterReference: Record<string, { eyebrow: string; title: string; intro: 
             { label: "Availability", value: "ACP agents are planned as part of KronTerm’s commercial premium tier." },
         ],
     },
+    voice: {
+        eyebrow: "Experimental audio path",
+        title: "Speech enters the active KronosCode session.",
+        intro: "Voice is an optional local process with visible state and an explicit shutdown path.",
+        items: [
+            { label: "Capture", value: "Opt-in microphone capture through the Electron-to-Python audio bridge." },
+            { label: "Transcription", value: "Local speech-to-text through faster-whisper." },
+            { label: "Submission", value: "Final transcripts are routed through the active KronosCode composer." },
+            { label: "Speech", value: "Online TTS with an offline system fallback when available." },
+            { label: "State", value: "Idle, listening, transcribing, speaking, and error remain visible in the UI." },
+            { label: "Availability", value: "Experimental and dependent on optional local runtime packages." },
+        ],
+    },
 };
 
 const specialistAgents = [
@@ -746,6 +973,15 @@ const specialistAgents = [
     ["Prometheus", "Native macOS application control and desktop automation."],
     ["Oracle", "Browser blocks, visible tabs, page inspection, and interaction."],
     ["Librarian", "Web research, code search, and documentation retrieval."],
+] as const;
+
+const agentFlowSteps = [
+    ["Request", "Capture the objective and the visible workspace context."],
+    ["Router", "Choose the specialist and operating surface that fit the job."],
+    ["Planner", "Turn intent into bounded, reviewable steps."],
+    ["Executor", "Run tools inside the selected host, browser, or sandbox boundary."],
+    ["Critic", "Check diffs, failures, approvals, and saved evidence."],
+    ["Summarizer", "Return the result with session context intact."],
 ] as const;
 
 const architectureLayers = [
@@ -823,11 +1059,11 @@ const documentationSections: DocumentationSection[] = [
         eyebrow: "02 / Workspace model",
         title: "Blocks and layouts",
         summary:
-            "Understand the persistent canvas, the eight block types, and how layouts preserve the operational shape of a project.",
+            "Understand tiled widgets, focused tabs, the spatial canvas, and how each preserves the same project surfaces.",
         points: [
-            "Position, resize, stack, snap, or full-screen interactive blocks.",
-            "Keep terminal output, previews, files, and agent activity visible together.",
-            "Return to the same project composition after a restart or context switch.",
+            "Choose resizable tiles, browser-style widget tabs, or a pan-and-zoom canvas.",
+            "Place live task, approval, evidence, and output cards beside the widgets that produced them.",
+            "Send selected widgets or agent cards to KronosCode as focus or quoted evidence.",
         ],
         link: "/capabilities/workspace-canvas",
         linkLabel: "Read the workspace chapter",
@@ -915,6 +1151,20 @@ const documentationSections: DocumentationSection[] = [
         ],
         link: "/security",
         linkLabel: "Read the security model",
+    },
+    {
+        id: "voice",
+        eyebrow: "09 / Experimental",
+        title: "Voice",
+        summary:
+            "Connect optional local speech capture and transcription to the same composer, model, and workspace context.",
+        points: [
+            "Transcribe speech locally through faster-whisper.",
+            "Keep listening, transcription, speaking, and error state visible.",
+            "Stop capture and terminate the optional process from KronSettings.",
+        ],
+        link: "/capabilities/voice",
+        linkLabel: "Read the voice chapter",
     },
 ];
 
@@ -1243,53 +1493,182 @@ function Hero() {
                 </div>
             </div>
             <div className="hero-stage reveal reveal-3">
-                <ProductMedia
-                    media={{
-                        type: "image",
-                        src: assets.workspace,
-                        alt: "The KronTerm command center with terminal, browser, files, and AI",
-                        priority: true,
-                    }}
-                    className="hero-product"
+                <img
+                    className="hero-canvas-art"
+                    src="/assets/generated/visual-stories/05-living-workspace.webp"
+                    alt="The KronTerm pet overlooking a connected terminal, browser, files, sandbox, and agent canvas"
+                    fetchPriority="high"
                 />
-                <div className="floating-trace floating-trace-left">
-                    <span className="trace-icon">
-                        <BrainCircuit size={17} />
+                <div className="hero-canvas-shade" aria-hidden="true" />
+                <a className="hero-film-chip" href="#field-film">
+                    <span>
+                        <Play size={17} fill="currentColor" />
                     </span>
-                    <div>
-                        <strong>KronosCode is working</strong>
-                        <small>Reading terminal output + 4 files</small>
-                    </div>
-                    <span className="live-pill">LIVE</span>
-                </div>
-                <div className="hero-cli" aria-label="KronTerm CLI agent status">
-                    <div className="hero-cli-bar">
-                        <span>
-                            <Terminal size={13} /> KronTerm CLI
+                    <strong>Watch the field film</strong>
+                    <small>15 seconds</small>
+                </a>
+                <div className="hero-product-proof">
+                    <ProductMedia
+                        media={{
+                            type: "image",
+                            src: assets.workspace,
+                            alt: "The real KronTerm command center with terminal, browser, files, and AI",
+                            priority: true,
+                        }}
+                        className="hero-product"
+                    />
+                    <div className="floating-trace floating-trace-left">
+                        <span className="trace-icon">
+                            <BrainCircuit size={17} />
                         </span>
-                        <small>workspace / main</small>
-                    </div>
-                    <code>
-                        <em>$</em> kronterm agent --workspace
-                    </code>
-                    <code>
-                        <span>✓</span> browser evidence attached
-                    </code>
-                    <code>
-                        <span>✓</span> 3 files ready for review
-                    </code>
-                    <div className="hero-cli-input">
-                        Add a follow-up<span>↵</span>
+                        <div>
+                            <strong>KronosCode is working</strong>
+                            <small>Reading terminal output + 4 files</small>
+                        </div>
+                        <span className="live-pill">LIVE</span>
                     </div>
                 </div>
-                <div className="hero-stage-label" aria-hidden="true">
-                    <span>One living canvas</span>
-                    <span>Notes stay visible</span>
-                    <span>Every agent in context</span>
+                <div className="hero-stage-index" aria-hidden="true">
+                    <span>01 / Compose the loop</span>
+                    <span>02 / Keep evidence visible</span>
+                    <span>03 / Direct the next action</span>
                 </div>
             </div>
             <div className="scroll-cue" aria-hidden="true">
                 <ChevronDown size={16} /> Explore the workspace
+            </div>
+        </section>
+    );
+}
+
+function SurfaceTicker() {
+    const items = ["Terminal", "Browser", "Files", "KronosCode", "Sandbox", "Desktop", "Remote", "ACP agents"];
+
+    return (
+        <div className="surface-ticker" aria-label="KronTerm workspace surfaces">
+            <div>
+                {[...items, ...items].map((item, index) => (
+                    <span aria-hidden={index >= items.length} key={`${item}-${index}`}>
+                        <i /> {item}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function ProductFilm() {
+    const reducedMotion = usePrefersReducedMotion();
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [playing, setPlaying] = useState(!reducedMotion);
+
+    const togglePlayback = () => {
+        const video = videoRef.current;
+        if (!video) {
+            return;
+        }
+        if (video.paused) {
+            void video.play();
+            return;
+        }
+        video.pause();
+    };
+
+    return (
+        <section className="field-film section" id="field-film">
+            <div className="field-film-copy">
+                <p className="kicker">KronTerm field film / 00:15</p>
+                <h2>See the whole operating model move as one.</h2>
+                <p>
+                    A short visual tour through the living canvas, browser evidence, isolated execution, native app
+                    control, and the pet that keeps every state legible.
+                </p>
+                <div className="field-film-index" aria-label="Film chapters">
+                    <span>
+                        <b>00:00</b> Open the canvas
+                    </span>
+                    <span>
+                        <b>00:06</b> Follow the evidence
+                    </span>
+                    <span>
+                        <b>00:10</b> Work across the loop
+                    </span>
+                </div>
+            </div>
+            <div className="field-film-player">
+                <video
+                    ref={videoRef}
+                    src={assets.fieldGuideVideo}
+                    poster={assets.fieldGuidePoster}
+                    aria-label="A fifteen-second animated introduction to KronTerm"
+                    autoPlay={!reducedMotion}
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    onPlay={() => setPlaying(true)}
+                    onPause={() => setPlaying(false)}
+                />
+                <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause film" : "Play film"}>
+                    {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                    <span>{playing ? "Pause field film" : "Play field film"}</span>
+                </button>
+                <div className="field-film-folio" aria-hidden="true">
+                    <Film size={16} /> 1920 × 1080 / 30 FPS
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function VisualStoryAtlas() {
+    const [activeId, setActiveId] = useState("living-workspace");
+    const activeStory = VisualStories.find((story) => story.id === activeId) ?? VisualStories[0];
+
+    return (
+        <section className="story-atlas section" id="visual-stories">
+            <header className="story-atlas-header">
+                <div>
+                    <p className="kicker">Fifteen visual field notes</p>
+                    <h2>The pet now has a whole world to guide.</h2>
+                </div>
+                <p>
+                    Select any plate to explore a different part of the KronTerm operating model. Every scene was built
+                    as both a product story and a reusable website asset.
+                </p>
+            </header>
+            <div className="story-atlas-stage">
+                <figure className={`story-atlas-feature story-format-${activeStory.format}`} key={activeStory.id}>
+                    <img src={activeStory.src} alt={`${activeStory.title}, illustrated with the KronTerm pixel pet`} />
+                    <figcaption>
+                        <span>{activeStory.eyebrow}</span>
+                        <strong>{activeStory.title}</strong>
+                    </figcaption>
+                </figure>
+                <div className="story-atlas-copy" aria-live="polite">
+                    <span>{String(VisualStories.indexOf(activeStory) + 1).padStart(2, "0")} / 15</span>
+                    <h3>{activeStory.title}</h3>
+                    <p>{activeStory.description}</p>
+                    <Link to="/capabilities">
+                        Enter the field guide <ArrowUpRight size={16} />
+                    </Link>
+                </div>
+            </div>
+            <div className="story-atlas-rail" role="tablist" aria-label="KronTerm visual field notes">
+                {VisualStories.map((story, index) => (
+                    <button
+                        className={story.id === activeStory.id ? "story-atlas-thumb active" : "story-atlas-thumb"}
+                        type="button"
+                        role="tab"
+                        aria-selected={story.id === activeStory.id}
+                        aria-label={`Show ${story.title}`}
+                        key={story.id}
+                        onClick={() => setActiveId(story.id)}
+                    >
+                        <img src={story.src} alt="" loading="lazy" />
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                    </button>
+                ))}
             </div>
         </section>
     );
@@ -1444,7 +1823,7 @@ function _CapabilitiesSection() {
         <section className="capabilities-section section" id="capabilities">
             <div className="section-intro split-intro">
                 <div>
-                    <p className="kicker">One system, eight surfaces</p>
+                    <p className="kicker">One system, nine chapters</p>
                     <h2>Everything your team needs to direct intelligent work.</h2>
                 </div>
                 <p>
@@ -1550,11 +1929,10 @@ function ControlSection() {
 function FinalCta() {
     return (
         <section className="final-cta section">
-            <PetNote
-                className="final-pet-note"
-                pose="walk"
-                message="I keep the next chapter—and your workspace context—close by."
-            />
+            <figure className="final-pet-illustration">
+                <img src={assets.finalePet} alt="KronTerm’s pixel pet planting a flag on a connected workspace" />
+                <figcaption>I keep the next chapter—and your workspace context—close by.</figcaption>
+            </figure>
             <div className="final-cta-mark" aria-hidden="true">
                 <Sparkles size={28} />
             </div>
@@ -1614,7 +1992,7 @@ function ChapterPortalSection({ showHeading = true }: { showHeading?: boolean })
                 <div className="chapter-library-heading">
                     <div>
                         <p className="kicker">The KronTerm field guide</p>
-                        <h2>Eight chapters. Eight complete product stories.</h2>
+                        <h2>Nine chapters. Nine complete product stories.</h2>
                     </div>
                     <p>
                         Each chapter is a dedicated destination with its own thesis, detailed explanation, workflow, and
@@ -1635,7 +2013,7 @@ function FieldGuidePrelude() {
     return (
         <section className="field-guide-prelude section">
             <div className="prelude-mark" aria-hidden="true">
-                <BookOpen size={24} />
+                <img className="prelude-blueprint-pet" src={assets.blueprintPet} alt="" />
                 <span>Vol. I</span>
             </div>
             <div>
@@ -1643,8 +2021,9 @@ function FieldGuidePrelude() {
                 <h2>The homepage is the cover. Every canvas becomes a chapter.</h2>
             </div>
             <p>
-                KronTerm is not one feature repeated eight times. The canvas, terminal, browser, sandboxes, desktop,
-                remote sessions, KronosCode, and ACP agents each solve a distinct part of the builder’s operating model.
+                KronTerm is not one feature repeated nine times. The canvas, terminal, browser, sandboxes, desktop,
+                remote sessions, KronosCode, ACP agents, and experimental voice each solve a distinct part of the
+                builder’s operating model.
             </p>
         </section>
     );
@@ -1748,14 +2127,20 @@ function ReferenceManual() {
                             the surface and job instead of pretending one agent is equally suited to every layer.
                         </p>
                     </div>
-                    <div className="pipeline-strip" aria-label="KronosCode execution pipeline">
-                        {["Request", "Router", "Planner", "Executor", "Critic", "Summarizer"].map((step, index) => (
-                            <span key={step}>
-                                <b>{String(index + 1).padStart(2, "0")}</b>
-                                {step}
-                            </span>
+                    <ol className="agent-flow-graph" aria-label="KronosCode execution pipeline">
+                        {agentFlowSteps.map(([step, description], index) => (
+                            <li key={step}>
+                                <div className="agent-flow-node">
+                                    <span>{String(index + 1).padStart(2, "0")}</span>
+                                    <strong>{step}</strong>
+                                    <p>{description}</p>
+                                </div>
+                                {index < agentFlowSteps.length - 1 ? (
+                                    <ArrowRight className="agent-flow-arrow" size={18} aria-hidden="true" />
+                                ) : null}
+                            </li>
                         ))}
-                    </div>
+                    </ol>
                     <div className="agent-roster">
                         {specialistAgents.map(([name, role], index) => (
                             <article key={name}>
@@ -1903,12 +2288,15 @@ function ChapterReference({ capability }: { capability: Capability }) {
 function HomePage() {
     usePageMeta(
         "KronTerm — The command center for human + agent work",
-        "Enter the KronTerm field guide: dedicated product chapters for the workspace canvas, KronosCode, terminal, browser, sandboxes, desktop control, remote sessions, and ACP agents."
+        "Enter the KronTerm field guide: dedicated product chapters for the workspace canvas, KronosCode, terminal, browser, sandboxes, desktop control, remote sessions, ACP agents, and experimental voice."
     );
 
     return (
         <>
             <Hero />
+            <SurfaceTicker />
+            <ProductFilm />
+            <VisualStoryAtlas />
             <FieldGuidePrelude />
             <ChapterPortalSection />
             <ReferenceTeaser />
@@ -1918,7 +2306,7 @@ function HomePage() {
 }
 
 function CapabilityIndexPage() {
-    usePageMeta("KronTerm Field Guide", "Explore eight dedicated chapters covering every major KronTerm capability.");
+    usePageMeta("KronTerm Field Guide", "Explore nine dedicated chapters covering every major KronTerm capability.");
 
     return (
         <>
@@ -2407,7 +2795,7 @@ function DocumentationPage() {
                             </a>
                         ))}
                     </nav>
-                    <p className="docs-contents-note">Eight entries · product and operating reference</p>
+                    <p className="docs-contents-note">Nine entries · product and operating reference</p>
                 </aside>
 
                 <div className="docs-manual">
@@ -2619,10 +3007,14 @@ function BlogPostPage() {
 function Footer() {
     return (
         <footer className="footer">
+            <div className="footer-folio" aria-hidden="true">
+                <span>End notes</span>
+                <span>KronTerm field guide / 2026</span>
+            </div>
             <div className="footer-main">
                 <div className="footer-brand">
                     <Brand />
-                    <p>The command center for human + agent work.</p>
+                    <p>A living field notebook for human + agent work.</p>
                 </div>
                 <div className="footer-links">
                     <div>
@@ -2644,6 +3036,7 @@ function Footer() {
                         <a href="https://docs.kronterm.dev">Technical docs</a>
                         <a href="https://discord.gg/XfvZ334gwU">Discord</a>
                         <a href="https://x.com/krontermdev">X / @krontermdev</a>
+                        <a href="https://github.com/Ahmedalsadi-1/kronterm">GitHub</a>
                         <a href="https://www.kronterm.dev">kronterm.dev</a>
                     </div>
                 </div>

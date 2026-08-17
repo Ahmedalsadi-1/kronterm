@@ -2,38 +2,72 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Toggle } from "@/app/element/toggle";
+import { cn } from "@/util/util";
+import {
+    RiBarChartLine,
+    RiBookOpenLine,
+    RiChat3Line,
+    RiFlashlightLine,
+    RiGitBranchLine,
+    RiGithubFill,
+    RiHistoryLine,
+    RiKeyboardLine,
+    RiMagicLine,
+    RiPaletteLine,
+    RiSettings3Line,
+    RiShieldCheckLine,
+    RiTerminalBoxLine,
+} from "@remixicon/react";
 import { memo, useCallback, useRef, useState } from "react";
-import clsx from "clsx";
+
+const SectionIconMap: Record<string, React.ElementType> = {
+    bolt: RiFlashlightLine,
+    book: RiBookOpenLine,
+    "chart-bar": RiBarChartLine,
+    "clock-rotate-left": RiHistoryLine,
+    "code-branch": RiGitBranchLine,
+    comment: RiChat3Line,
+    "eye-dropper": RiPaletteLine,
+    github: RiGithubFill,
+    keyboard: RiKeyboardLine,
+    palette: RiPaletteLine,
+    "shield-halved": RiShieldCheckLine,
+    sliders: RiSettings3Line,
+    swatchbook: RiPaletteLine,
+    terminal: RiTerminalBoxLine,
+    "wand-magic-sparkles": RiMagicLine,
+};
 
 export const SettingsCard = memo(({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div className={clsx("kron-settings-card", className)}>{children}</div>
+    <div className={cn("kron-settings-card", className)}>{children}</div>
 ));
 SettingsCard.displayName = "SettingsCard";
 
 export const SectionHeader = memo(
-    ({ title, description, icon }: { title: string; description?: string; icon?: string }) => (
-        <div className="kron-settings-section-header">
-            <h2 className="kron-settings-section-title">
-                {icon && <i className={clsx("fa", "fa-solid", `fa-${icon}`, "kron-settings-section-icon")} />}
-                {title}
-            </h2>
-            {description && <p className="kron-settings-section-desc">{description}</p>}
-        </div>
-    )
+    ({ title, description, icon }: { title: string; description?: string; icon?: string }) => {
+        const Icon = icon ? SectionIconMap[icon] : null;
+        return (
+            <div className="kron-settings-section-header">
+                <h2 className="kron-settings-section-title">
+                    {Icon && <Icon className="kron-settings-section-icon" aria-hidden="true" />}
+                    {title}
+                </h2>
+                {description && <p className="kron-settings-section-desc">{description}</p>}
+            </div>
+        );
+    }
 );
 SectionHeader.displayName = "SectionHeader";
 
-export const SettingRow = memo(
-    ({ title, description, children, indent }: SettingRowProps) => (
-        <div className={clsx("kron-settings-row", indent && "kron-settings-row--indent")}>
-            <div className="kron-settings-row-text">
-                <div className="kron-settings-row-title">{title}</div>
-                {description && <div className="kron-settings-row-desc">{description}</div>}
-            </div>
-            <div className="kron-settings-row-control">{children}</div>
+export const SettingRow = memo(({ title, description, children, indent }: SettingRowProps) => (
+    <div className={cn("kron-settings-row", indent && "kron-settings-row--indent")}>
+        <div className="kron-settings-row-text">
+            <div className="kron-settings-row-title">{title}</div>
+            {description && <div className="kron-settings-row-desc">{description}</div>}
         </div>
-    )
-);
+        <div className="kron-settings-row-control">{children}</div>
+    </div>
+));
 SettingRow.displayName = "SettingRow";
 
 interface SettingRowProps {
@@ -43,13 +77,11 @@ interface SettingRowProps {
     indent?: boolean;
 }
 
-export const ToggleSetting = memo(
-    ({ title, description, checked, onChange }: ToggleSettingProps) => (
-        <SettingRow title={title} description={description}>
-            <Toggle checked={checked} onChange={onChange} />
-        </SettingRow>
-    )
-);
+export const ToggleSetting = memo(({ title, description, checked, onChange }: ToggleSettingProps) => (
+    <SettingRow title={title} description={description}>
+        <Toggle checked={checked} onChange={onChange} />
+    </SettingRow>
+));
 ToggleSetting.displayName = "ToggleSetting";
 
 interface ToggleSettingProps {
@@ -59,23 +91,17 @@ interface ToggleSettingProps {
     onChange: (v: boolean) => void;
 }
 
-export const SelectSetting = memo(
-    ({ title, description, value, onChange, options }: SelectSettingProps) => (
-        <SettingRow title={title} description={description}>
-            <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="kron-settings-select"
-            >
-                {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </option>
-                ))}
-            </select>
-        </SettingRow>
-    )
-);
+export const SelectSetting = memo(({ title, description, value, onChange, options }: SelectSettingProps) => (
+    <SettingRow title={title} description={description}>
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="kron-settings-select">
+            {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                </option>
+            ))}
+        </select>
+    </SettingRow>
+));
 SelectSetting.displayName = "SelectSetting";
 
 interface SelectSettingProps {
@@ -87,22 +113,14 @@ interface SelectSettingProps {
 }
 
 export const InputSetting = memo(
-    ({
-        title,
-        description,
-        value,
-        onChange,
-        placeholder,
-        type = "text",
-        monospace = false,
-    }: InputSettingProps) => (
+    ({ title, description, value, onChange, placeholder, type = "text", monospace = false }: InputSettingProps) => (
         <SettingRow title={title} description={description}>
             <input
                 type={type}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className={clsx("kron-settings-input", monospace && "kron-settings-input--mono")}
+                className={cn("kron-settings-input", monospace && "kron-settings-input--mono")}
             />
         </SettingRow>
     )
@@ -156,35 +174,33 @@ export const InfoCallout = memo(({ children }: { children: React.ReactNode }) =>
 ));
 InfoCallout.displayName = "InfoCallout";
 
-export const NumberInput = memo(
-    ({ value, onChange, min, max, className }: NumberInputProps) => {
-        const inputRef = useRef<HTMLInputElement>(null);
-        const [localVal, setLocalVal] = useState(String(value));
+export const NumberInput = memo(({ value, onChange, min, max, className }: NumberInputProps) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [localVal, setLocalVal] = useState(String(value));
 
-        const commit = useCallback(() => {
-            const num = Number(localVal);
-            if (!isNaN(num)) {
-                const clamped = Math.min(Math.max(num, min ?? 1), max ?? 999);
-                onChange(clamped);
-                setLocalVal(String(clamped));
-            }
-        }, [localVal, min, max, onChange]);
+    const commit = useCallback(() => {
+        const num = Number(localVal);
+        if (!isNaN(num)) {
+            const clamped = Math.min(Math.max(num, min ?? 1), max ?? 999);
+            onChange(clamped);
+            setLocalVal(String(clamped));
+        }
+    }, [localVal, min, max, onChange]);
 
-        return (
-            <input
-                ref={inputRef}
-                type="number"
-                min={min}
-                max={max}
-                value={localVal}
-                onChange={(e) => setLocalVal(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => e.key === "Enter" && commit()}
-                className={clsx("kron-settings-input kron-settings-input--number", className)}
-            />
-        );
-    }
-);
+    return (
+        <input
+            ref={inputRef}
+            type="number"
+            min={min}
+            max={max}
+            value={localVal}
+            onChange={(e) => setLocalVal(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === "Enter" && commit()}
+            className={cn("kron-settings-input kron-settings-input--number", className)}
+        />
+    );
+});
 NumberInput.displayName = "NumberInput";
 
 interface NumberInputProps {

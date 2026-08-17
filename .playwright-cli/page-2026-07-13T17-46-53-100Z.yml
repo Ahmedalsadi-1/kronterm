@@ -1,0 +1,82 @@
+- generic [ref=f3e3]:
+  - link "Skip to content" [ref=f3e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f3e5]:
+    - navigation "Main navigation" [ref=f3e6]:
+      - link "KronTerm home" [ref=f3e7] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f3e9]: KronTerm
+      - button "Open navigation" [ref=f3e11] [cursor=pointer]
+  - main [ref=f3e13]:
+    - generic [ref=f3e14]:
+      - paragraph [ref=f3e15]: Private beta plans
+      - heading "Start with the workspace your team needs." [level=1] [ref=f3e16]
+      - paragraph [ref=f3e17]: KronTerm is currently onboarding design partners. We will tailor access around team size, workflows, and control requirements.
+    - generic [ref=f3e18]:
+      - article [ref=f3e19]:
+        - paragraph [ref=f3e20]: For independent operators
+        - heading "Builder" [level=2] [ref=f3e21]
+        - paragraph [ref=f3e22]: A complete KronTerm workspace with core KronosCode and private beta access.
+        - list [ref=f3e23]:
+          - listitem [ref=f3e24]: Workspace canvas
+          - listitem [ref=f3e27]: KronosCode agents
+          - listitem [ref=f3e30]: Approval-aware workflows
+        - link "Request builder access" [ref=f3e33] [cursor=pointer]:
+          - /url: /contact-sales
+      - article [ref=f3e34]:
+        - generic [ref=f3e35]: Recommended
+        - paragraph [ref=f3e36]: For teams shipping together
+        - heading "Team" [level=2] [ref=f3e37]
+        - paragraph [ref=f3e38]: Shared workflow design, expanded agent operations, and guided onboarding.
+        - list [ref=f3e39]:
+          - listitem [ref=f3e40]: Workspace canvas
+          - listitem [ref=f3e43]: KronosCode agents
+          - listitem [ref=f3e46]: Approval-aware workflows
+        - link "Talk to the team" [ref=f3e49] [cursor=pointer]:
+          - /url: /contact-sales
+      - article [ref=f3e50]:
+        - paragraph [ref=f3e51]: For controlled deployment
+        - heading "Enterprise" [level=2] [ref=f3e52]
+        - paragraph [ref=f3e53]: Security review, custom orchestration, model policy, and deployment planning.
+        - list [ref=f3e54]:
+          - listitem [ref=f3e55]: Workspace canvas
+          - listitem [ref=f3e58]: KronosCode agents
+          - listitem [ref=f3e61]: Approval-aware workflows
+        - link "Contact sales" [ref=f3e64] [cursor=pointer]:
+          - /url: /contact-sales
+    - generic [ref=f3e65]:
+      - paragraph [ref=f3e70]: A new home for technical work
+      - heading "Put the whole workspace behind the next prompt." [level=2] [ref=f3e71]
+      - paragraph [ref=f3e72]: Join the KronTerm private beta and help shape the command center for human + agent teams.
+      - generic [ref=f3e73]:
+        - link "Request private beta" [ref=f3e74] [cursor=pointer]:
+          - /url: /download
+        - link "Talk to the team" [ref=f3e77] [cursor=pointer]:
+          - /url: /contact-sales
+  - contentinfo [ref=f3e78]:
+    - generic [ref=f3e79]:
+      - generic [ref=f3e80]:
+        - link "KronTerm home" [ref=f3e81] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f3e83]: KronTerm
+        - paragraph [ref=f3e84]: The command center for human + agent work.
+      - generic [ref=f3e85]:
+        - generic [ref=f3e86]:
+          - strong [ref=f3e87]: Product
+          - link "Platform" [ref=f3e88] [cursor=pointer]:
+            - /url: /#platform
+          - link "Capabilities" [ref=f3e89] [cursor=pointer]:
+            - /url: /#capabilities
+          - link "Pricing" [ref=f3e90] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=f3e91]:
+          - strong [ref=f3e92]: Company
+          - link "Contact" [ref=f3e93] [cursor=pointer]:
+            - /url: /contact-sales
+          - link "Security" [ref=f3e94] [cursor=pointer]:
+            - /url: /security
+          - link "Private beta" [ref=f3e95] [cursor=pointer]:
+            - /url: /download
+    - generic [ref=f3e96]:
+      - generic [ref=f3e97]: © 2026 KronTerm
+      - generic [ref=f3e98]: Built for serious technical work.

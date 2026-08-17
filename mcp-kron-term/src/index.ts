@@ -4,21 +4,19 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { DeveloperActionRegistry, DeveloperMemoryStore } from "./developer-memory.js";
+import { runInteraction, type InteractionAction, type InteractionResult } from "./interaction-contract.js";
 import {
     KronComputerUseClient,
     previewImageUrl as kronComputerUsePreviewImageUrl,
     type KronComputerUseToolResult,
 } from "./kron-computer-use.js";
-import {
-    runInteraction,
-    type InteractionAction,
-    type InteractionResult,
-} from "./interaction-contract.js";
+import { SharedSkillCatalog } from "./shared-skills.js";
 import { WshBridge } from "./wsh-bridge.js";
 
 const wsh = new WshBridge();
 const kronComputerUse = new KronComputerUseClient();
 const developerMemoryStore = new DeveloperMemoryStore();
+const sharedSkills = new SharedSkillCatalog();
 const server = new McpServer({
     name: "kron-term",
     version: "2.0.0",
@@ -47,10 +45,7 @@ function withInteractionEvidence<T extends { content?: Array<Record<string, unkn
 ): T {
     return {
         ...value,
-        content: [
-            ...(value.content ?? []),
-            { type: "text", text: JSON.stringify({ interaction: evidence }, null, 2) },
-        ],
+        content: [...(value.content ?? []), { type: "text", text: JSON.stringify({ interaction: evidence }, null, 2) }],
     };
 }
 
@@ -228,7 +223,8 @@ function wrapActivity(toolName: string, blockIdArg?: string) {
                         {
                             preflight: async () => {
                                 if (surface === "kronterm") await wsh.getBlockInfo(surfaceId);
-                                if (surface === "sandbox" && toolName !== "sandbox_start") await wsh.sandboxStatus(surfaceId);
+                                if (surface === "sandbox" && toolName !== "sandbox_start")
+                                    await wsh.sandboxStatus(surfaceId);
                             },
                             verify: async () => ({
                                 observedBefore: true,
@@ -377,6 +373,7 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
   \`promote_memory\`, \`get_workspace_sessions\`, \`create_workspace_session\`, \`append_workspace_session_event\`,
   \`complete_workspace_session\`, \`get_action_items\`, \`create_action_item\`, and \`ingest_workspace_event\`.
 - Native desktop apps: \`kron_computer_*\` tools expose the local \`kron-computer-use\` runtime. Start with \`kron_computer_list_apps\`, then call \`kron_computer_get_app_state\` before actions. The macOS runtime displays its software cursor overlay during click and set-value actions.
+- Shared skills: call \`shared_skill_list\`, then \`shared_skill_read\` with an exact skill id. These expose the allowlisted project skills shared by KronTerm, KronosCode, and ACP agents such as Hermes.
 
 ## Runtime requirements
 
@@ -405,6 +402,39 @@ server.registerResource(
     async (uri) => ({
         contents: [{ uri: uri.href, mimeType: "text/markdown", text: kronTermGuide }],
     })
+);
+
+server.registerResource(
+    "kron-term-shared-skills",
+    "kron-term://skills",
+    {
+        title: "KronTerm Shared Skills",
+        description: "Inventory of allowlisted project skills shared with KronTerm ACP agents.",
+        mimeType: "application/json",
+    },
+    async (uri) => ({
+        contents: [
+            {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({ roots: sharedSkills.configuredRoots(), skills: sharedSkills.list() }, null, 2),
+            },
+        ],
+    })
+);
+
+server.tool(
+    "shared_skill_list",
+    "List allowlisted project skills shared by KronTerm, KronosCode, and ACP agents.",
+    { query: z.string().optional().describe("Optional case-insensitive filter") },
+    async ({ query }) => jsonText(sharedSkills.list(query))
+);
+
+server.tool(
+    "shared_skill_read",
+    "Read one shared project skill by the exact id returned from shared_skill_list.",
+    { id: z.string().min(1).describe("Exact shared skill id") },
+    async ({ id }) => jsonText(sharedSkills.read(id))
 );
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -815,7 +845,10 @@ server.tool(
     {
         url: z.string().url().describe("URL to open"),
         magnified: z.boolean().optional().describe("Open in magnified mode"),
-        newSurface: z.boolean().optional().describe("Create a separate browser block instead of reusing one (default: false)"),
+        newSurface: z
+            .boolean()
+            .optional()
+            .describe("Create a separate browser block instead of reusing one (default: false)"),
     },
     wrapActivity("browser_open")(async ({ url, magnified, newSurface }) => {
         try {

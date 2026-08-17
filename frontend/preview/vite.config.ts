@@ -25,6 +25,17 @@ export default defineConfig({
     ],
     build: {
         minify: false,
+        // novnc (imported via the sandbox preview) uses top-level await,
+        // which the default es2020 "modules" target rejects during pre-bundling.
+        target: "esnext",
+    },
+    esbuild: {
+        target: "esnext",
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            target: "esnext",
+        },
     },
     server: {
         port: 7007,

@@ -1,435 +1,141 @@
-// Copyright 2026, Command Line Inc.
-// SPDX-License-Identifier: Apache-2.0
-
-/**
- * IMPROVED CHAT UI COMPONENTS - README
- * 
- * Wave Terminal KronosCode AI Chat Widget Enhancement
- */
-
-// ─── Overview ────────────────────────────────────────────────────────────────
-
-// This package includes an enhanced chat UI component system for Wave Terminal's
-// KronosCode AI chat widget, featuring:
-//
-// • File attachment with smart preview cards
-// • Pasted content tracking and visualization
-// • Model selector dropdown
-// • Drag-and-drop file upload
-// • Improved visual design with modern UI patterns
-// • Better color scheme integration
-// • Smooth animations and transitions
-// • TypeScript support with full type safety
-
-// ─── New Files ───────────────────────────────────────────────────────────────
-
-// 1. improved-chat-input.tsx
-//    Main component with all UI logic
-//    - 2000+ lines, fully featured
-//    - Self-contained, no external dependencies beyond lucide-react
-//    - Exports: ImprovedChatInput, FileWithPreview, PastedContent, ModelOption
-
-// 2. improved-aipanel-input.tsx
-//    Adapter for Wave Terminal integration
-//    - Bridges ImprovedChatInput with WaveAIModel
-//    - Exports: ImprovedAIPanelInput, useImprovedChatInput hook
-
-// 3. improved-chat-input-integration.tsx
-//    Detailed integration guide and documentation
-//    - Component props documentation
-//    - File type definitions
-//    - Usage examples
-//    - Integration patterns
-//    - Troubleshooting tips
-
-// 4. IMPROVED_CHAT_IMPLEMENTATION_GUIDE.md
-//    Step-by-step implementation guide
-//    - 10-step integration process
-//    - Backend integration examples
-//    - Error handling patterns
-//    - Migration checklist
-//    - File modification guide
-
-// 5. README.md (this file)
-//    Quick start and overview
-
-// ─── Key Features ────────────────────────────────────────────────────────────
-
-// FILE ATTACHMENTS
-// • Upload single or multiple files
-// • Drag-and-drop support
-// • File type validation
-// • File size validation
-// • Upload progress tracking
-// • Remove files before sending
-// • Automatic image preview generation
-// • Textual file content preview
-
-// PASTED CONTENT
-// • Detect large pasted text (>200 characters)
-// • Show as separate "PASTED" cards
-// • Copy pasted content
-// • Remove pasted content
-// • Track word count and timestamp
-// • Support multiple pastes (up to 5)
-
-// MODEL SELECTION
-// • Dropdown model selector
-// • Display model name and description
-// • Badge support (e.g., "Latest", "Recommended")
-// • Model change callback
-// • Keyboard navigation support
-
-// USER EXPERIENCE
-// • Auto-resizing textarea
-// • Enter to send, Shift+Enter for newline
-// • Drag-drop zone highlight
-// • Smooth hover effects
-// • Responsive button states
-// • Keyboard shortcuts
-// • Touch-friendly on mobile
-
-// ─── Quick Start ─────────────────────────────────────────────────────────────
-
-// STEP 1: Import the component
-// import { ImprovedChatInput } from "@/app/aipanel/improved-chat-input";
-
-// STEP 2: Create a handler
-// const handleSendMessage = (message, files, pastedContent) => {
-//   console.log("Message:", message);
-//   console.log("Files:", files);
-//   console.log("Pasted Content:", pastedContent);
-//   // Send to backend
-// };
-
-// STEP 3: Render the component
-// <ImprovedChatInput
-//   onSendMessage={handleSendMessage}
-//   placeholder="Ask KronosCode anything..."
-// />
-
-// ─── Component Props ─────────────────────────────────────────────────────────
-
-// onSendMessage?: (message: string, files: FileWithPreview[], pastedContent: PastedContent[]) => void
-//   Callback when user sends a message
-
-// disabled?: boolean
-//   Disable input (e.g., while processing)
-
-// placeholder?: string
-//   Input placeholder text (default: "Ask KronosCode anything...")
-
-// maxFiles?: number
-//   Maximum number of files (default: 10)
-
-// maxFileSize?: number
-//   Maximum file size in bytes (default: 50MB)
-
-// acceptedFileTypes?: string[]
-//   Array of accepted file types/extensions
-
-// models?: ModelOption[]
-//   Available models for selection
-
-// defaultModel?: string
-//   Default selected model ID
-
-// onModelChange?: (modelId: string) => void
-//   Callback when user changes model
-
-// ─── Data Types ──────────────────────────────────────────────────────────────
-
-// FileWithPreview {
-//   id: string;
-//   file: File;
-//   preview?: string;  // base64 image preview
-//   type: string;      // MIME type
-//   uploadStatus: "pending" | "uploading" | "complete" | "error";
-//   uploadProgress?: number;
-//   abortController?: AbortController;
-//   textContent?: string;  // for textual files
-// }
-
-// PastedContent {
-//   id: string;
-//   content: string;
-//   timestamp: Date;
-//   wordCount: number;
-// }
-
-// ModelOption {
-//   id: string;
-//   name: string;
-//   description: string;
-//   badge?: string;
-// }
-
-// ─── Color Scheme ────────────────────────────────────────────────────────────
-
-// Background colors:
-//   Main: #30302E
-//   Cards: #1e1e1c
-//   Hover: #262624
-
-// Text colors:
-//   Primary: #d4d4d4 / #eeeeee
-//   Secondary: #8a8580 / #9e9a93
-//   Accent: #5b9ef5 (blue)
-
-// Border colors:
-//   Default: #2a2a2a
-//   Hover: lighter
-
-// Button colors:
-//   Send: #d7a85d (amber)
-//   Send hover: #e0b86e
-//   Send disabled: #2a2a2a
-
-// States:
-//   Error: #dc7668 (red)
-//   Success: #5b9ef5 (blue)
-//   Warning: #d7a85d (amber)
-
-// ─── Supported File Types ────────────────────────────────────────────────────
-
-// Textual files (shown with content preview):
-//   text/*, application/json, application/xml
-//   .txt, .md, .py, .js, .ts, .jsx, .tsx
-//   .html, .css, .scss, .json, .xml, .yaml
-//   .go, .java, .cpp, .h, .c, .rs
-//   and 30+ more extensions
-
-// Media files (shown with thumbnail):
-//   image/* (PNG, JPG, GIF, WebP, SVG)
-//   video/* (MP4, WebM, OGG)
-//   audio/* (MP3, WAV, OGG)
-
-// Archives:
-//   .zip, .rar, .tar, .gz, .7z
-
-// Other:
-//   .pdf and any file type
-
-// ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
-
-// Enter                 - Send message
-// Shift + Enter         - New line
-// Cmd/Ctrl + V          - Paste files or content
-
-// Future additions:
-// Cmd/Ctrl + Up/Down    - Navigate message history
-// Cmd/Ctrl + Shift + L  - Clear all files
-// Cmd/Ctrl + Shift + C  - Copy last message
-
-// ─── Browser Support ────────────────────────────────────────────────────────
-
-// • Chrome/Edge 90+
-// • Firefox 88+
-// • Safari 14+
-// • Mobile browsers (iOS Safari, Chrome Mobile)
-
-// Required APIs:
-// • File API
-// • FileReader API
-// • Blob API
-// • URL.createObjectURL()
-// • DataTransfer API (drag-drop)
-// • Clipboard API (paste)
-
-// ─── Performance ─────────────────────────────────────────────────────────────
-
-// Optimizations:
-// • React.memo for component memoization
-// • useCallback for function memoization
-// • CSS transitions for smooth animations
-// • Efficient re-render tracking
-// • URL object cleanup (revokeObjectURL)
-// • Lazy file content reading
-
-// Bundle size: ~8-10KB minified/gzipped (excluding lucide-react icons)
-
-// ─── TypeScript Support ─────────────────────────────────────────────────────
-
-// Full TypeScript support with:
-// • Complete interface definitions
-// • Generic component typing
-// • Callback function types
-// • Error handling types
-
-// TSConfig requirements:
-// • jsx: "react-jsx"
-// • strict: true (recommended)
-// • moduleResolution: "bundler"
-
-// ─── Testing ─────────────────────────────────────────────────────────────────
-
-// Testing checklist:
-// □ Message sending
-// □ File attachment
-// □ File validation
-// □ File preview generation
-// □ Pasted content detection
-// □ Model selection change
-// □ Drag-and-drop interaction
-// □ Keyboard shortcuts
-// □ Error handling
-// □ Mobile responsiveness
-// □ Accessibility features
-// □ TypeScript compilation
-
-// Example test:
-/*
-test("sends message with files", async () => {
-  const handleSend = jest.fn();
-  render(
-    <ImprovedChatInput onSendMessage={handleSend} />
-  );
-
-  const input = screen.getByPlaceholderText("Ask KronosCode anything...");
-  await userEvent.type(input, "Hello");
-
-  const sendBtn = screen.getByTitle("Send message");
-  await userEvent.click(sendBtn);
-
-  expect(handleSend).toHaveBeenCalledWith("Hello", [], []);
-});
-*/
-
-// ─── Common Integration Patterns ────────────────────────────────────────────
-
-// PATTERN 1: Simple integration
-// <ImprovedChatInput onSendMessage={handleSend} />
-
-// PATTERN 2: With Wave Terminal
-// <ImprovedAIPanelInput model={waveAIModel} onSubmit={handleSubmit} />
-
-// PATTERN 3: With custom models
-// <ImprovedChatInput
-//   models={customModels}
-//   defaultModel={selectedModelId}
-//   onModelChange={setSelectedModel}
-//   onSendMessage={handleSend}
-// />
-
-// PATTERN 4: With validation
-// const handleSend = (msg, files, pasted) => {
-//   if (!validateInput(msg, files)) return;
-//   sendToBackend(msg, files, pasted);
-// };
-
-// ─── Troubleshooting ─────────────────────────────────────────────────────────
-
-// Issue: Files not appearing after selection
-// Fix: Check maxFiles limit, file size, and accepted types
-
-// Issue: Textual file content not showing
-// Fix: Verify file encoding, check CORS, check isTextualFile() logic
-
-// Issue: Drag-drop overlay not showing
-// Fix: Check z-index, verify event.preventDefault() is called
-
-// Issue: Model selector not working
-// Fix: Ensure models array is provided, check onModelChange callback
-
-// Issue: Pasted content not detected
-// Fix: Check PASTE_THRESHOLD (200 chars), verify clipboard API support
-
-// ─── Migration from Old Components ──────────────────────────────────────────
-
-// From AIPanelInput to ImprovedChatInput:
-
-// OLD:
-// <AIPanelInput onSubmit={handleSubmit} status={status} model={model} />
-
-// NEW:
-// <ImprovedChatInput
-//   onSendMessage={handleSendMessage}
-//   disabled={isLoading}
-//   models={availableModels}
-//   onModelChange={handleModelChange}
-// />
-
-// Use adapter for gradual migration:
-// <ImprovedAIPanelInput model={waveAIModel} />
-
-// ─── Advanced Features ───────────────────────────────────────────────────────
-
-// Extensibility:
-// • Custom file validators
-// • Custom preview renderers
-// • Custom model selectors
-// • Custom keyboard shortcuts
-// • Custom styling/theming
-
-// Future enhancements:
-// • Voice input support
-// • Markdown preview
-// • Emoji picker
-// • Rich text editor
-// • File preview modal
-// • Upload cancellation
-// • Retry failed uploads
-// • Drag-to-reorder files
-
-// ─── Development ─────────────────────────────────────────────────────────────
-
-// Dev setup:
-// 1. task dev              # Start dev server
-// 2. task preview          # Start component preview
-// 3. npm test              # Run tests
-// 4. npm run check:ts      # TypeScript check
-
-// Component preview at: http://localhost:7007
-
-// ─── Documentation Files ───────────────────────────────────────────────────
-
-// 1. improved-chat-input.tsx
-//    Main component with inline JSDoc
-
-// 2. improved-aipanel-input.tsx
-//    Adapter component with examples
-
-// 3. improved-chat-input-integration.tsx
-//    Full integration guide
-
-// 4. IMPROVED_CHAT_IMPLEMENTATION_GUIDE.md
-//    10-step implementation guide
-
-// 5. README.md (this file)
-//    Quick start and overview
-
-// ─── Contributing ────────────────────────────────────────────────────────────
-
-// To improve the component:
-// 1. Follow Wave Terminal code style (4-space indent, named exports)
-// 2. Use Tailwind v4 for styling
-// 3. Keep component pure (no side effects)
-// 4. Maintain TypeScript strict mode
-// 5. Add tests for new features
-// 6. Update documentation
-
-// ─── Related Files ───────────────────────────────────────────────────────────
-
-// Existing components to understand:
-// • frontend/app/aipanel/aipanel.tsx - Main panel
-// • frontend/app/aipanel/acp-chat-panel.tsx - Active chat panel
-// • frontend/app/aipanel/aipanelmessages.tsx - Message display
-// • frontend/app/aipanel/waveai-model.tsx - Model management
-// • frontend/app/aipanel/aitypes.ts - Type definitions
-
-// ─── Summary ─────────────────────────────────────────────────────────────────
-
-// This component package provides a modern, feature-rich chat input UI for
-// Wave Terminal's KronosCode AI widget. It's designed to be:
-//
-// ✓ Easy to integrate
-// ✓ Fully featured
-// ✓ Type-safe
-// ✓ Performant
-// ✓ Accessible
-// ✓ Mobile-friendly
-// ✓ Well-documented
-//
-// Start with improved-chat-input.tsx and follow the guides for integration.
-
-export {};
+# KronTerm AI Surfaces
+
+This directory contains the React chat surfaces that connect KronTerm to KronosCode, ACP agents, configured model
+providers, workspace context, approvals, artifacts, and the optional voice engine.
+
+The name `WaveAIModel` and several `waveai-*` files remain for compatibility with the original data model. Use
+KronosCode, KronosChamber, and KronTerm in new user-facing text.
+
+## Which surface should I change?
+
+| Surface                            | Entry point                         | Use it for                                                                                          |
+| ---------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **KronosChamber**                  | `../view/chathubv2/chathubv2.tsx`   | Primary embedded KronosCode chat, sessions, artifacts, settings, and runtime recovery               |
+| **ACP chat**                       | `acp-chat-panel.tsx`                | ACP agent sessions, agent/model switching, approvals, slash commands, mentions, and session history |
+| **Kronos chat components**         | `kronos-chat-components.tsx`        | Shared streamed message, status, reasoning, and tool presentation                                   |
+| **KronosCode V2 message renderer** | `kronoscode-v2/`                    | Structured SDK message parts, reasoning groups, tool results, and canvas insertion                  |
+| **Compatibility AI panel**         | `aipanel.tsx`, `waveai-model.tsx`   | Existing provider chat and `wsh ai` integration                                                     |
+| **Composer**                       | `improved-chat-input.tsx`           | Rich text entry, attachments, pasted content, models, tools, and submit behavior                    |
+| **Voice**                          | `siri-button.tsx`, `voice-model.ts` | Experimental microphone, transcription, and speech state                                            |
+
+KronosChamber's managed process lives in `emain/chathubv2-*.ts` and `emain/kronoscode-runtime.ts`. Keep runtime startup,
+health, credential refresh, reconnect, and repair logic in Electron rather than duplicating it in React.
+
+## Message flow
+
+```text
+Composer
+├── text, files, pasted content, commands, skills, and mentions
+├── selected workspace/canvas context
+└── optional voice transcript
+        ↓
+KronosChamber or ACP session
+├── session and model selection
+├── streamed assistant/reasoning/tool events
+├── approval requests
+└── artifacts and previews
+        ↓
+Visible workspace activity
+├── agent activity stream
+├── widget aura and cursor overlays
+├── canvas task/evidence cards
+└── desktop pet state
+```
+
+The UI must keep tool progress inspectable. Do not collapse a pending approval, failed runtime, degraded tool result, or
+recoverable connection error into a generic loading state.
+
+## Workspace and canvas context
+
+The spatial workspace can send selected widgets and agent cards to the composer in two modes:
+
+- `follow`: make the selected node the active task focus.
+- `quote`: attach the selected node as evidence without replacing the active focus.
+
+The shared context contract lives in `../tab/workspace-canvas-context.ts`. Canvas agent card creation and lineage live in
+`../tab/workspace-canvas-agent.ts`; run aggregation lives in `../tab/workspace-canvas-task-graph.ts`.
+
+The composer must preserve the block or agent identifiers used by these modules. Display text alone is insufficient
+because the canvas needs to reconnect streamed activity to the original node.
+
+## ACP sessions
+
+`use-acp-session.ts` is the state and event boundary for ACP chat. It tracks:
+
+- configured agent profiles and backend capabilities;
+- active sessions and session history;
+- available models, modes, commands, and skills;
+- streamed messages and active tool state;
+- pending confirmations;
+- connection, retry, degraded, and completion state.
+
+Keep reducers and compatibility checks in pure exported helpers where possible. UI components should render the session
+state and call the hook's actions rather than reconstructing protocol state.
+
+## Attachments and rich input
+
+`improved-chat-input.tsx` owns the rich composer experience. `ai-utils.ts` contains file type checks, size validation,
+image resizing, MIME normalization, previews, and base64 conversion.
+
+When changing attachments:
+
+1. Keep the user-visible file and the payload metadata in sync.
+2. Preserve UTF-8 by using utilities from `@/util/util`; never introduce `atob()` or `btoa()`.
+3. Validate before reading large files into memory.
+4. Keep removal and retry paths available before submission.
+5. Verify keyboard and drag-and-drop behavior.
+
+## Voice, experimental
+
+`VoiceModel` starts and controls the optional Python engine through the Electron API. A final transcript dispatches the
+`kronterm:voice-transcript` browser event and is submitted through the active composer.
+
+The runtime implementation lives in:
+
+- `../../../audio-engine/` for audio capture, `faster-whisper` transcription, and speech output;
+- `../../../emain/emain-audio.ts` for process lifecycle and JSON-line IPC;
+- `siri-button.tsx` for the microphone control and status overlay;
+- `voice-model.ts` for Jotai state and Electron callbacks.
+
+Voice is opt-in and dependency-sensitive. Preserve idle, listening, transcribing, speaking, and error states. Shutting
+down the feature must stop capture and terminate the child process.
+
+## Provider and compatibility paths
+
+The compatibility AI panel still supports configured cloud and local providers. `aimode.tsx`, `providers-panel.tsx`, and
+`waveai-model.tsx` must continue to understand existing `waveai.json` and `waveai:*` settings. These identifiers are part
+of the configuration contract even though the product name has changed.
+
+Do not state that a provider is private by default. Local models can keep inference local; cloud providers receive the
+context sent to their API.
+
+## Component rules
+
+- Use named exports.
+- Keep all hooks at the component top level and before conditional returns.
+- Give every `React.memo()` component a `displayName`.
+- Use `cn()` from `@/util/util` for class merging.
+- Use `getApi()` from `@/store/global` for Electron APIs.
+- Use `globalStore` inside models; models never call React hooks.
+- Put reusable protocol transitions in pure functions and cover them with focused tests.
+- Preserve keyboard access, visible focus, `aria-label` text, and reduced-motion behavior.
+
+## Focused validation
+
+Run the smallest checks that cover the changed surface:
+
+```bash
+npx vitest run frontend/app/aipanel/acp-chat-controls.test.ts
+npx vitest run frontend/app/aipanel/use-acp-session.test.ts
+npx vitest run frontend/app/view/chathubv2/chathubv2-composer.test.ts
+npx vitest run frontend/app/view/chathubv2/chathubv2.test.ts
+task check:ts
+```
+
+For managed-runtime changes, also run the relevant `emain/chathubv2-*.test.ts` tests. For canvas-context changes, run the
+`frontend/app/tab/workspace-canvas-*.test.ts` suite.
+
+## Documentation status
+
+The older implementation guide and summary in this directory describe the original rich-composer rollout. They now
+serve as historical context; this file and the current code are authoritative.

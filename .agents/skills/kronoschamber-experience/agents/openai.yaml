@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronosChamber Experience"
+  short_description: "Improve the agent chat and control experience"
+  default_prompt: "Use $kronoschamber-experience to refine a KronosChamber workflow with clear activity, evidence, and control states."

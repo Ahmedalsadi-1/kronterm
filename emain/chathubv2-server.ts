@@ -13,10 +13,13 @@ import { AuthKey, WaveAuthKeyEnv } from "./authkey";
 import {
     makeRuntimeTokenPayload,
     makeStartupSurfaceContext,
-    makeSurfaceEnvironment,
     makeSurfaceTokenRequest,
+    preferScopedSurfaceContext,
     type ChatHubV2SurfaceContext,
 } from "./chathubv2-context";
+import { isKronosChamberReady } from "./chathubv2-health";
+import { isChildProcessRunning } from "./chathubv2-process";
+import { ensureNodePtySpawnHelperExecutable } from "./chathubv2-pty";
 import {
     getElectronAppResourcesPath,
     getElectronAppUnpackedBasePath,
@@ -30,6 +33,7 @@ import {
     WaveAppResourcesPathVarName,
 } from "./emain-util";
 import { ElectronWshClient } from "./emain-wsh";
+import { KronosCodeRuntime } from "./kronoscode-runtime";
 
 type ChatHubV2ServerState = {
     url: string;
@@ -62,11 +66,10 @@ let state: ChatHubV2ServerState | null = null;
 let startPromise: Promise<ChatHubV2ServerState> | null = null;
 let lastStartupError: string | undefined;
 const logExcerpt: string[] = [];
-let surfaceContext: ChatHubV2SurfaceContext | null = null;
-let jwtRefreshTimer: NodeJS.Timeout | null = null;
+const surfaceContexts = new Map<string, ChatHubV2SurfaceContext>();
+const jwtRefreshTimers = new Map<string, NodeJS.Timeout>();
 
 const DefaultPort = 3107;
-const DefaultKronosCodePort = 4096;
 const HealthTimeoutMs = 90_000;
 const JwtRefreshLeadMs = 10 * 60 * 1000;
 const JwtIssueTimeoutMs = 5_000;
@@ -137,7 +140,7 @@ async function pickPort(): Promise<number> {
 
 function requestHealth(url: string): Promise<boolean> {
     return new Promise((resolve) => {
-        const req = http.get(`${url}/readyz`, (res) => {
+        const req = http.get(`${url}/health`, (res) => {
             let body = "";
             res.setEncoding("utf8");
             res.on("data", (chunk) => {
@@ -145,12 +148,7 @@ function requestHealth(url: string): Promise<boolean> {
             });
             res.on("end", () => {
                 try {
-                    const health = JSON.parse(body) as { ready?: boolean; protocolVersion?: number };
-                    resolve(
-                        res.statusCode === 200 &&
-                            health.ready === true &&
-                            health.protocolVersion === ChamberProtocolVersion
-                    );
+                    resolve(res.statusCode === 200 && isKronosChamberReady(JSON.parse(body)));
                 } catch {
                     resolve(false);
                 }
@@ -164,9 +162,9 @@ function requestHealth(url: string): Promise<boolean> {
     });
 }
 
-function postRuntimeJwt(url: string, token: CommandCreateSurfaceTokenRtnData): Promise<void> {
+function postRuntimeJwt(url: string, token: CommandCreateSurfaceTokenRtnData, surfaceId?: string): Promise<void> {
     return new Promise((resolve, reject) => {
-        const body = JSON.stringify(makeRuntimeTokenPayload(token));
+        const body = JSON.stringify(makeRuntimeTokenPayload(token, surfaceId));
         const request = http.request(`${url}/api/kronterm/runtime-token`, {
             method: "POST",
             headers: {
@@ -209,45 +207,66 @@ async function issueSurfaceJwt(context: ChatHubV2SurfaceContext): Promise<Comman
     });
 }
 
-function clearJwtRefreshTimer(): void {
-    if (jwtRefreshTimer) {
-        clearTimeout(jwtRefreshTimer);
-        jwtRefreshTimer = null;
+function surfaceKey(context: ChatHubV2SurfaceContext): string {
+    return context.surfaceId ?? `${context.tabId ?? "global"}:${context.blockId ?? ""}`;
+}
+
+function rememberSurfaceContext(context: ChatHubV2SurfaceContext): ChatHubV2SurfaceContext {
+    const key = surfaceKey(context);
+    const current = surfaceContexts.get(key) ?? null;
+    const scoped = preferScopedSurfaceContext(current, context) ?? makeStartupSurfaceContext(context);
+    surfaceContexts.set(key, scoped);
+    return scoped;
+}
+
+function clearJwtRefreshTimers(): void {
+    for (const timer of jwtRefreshTimers.values()) {
+        clearTimeout(timer);
     }
+    jwtRefreshTimers.clear();
 }
 
-function scheduleJwtRefresh(expiresAt: number): void {
-    clearJwtRefreshTimer();
+function scheduleJwtRefresh(expiresAt: number, context: ChatHubV2SurfaceContext): void {
+    const key = surfaceKey(context);
+    const current = jwtRefreshTimers.get(key);
+    if (current) {
+        clearTimeout(current);
+    }
     const delay = Math.max(30_000, expiresAt - Date.now() - JwtRefreshLeadMs);
-    jwtRefreshTimer = setTimeout(() => {
-        void refreshRuntimeJwt();
+    const timer = setTimeout(() => {
+        void refreshRuntimeJwt(context);
     }, delay);
-    jwtRefreshTimer.unref();
+    timer.unref();
+    jwtRefreshTimers.set(key, timer);
 }
 
-async function refreshRuntimeJwt(): Promise<void> {
-    if (!surfaceContext?.tabId) {
+async function refreshRuntimeJwt(context: ChatHubV2SurfaceContext): Promise<void> {
+    if (!context.tabId) {
         return;
     }
     try {
-        const sessionToken = await issueSurfaceJwt(surfaceContext);
+        const sessionToken = await issueSurfaceJwt(context);
         if (!sessionToken) {
             return;
         }
         if (state?.url && child && !child.killed) {
-            await postRuntimeJwt(state.url, sessionToken);
+            await postRuntimeJwt(state.url, sessionToken, context.surfaceId);
         }
-        scheduleJwtRefresh(sessionToken.expiresat);
+        scheduleJwtRefresh(sessionToken.expiresat, context);
     } catch (err) {
         appendLog(`JWT refresh failed: ${err instanceof Error ? err.message : String(err)}`);
-        jwtRefreshTimer = setTimeout(() => void refreshRuntimeJwt(), 30_000);
-        jwtRefreshTimer.unref();
+        const timer = setTimeout(() => void refreshRuntimeJwt(context), 30_000);
+        timer.unref();
+        jwtRefreshTimers.set(surfaceKey(context), timer);
     }
 }
 
-async function waitForHealth(url: string): Promise<void> {
+async function waitForHealth(url: string, isProcessRunning: () => boolean): Promise<void> {
     const start = Date.now();
     while (Date.now() - start < HealthTimeoutMs) {
+        if (!isProcessRunning()) {
+            throw new Error("KronosChamber exited before its backend became ready");
+        }
         if (await requestHealth(url)) {
             return;
         }
@@ -328,22 +347,19 @@ function getWaveSockPath(): string {
 
 export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}): Promise<ChatHubV2ServerState> {
     const startupContext = makeStartupSurfaceContext(context);
-    if (context.tabId) {
-        surfaceContext = makeStartupSurfaceContext(context);
-    }
+    const scopedContext = rememberSurfaceContext(context);
     if (state && child && !child.killed) {
         if (context.tabId) {
-            void refreshRuntimeJwt();
+            await refreshRuntimeJwt(scopedContext);
         }
         return state;
     }
     if (startPromise) {
-        return startPromise.then((serverState) => {
-            if (context.tabId) {
-                void refreshRuntimeJwt();
-            }
-            return serverState;
-        });
+        const serverState = await startPromise;
+        if (context.tabId) {
+            await refreshRuntimeJwt(scopedContext);
+        }
+        return serverState;
     }
 
     startPromise = (async () => {
@@ -357,12 +373,26 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
         }
         const serverPath = path.join(root, "server", "index.js");
         const distPath = path.join(root, "dist");
+        for (const helper of ensureNodePtySpawnHelperExecutable(root)) {
+            appendLog(`repaired node-pty helper permissions: ${helper}`);
+        }
         const port = await pickPort();
         const url = `http://127.0.0.1:${port}`;
+        const connection = await KronosCodeRuntime.ensure();
+        const internalConnection = KronosCodeRuntime.getInternalConnection();
+        const backendUrl = new URL(connection.baseUrl);
+        const canForwardDesktopCapabilities =
+            backendUrl.hostname === "127.0.0.1" ||
+            backendUrl.hostname === "localhost" ||
+            backendUrl.hostname === "::1" ||
+            backendUrl.hostname === "[::1]";
         const kronosCodeBinary = resolveKronosCodeBinary();
+        const workspace = process.cwd();
         let sessionToken: CommandCreateSurfaceTokenRtnData | null = null;
         try {
-            sessionToken = await issueSurfaceJwt(startupContext);
+            sessionToken = canForwardDesktopCapabilities
+                ? await issueSurfaceJwt(scopedContext ?? startupContext)
+                : null;
         } catch (err) {
             appendLog(`initial JWT unavailable: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -379,10 +409,24 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
             KRONOSCODE_CLIENT: "desktop",
             KRONOSCODE_DISABLE_AUTOUPDATE: "1",
             KRONOSCODE_ENABLE_AI_BROWSER: "true",
-            OPENCHAMBER_OPENCODE_PORT: process.env.OPENCHAMBER_OPENCODE_PORT ?? String(DefaultKronosCodePort),
+            OPENCHAMBER_DISABLE_OPENCODE_AUTODETECT: "true",
+            OPENCHAMBER_SKIP_OPENCODE_START: "true",
+            OPENCODE_SKIP_START: "true",
+            KRONOSCODE_SERVER_URL: connection.baseUrl,
+            OPENCODE_SERVER_URL: connection.baseUrl,
+            KRONOSCODE_SERVER_USERNAME: internalConnection?.username ?? "kronoscode",
+            OPENCODE_SERVER_USERNAME: internalConnection?.username ?? "kronoscode",
+            ...(internalConnection?.password
+                ? {
+                      KRONOSCODE_SERVER_PASSWORD: internalConnection.password,
+                      OPENCODE_SERVER_PASSWORD: internalConnection.password,
+                  }
+                : {}),
+            ...(backendUrl.port ? { OPENCHAMBER_OPENCODE_PORT: backendUrl.port } : {}),
             KRONTERM_CHATHUB_CHAT_ONLY: "true",
             OPENCHAMBER_CHAT_ONLY: "true",
             KRONTERM_CHAMBER_PROTOCOL_VERSION: String(ChamberProtocolVersion),
+            ...(fs.existsSync(path.join(workspace, ".git")) ? { KRONTERM_WORKSPACE: workspace } : {}),
             WAVETERM: "1",
             KRONTERM: "1",
             [WaveAuthKeyEnv]: AuthKey,
@@ -404,18 +448,21 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
             no_proxy: "localhost,127.0.0.1",
             PATH: buildPathEnv(),
         };
-        if (sessionToken) {
-            Object.assign(env, makeSurfaceEnvironment(sessionToken));
-        }
         if (kronosCodeBinary) {
             env.KRONOSCODE_BINARY = kronosCodeBinary;
         }
+        const krondesignCliPath = path.join(repoRoot(), "krondesign", "apps", "daemon", "dist", "cli.js");
+        if (fs.existsSync(krondesignCliPath)) {
+            env.KRONDESIGN_CLI_PATH = krondesignCliPath;
+            env.KRONDESIGN_DAEMON_URL = "http://127.0.0.1:7456";
+        }
 
-        child = spawn(process.execPath, [serverPath, "--port", String(port)], {
+        const spawnedChild = spawn(process.execPath, [serverPath, "--port", String(port)], {
             cwd: root,
             env,
             stdio: ["ignore", "pipe", "pipe", "ipc"],
         });
+        child = spawnedChild;
         child.on("message", (message) => {
             if (typeof message !== "object" || message == null) {
                 return;
@@ -462,7 +509,10 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
             health: makeRuntimeHealth("starting"),
         };
         try {
-            await waitForHealth(url);
+            await waitForHealth(
+                url,
+                () => child === spawnedChild && spawnedChild.exitCode == null && !spawnedChild.killed
+            );
         } catch (err) {
             lastStartupError = err instanceof Error ? err.message : String(err);
             appendLog(`readiness failed: ${lastStartupError}`);
@@ -480,9 +530,10 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
         lastStartupError = undefined;
         state = { ...state, ready: true, health: makeRuntimeHealth("ready") };
         if (sessionToken) {
-            scheduleJwtRefresh(sessionToken.expiresat);
-        } else if (surfaceContext?.tabId) {
-            void refreshRuntimeJwt();
+            await postRuntimeJwt(url, sessionToken, scopedContext.surfaceId);
+            scheduleJwtRefresh(sessionToken.expiresat, scopedContext);
+        } else if (canForwardDesktopCapabilities && scopedContext.tabId) {
+            await refreshRuntimeJwt(scopedContext);
         }
         return state;
     })();
@@ -512,18 +563,19 @@ export function getChatHubV2RuntimeHealth(): ChatHubV2RuntimeHealth {
 }
 
 export function stopChatHubV2Server(): void {
-    clearJwtRefreshTimer();
+    clearJwtRefreshTimers();
+    surfaceContexts.clear();
     const current = child;
     child = null;
     state = null;
     startPromise = null;
-    if (!current || current.killed) {
+    if (!current || !isChildProcessRunning(current)) {
         return;
     }
     current.kill("SIGTERM");
     setTimeout(() => {
-        if (!current.killed) {
+        if (isChildProcessRunning(current)) {
             current.kill("SIGKILL");
         }
-    }, 5_000).unref();
+    }, 2_000).unref();
 }

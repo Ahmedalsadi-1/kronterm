@@ -198,7 +198,7 @@ export class TermViewModel implements ViewModel {
                                 elemtype: "textbutton",
                                 text: "Ask KronosCode",
                                 className:
-                                    "border !py-[2px] !px-[8px] text-[11px] font-[500] text-amber-300 border-amber-700/50 hover:border-amber-500/70",
+                                    "surface-header-action is-warning text-amber-300 border-amber-700/50 hover:border-amber-500/70",
                                 title: "Send error to KronosCode for help",
                                 onClick: () => {
                                     this.sendToKronosCode(fullShellProcStatus.shellprocexitcode);
@@ -213,7 +213,7 @@ export class TermViewModel implements ViewModel {
                 rtn.push({
                     elemtype: "textbutton",
                     text: "Multi Input ON",
-                    className: "yellow !py-[2px] !px-[10px] text-[11px] font-[500]",
+                    className: "surface-header-action is-warning yellow",
                     title: "Input will be sent to all connected terminals (click to disable)",
                     onClick: () => {
                         globalStore.set(this.tabModel.isTermMultiInput, false);

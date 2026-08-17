@@ -1,9 +1,10 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Block } from "@/app/block/block";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { Widgets } from "@/app/workspace/widgets";
 import { CenteredDiv } from "@/element/quickelems";
 import { TileLayout } from "@/layout/lib/TileLayout";
 import { ContentRenderer, NodeModel, PreviewRenderer, TileLayoutContents } from "@/layout/lib/types";
@@ -13,6 +14,10 @@ import * as WOS from "@/store/wos";
 import { atom, useAtomValue } from "jotai";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WidgetTabsLayout } from "./widget-tabs-layout";
+import { WorkspaceCanvas } from "./workspace-canvas";
+import { isWorkspacePresentation, type WorkspacePresentation } from "./workspace-presentation";
+import { WorkspacePresentationSwitcher } from "./workspace-presentation-switcher";
 
 const tileGapSizeAtom = atom((get) => {
     const settings = get(atoms.settingsAtom);
@@ -392,104 +397,140 @@ const CanvasLayout = React.memo(({ tabId, tabData }: { tabId: string; tabData: T
 });
 CanvasLayout.displayName = "CanvasLayout";
 
-const TabContent = React.memo(({ tabId, noTopPadding }: { tabId: string; noTopPadding?: boolean }) => {
-    const oref = useMemo(() => WOS.makeORef("tab", tabId), [tabId]);
-    const loadingAtom = useMemo(() => WOS.getWaveObjectLoadingAtom(oref), [oref]);
-    const tabLoading = useAtomValue(loadingAtom);
-    const tabAtom = useMemo(() => WOS.getWaveObjectAtom<Tab>(oref), [oref]);
-    const tabData = useAtomValue(tabAtom);
-    const tileGapSize = useAtomValue(tileGapSizeAtom);
-    const settingsLayoutModeValue = useAtomValue(getSettingsKeyAtom("app:layoutmode" as keyof SettingsType)) as
-        | string
-        | null;
-    const settingsLayoutMode = settingsLayoutModeValue === "canvas" ? "canvas" : "widgets";
-    const [layoutModeOverride, setLayoutModeOverride] = useState<string | null>(() => {
-        try {
-            return window.localStorage.getItem(LayoutModeStorageKey);
-        } catch {
-            return null;
+const TabContent = React.memo(
+    ({
+        tabId,
+        noTopPadding,
+        showCollapsedLauncher,
+    }: {
+        tabId: string;
+        noTopPadding?: boolean;
+        showCollapsedLauncher?: boolean;
+    }) => {
+        const oref = useMemo(() => WOS.makeORef("tab", tabId), [tabId]);
+        const loadingAtom = useMemo(() => WOS.getWaveObjectLoadingAtom(oref), [oref]);
+        const tabLoading = useAtomValue(loadingAtom);
+        const tabAtom = useMemo(() => WOS.getWaveObjectAtom<Tab>(oref), [oref]);
+        const tabData = useAtomValue(tabAtom);
+        const tileGapSize = useAtomValue(tileGapSizeAtom);
+        const settingsLayoutModeValue = useAtomValue(getSettingsKeyAtom("app:layoutmode" as keyof SettingsType)) as
+            | string
+            | null;
+        const settingsLayoutMode: WorkspacePresentation = isWorkspacePresentation(settingsLayoutModeValue)
+            ? settingsLayoutModeValue
+            : "widgets";
+        const [layoutModeOverride, setLayoutModeOverride] = useState<WorkspacePresentation | null>(() => {
+            try {
+                const storedMode = window.localStorage.getItem(LayoutModeStorageKey);
+                return isWorkspacePresentation(storedMode) ? storedMode : null;
+            } catch {
+                return null;
+            }
+        });
+        const layoutMode = layoutModeOverride ?? settingsLayoutMode;
+
+        const setLayoutMode = useCallback((mode: WorkspacePresentation) => {
+            setLayoutModeOverride(mode);
+            try {
+                window.localStorage.setItem(LayoutModeStorageKey, mode);
+                window.dispatchEvent(new CustomEvent(LayoutModeChangedEvent, { detail: { mode } }));
+            } catch {}
+            void RpcApi.SetConfigCommand(TabRpcClient, { "app:layoutmode": mode }).catch((error) => {
+                console.warn("[KronTerm] workspace presentation update failed", error);
+            });
+        }, []);
+
+        useEffect(() => {
+            (window as any).__krontermLayoutMode = layoutMode;
+            console.info("[KronTerm] layout mode", layoutMode);
+        }, [layoutMode]);
+
+        useEffect(() => {
+            const handleLayoutModeChanged = (event: Event) => {
+                const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode;
+                if (isWorkspacePresentation(mode)) {
+                    setLayoutModeOverride(mode);
+                }
+            };
+            const handleLayoutModeStorage = (event: StorageEvent) => {
+                if (event.key !== LayoutModeStorageKey) {
+                    return;
+                }
+                if (isWorkspacePresentation(event.newValue)) {
+                    setLayoutModeOverride(event.newValue);
+                }
+            };
+            window.addEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
+            window.addEventListener("storage", handleLayoutModeStorage);
+            return () => {
+                window.removeEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
+                window.removeEventListener("storage", handleLayoutModeStorage);
+            };
+        }, []);
+
+        const tileLayoutContents = useMemo(() => {
+            const renderContent: ContentRenderer = (nodeModel: NodeModel) => {
+                return <Block key={nodeModel.blockId} nodeModel={nodeModel} preview={false} />;
+            };
+
+            const renderPreview: PreviewRenderer = (nodeModel: NodeModel) => {
+                return <Block key={nodeModel.blockId} nodeModel={nodeModel} preview={true} />;
+            };
+
+            function onNodeDelete(data: TabLayoutData) {
+                return services.ObjectService.DeleteBlock(data.blockId);
+            }
+
+            return {
+                renderContent,
+                renderPreview,
+                tabId,
+                onNodeDelete,
+                gapSizePx: tileGapSize,
+            } as TileLayoutContents;
+        }, [tabId, tileGapSize]);
+
+        let innerContent;
+
+        if (tabLoading) {
+            innerContent = <CenteredDiv>Tab Loading</CenteredDiv>;
+        } else if (!tabData) {
+            innerContent = <CenteredDiv>Tab Not Found</CenteredDiv>;
+        } else if (layoutMode === "canvas") {
+            innerContent = <WorkspaceCanvas key={`canvas-${tabId}`} tabId={tabId} tabData={tabData} />;
+        } else if (tabData?.blockids?.length == 0) {
+            innerContent = null;
+        } else if (layoutMode === "tabs") {
+            innerContent = <WidgetTabsLayout key={`tabs-${tabId}`} contents={tileLayoutContents} tabAtom={tabAtom} />;
+        } else {
+            innerContent = (
+                <TileLayout
+                    key={tabId}
+                    contents={tileLayoutContents}
+                    tabAtom={tabAtom}
+                    getCursorPoint={getApi().getCursorPoint}
+                />
+            );
         }
-    });
-    const layoutMode = layoutModeOverride === "canvas" || settingsLayoutMode === "canvas" ? "canvas" : "widgets";
 
-    useEffect(() => {
-        (window as any).__krontermLayoutMode = layoutMode;
-        console.info("[KronTerm] layout mode", layoutMode);
-    }, [layoutMode]);
+        const showWidgetLauncher = showCollapsedLauncher && layoutMode === "widgets";
 
-    useEffect(() => {
-        const handleLayoutModeChanged = (event: Event) => {
-            const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode;
-            if (mode === "canvas" || mode === "widgets") {
-                setLayoutModeOverride(mode);
-            }
-        };
-        const handleLayoutModeStorage = (event: StorageEvent) => {
-            if (event.key !== LayoutModeStorageKey) {
-                return;
-            }
-            if (event.newValue === "canvas" || event.newValue === "widgets") {
-                setLayoutModeOverride(event.newValue);
-            }
-        };
-        window.addEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
-        window.addEventListener("storage", handleLayoutModeStorage);
-        return () => {
-            window.removeEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
-            window.removeEventListener("storage", handleLayoutModeStorage);
-        };
-    }, []);
-
-    const tileLayoutContents = useMemo(() => {
-        const renderContent: ContentRenderer = (nodeModel: NodeModel) => {
-            return <Block key={nodeModel.blockId} nodeModel={nodeModel} preview={false} />;
-        };
-
-        const renderPreview: PreviewRenderer = (nodeModel: NodeModel) => {
-            return <Block key={nodeModel.blockId} nodeModel={nodeModel} preview={true} />;
-        };
-
-        function onNodeDelete(data: TabLayoutData) {
-            return services.ObjectService.DeleteBlock(data.blockId);
-        }
-
-        return {
-            renderContent,
-            renderPreview,
-            tabId,
-            onNodeDelete,
-            gapSizePx: tileGapSize,
-        } as TileLayoutContents;
-    }, [tabId, tileGapSize]);
-
-    let innerContent;
-
-    if (tabLoading) {
-        innerContent = <CenteredDiv>Tab Loading</CenteredDiv>;
-    } else if (!tabData) {
-        innerContent = <CenteredDiv>Tab Not Found</CenteredDiv>;
-    } else if (tabData?.blockids?.length == 0) {
-        innerContent = null;
-    } else if (layoutMode === "canvas") {
-        innerContent = <CanvasLayout key={`canvas-${tabId}`} tabId={tabId} tabData={tabData} />;
-    } else {
-        innerContent = (
-            <TileLayout
-                key={tabId}
-                contents={tileLayoutContents}
-                tabAtom={tabAtom}
-                getCursorPoint={getApi().getCursorPoint}
-            />
+        return (
+            <div
+                className={`flex flex-col flex-grow min-h-0 w-full items-center justify-center overflow-hidden relative ${noTopPadding ? "" : "pt-[3px]"} pr-[3px]`}
+            >
+                {innerContent}
+                {!tabLoading && tabData && (
+                    <WorkspacePresentationSwitcher value={layoutMode} onChange={setLayoutMode} />
+                )}
+                {showWidgetLauncher && (
+                    <div className="workspace-collapsed-widget-launcher">
+                        <Widgets compact />
+                    </div>
+                )}
+            </div>
         );
     }
-
-    return (
-        <div
-            className={`flex flex-col flex-grow min-h-0 w-full items-center justify-center overflow-hidden relative ${noTopPadding ? "" : "pt-[3px]"} pr-[3px]`}
-        >
-            {innerContent}
-        </div>
-    );
-});
+);
 
 export { TabContent };

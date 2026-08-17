@@ -159,18 +159,30 @@ export function VTab({
             onDragEnd={onDragEnd}
             onMouseEnter={() => onHoverChanged?.(true)}
             onMouseLeave={() => onHoverChanged?.(false)}
+            onKeyDown={(event) => {
+                if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) {
+                    return;
+                }
+                event.preventDefault();
+                onSelect();
+            }}
+            role="tab"
+            aria-selected={active}
+            tabIndex={0}
             className={cn(
-                "group relative flex h-9 w-full shrink-0 cursor-pointer items-center pl-3 text-xs transition-colors select-none",
+                "vtab-item group relative flex h-9 w-full shrink-0 cursor-pointer items-center pl-3 text-xs transition-colors select-none",
                 "whitespace-nowrap",
                 active ? "text-primary" : isReordering ? "text-secondary" : "text-secondary hover:text-primary",
                 isDragging && "opacity-50"
             )}
         >
-            {active && (
-                <div className="pointer-events-none absolute inset-x-1 inset-y-[4px] rounded-sm bg-foreground/10" />
-            )}
-            {!active && !isReordering && (
-                <div className="pointer-events-none absolute inset-x-1 inset-y-[4px] rounded-sm bg-transparent transition-colors group-hover:bg-foreground/10" />
+            {active && <div className="vtab-item-active-surface" />}
+            {!active && !isReordering && <div className="vtab-item-hover-surface" />}
+            {!badges?.length && !flagColor && (
+                <i
+                    className={`fa-solid ${active ? "fa-folder-open" : "fa-folder"} vtab-item-icon`}
+                    aria-hidden="true"
+                />
             )}
             <div
                 className={cn(
@@ -186,7 +198,7 @@ export function VTab({
             <div
                 ref={editableRef}
                 className={cn(
-                    "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap transition-[padding-right] pr-3",
+                    "vtab-item-name min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap transition-[padding-right] pr-3",
                     onClose && !isReordering && "group-hover:pr-6",
                     isEditable && "rounded-[2px] bg-white/15 outline-none"
                 )}

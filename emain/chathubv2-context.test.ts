@@ -4,6 +4,7 @@ import {
     makeStartupSurfaceContext,
     makeSurfaceEnvironment,
     makeSurfaceTokenRequest,
+    preferScopedSurfaceContext,
 } from "./chathubv2-context";
 
 describe("KronosChamber startup surface context", () => {
@@ -21,6 +22,14 @@ describe("KronosChamber startup surface context", () => {
             tabid: "tab-1",
             blockid: "block-1",
         });
+    });
+
+    it("keeps a block-scoped context when the side panel starts concurrently", () => {
+        const scoped = { tabId: "tab-1", blockId: "block-1" };
+
+        expect(preferScopedSurfaceContext(null, { tabId: "tab-1" })).toEqual({ tabId: "tab-1" });
+        expect(preferScopedSurfaceContext({ tabId: "tab-1" }, scoped)).toEqual(scoped);
+        expect(preferScopedSurfaceContext(scoped, { tabId: "tab-1" })).toEqual(scoped);
     });
 
     it("passes the complete surface handshake to KronosCode", () => {

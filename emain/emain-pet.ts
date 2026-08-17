@@ -15,6 +15,7 @@ import {
     type AgentActivityAction,
     type AgentActivityEvent,
     type AgentActivityPhase,
+    type AgentActivitySurface,
 } from "../frontend/types/agent-activity";
 import type { AcpEvent } from "./acp";
 import type { OverlayAnimationCommand } from "./emain-overlay";
@@ -39,6 +40,9 @@ export type DesktopPetState = {
     cursorPoint?: { x: number; y: number } | null;
     reasoningLog?: string[];
     previewImageUrl?: string;
+    surface?: AgentActivitySurface;
+    action?: AgentActivityAction;
+    appName?: string;
 };
 
 export type DesktopPetNotification = {
@@ -67,13 +71,15 @@ export type ClickThroughState = {
 const PetWindowSize = { width: 322, height: 300 };
 const MovementStateMs = 900;
 const ReasoningLogMax = 20;
-const CursorFollowIntervalMs = 100;
+const CursorFollowIntervalMs = 20; // 50fps smooth update loop
 const AgentCursorFollowMs = 2600;
 const SuccessStateMs = 1800;
 const PreviewStateMs = 6200;
 const PetActivityPort = 4097;
 
 let petWindow: BrowserWindow = null;
+let petTargetX = 0;
+let petTargetY = 0;
 let movementTimer: NodeJS.Timeout = null;
 let thoughtTimer: NodeJS.Timeout = null;
 let cursorTimer: NodeJS.Timeout = null;
@@ -96,6 +102,8 @@ let state: DesktopPetState = {
     cursorAction: "idle",
     cursorPoint: null,
     reasoningLog: [],
+    surface: "panel",
+    action: "focus",
 };
 
 function sendState() {
@@ -124,6 +132,9 @@ function scheduleIdleState(detail = "KronosCode ready", delayMs = SuccessStateMs
             cursorAction: "idle",
             cursorPoint: null,
             previewImageUrl: undefined,
+            surface: "panel",
+            action: "focus",
+            appName: undefined,
         });
         dockNearKronterm();
         idleStateTimer = null;
@@ -144,12 +155,8 @@ function movePet(point: Electron.Point) {
         return;
     }
     const position = limitPositionToDisplay(point);
-    petWindow.setPosition(position.x, position.y, false);
-    updateState({ moving: true });
-    if (movementTimer != null) {
-        clearTimeout(movementTimer);
-    }
-    movementTimer = setTimeout(() => updateState({ moving: false }), MovementStateMs);
+    petTargetX = position.x;
+    petTargetY = position.y;
 }
 
 function dockNearKronterm(force = false) {
@@ -168,31 +175,90 @@ function dockNearKronterm(force = false) {
     movePet(limitPositionToDisplay(point, display));
 }
 
-function followUserCursorWhileIdle() {
-    if (options.mode !== "expressive") {
+function updatePetWindowPosition() {
+    if (petWindow == null || petWindow.isDestroyed()) {
         return;
     }
-    const followAgentCursor = Date.now() < agentCursorFollowUntil;
-    if (
-        (!state.active && !followAgentCursor) ||
-        (!options.followUserCursor && !followAgentCursor) ||
-        petWindow == null ||
-        petWindow.isDestroyed()
-    ) {
-        return;
-    }
-    const cursor = screen.getCursorScreenPoint();
+
     const bounds = petWindow.getBounds();
-    const point = {
-        x: cursor.x + 20,
-        y: cursor.y + 22 - bounds.height,
-    };
-    const position = limitPositionToDisplay(point);
-    const current = petWindow.getPosition();
-    if (Math.abs(current[0] - position.x) < 3 && Math.abs(current[1] - position.y) < 3) {
-        return;
+
+    let tx = petTargetX;
+    let ty = petTargetY;
+
+    const followAgentCursor = Date.now() < agentCursorFollowUntil;
+    const shouldFollowCursor = options.mode === "expressive" && (options.followUserCursor || followAgentCursor);
+
+    if (shouldFollowCursor) {
+        let cursor = screen.getCursorScreenPoint();
+
+        if (state.active && state.cursorPoint) {
+            cursor = state.cursorPoint;
+        }
+
+        tx = cursor.x - bounds.width / 2;
+        ty = cursor.y - Math.round(bounds.height * 0.45);
+
+        const nextCursorPoint = { x: cursor.x, y: cursor.y };
+        if (
+            !state.cursorPoint ||
+            state.cursorPoint.x !== nextCursorPoint.x ||
+            state.cursorPoint.y !== nextCursorPoint.y
+        ) {
+            updateState({
+                cursorPoint: nextCursorPoint,
+                cursorAction: state.cursorAction === "idle" || !state.cursorAction ? "hover" : state.cursorAction,
+            });
+        }
+    } else {
+        if (state.cursorPoint && (state.cursorAction === "hover" || state.cursorAction === "idle")) {
+            updateState({
+                cursorPoint: null,
+                cursorAction: "idle",
+            });
+        }
     }
-    movePet(position);
+
+    const display = screen.getDisplayNearestPoint({ x: tx, y: ty });
+    const position = limitPositionToDisplay({ x: tx, y: ty }, display);
+
+    const current = petWindow.getPosition();
+    const curX = current[0];
+    const curY = current[1];
+
+    const dx = position.x - curX;
+    const dy = position.y - curY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.5) {
+        const nextX = Math.round(curX + dx * 0.15);
+        const nextY = Math.round(curY + dy * 0.15);
+
+        if (nextX !== curX || nextY !== curY) {
+            petWindow.setPosition(nextX, nextY, false);
+            updateState({ moving: true });
+
+            if (movementTimer != null) {
+                clearTimeout(movementTimer);
+            }
+            movementTimer = setTimeout(() => {
+                if (petWindow && !petWindow.isDestroyed()) {
+                    const [latestX, latestY] = petWindow.getPosition();
+                    const latestDist = Math.sqrt(Math.pow(latestX - position.x, 2) + Math.pow(latestY - position.y, 2));
+                    if (latestDist < 2) {
+                        updateState({ moving: false });
+                    }
+                }
+            }, MovementStateMs);
+        }
+    } else {
+        if (state.moving) {
+            updateState({ moving: false });
+        }
+    }
+}
+
+function followUserCursorWhileIdle() {
+    updatePetWindowPosition();
 }
 
 function startAgentCursorFollow() {
@@ -250,9 +316,11 @@ function moveToAgentTarget(target: Electron.Rectangle | undefined) {
     }
     const display = screen.getDisplayMatching(target);
     const size = petWindow?.getBounds() ?? PetWindowSize;
+    const targetCenterX = target.x + target.width / 2;
+    const targetCenterY = target.y + target.height / 2;
     const point = {
-        x: target.x + target.width - Math.round(size.width * 0.4),
-        y: target.y + target.height - size.height - 12,
+        x: targetCenterX - Math.round(size.width / 2),
+        y: targetCenterY - Math.round(size.height * 0.45),
     };
     movePet(limitPositionToDisplay(point, display));
 }
@@ -286,8 +354,16 @@ export function createDesktopPetWindow() {
     startPetActivityServer();
     petWindow.setAlwaysOnTop(true, "floating");
     petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    function snapPetToTarget() {
+        if (petWindow == null || petWindow.isDestroyed()) {
+            return;
+        }
+        petWindow.setPosition(petTargetX, petTargetY, false);
+    }
+
     petWindow.once("ready-to-show", () => {
         dockNearKronterm(true);
+        snapPetToTarget();
         petWindow?.showInactive();
         sendState();
     });
@@ -616,70 +692,274 @@ export function notifyDesktopPetSurfaceActivity(activity: AgentActivityEvent, ta
     broadcastAgentSurfaceActivity(normalized);
 }
 
+type AcpCanvasTaskState = {
+    active: boolean;
+    activeApprovalDetail?: string;
+    activeApprovalId?: string;
+    currentDecisionId?: string;
+    currentDecisionDetail?: string;
+    decisionIndex: number;
+    lastNodeId?: string;
+    needsDecision: boolean;
+    replyId?: string;
+    replyText: string;
+    runid: string;
+    tools: Map<string, { blockid?: string; surface: AgentActivitySurface; title: string }>;
+    turn: number;
+};
+
+const AcpCanvasTasks = new Map<string, AcpCanvasTaskState>();
+
+function makeAcpCanvasTaskState(conversationId: string): AcpCanvasTaskState {
+    return {
+        active: false,
+        decisionIndex: 0,
+        needsDecision: true,
+        replyText: "",
+        runid: `${conversationId}:task:0`,
+        tools: new Map(),
+        turn: 0,
+    };
+}
+
+function acpCanvasTask(event: AcpEvent, begin = false): AcpCanvasTaskState {
+    const current = AcpCanvasTasks.get(event.conversationId) ?? makeAcpCanvasTaskState(event.conversationId);
+    if (begin && !current.active) {
+        current.active = true;
+        current.activeApprovalDetail = undefined;
+        current.activeApprovalId = undefined;
+        current.turn += 1;
+        current.runid = `${event.conversationId}:task:${current.turn}`;
+        current.decisionIndex = 0;
+        current.currentDecisionId = undefined;
+        current.currentDecisionDetail = undefined;
+        current.lastNodeId = undefined;
+        current.needsDecision = true;
+        current.replyId = undefined;
+        current.replyText = "";
+        current.tools.clear();
+    }
+    if (!current.active) {
+        current.active = true;
+    }
+    AcpCanvasTasks.set(event.conversationId, current);
+    return current;
+}
+
+function acpActivityBase(
+    event: AcpEvent,
+    task: AcpCanvasTaskState,
+    id: string,
+    parentid?: string
+): Pick<AgentActivityEvent, "id" | "parentid" | "runid" | "sessionid" | "source"> {
+    return {
+        id,
+        parentid,
+        runid: task.runid,
+        sessionid: event.conversationId,
+        source: "acp",
+    };
+}
+
+function blockIdFromAcpInput(input: Record<string, unknown> | undefined): string | undefined {
+    const value =
+        input?.blockId ??
+        input?.blockid ??
+        input?.block_id ??
+        input?.sessionId ??
+        input?.sessionid ??
+        input?.session_id;
+    return typeof value === "string" ? value : undefined;
+}
+
+function previewImageFromAcpUpdate(data: unknown): string | undefined {
+    const items = (
+        data as { content?: Array<{ content?: { type?: string; data?: string; mimeType?: string; text?: string } }> }
+    )?.content;
+    for (const item of items ?? []) {
+        const content = item?.content;
+        if (content?.type === "image" && typeof content.data === "string") {
+            return `data:${content.mimeType ?? "image/png"};base64,${content.data.replace(/\s+/g, "")}`;
+        }
+        if (typeof content?.text === "string") {
+            const match = content.text.match(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+/i)?.[0];
+            if (match) {
+                return match.replace(/\s+/g, "");
+            }
+        }
+    }
+    return undefined;
+}
+
+function completeAcpDecision(event: AcpEvent, task: AcpCanvasTaskState, phase: "succeeded" | "failed" = "succeeded") {
+    if (!task.currentDecisionId) {
+        return;
+    }
+    notifyDesktopPetSurfaceActivity({
+        ...acpActivityBase(event, task, task.currentDecisionId),
+        phase,
+        surface: "panel",
+        action: "thinking",
+        detail: task.currentDecisionDetail || "Decision ready",
+        verificationstatus: phase === "failed" ? "failed" : "verified",
+    });
+    task.lastNodeId = task.currentDecisionId;
+    task.currentDecisionId = undefined;
+    task.currentDecisionDetail = undefined;
+}
+
+function completeAcpApproval(event: AcpEvent, task: AcpCanvasTaskState, phase: "succeeded" | "failed" = "succeeded") {
+    if (!task.activeApprovalId) {
+        return;
+    }
+    notifyDesktopPetSurfaceActivity({
+        ...acpActivityBase(event, task, task.activeApprovalId),
+        phase,
+        surface: "panel",
+        action: "wait",
+        detail: task.activeApprovalDetail || "Approved",
+        verificationstatus: phase === "failed" ? "failed" : "verified",
+    });
+    task.lastNodeId = task.activeApprovalId;
+    task.activeApprovalId = undefined;
+    task.activeApprovalDetail = undefined;
+}
+
 export function notifyDesktopPetActivity(event: AcpEvent) {
     if (event.type === "status") {
         const status = (event.data as { status?: string } | null)?.status;
-        const active = status === "running" || status === "connecting";
+        if (status !== "running") {
+            notifyDesktopPetNotification({
+                kind: status === "connecting" ? "thinking" : "idle",
+                detail: status === "connecting" ? "KronosCode connecting" : "KronosCode ready",
+            });
+            return;
+        }
+        const task = acpCanvasTask(event, true);
+        task.decisionIndex = 1;
+        task.currentDecisionId = `decision:${task.runid}:${task.decisionIndex}`;
+        task.currentDecisionDetail = "Understanding the task";
+        task.lastNodeId = task.currentDecisionId;
+        task.needsDecision = false;
+        updateState({ reasoningLog: [] });
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
-            phase: active ? "running" : status === "error" ? "failed" : "succeeded",
+            ...acpActivityBase(event, task, task.currentDecisionId),
+            phase: "running",
             surface: "panel",
-            action: active ? "thinking" : "focus",
-            detail: active ? "KronosCode working" : "KronosCode ready",
+            action: "thinking",
+            detail: "Understanding the task",
         });
         return;
     }
     if (event.type === "finish") {
+        const task = acpCanvasTask(event);
+        completeAcpApproval(event, task);
+        completeAcpDecision(event, task);
         const previewImageUrl = state.previewImageUrl;
+        const outputId = task.replyId ?? `output:${task.runid}`;
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
+            ...acpActivityBase(event, task, outputId),
             phase: "succeeded",
             surface: "panel",
             action: "focus",
-            detail: "Task complete",
+            detail: task.replyText.trim() || "Task complete",
             previewimageurl: previewImageUrl,
+            verificationstatus: "verified",
         });
+        task.lastNodeId = outputId;
+        task.active = false;
+        return;
+    }
+    if (event.type === "harness_lease") {
+        const task = acpCanvasTask(event);
+        const data = event.data as {
+            lease?: { backend?: string; id?: string; reason?: string; taskClass?: string };
+        } | null;
+        const lease = data?.lease;
+        const leaseId = lease?.id ?? event.msgId;
+        notifyDesktopPetSurfaceActivity({
+            ...acpActivityBase(event, task, `lease:${leaseId}`, task.lastNodeId),
+            phase: "running",
+            surface: "panel",
+            action: "focus",
+            capabilityid: lease?.taskClass,
+            connectorid: lease?.backend,
+            detail: lease?.reason ?? "Scoped specialist capability lease issued",
+            risk: "read",
+        });
+        task.lastNodeId = `lease:${leaseId}`;
         return;
     }
     if (event.type === "error") {
+        const task = acpCanvasTask(event);
+        completeAcpApproval(event, task, "failed");
+        completeAcpDecision(event, task, "failed");
+        const error = (event.data as { error?: string } | null)?.error;
+        const outputId = `output:${task.runid}`;
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
+            ...acpActivityBase(event, task, outputId),
             phase: "failed",
             surface: "panel",
             action: "focus",
-            detail: "Task failed",
+            detail: error || "Task failed",
+            verificationstatus: "failed",
         });
+        task.lastNodeId = outputId;
+        task.active = false;
         return;
     }
     if (event.type === "tool_permission") {
-        const data = event.data as { confirmation?: { title?: string }; toolCall?: { title?: string } } | null;
+        const task = acpCanvasTask(event);
+        const data = event.data as {
+            confirmation?: { title?: string };
+            toolCall?: { title?: string; toolCallId?: string };
+        } | null;
+        const toolCallId = data?.toolCall?.toolCallId;
+        const approvalId = `approval:${toolCallId || event.msgId}`;
+        const approvalDetail = data?.confirmation?.title ?? data?.toolCall?.title ?? "Review required";
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
+            ...acpActivityBase(event, task, approvalId, toolCallId || task.lastNodeId),
             phase: "awaiting-approval",
             surface: "panel",
             action: "wait",
-            detail: data?.confirmation?.title ?? data?.toolCall?.title ?? "Review required",
+            detail: approvalDetail,
         });
+        task.activeApprovalId = approvalId;
+        task.activeApprovalDetail = approvalDetail;
+        task.lastNodeId = approvalId;
         return;
     }
     if (event.type === "agent_thought_chunk") {
+        const task = acpCanvasTask(event);
         const thought = textFromContent(event.data)?.replace(/\s+/g, " ").trim();
         if (!thought) {
             return;
         }
+        if (task.needsDecision || !task.currentDecisionId) {
+            task.decisionIndex += 1;
+            task.currentDecisionId = `decision:${task.runid}:${task.decisionIndex}`;
+            task.needsDecision = false;
+        }
+        task.currentDecisionDetail = thought;
         const log = [...(state.reasoningLog ?? []), thought];
         if (log.length > ReasoningLogMax) {
             log.splice(0, log.length - ReasoningLogMax);
         }
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
+            ...acpActivityBase(
+                event,
+                task,
+                task.currentDecisionId,
+                task.lastNodeId === task.currentDecisionId ? undefined : task.lastNodeId
+            ),
             phase: "running",
             surface: "panel",
             action: "thinking",
-            detail: "Thinking",
+            detail: thought,
             thought,
             reasoningSteps: log,
         });
+        task.lastNodeId = task.currentDecisionId;
         if (thoughtTimer != null) {
             clearTimeout(thoughtTimer);
         }
@@ -693,18 +973,107 @@ export function notifyDesktopPetActivity(event: AcpEvent) {
         return;
     }
     if (event.type === "tool_call") {
-        const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | null;
+        const task = acpCanvasTask(event);
+        completeAcpDecision(event, task);
+        const data = event.data as {
+            title?: string;
+            toolCallId?: string;
+            rawInput?: Record<string, unknown>;
+            status?: "pending" | "in_progress" | "completed" | "failed";
+        } | null;
         const title = data?.title ?? "tool";
+        const toolId = data?.toolCallId || event.msgId;
+        const blockid = blockIdFromAcpInput(data?.rawInput);
+        const surface = inferAgentActivitySurface(title, blockid);
+        task.tools.set(toolId, { blockid, surface, title });
         notifyDesktopPetSurfaceActivity({
-            source: "acp",
-            phase: "running",
-            surface: inferAgentActivitySurface(title),
+            ...acpActivityBase(event, task, toolId, task.currentDecisionId || task.lastNodeId),
+            phase:
+                data?.status === "pending"
+                    ? "queued"
+                    : data?.status === "completed"
+                      ? "succeeded"
+                      : data?.status === "failed"
+                        ? "failed"
+                        : "running",
+            blockid,
+            surface,
             action: inferAgentActivityAction(title),
             detail: title,
             point: pointFromAgentActivityInput(data?.rawInput),
             path: pathFromToolInput(data?.rawInput) ?? undefined,
             target: targetFromToolInput(data?.rawInput),
         });
+        task.lastNodeId = toolId;
+        task.needsDecision = true;
+        return;
+    }
+    if (event.type === "tool_call_update") {
+        const task = acpCanvasTask(event);
+        completeAcpApproval(event, task);
+        const data = event.data as {
+            toolCallId?: string;
+            title?: string;
+            rawInput?: Record<string, unknown>;
+            status?: "completed" | "failed";
+        } | null;
+        const toolId = data?.toolCallId || event.msgId;
+        const priorTool = task.tools.get(toolId);
+        const title = data?.title ?? priorTool?.title ?? "Tool result";
+        const blockid = blockIdFromAcpInput(data?.rawInput) ?? priorTool?.blockid;
+        const previewimageurl = previewImageFromAcpUpdate(event.data);
+        notifyDesktopPetSurfaceActivity({
+            ...acpActivityBase(event, task, toolId),
+            phase: data?.status === "failed" ? "failed" : "succeeded",
+            blockid,
+            surface: priorTool?.surface ?? inferAgentActivitySurface(title, blockid),
+            action: previewimageurl ? "screenshot" : "verify",
+            detail: previewimageurl ? "Captured tool evidence" : title,
+            previewimageurl,
+            verificationstatus: data?.status === "failed" ? "failed" : "verified",
+        });
+        task.lastNodeId = toolId;
+        task.needsDecision = true;
+        return;
+    }
+    if (event.type === "plan") {
+        const task = acpCanvasTask(event);
+        completeAcpDecision(event, task);
+        const entries =
+            (event.data as { entries?: Array<{ content?: string; status?: string }> } | null)?.entries ?? [];
+        const steps = entries.map((entry) => entry.content?.trim()).filter((entry): entry is string => Boolean(entry));
+        const planId = `plan:${task.runid}`;
+        notifyDesktopPetSurfaceActivity({
+            ...acpActivityBase(event, task, planId, task.lastNodeId === planId ? undefined : task.lastNodeId),
+            phase: "running",
+            surface: "panel",
+            action: "thinking",
+            detail: steps[0] || "Prepared task plan",
+            reasoningSteps: steps,
+        });
+        task.currentDecisionId = planId;
+        task.currentDecisionDetail = steps[0] || "Prepared task plan";
+        task.lastNodeId = planId;
+        task.needsDecision = false;
+        return;
+    }
+    if (event.type === "agent_message_chunk") {
+        const task = acpCanvasTask(event);
+        const chunk = textFromContent(event.data);
+        if (!chunk) {
+            return;
+        }
+        completeAcpDecision(event, task);
+        task.replyText += chunk;
+        task.replyId ??= `output:${task.runid}`;
+        notifyDesktopPetSurfaceActivity({
+            ...acpActivityBase(event, task, task.replyId),
+            phase: "running",
+            surface: "panel",
+            action: "focus",
+            detail: task.replyText.trim(),
+        });
+        task.lastNodeId = task.replyId;
         return;
     }
 }
@@ -721,6 +1090,9 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
             cursorAction: "idle",
             cursorPoint: null,
             previewImageUrl: notification.previewImageUrl,
+            surface: activity.surface,
+            action: activity.action,
+            appName: activity.appname,
         });
         sendOverlayAnimation({ type: "hide" });
         if (activity.phase === "succeeded") {
@@ -748,6 +1120,9 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
             reasoningLog: log,
             cursorAction: "idle",
             cursorPoint: null,
+            surface: "panel",
+            action: "thinking",
+            appName: undefined,
         });
         moveToAgentTarget(notification.target);
         return;
@@ -766,6 +1141,9 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
         cursorAction,
         cursorPoint,
         previewImageUrl: notification.previewImageUrl,
+        surface: activity.surface,
+        action: activity.action,
+        appName: activity.appname,
     });
     if (cursorAction != null && cursorAction !== "idle") {
         if (cursorTimer != null) {
