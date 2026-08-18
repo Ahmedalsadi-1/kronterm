@@ -6,6 +6,7 @@ import {
     classifyHarnessTask,
     formatAcpCapabilityLease,
     getAcpHarnessProfile,
+    KronTermToolsets,
     makeAcpCapabilityLease,
 } from "./acp-harness";
 
@@ -68,5 +69,49 @@ describe("ACP capability leases", () => {
         expect(prompt).toContain("KronTerm Specialist Capability Lease");
         expect(prompt).toContain("approval-required");
         expect(prompt).toContain("Treat the lease as an upper bound");
+    });
+});
+
+describe("KronTerm toolset registry", () => {
+    it("groups every surface tool family into a named toolset", () => {
+        const ids = Object.keys(KronTermToolsets);
+        expect(ids).toContain("workspace");
+        expect(ids).toContain("widget");
+        expect(ids).toContain("browser");
+        expect(ids).toContain("terminal");
+        expect(ids).toContain("sandbox");
+        expect(ids).toContain("desktop");
+        expect(ids).toContain("file");
+        expect(ids).toContain("memory");
+        expect(ids).toContain("skills");
+        expect(KronTermToolsets.desktop.tools).toContain("kron_computer_click");
+        expect(KronTermToolsets.sandbox.tools).toContain("sandbox_start");
+        expect(KronTermToolsets.widget.tools).toContain("widget_snapshot");
+        expect(KronTermToolsets.memory.tools).toContain("get_memories");
+    });
+
+    it("recommends task-appropriate toolsets and surfaces them in the lease", () => {
+        const lease = makeAcpCapabilityLease({
+            backend: "kronoscode",
+            capabilities: null,
+            content: "Research the kron-term MCP surface and compare source options",
+            surfaceAvailable: true,
+            workspace: "/tmp/kronterm-project",
+        });
+        expect(lease.toolsets).toEqual(["browser", "file", "workspace"]);
+        const prompt = formatAcpCapabilityLease(lease);
+        expect(prompt).toContain("Recommended toolsets");
+        expect(prompt).toContain("In-app browser");
+    });
+
+    it("routes workspace-control requests to surface tool groups", () => {
+        const lease = makeAcpCapabilityLease({
+            backend: "kronoscode",
+            capabilities: null,
+            content: "Fix the KronosChamber canvas widget bug",
+            surfaceAvailable: true,
+            workspace: "/tmp/kronterm-project",
+        });
+        expect(lease.toolsets).toEqual(["workspace", "widget", "sandbox", "desktop"]);
     });
 });

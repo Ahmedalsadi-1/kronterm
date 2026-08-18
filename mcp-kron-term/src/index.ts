@@ -348,12 +348,35 @@ const kronTermGuide = `# KronTerm Surface Capability
 
 Use the kron-term MCP tools to inspect and control KronTerm blocks.
 
+## Tool usage policy
+
+- Prefer the kron-term surface tools over generic desktop/browser tools whenever the target lives inside KronTerm (tabs, blocks, terminals, in-app browser, host files).
+- Prefer element refs (@eN) and element indexes over raw pixel coordinates. Use coordinates only when no ref/index exists.
+- Prefer file tools (file_read, file_list, file_info) over running cat/ls in a terminal. Use terminal tools for interactive sessions or command execution, not for reading files.
+- Batch independent read-only calls (for example surface_status, list_blocks, and widget_snapshot) in a single message instead of sequential round trips.
+- Never use sandbox_* tools to control the host, and never use kron_computer_* tools to control KronTerm blocks. Each pointer family targets exactly one surface.
+
+## Surface decision table
+
+| Target | Tool family | First call |
+| --- | --- | --- |
+| Workspace layout, tabs, blocks, connections, secrets | workspace tools (\`surface_status\`, \`list_blocks\`, \`get_block_info\`, \`get_layout_tree\`, \`create_block\`, \`close_block\`, \`focus_block\`, \`set_block_meta\`, \`connection_*\`, \`secret_*\`) | \`surface_status\`, then \`list_blocks\` |
+| Content inside a KronTerm block (forms, canvas, browser page) | \`widget_*\` | \`widget_snapshot\` |
+| In-app browser navigation | \`browser_open\`, \`browser_navigate\`, \`browser_get_html\` | \`browser_open\` / \`browser_navigate\`, then \`widget_snapshot\` |
+| Terminal session or one-shot shell command | \`terminal_open\`, \`terminal_scrollback\`, \`block_run_command\` | \`terminal_open\` (interactive) or \`block_run_command\` (one-shot) |
+| Isolated Linux sandbox desktop | \`sandbox_*\` | \`sandbox_status\`, then \`sandbox_screenshot\` |
+| Native macOS app outside KronTerm | \`kron_computer_*\` | \`kron_computer_list_apps\`, then \`kron_computer_get_app_state\` |
+| Files and directories | \`file_open\`, \`file_list\`, \`file_read\`, \`file_info\` | \`file_list\` or \`file_read\` |
+| Persistent memory, sessions, action items | memory tools (\`get_memories\`, \`search_memories\`, \`get_workspace_sessions\`, \`get_action_items\`, ...) | \`get_memories\` or \`search_memories\` |
+| Allowlisted project skills | \`shared_skill_list\`, \`shared_skill_read\` | \`shared_skill_list\` |
+
 ## Workflow
 
 1. Call \`surface_status\` if a tool fails or before the first operation.
 2. Call \`list_blocks\` to obtain live block IDs.
 3. For content interaction, call \`widget_snapshot\` before using element refs.
 4. Re-run \`widget_snapshot\` after navigation or DOM changes because refs become stale.
+5. After acting, verify the effect (re-snapshot, read scrollback, or check state) before reporting success.
 
 ## Functional paths
 
@@ -374,6 +397,11 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
   \`complete_workspace_session\`, \`get_action_items\`, \`create_action_item\`, and \`ingest_workspace_event\`.
 - Native desktop apps: \`kron_computer_*\` tools expose the local \`kron-computer-use\` runtime. Start with \`kron_computer_list_apps\`, then call \`kron_computer_get_app_state\` before actions. The macOS runtime displays its software cursor overlay during click and set-value actions.
 - Shared skills: call \`shared_skill_list\`, then \`shared_skill_read\` with an exact skill id. These expose the allowlisted project skills shared by KronTerm, KronosCode, and ACP agents such as Hermes.
+
+## Fallback rules
+
+- If a widget ref is stale or a block operation fails, re-run \`surface_status\` and \`list_blocks\` before retrying.
+- If a target surface is unavailable (sandbox stopped, runtime missing, block closed), state that clearly and offer the closest alternative instead of guessing.
 
 ## Runtime requirements
 
@@ -493,7 +521,7 @@ server.tool(
 
 server.tool(
     "kron_computer_click",
-    "Click a native desktop app element by accessibility index or screenshot coordinates. Supports right-click through mouseButton.",
+    "Click a native desktop app element by accessibility index or screenshot coordinates. When to use: native macOS apps outside KronTerm only; call kron_computer_get_app_state first and prefer elementIndex over coordinates. When NOT to use: KronTerm blocks (use widget_click) or the sandbox VM (use sandbox_click).",
     {
         app: z.string().min(1).describe("App name or bundle identifier"),
         elementIndex: z.string().optional().describe("Element index from kron_computer_get_app_state"),
@@ -528,7 +556,7 @@ server.tool(
 
 server.tool(
     "kron_computer_type_text",
-    "Type literal text into the focused field of a native desktop app.",
+    "Type literal text into the focused field of a native desktop app. When to use: native macOS apps outside KronTerm only. When NOT to use: KronTerm blocks (use widget_type) or the sandbox VM (use sandbox_type).",
     {
         app: z.string().min(1).describe("App name or bundle identifier"),
         text: z.string().describe("Text to type"),
@@ -817,7 +845,7 @@ server.tool(
 
 server.tool(
     "block_run_command",
-    "Run a shell command in a new terminal block. Creates a temporary block, executes the command, and can auto-close on success.",
+    "Run a shell command in a new terminal block. When to use: one-shot host commands that need their own terminal block (exitOnSuccess auto-closes). When NOT to use: interactive sessions (use terminal_open) or commands in the sandbox VM (use sandbox tools). Creates a temporary block, executes the command, and can auto-close on success.",
     {
         command: z.string().min(1).describe("Shell command to execute"),
         cwd: z.string().optional().describe("Working directory for the command"),
@@ -959,7 +987,7 @@ server.tool(
 
 server.tool(
     "sandbox_mouse_move",
-    "Move the mouse pointer in an isolated KronTerm sandbox desktop.",
+    "Move the mouse pointer in the isolated KronTerm sandbox desktop. When to use: the sandbox VM desktop only. When NOT to use: KronTerm blocks (use widget_mouse_move) or native macOS apps (use kron_computer pointer tools).",
     {
         sessionId: z.string().optional().describe("Sandbox session ID (default: default)"),
         x: z.number().int().describe("X coordinate"),
@@ -976,7 +1004,7 @@ server.tool(
 
 server.tool(
     "sandbox_click",
-    "Click at sandbox coordinates or at the current sandbox pointer.",
+    "Click at sandbox coordinates or at the current sandbox pointer inside the isolated KronTerm sandbox desktop. When to use: the sandbox VM desktop only. Call sandbox_screenshot first and use coordinates from it. When NOT to use: KronTerm blocks (use widget_click) or native macOS apps (use kron_computer_click). Never reaches the host desktop.",
     {
         sessionId: z.string().optional().describe("Sandbox session ID (default: default)"),
         x: z.number().int().optional().describe("Optional X coordinate"),
@@ -998,7 +1026,7 @@ server.tool(
 
 server.tool(
     "sandbox_type",
-    "Type text into the focused field of an isolated KronTerm sandbox desktop.",
+    "Type text into the focused field of the isolated KronTerm sandbox desktop. When to use: the sandbox VM desktop only. When NOT to use: KronTerm blocks (use widget_type) or native macOS apps (use kron_computer_type_text).",
     {
         sessionId: z.string().optional().describe("Sandbox session ID (default: default)"),
         text: z.string().describe("Text to type"),
@@ -1095,7 +1123,7 @@ server.tool(
 
 server.tool(
     "terminal_open",
-    "Open a shell terminal block. Creates an interactive terminal surface in the active tab.",
+    "Open a shell terminal block. When to use: interactive terminal sessions or long-running processes. When NOT to use: one-shot commands (use block_run_command) or reading files (use file_read/file_list). Creates an interactive terminal surface in the active tab.",
     {
         cwd: z.string().optional().describe("Working directory for the new terminal"),
         magnified: z.boolean().optional().describe("Open in magnified mode"),
@@ -1112,7 +1140,7 @@ server.tool(
 
 server.tool(
     "terminal_scrollback",
-    "Read visible/history output from a terminal block, optionally restricted to the output of its last shell-integrated command.",
+    "Read visible/history output from a terminal block. When to use: inspect command output or terminal state after block_run_command/terminal_open. Use lastCommand=true to isolate the output of the most recent shell-integrated command. When NOT to use: reading files (use file_read instead of cat through a terminal).",
     {
         blockId: z.string().describe("Terminal block ID"),
         start: z.number().int().min(0).optional().describe("Starting scrollback line"),
@@ -1153,7 +1181,7 @@ server.tool(
 
 server.tool(
     "file_list",
-    "List a directory through KronTerm file access.",
+    "List a directory through KronTerm file access. When to use: explore directories or find files. Prefer over running ls in a terminal. When NOT to use: remote SSH directories (list through the remote file URI instead).",
     {
         path: z.string().optional().describe("Directory path or Wave file URI"),
     },
@@ -1169,7 +1197,7 @@ server.tool(
 
 server.tool(
     "file_read",
-    "Read a text file through KronTerm file access.",
+    "Read a text file through KronTerm file access. When to use: read file contents for context or analysis. Prefer over cat in a terminal. When NOT to use: large binary files or when the exact terminal environment matters (use terminal tools instead).",
     {
         path: z.string().describe("File path or Wave file URI"),
     },
@@ -1185,7 +1213,7 @@ server.tool(
 
 server.tool(
     "file_info",
-    "Get metadata for a file or directory through KronTerm file access.",
+    "Get metadata for a file or directory through KronTerm file access. When to use: check existence, size, or modification time before reading or acting.",
     {
         path: z.string().describe("File path or Wave file URI"),
     },
@@ -1312,7 +1340,7 @@ server.tool(
 
 server.tool(
     "widget_click",
-    "Click an element by ref (@e3) or at coordinates (x, y) within a block. Supports left/right/middle buttons and single/double/triple clicks.",
+    "Click an element by ref (@e3) or at coordinates (x, y) within a KronTerm block. When to use: content inside a KronTerm block (forms, canvas, browser page). Prefer elementRef from widget_snapshot over coordinates. When NOT to use: the isolated sandbox VM (use sandbox_click) or native macOS apps (use kron_computer_click).",
     {
         blockId: z.string().describe("Block ID"),
         elementRef: z.string().optional().describe("Element ref from snapshot, e.g. @e3 (provide OR x/y)"),
@@ -1367,7 +1395,7 @@ server.tool(
 
 server.tool(
     "widget_mouse_move",
-    "Move the mouse over an element by ref (@e3) or to coordinates (x, y) within a block. Alias for hover semantics, useful before click/drag.",
+    "Move the mouse over an element by ref (@e3) or to coordinates (x, y) within a KronTerm block. When to use: KronTerm block content only. When NOT to use: the sandbox VM (use sandbox_mouse_move) or native macOS apps (use kron_computer pointer tools). Alias for hover semantics, useful before click/drag.",
     {
         blockId: z.string().describe("Block ID"),
         elementRef: z.string().optional().describe("Element ref to move over"),
@@ -1401,7 +1429,7 @@ server.tool(
 
 server.tool(
     "widget_type",
-    "Type text into a focused block. For special keys (Enter, Tab, etc.), use widget_press instead.",
+    "Type text into a focused KronTerm block. When to use: text entry inside a block. When NOT to use: the sandbox VM (use sandbox_type) or native macOS apps (use kron_computer_type_text). For special keys (Enter, Tab, etc.), use widget_press instead.",
     {
         blockId: z.string().describe("Block ID"),
         text: z.string().describe("Text to type"),

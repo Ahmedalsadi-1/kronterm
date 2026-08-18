@@ -6,13 +6,7 @@ import path from "path";
 import type { AcpAgentCapabilities } from "./acp-types";
 
 export type AcpHarnessTaskClass =
-    | "architecture"
-    | "automation"
-    | "coding"
-    | "debugging"
-    | "research"
-    | "review"
-    | "workspace-control";
+    "architecture" | "automation" | "coding" | "debugging" | "research" | "review" | "workspace-control";
 
 export type AcpHarnessPattern = {
     id: string;
@@ -28,6 +22,16 @@ export type AcpHarnessProfile = {
     source: "builtin" | "reference";
 };
 
+export type KronTermToolsetId =
+    "workspace" | "widget" | "browser" | "terminal" | "sandbox" | "desktop" | "file" | "memory" | "skills";
+
+export type KronTermToolset = {
+    id: KronTermToolsetId;
+    label: string;
+    description: string;
+    tools: string[];
+};
+
 export type AcpCapabilityLease = {
     id: string;
     backend: string;
@@ -36,6 +40,7 @@ export type AcpCapabilityLease = {
     taskClass: AcpHarnessTaskClass;
     reason: string;
     workspace: string;
+    toolsets: KronTermToolsetId[];
     capabilities: string[];
     constraints: {
         filesystem: "workspace";
@@ -65,6 +70,155 @@ const CommonPatterns: AcpHarnessPattern[] = [
         description: "Keep task state resumable and report lifecycle changes to KronosChamber.",
     },
 ];
+
+export const KronTermToolsets: Record<KronTermToolsetId, KronTermToolset> = {
+    workspace: {
+        id: "workspace",
+        label: "Workspace & block layout",
+        description:
+            "Inspect and rearrange the KronTerm workspace: tabs, blocks, layout, badges, notifications, connections, secrets.",
+        tools: [
+            "surface_status",
+            "get_workspace_info",
+            "list_blocks",
+            "get_block_info",
+            "get_layout_tree",
+            "create_block",
+            "close_block",
+            "focus_block",
+            "set_block_meta",
+            "tab_set_badge",
+            "tab_clear_badge",
+            "notify",
+            "connection_list",
+            "connection_connect",
+            "connection_disconnect",
+            "secret_list",
+            "secret_get",
+            "secret_set",
+            "secret_delete",
+            "ai_append",
+        ],
+    },
+    widget: {
+        id: "widget",
+        label: "Block content interaction",
+        description:
+            "Inspect and interact with content inside a KronTerm block (snapshot, refs, click, type, press, scroll, drag, values).",
+        tools: [
+            "widget_snapshot",
+            "widget_find",
+            "widget_inspect",
+            "widget_element_at",
+            "widget_screenshot",
+            "widget_screenshot_annotated",
+            "widget_click",
+            "widget_hover",
+            "widget_mouse_move",
+            "widget_type",
+            "widget_press",
+            "widget_scroll_to",
+            "widget_drag",
+            "widget_long_press",
+            "widget_get_value",
+            "widget_set_value",
+            "widget_clear",
+            "widget_select",
+        ],
+    },
+    browser: {
+        id: "browser",
+        label: "In-app browser",
+        description: "Open, navigate, and read the KronTerm browser surface.",
+        tools: ["browser_open", "browser_navigate", "browser_get_html"],
+    },
+    terminal: {
+        id: "terminal",
+        label: "Terminals & command execution",
+        description: "Open terminals, read scrollback, and run one-shot commands in new blocks.",
+        tools: ["terminal_open", "terminal_scrollback", "block_run_command"],
+    },
+    sandbox: {
+        id: "sandbox",
+        label: "Isolated Linux sandbox desktop",
+        description:
+            "Start/stop the sandbox VM and control its desktop (screenshot, mouse, click, type, press, scroll, drag). Never used for host interactions.",
+        tools: [
+            "sandbox_start",
+            "sandbox_status",
+            "sandbox_stop",
+            "sandbox_screenshot",
+            "sandbox_mouse_move",
+            "sandbox_click",
+            "sandbox_type",
+            "sandbox_paste",
+            "sandbox_press",
+            "sandbox_scroll",
+            "sandbox_drag",
+        ],
+    },
+    desktop: {
+        id: "desktop",
+        label: "Native macOS desktop apps",
+        description:
+            "Control native desktop applications via the kron-computer-use accessibility runtime. Only for apps outside KronTerm.",
+        tools: [
+            "kron_computer_status",
+            "kron_computer_list_apps",
+            "kron_computer_get_app_state",
+            "kron_computer_click",
+            "kron_computer_type_text",
+            "kron_computer_press_key",
+            "kron_computer_scroll",
+            "kron_computer_drag",
+            "kron_computer_set_value",
+            "kron_computer_secondary_action",
+            "kron_computer_turn_ended",
+        ],
+    },
+    file: {
+        id: "file",
+        label: "Files & directories",
+        description: "Open, list, read, and inspect files and directories through KronTerm file access.",
+        tools: ["file_open", "file_list", "file_read", "file_info"],
+    },
+    memory: {
+        id: "memory",
+        label: "Developer memory & workspace sessions",
+        description: "Persistent agent memory, workspace sessions, and action items.",
+        tools: [
+            "get_memories",
+            "search_memories",
+            "create_memory",
+            "edit_memory",
+            "delete_memory",
+            "promote_memory",
+            "get_workspace_sessions",
+            "create_workspace_session",
+            "append_workspace_session_event",
+            "complete_workspace_session",
+            "get_action_items",
+            "create_action_item",
+            "ingest_workspace_event",
+        ],
+    },
+    skills: {
+        id: "skills",
+        label: "Shared project skills",
+        description: "Discover and load allowlisted project skills shared with KronTerm ACP agents.",
+        tools: ["shared_skill_list", "shared_skill_read"],
+    },
+};
+
+const TaskClassToolsets: Record<AcpHarnessTaskClass, KronTermToolsetId[]> = {
+    "workspace-control": ["workspace", "widget", "sandbox", "desktop"],
+    automation: ["sandbox", "desktop", "widget", "terminal"],
+    coding: ["file", "terminal", "widget", "workspace"],
+    debugging: ["terminal", "widget", "file", "workspace"],
+    research: ["browser", "file", "workspace"],
+    review: ["file", "widget", "workspace"],
+    architecture: ["file", "workspace", "widget"],
+};
 
 const Profiles: Record<string, Omit<AcpHarnessProfile, "backend">> = {
     kronoscode: {
@@ -246,6 +400,7 @@ export function makeAcpCapabilityLease(input: {
     const now = Date.now();
     const classification = classifyHarnessTask(input.content);
     const profile = getAcpHarnessProfile(input.backend);
+    const toolsets = TaskClassToolsets[classification.taskClass];
     const capabilities = [
         `task:${classification.taskClass}`,
         "filesystem:workspace",
@@ -266,6 +421,7 @@ export function makeAcpCapabilityLease(input: {
         taskClass: classification.taskClass,
         reason: `${classification.reason} ${profile.summary}`,
         workspace,
+        toolsets,
         capabilities,
         constraints: {
             filesystem: "workspace",
@@ -280,12 +436,20 @@ export function makeAcpCapabilityLease(input: {
 }
 
 export function formatAcpCapabilityLease(lease: AcpCapabilityLease): string {
+    const toolsetLines = lease.toolsets
+        .map((id) => {
+            const toolset = KronTermToolsets[id];
+            return `- ${toolset.label}: ${toolset.description} Tools: ${toolset.tools.join(", ")}`;
+        })
+        .join("\n");
     return `[KronTerm Specialist Capability Lease]
 Lease: ${lease.id}
 Backend: ${lease.backend}
 Task class: ${lease.taskClass}
 Workspace: ${lease.workspace}
 Granted capabilities: ${lease.capabilities.join(", ")}
+Recommended toolsets (surface tool groups for this task class):
+${toolsetLines}
 Constraints: filesystem=${lease.constraints.filesystem}; writes=${lease.constraints.writes}; destructive=${lease.constraints.destructiveActions}; external-side-effects=${lease.constraints.externalSideEffects}; credentials=${lease.constraints.credentialAccess}; surface=${lease.constraints.surface}
 Expires: ${new Date(lease.expiresAt).toISOString()}
 
