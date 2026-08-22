@@ -60,6 +60,7 @@ open-design/
 flux/
 memory-connectors-test/
 .hermes/
+third_party/upstream/hermes-agent/
 
 # Build output
 website/.next/
