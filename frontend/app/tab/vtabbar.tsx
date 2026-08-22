@@ -62,9 +62,9 @@ const SidePanelModeButton = memo(() => {
     const getModeIcon = (mode: SidePanelMode): string => {
         switch (mode) {
             case "hidden":
-                return "fa-columns";
+                return "fa-sidebar-flip";
             case "compact":
-                return "fa-columns";
+                return "fa-sidebar";
             case "full":
                 return "fa-table-columns";
         }
@@ -73,7 +73,7 @@ const SidePanelModeButton = memo(() => {
     const getModeLabel = (mode: SidePanelMode): string => {
         switch (mode) {
             case "hidden":
-                return "Compact";
+                return "Hidden";
             case "compact":
                 return "Compact";
             case "full":
@@ -150,6 +150,8 @@ interface VTabWrapperProps {
     onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
     onDragEnd: () => void;
     onHoverChanged: (isHovered: boolean) => void;
+    compact: boolean;
+    compactIndex: number;
 }
 
 function VTabWrapper({
@@ -167,6 +169,8 @@ function VTabWrapper({
     onDrop,
     onDragEnd,
     onHoverChanged,
+    compact,
+    compactIndex,
 }: VTabWrapperProps) {
     const env = useWaveEnv<VTabBarEnv>();
     const [tabData] = env.wos.useWaveObjectValue<Tab>(makeORef("tab", tabId));
@@ -220,8 +224,10 @@ function VTabWrapper({
                 onDragEnd={onDragEnd}
                 onHoverChanged={onHoverChanged}
                 renameRef={renameRef}
+                compact={compact}
+                compactIndex={compactIndex}
             />
-            <VTabBlockTree tabId={tabId} active={active} />
+            {!compact && <VTabBlockTree tabId={tabId} active={active} />}
         </>
     );
 }
@@ -231,6 +237,10 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
     const documentHasFocus = useAtomValue(env.atoms.documentHasFocus);
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const sidePanelMode = useAtomValue(layoutModel.sidePanelModeAtom);
+    const widgetsPanelVisible = useAtomValue(layoutModel.widgetsPanelVisibleAtom);
+    const compact = sidePanelMode === "compact";
     const tabIds = workspace?.tabids ?? [];
 
     const [orderedTabIds, setOrderedTabIds] = useState<string[]>(tabIds);
@@ -367,7 +377,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
 
     return (
         <div
-            className={cn("vtab-navigation flex h-full flex-col overflow-hidden", className)}
+            className={cn("vtab-navigation flex h-full flex-col overflow-hidden", compact && "is-compact", className)}
             onContextMenu={handleTabBarContextMenu}
         >
             <VTabBarHeader />
@@ -376,12 +386,13 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                     <span>Workspace tabs</span>
                     <span className="vtab-section-count">{orderedTabIds.length}</span>
                 </div>
-                <Tooltip content="New tab" placement="right">
+                <Tooltip content={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"} placement="right">
                     <button
                         type="button"
-                        className="vtab-section-action"
-                        onClick={() => env.electron.createTab()}
-                        aria-label="New tab"
+                        className={cn("vtab-section-action", widgetsPanelVisible && "is-active")}
+                        onClick={() => layoutModel.toggleWidgetsPanel()}
+                        aria-label={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
+                        aria-pressed={widgetsPanelVisible}
                     >
                         <i className="fa-solid fa-plus" />
                     </button>
@@ -461,6 +472,8 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             }}
                             onDragEnd={clearDragState}
                             onHoverChanged={(isHovered) => setHoveredTabId(isHovered ? tabId : null)}
+                            compact={compact}
+                            compactIndex={index + 1}
                         />
                     );
                 })}

@@ -3,6 +3,11 @@
 
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import {
+    KronarchyEnabledChangedEvent,
+    KronarchyEnabledStorageKey,
+    publishKronarchyEnabled,
+} from "@/app/workspace/kronarchy-shell";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useState } from "react";
 import type { KronSettingsViewModel } from "./kronsettings-model";
@@ -31,6 +36,14 @@ function getStoredLayoutMode() {
     }
 }
 
+function getStoredKronarchyMode() {
+    try {
+        return window.localStorage.getItem(KronarchyEnabledStorageKey) === "true";
+    } catch {
+        return false;
+    }
+}
+
 const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProps) => {
     const fullConfig = useAtomValue(model.env.atoms.fullConfigAtom);
     const settings = fullConfig?.settings ?? {};
@@ -53,6 +66,7 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
             ? settings["app:layoutmode"]
             : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
+    const [kronarchyMode, setKronarchyMode] = useState(() => getStoredKronarchyMode());
     const quickComposer = settings["app:quickcomposer"] ?? false;
     const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
     const telemetryEnabled = settings["telemetry:enabled"] ?? false;
@@ -60,6 +74,17 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
     useEffect(() => {
         setLayoutMode(settingsLayoutMode);
     }, [settingsLayoutMode]);
+
+    useEffect(() => {
+        const handleModeChanged = (event: Event) => {
+            const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled;
+            if (typeof enabled === "boolean") {
+                setKronarchyMode(enabled);
+            }
+        };
+        window.addEventListener(KronarchyEnabledChangedEvent, handleModeChanged);
+        return () => window.removeEventListener(KronarchyEnabledChangedEvent, handleModeChanged);
+    }, []);
 
     return (
         <div>
@@ -91,6 +116,15 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
 
             <SettingsCard>
                 <SectionHeader title="Interface" icon="sliders" description="Interface behavior." />
+                <ToggleSetting
+                    title="Kronarchy Shell"
+                    description="Use the Omarchy-inspired top bar, Tokyo Night palette, square widget chrome, and command launcher."
+                    checked={kronarchyMode}
+                    onChange={(enabled) => {
+                        setKronarchyMode(enabled);
+                        publishKronarchyEnabled(enabled);
+                    }}
+                />
                 <ToggleSetting
                     title="Show Hidden Files"
                     description="Show dotfiles in file previews."

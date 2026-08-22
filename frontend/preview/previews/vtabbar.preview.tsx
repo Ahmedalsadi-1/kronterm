@@ -2,14 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { loadBadges, LoadBadgesEnv } from "@/app/store/badge";
+import { globalStore } from "@/app/store/jotaiStore";
 import { VTabBar } from "@/app/tab/vtabbar";
 import { VTabBarEnv } from "@/app/tab/vtabbarenv";
 import { useWaveEnv, WaveEnvContext } from "@/app/waveenv/waveenv";
+import { SidePanelMode, WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { MockWaveEnv } from "@/preview/mock/mockwaveenv";
 import { makeTabBarMockEnv, TabBarMockWorkspaceId } from "@/preview/mock/tabbar-mock";
 import { PlatformLinux, PlatformMacOS, PlatformWindows } from "@/util/platformutil";
 import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+globalStore.set(WorkspaceLayoutModel.getInstance().sidePanelModeAtom, "compact");
 
 export function VTabBarPreview() {
     const baseEnv = useWaveEnv();
@@ -37,7 +41,9 @@ function VTabBarPreviewInner({ platform, setPlatform }: VTabBarPreviewInnerProps
     const [isFullScreen, setIsFullScreen] = useAtom(env.atoms.isFullScreen);
     const [fullConfig, setFullConfig] = useAtom(env.atoms.fullConfigAtom);
     const [updaterStatus, setUpdaterStatus] = useAtom(env.atoms.updaterStatusAtom);
-    const [width, setWidth] = useState<number>(220);
+    const [width, setWidth] = useState<number>(52);
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const [sidePanelMode, setSidePanelMode] = useAtom(layoutModel.sidePanelModeAtom);
     const workspace = useAtomValue(env.wos.getWaveObjectAtom<Workspace>(`workspace:${TabBarMockWorkspaceId}`));
 
     useEffect(() => {
@@ -111,6 +117,22 @@ function VTabBarPreviewInner({ platform, setPlatform }: VTabBarPreviewInnerProps
                         className="cursor-pointer"
                     />
                     Full screen
+                </label>
+                <label className="flex flex-col gap-2 text-xs text-muted">
+                    <span>Sidebar mode</span>
+                    <select
+                        value={sidePanelMode}
+                        onChange={(event) => {
+                            const mode = event.target.value as SidePanelMode;
+                            setSidePanelMode(mode);
+                            if (mode === "compact") setWidth(52);
+                        }}
+                        className="cursor-pointer rounded border border-border bg-background px-2 py-1 text-foreground"
+                    >
+                        <option value="full">Full</option>
+                        <option value="compact">Icon rail</option>
+                        <option value="hidden">Hidden</option>
+                    </select>
                 </label>
             </div>
 

@@ -4,10 +4,10 @@
 .tab {
     position: absolute;
     width: 130px;
-    height: calc(100% - 3px);
+    height: calc(100% - 1px);
     padding: 0 0 0 0;
     box-sizing: border-box;
-    font-weight: bold;
+    font-weight: 500;
     color: var(--text-secondary-color);
     opacity: 0;
     display: flex;
@@ -20,12 +20,13 @@
 
     .tab-inner {
         position: relative;
-        width: calc(100% - 3px);
-        height: 100%;
+        width: calc(100% - 4px);
+        height: 31px;
         white-space: nowrap;
-        border-radius: 7px;
-        border: 1px solid rgb(from var(--border-color) r g b / 0.3);
-        background: rgb(from var(--main-bg-color) r g b / 0.22);
+        border: 1px solid transparent;
+        border-bottom: 0;
+        border-radius: 9px 9px 0 0;
+        background: transparent;
         transition:
             background-color 180ms ease,
             border-color 180ms ease,
@@ -41,14 +42,26 @@
     // ── Active tab ──────────────────────────────────────────────
     &.active {
         .tab-inner {
-            border-color: rgb(from var(--accent-color) r g b / 0.42);
-            background: rgb(from var(--accent-color) r g b / 0.11);
-            box-shadow: inset 2px 0 0 rgb(from var(--accent-color) r g b / 0.82);
+            border-color: rgb(from var(--border-color) r g b / 0.5);
+            background: rgb(from var(--main-bg-color) r g b / 0.96);
+            box-shadow:
+                inset 0 2px 0 rgb(from var(--accent-color) r g b / 0.72),
+                0 -4px 14px rgb(0 0 0 / 0.14);
+
+            &::after {
+                position: absolute;
+                right: 0;
+                bottom: -2px;
+                left: 0;
+                height: 3px;
+                background: var(--main-bg-color);
+                content: "";
+            }
         }
 
         .name {
             color: var(--text-primary-color);
-            font-weight: 600;
+            font-weight: 650;
         }
 
         .close {
@@ -61,15 +74,15 @@
     .name {
         position: absolute;
         top: 50%;
-        left: 25px;
+        left: 27px;
         transform: translate3d(0, -50%, 0);
         user-select: none;
         z-index: var(--zindex-tab-name);
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         text-shadow: 0px 0px 4px rgb(from var(--main-bg-color) r g b / 0.25);
         overflow: hidden;
-        width: calc(100% - 46px);
+        width: calc(100% - 50px);
         text-overflow: ellipsis;
         text-align: left;
 
@@ -85,9 +98,9 @@
         position: absolute;
         z-index: var(--zindex-tab-name);
         top: 50%;
-        left: 8px;
+        left: 10px;
         color: var(--text-muted-color);
-        font-size: 10px;
+        font-size: 9px;
         transform: translateY(-50%);
         transition: color 160ms ease;
     }
@@ -131,8 +144,8 @@
 body:not(.nohover) .tab:hover,
 body:not(.nohover) .tab.dragging {
     .tab-inner {
-        background: rgb(from var(--main-text-color) r g b / 0.06);
-        border-color: rgb(from var(--main-text-color) r g b / 0.14);
+        background: rgb(from var(--surface-hover-color) r g b / 0.66);
+        border-color: rgb(from var(--border-color) r g b / 0.26);
     }
 
     .close {

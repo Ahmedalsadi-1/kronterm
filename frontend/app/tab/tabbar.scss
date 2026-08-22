@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 .tab-bar-wrapper {
-    padding-top: 5px;
+    padding-top: 4px;
     position: relative;
     user-select: none;
     display: flex;
@@ -10,9 +10,13 @@
     align-items: end;
     width: 100vw;
     -webkit-app-region: drag;
-    height: max(39px, calc(39px * var(--zoomfactor-inv)));
+    height: max(38px, calc(38px * var(--zoomfactor-inv)));
     backdrop-filter: blur(20px);
-    background: rgb(from var(--surface-base-color) r g b / 0.88);
+    background: linear-gradient(
+        180deg,
+        rgb(from var(--surface-raised-color) r g b / 0.82),
+        rgb(from var(--surface-base-color) r g b / 0.9)
+    );
     border-bottom: 1px solid transparent;
     border-image: linear-gradient(
             90deg,
@@ -31,14 +35,14 @@
 
     .tabs-wrapper {
         transition: var(--tabs-wrapper-transition);
-        height: 31px;
+        height: 32px;
     }
 
     .tab-bar {
         position: relative; // Needed for absolute positioning of child tabs
         display: flex;
         flex-direction: row;
-        height: 32px;
+        height: 33px;
         -webkit-app-region: no-drag;
         margin-bottom: 1px;
     }
@@ -51,11 +55,11 @@
     }
 
     .add-tab {
-        margin-inline: 4px;
-        width: 28px;
-        border: 1px solid rgb(from var(--border-color) r g b / 0.46) !important;
-        border-radius: 6px;
-        background: rgb(from var(--surface-raised-color) r g b / 0.48);
+        width: 30px;
+        margin-inline: 3px;
+        border: 0 !important;
+        border-radius: 7px;
+        background: transparent;
         color: var(--text-muted-color);
         font-size: 11px;
         transition:
@@ -65,10 +69,8 @@
             transform 180ms ease;
 
         &:hover {
-            border-color: var(--accent-color) !important;
             color: var(--accent-color);
-            background: rgb(from var(--accent-color) r g b / 0.08);
-            transform: translateY(-1px);
+            background: rgb(from var(--accent-color) r g b / 0.1);
         }
     }
 

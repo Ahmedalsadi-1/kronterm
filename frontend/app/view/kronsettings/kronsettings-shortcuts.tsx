@@ -16,6 +16,17 @@ type ShortcutEntry = {
 };
 
 const SHORTCUTS: ShortcutEntry[] = [
+    { label: "Universal Command Launcher", keys: "Shift + Super + Space", group: "Navigation" },
+    { label: "Kronarchy Shortcuts", keys: "Super + K", group: "Navigation" },
+    { label: "Next Workspace", keys: "Super + Tab", group: "Navigation" },
+    { label: "Previous Workspace", keys: "Super + Shift + Tab", group: "Navigation" },
+    { label: "Open Workspace 1–9", keys: "Super + 1–9", group: "Navigation" },
+    { label: "Kronarchy Terminal", keys: "Super + Enter", group: "Kronarchy" },
+    { label: "Kronarchy Browser", keys: "Super + Shift + Enter", group: "Kronarchy" },
+    { label: "Kronarchy Files", keys: "Super + Shift + F", group: "Kronarchy" },
+    { label: "KronosChamber", keys: "Super + Shift + A", group: "Kronarchy" },
+    { label: "Activity", keys: "Super + Ctrl + T", group: "Kronarchy" },
+    { label: "Scratchpad", keys: "Super + S", group: "Kronarchy" },
     { label: "New Terminal", keys: "⌘⇧T", group: "Layout" },
     { label: "New Block", keys: "⌘⇧N", group: "Layout" },
     { label: "Close Block", keys: "⌘⇧W", group: "Layout" },

@@ -4,108 +4,566 @@
 export interface ThemePreset {
     id: string;
     label: string;
+    mode: "dark" | "light";
     colors: Record<string, string>;
 }
 
-export const THEME_PRESETS: ThemePreset[] = [
-    {
-        id: "default",
-        label: "Kronos Chamber",
-        colors: {
-            "--accent-color": "rgb(25, 170, 216)",
-            "accent-rgb": "25, 170, 216",
-        },
-    },
-    {
-        id: "nord",
-        label: "Nord",
-        colors: {
-            "--accent-color": "rgb(136, 192, 208)",
-            "accent-rgb": "136, 192, 208",
-        },
-    },
-    {
-        id: "dracula",
-        label: "Dracula",
-        colors: {
-            "--accent-color": "rgb(189, 147, 249)",
-            "accent-rgb": "189, 147, 249",
-        },
-    },
-    {
-        id: "catppuccin",
-        label: "Catppuccin Mocha",
-        colors: {
-            "--accent-color": "rgb(203, 166, 247)",
-            "accent-rgb": "203, 166, 247",
-        },
-    },
-    {
-        id: "solarized",
-        label: "Solarized",
-        colors: {
-            "--accent-color": "rgb(38, 139, 210)",
-            "accent-rgb": "38, 139, 210",
-        },
-    },
-    {
-        id: "gruvbox",
-        label: "Gruvbox",
-        colors: {
-            "--accent-color": "rgb(250, 189, 47)",
-            "accent-rgb": "250, 189, 47",
-        },
-    },
-    {
-        id: "tokyo",
-        label: "Tokyo Night",
-        colors: {
-            "--accent-color": "rgb(125, 207, 255)",
-            "accent-rgb": "125, 207, 255",
-        },
-    },
-    {
-        id: "rose",
-        label: "Rose Pine",
-        colors: {
-            "--accent-color": "rgb(234, 154, 151)",
-            "accent-rgb": "234, 154, 151",
-        },
-    },
+type ThemeSource = readonly [
+    string,
+    string,
+    "dark" | "light",
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
 ];
 
-export function applyThemePreset(presetId: string): void {
-    const preset = THEME_PRESETS.find((p) => p.id === presetId);
+const ThemePresetStorageKey = "kronterm:theme-preset";
+
+const OmarchyThemeSources: ThemeSource[] = [
+    [
+        "tokyo-night",
+        "Tokyo Night",
+        "dark",
+        "#7aa2f7",
+        "#292e42",
+        "#414868",
+        "#1a1b26",
+        "#13141c",
+        "#24283b",
+        "#a9b1d6",
+        "#565f89",
+        "#f7768e",
+        "#e0af68",
+        "#9ece6a",
+        "#449dab",
+        "#7aa2f7",
+        "#ad8ee6",
+    ],
+    [
+        "catppuccin",
+        "Catppuccin",
+        "dark",
+        "#89b4fa",
+        "#45475a",
+        "#585b70",
+        "#1e1e2e",
+        "#161622",
+        "#313244",
+        "#cdd6f4",
+        "#6c7086",
+        "#f38ba8",
+        "#f9e2af",
+        "#a6e3a1",
+        "#94e2d5",
+        "#89b4fa",
+        "#f5c2e7",
+    ],
+    [
+        "ethereal",
+        "Ethereal",
+        "dark",
+        "#7d82d9",
+        "#252e56",
+        "#6d7db6",
+        "#060b1e",
+        "#040816",
+        "#131a3a",
+        "#ffcead",
+        "#6d7db6",
+        "#ed5b5a",
+        "#e9bb4f",
+        "#92a593",
+        "#a3bfd1",
+        "#7d82d9",
+        "#c89dc1",
+    ],
+    [
+        "everforest",
+        "Everforest",
+        "dark",
+        "#7fbbb3",
+        "#3d484d",
+        "#475258",
+        "#2d353b",
+        "#21272c",
+        "#343f44",
+        "#d3c6aa",
+        "#4f585e",
+        "#e67e80",
+        "#dbbc7f",
+        "#a7c080",
+        "#83c092",
+        "#7fbbb3",
+        "#d699b6",
+    ],
+    [
+        "gruvbox",
+        "Gruvbox",
+        "dark",
+        "#7daea3",
+        "#504945",
+        "#665c54",
+        "#282828",
+        "#1e1e1e",
+        "#3c3836",
+        "#d4be98",
+        "#7c6f64",
+        "#ea6962",
+        "#d8a657",
+        "#a9b665",
+        "#89b482",
+        "#7daea3",
+        "#d3869b",
+    ],
+    [
+        "hackerman",
+        "Hackerman",
+        "dark",
+        "#82fb9c",
+        "#1f253a",
+        "#2d3450",
+        "#0b0c16",
+        "#080910",
+        "#151828",
+        "#ddf7ff",
+        "#6a6e95",
+        "#50f872",
+        "#50f7d4",
+        "#4fe88f",
+        "#7cf8f7",
+        "#829dd4",
+        "#86a7df",
+    ],
+    [
+        "kanagawa",
+        "Kanagawa",
+        "dark",
+        "#dcd7ba",
+        "#363646",
+        "#54546d",
+        "#1f1f28",
+        "#17171e",
+        "#223249",
+        "#dcd7ba",
+        "#727169",
+        "#c34043",
+        "#c0a36e",
+        "#76946a",
+        "#6a9589",
+        "#7e9cd8",
+        "#957fb8",
+    ],
+    [
+        "last-horizon",
+        "Last Horizon",
+        "dark",
+        "#b59790",
+        "#584e51",
+        "#584e51",
+        "#0c0b0c",
+        "#090809",
+        "#181518",
+        "#fafcfb",
+        "#584e51",
+        "#c38b7b",
+        "#6b5e73",
+        "#87a9b0",
+        "#a5a0b6",
+        "#b59790",
+        "#c4d8e2",
+    ],
+    [
+        "lumon",
+        "Lumon",
+        "dark",
+        "#8bc9eb",
+        "#243d56",
+        "#304860",
+        "#16242d",
+        "#101b21",
+        "#1b2d40",
+        "#d6e2ee",
+        "#4d86b0",
+        "#4d86b0",
+        "#6fa4c9",
+        "#5e95bc",
+        "#b4e4f6",
+        "#6fb8e3",
+        "#8bc9eb",
+    ],
+    [
+        "lupine",
+        "Lupine",
+        "light",
+        "#3264eb",
+        "#d0d0d0",
+        "#9e9e9e",
+        "#fafafa",
+        "#ececec",
+        "#f5f5f5",
+        "#212121",
+        "#757575",
+        "#c900c4",
+        "#026fde",
+        "#4a2fd0",
+        "#0c67de",
+        "#3264eb",
+        "#8a4ad7",
+    ],
+    [
+        "matte-black",
+        "Matte Black",
+        "dark",
+        "#e68e0d",
+        "#2a2a2a",
+        "#333333",
+        "#121212",
+        "#0d0d0d",
+        "#1e1e1e",
+        "#bebebe",
+        "#555555",
+        "#d35f5f",
+        "#b91c1c",
+        "#ffc107",
+        "#bebebe",
+        "#e68e0d",
+        "#d35f5f",
+    ],
+    [
+        "miasma",
+        "Miasma",
+        "dark",
+        "#78824b",
+        "#383838",
+        "#666666",
+        "#222222",
+        "#191919",
+        "#2c2c2c",
+        "#c2c2b0",
+        "#555555",
+        "#685742",
+        "#b36d43",
+        "#5f875f",
+        "#c9a554",
+        "#78824b",
+        "#bb7744",
+    ],
+    [
+        "nord",
+        "Nord",
+        "dark",
+        "#81a1c1",
+        "#434c5e",
+        "#4c566a",
+        "#2e3440",
+        "#222730",
+        "#3b4252",
+        "#d8dee9",
+        "#667080",
+        "#bf616a",
+        "#ebcb8b",
+        "#a3be8c",
+        "#88c0d0",
+        "#81a1c1",
+        "#b48ead",
+    ],
+    [
+        "osaka-jade",
+        "Osaka Jade",
+        "dark",
+        "#509475",
+        "#32473b",
+        "#53685b",
+        "#111c18",
+        "#0c1512",
+        "#23372b",
+        "#c1c497",
+        "#81b8a8",
+        "#ff5345",
+        "#459451",
+        "#549e6a",
+        "#2dd5b7",
+        "#509475",
+        "#d2689c",
+    ],
+    [
+        "retro-82",
+        "Retro 82",
+        "dark",
+        "#faa968",
+        "#134e5a",
+        "#2a6b78",
+        "#05182e",
+        "#031222",
+        "#0a2540",
+        "#f6dcac",
+        "#3f8f8a",
+        "#f85525",
+        "#e97b3c",
+        "#028391",
+        "#8cbfb8",
+        "#3f8f8a",
+        "#3f8f8a",
+    ],
+    [
+        "ristretto",
+        "Ristretto",
+        "dark",
+        "#f38d70",
+        "#403e41",
+        "#72696a",
+        "#2c2525",
+        "#211b1b",
+        "#3d2f2a",
+        "#e6d9db",
+        "#72696a",
+        "#fd6883",
+        "#f9cc6c",
+        "#adda78",
+        "#85dacc",
+        "#f38d70",
+        "#a8a9eb",
+    ],
+    [
+        "rose-pine",
+        "Rose Pine",
+        "light",
+        "#56949f",
+        "#dfdad9",
+        "#cecacd",
+        "#faf4ed",
+        "#ede7e1",
+        "#f2e9e1",
+        "#575279",
+        "#9893a5",
+        "#b4637a",
+        "#ea9d34",
+        "#286983",
+        "#d7827e",
+        "#56949f",
+        "#907aa9",
+    ],
+    [
+        "solitude",
+        "Solitude",
+        "dark",
+        "#798186",
+        "#343d41",
+        "#4b4e55",
+        "#101315",
+        "#0c0e10",
+        "#1b2023",
+        "#cacccc",
+        "#4b4e55",
+        "#565d60",
+        "#d9dbdc",
+        "#9fa5a9",
+        "#707070",
+        "#798186",
+        "#aeaeae",
+    ],
+    [
+        "vantablack",
+        "Vantablack",
+        "dark",
+        "#8d8d8d",
+        "#1a1a1a",
+        "#7a7a7a",
+        "#000000",
+        "#090909",
+        "#1a1a1a",
+        "#ffffff",
+        "#505050",
+        "#a4a4a4",
+        "#cecece",
+        "#b6b6b6",
+        "#b0b0b0",
+        "#8d8d8d",
+        "#9b9b9b",
+    ],
+    [
+        "catppuccin-latte",
+        "Catppuccin Latte",
+        "light",
+        "#1e66f5",
+        "#ccd0da",
+        "#acb0be",
+        "#eff1f5",
+        "#e3e4e8",
+        "#dce0e8",
+        "#4c4f69",
+        "#9ca0b0",
+        "#d20f39",
+        "#df8e1d",
+        "#40a02b",
+        "#179299",
+        "#1e66f5",
+        "#ea76cb",
+    ],
+    [
+        "flexoki-light",
+        "Flexoki Light",
+        "light",
+        "#205ea6",
+        "#cecdc3",
+        "#b7b5ac",
+        "#fffcf0",
+        "#f2efe4",
+        "#e6e4d9",
+        "#100f0f",
+        "#878580",
+        "#d14d41",
+        "#d0a215",
+        "#879a39",
+        "#3aa99f",
+        "#205ea6",
+        "#ce5d97",
+    ],
+    [
+        "white",
+        "White",
+        "light",
+        "#6e6e6e",
+        "#c0c0c0",
+        "#808080",
+        "#ffffff",
+        "#f5f5f5",
+        "#e8e8e8",
+        "#000000",
+        "#808080",
+        "#2a2a2a",
+        "#4a4a4a",
+        "#3a3a3a",
+        "#3e3e3e",
+        "#1a1a1a",
+        "#2e2e2e",
+    ],
+];
+
+function toRgbChannels(hex: string): string {
+    const value = hex.slice(1);
+    return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
+}
+
+function makeThemePreset(source: ThemeSource): ThemePreset {
+    const [
+        id,
+        label,
+        mode,
+        accent,
+        selection,
+        muted,
+        background,
+        darkBackground,
+        lighterBackground,
+        foreground,
+        darkForeground,
+        red,
+        yellow,
+        green,
+        cyan,
+        blue,
+        magenta,
+    ] = source;
+    return {
+        id,
+        label,
+        mode,
+        colors: {
+            "--accent-color": accent,
+            "accent-rgb": toRgbChannels(accent),
+            "--main-text-color": foreground,
+            "--secondary-text-color": darkForeground,
+            "--main-bg-color": darkBackground,
+            "--border-color": muted,
+            "--surface-base-color": background,
+            "--surface-raised-color": lighterBackground,
+            "--surface-overlay-color": lighterBackground,
+            "--surface-hover-color": selection,
+            "--surface-active-color": muted,
+            "--surface-selected-color": selection,
+            "--focus-ring-color": accent,
+            "--text-primary-color": foreground,
+            "--text-secondary-color": foreground,
+            "--text-muted-color": darkForeground,
+            "--panel-bg-color": background,
+            "--block-bg-color": background,
+            "--block-bg-solid-color": background,
+            "--modal-bg-color": background,
+            "--link-color": accent,
+            "--term-black": darkBackground,
+            "--term-red": red,
+            "--term-green": green,
+            "--term-yellow": yellow,
+            "--term-blue": blue,
+            "--term-magenta": magenta,
+            "--term-cyan": cyan,
+            "--term-white": foreground,
+            "--term-bright-black": muted,
+            "--term-bright-red": red,
+            "--term-bright-green": green,
+            "--term-bright-yellow": yellow,
+            "--term-bright-blue": blue,
+            "--term-bright-magenta": magenta,
+            "--term-bright-cyan": cyan,
+            "--term-bright-white": foreground,
+            "--term-foreground": foreground,
+            "--term-background": background,
+            "--term-selection-background": selection,
+            "color-scheme": mode,
+        },
+    };
+}
+
+const THEME_PRESETS = OmarchyThemeSources.map(makeThemePreset);
+const ThemeColorKeys = Array.from(new Set(THEME_PRESETS.flatMap((preset) => Object.keys(preset.colors))));
+
+function readStoredThemePresetId(): string {
+    try {
+        const stored = window.localStorage.getItem(ThemePresetStorageKey);
+        return THEME_PRESETS.some((preset) => preset.id === stored) ? stored : "tokyo-night";
+    } catch {
+        return "tokyo-night";
+    }
+}
+
+function applyThemePreset(presetId: string): void {
+    const preset = THEME_PRESETS.find((candidate) => candidate.id === presetId);
     if (!preset) return;
-
-    const root = document.documentElement;
     for (const [key, value] of Object.entries(preset.colors)) {
-        root.style.setProperty(key, value);
+        document.documentElement.style.setProperty(key, value);
     }
-
-    const accentColor = preset.colors["--accent-color"];
-    if (accentColor) {
-        root.style.setProperty(
-            "--surface-selected-color",
-            accentColor.replace("rgb(", "rgba(").replace(")", ", 0.16)")
-        );
-        root.style.setProperty("--focus-ring-color", accentColor.replace("rgb(", "rgba(").replace(")", ", 0.72)"));
-        root.style.setProperty("--tab-green", accentColor);
-        root.style.setProperty("--toggle-checked-bg-color", accentColor);
+    document.documentElement.dataset.kronarchyTheme = preset.id;
+    try {
+        window.localStorage.setItem(ThemePresetStorageKey, preset.id);
+    } catch (error) {
+        console.warn("[Kronarchy] theme preference update failed", error);
     }
 }
 
-export function resetThemeToDefault(): void {
+function resetThemeToDefault(): void {
     const root = document.documentElement;
-    root.style.removeProperty("--accent-color");
-    root.style.removeProperty("accent-rgb");
-    root.style.removeProperty("--surface-selected-color");
-    root.style.removeProperty("--focus-ring-color");
-    root.style.removeProperty("--tab-green");
-    root.style.removeProperty("--toggle-checked-bg-color");
+    for (const key of ThemeColorKeys) root.style.removeProperty(key);
+    delete root.dataset.kronarchyTheme;
+    try {
+        window.localStorage.removeItem(ThemePresetStorageKey);
+    } catch (error) {
+        console.warn("[Kronarchy] theme preference reset failed", error);
+    }
 }
 
-export function applyCustomAccent(r: number, g: number, b: number): void {
+function applyCustomAccent(r: number, g: number, b: number): void {
     const root = document.documentElement;
     root.style.setProperty("--accent-color", `rgb(${r}, ${g}, ${b})`);
     root.style.setProperty("accent-rgb", `${r}, ${g}, ${b}`);
@@ -114,3 +572,12 @@ export function applyCustomAccent(r: number, g: number, b: number): void {
     root.style.setProperty("--tab-green", `rgb(${r}, ${g}, ${b})`);
     root.style.setProperty("--toggle-checked-bg-color", `rgb(${r}, ${g}, ${b})`);
 }
+
+export {
+    THEME_PRESETS,
+    ThemePresetStorageKey,
+    applyCustomAccent,
+    applyThemePreset,
+    readStoredThemePresetId,
+    resetThemeToDefault,
+};

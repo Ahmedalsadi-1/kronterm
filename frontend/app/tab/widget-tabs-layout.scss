@@ -3,65 +3,79 @@
 
 .widget-tabs-layout {
     position: relative;
+    display: flex;
     width: 100%;
     height: 100%;
     min-height: 0;
+    flex-direction: column;
     overflow: hidden;
     background: var(--main-bg-color);
 }
 
 .widget-surface-tabstrip {
-    position: absolute;
+    position: relative;
     z-index: 40;
-    bottom: 12px;
-    left: 50%;
+    top: 0;
+    left: 0;
     display: flex;
-    max-width: min(760px, calc(100% - 32px));
+    width: 100%;
+    max-width: none;
+    height: 39px;
+    order: -1;
+    flex: 0 0 39px;
     align-items: center;
-    gap: 5px;
+    gap: 1px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0;
+    padding: 5px 8px 0;
     border: 0;
-    background: transparent;
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.42);
+    background: rgb(from var(--surface-base-color) r g b / 0.94);
+    box-shadow: inset 0 -1px 0 rgb(from var(--main-bg-color) r g b / 0.48);
     scrollbar-width: thin;
-    transform: translateX(-50%);
+    transform: none;
 }
 
 .widget-surface-tab {
     position: relative;
     display: flex;
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
+    width: 156px;
+    min-width: 92px;
+    max-width: 190px;
+    height: 34px;
+    flex: 0 1 156px;
     align-items: center;
-    border: 1px solid rgb(from var(--border-color) r g b / 0.48);
-    border-radius: 8px;
-    background: rgb(from var(--main-bg-color) r g b / 0.42);
-    box-shadow: 0 9px 24px rgb(0 0 0 / 0.28);
-    backdrop-filter: blur(14px);
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
     color: var(--text-secondary-color);
     transition:
         background-color 150ms ease,
         border-color 150ms ease,
-        color 150ms ease,
-        width 150ms ease;
+        color 150ms ease;
 
     &:hover {
-        border-color: rgb(from var(--accent-color) r g b / 0.34);
-        background: rgb(from var(--surface-hover-color) r g b / 0.7);
+        background: rgb(from var(--surface-hover-color) r g b / 0.62);
         color: var(--text-primary-color);
     }
 
     &.is-active {
-        width: auto;
-        max-width: 230px;
-        flex-basis: auto;
-        border-color: rgb(from var(--accent-color) r g b / 0.48);
-        background: rgb(from var(--accent-color) r g b / 0.12);
+        border-color: rgb(from var(--border-color) r g b / 0.48);
+        background: var(--main-bg-color);
         color: var(--text-primary-color);
-        box-shadow: inset 2px 0 0 rgb(from var(--accent-color) r g b / 0.8);
+        box-shadow: inset 0 2px 0 rgb(from var(--accent-color) r g b / 0.78);
+
+        &::after {
+            position: absolute;
+            right: 0;
+            bottom: -1px;
+            left: 0;
+            height: 2px;
+            background: var(--main-bg-color);
+            content: "";
+        }
     }
 }
 
@@ -86,10 +100,10 @@
     height: 100%;
     flex: 1;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 0 11px;
-    font-size: 10px;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 0 8px 0 10px;
+    font-size: 11px;
     text-align: left;
 
     i {
@@ -101,19 +115,11 @@
     }
 
     span {
-        display: none;
+        display: block;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-    }
-}
-
-.widget-surface-tab.is-active .widget-surface-tab-main {
-    justify-content: flex-start;
-
-    span {
-        display: block;
     }
 }
 
@@ -126,10 +132,10 @@
     width: 24px;
     height: 24px;
     flex-shrink: 0;
-    margin-right: 5px;
+    margin-right: 4px;
     place-items: center;
     border: 1px solid transparent;
-    border-radius: 7px;
+    border-radius: 4px;
     color: var(--text-muted-color);
     font-size: 9px;
     opacity: 0;
@@ -241,7 +247,7 @@
 
 .widget-surface-tab-divider {
     width: 1px;
-    height: 24px;
+    height: 20px;
     flex: 0 0 1px;
     margin: 0 1px;
     background: rgb(from var(--border-color) r g b / 0.58);
@@ -249,15 +255,13 @@
 
 .widget-surface-add {
     display: grid;
-    width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
     place-items: center;
-    border: 1px solid rgb(from var(--border-color) r g b / 0.48);
-    border-radius: 8px;
-    background: rgb(from var(--main-bg-color) r g b / 0.42);
-    box-shadow: 0 9px 24px rgb(0 0 0 / 0.28);
-    backdrop-filter: blur(14px);
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
     color: var(--text-muted-color);
     font-size: 10px;
 
@@ -276,8 +280,9 @@
 .widget-surface-content {
     position: relative;
     width: 100%;
-    height: 100%;
+    height: auto;
     min-height: 0;
+    flex: 1;
     overflow: hidden;
 }
 
@@ -353,7 +358,12 @@
 
 @media (max-width: 800px) {
     .widget-surface-tabstrip {
-        max-width: calc(100% - 20px);
-        bottom: 8px;
+        max-width: 100%;
+        padding-inline: 5px;
+    }
+
+    .widget-surface-tab {
+        width: 128px;
+        flex-basis: 128px;
     }
 }

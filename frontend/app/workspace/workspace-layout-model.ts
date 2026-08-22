@@ -22,16 +22,17 @@ const AIPanel_MinWidth = 300;
 const AIPanel_MaxWidthRatio = 0.66;
 
 const VTabBar_DefaultWidth = 220;
+const VTabBar_CompactWidth = 52;
 const VTabBar_MinWidth = 110;
 const VTabBar_MaxWidth = 280;
 
 export type SidePanelMode = "hidden" | "compact" | "full";
 
-export function getWorkspaceTabPresentation(_sidePanelMode: SidePanelMode): {
-    showLeftTabBar: true;
+export function getWorkspaceTabPresentation(sidePanelMode: SidePanelMode): {
+    showLeftTabBar: boolean;
     showTopWorkspaceTabs: false;
 } {
-    return { showLeftTabBar: true, showTopWorkspaceTabs: false };
+    return { showLeftTabBar: sidePanelMode !== "hidden", showTopWorkspaceTabs: false };
 }
 
 export function isEmptyPanelGroupLayoutError(error: unknown): boolean {
@@ -209,9 +210,8 @@ class WorkspaceLayoutModel {
                 this.vtabWidth = savedVTabWidth;
             }
             if (savedSidePanelMode != null && ["hidden", "compact", "full"].includes(savedSidePanelMode)) {
-                const resolvedSidePanelMode = savedSidePanelMode === "hidden" ? "compact" : savedSidePanelMode;
-                this.sidePanelMode = resolvedSidePanelMode;
-                globalStore.set(this.sidePanelModeAtom, resolvedSidePanelMode);
+                this.sidePanelMode = savedSidePanelMode;
+                globalStore.set(this.sidePanelModeAtom, savedSidePanelMode);
             }
         } catch (e) {
             console.warn("Failed to initialize from tab meta:", e);
@@ -232,6 +232,9 @@ class WorkspaceLayoutModel {
 
     private getResolvedVTabWidth(): number {
         this.initializeFromMeta();
+        if (this.sidePanelMode === "compact") {
+            return VTabBar_CompactWidth;
+        }
         return clampVTabWidth(this.vtabWidth);
     }
 
@@ -263,6 +266,7 @@ class WorkspaceLayoutModel {
     handleOuterPanelLayout(sizes: number[]): void {
         if (this.inResize) return;
         if (!this.vtabVisible) return;
+        if (this.sidePanelMode !== "full") return;
         const windowWidth = window.innerWidth;
         const newVTabW = (sizes[0] / 100) * windowWidth;
         const clamped = clampVTabWidth(newVTabW);
@@ -477,17 +481,15 @@ class WorkspaceLayoutModel {
     }
 
     setSidePanelMode(mode: SidePanelMode): void {
-        if (mode === "hidden") {
-            mode = "compact";
-        }
         if (this.sidePanelMode === mode) return;
         this.sidePanelMode = mode;
         globalStore.set(this.sidePanelModeAtom, mode);
         this.debouncedPersistSidePanelMode(mode);
 
-        if (mode === "compact") {
+        if (mode === "hidden") {
+            this.setShowLeftTabBar(false);
+        } else if (mode === "compact") {
             this.setShowLeftTabBar(true);
-            this.setAIPanelVisible(false);
         } else if (mode === "full") {
             this.setShowLeftTabBar(true);
             // Don't auto-open AI panel, just allow it
@@ -497,7 +499,7 @@ class WorkspaceLayoutModel {
     }
 
     cycleSidePanelMode(): void {
-        const modes: SidePanelMode[] = ["compact", "full"];
+        const modes: SidePanelMode[] = ["full", "compact", "hidden"];
         const currentIndex = modes.indexOf(this.sidePanelMode);
         const nextIndex = (currentIndex + 1) % modes.length;
         this.setSidePanelMode(modes[nextIndex]);

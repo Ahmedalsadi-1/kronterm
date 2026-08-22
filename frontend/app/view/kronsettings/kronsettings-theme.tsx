@@ -4,7 +4,12 @@
 import { memo, useCallback, useState } from "react";
 import type { KronSettingsViewModel } from "./kronsettings-model";
 import { SectionHeader, SettingRow, SettingsCard } from "./kronsettings-shared";
-import { THEME_PRESETS, applyCustomAccent, applyThemePreset, resetThemeToDefault } from "./kronsettings-theme-presets";
+import {
+    THEME_PRESETS,
+    applyCustomAccent,
+    applyThemePreset,
+    readStoredThemePresetId,
+} from "./kronsettings-theme-presets";
 
 interface KronSettingsThemeContentProps {
     model: KronSettingsViewModel;
@@ -144,15 +149,11 @@ const AccentPicker = memo(
 AccentPicker.displayName = "AccentPicker";
 
 const KronSettingsThemeContent = memo(({ model: _model }: KronSettingsThemeContentProps) => {
-    const [selectedPreset, setSelectedPreset] = useState("default");
+    const [selectedPreset, setSelectedPreset] = useState(readStoredThemePresetId);
 
     const handlePresetSelect = useCallback((id: string) => {
         setSelectedPreset(id);
-        if (id === "default") {
-            resetThemeToDefault();
-        } else {
-            applyThemePreset(id);
-        }
+        applyThemePreset(id);
     }, []);
 
     const [customAccent, setCustomAccent] = useState<[number, number, number]>([237, 180, 73]);
@@ -167,9 +168,9 @@ const KronSettingsThemeContent = memo(({ model: _model }: KronSettingsThemeConte
         <div>
             <SettingsCard>
                 <SectionHeader
-                    title="Accent Color"
+                    title="Omarchy Themes"
                     icon="swatchbook"
-                    description="Choose a preset theme or define your own accent color."
+                    description="Apply one of Omarchy's 22 complete palettes across KronTerm chrome, widgets, canvas, and terminals."
                 />
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 4 }}>

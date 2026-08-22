@@ -11,6 +11,148 @@
     backdrop-filter: blur(22px);
 }
 
+.vtab-navigation.is-compact {
+    .vtab-navigation-header {
+        min-height: 44px;
+        justify-content: center;
+        padding: 5px;
+
+        .vtab-workspace-control {
+            flex: 0 0 auto;
+        }
+
+        .vtab-workspace-kicker,
+        .workspace-switcher-name,
+        .workspace-switcher-chevron,
+        .vtab-header-actions {
+            display: none;
+        }
+
+        .workspace-switcher-button {
+            width: 32px;
+            min-width: 32px;
+            justify-content: center;
+            padding: 0;
+        }
+    }
+
+    .vtab-section-header {
+        height: 34px;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .vtab-section-title {
+        display: none;
+    }
+
+    .vtab-scroll-region {
+        align-items: center;
+        gap: 3px;
+        margin: 0 4px 5px;
+        padding: 2px;
+        scrollbar-width: none;
+    }
+
+    .vtab-item {
+        width: 40px;
+        height: 38px;
+
+        .vtab-item-active-surface,
+        .vtab-item-hover-surface {
+            inset: 1px;
+            border-radius: 6px;
+        }
+
+        .vtab-item-active-surface {
+            box-shadow: inset 2px 0 0 var(--accent-color);
+        }
+    }
+
+    .vtab-item-icon {
+        width: auto;
+        margin: 0;
+        font-size: 13px;
+    }
+
+    .vtab-item-number {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border-radius: 5px;
+        color: var(--text-secondary-color);
+        font: 650 10px / 1 var(--fixed-font);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .vtab-item[aria-selected="true"] .vtab-item-number {
+        color: var(--accent-color);
+        background: rgb(from var(--accent-color) r g b / 0.12);
+    }
+
+    .widget-rail-compact {
+        width: 100%;
+        min-width: 0;
+        overflow: visible;
+        padding: 3px 0;
+    }
+
+    .widget-rail-compact-grid {
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        gap: 2px;
+        overflow: visible;
+    }
+
+    .widget-rail-compact-item,
+    .widget-rail-compact-item.is-chamber {
+        width: 40px;
+        min-width: 40px;
+        height: 36px;
+        flex: 0 0 36px;
+        justify-content: center;
+        padding: 0;
+
+        span {
+            display: none;
+        }
+    }
+
+    .widget-rail-compact-divider {
+        width: 28px;
+        height: 1px;
+        flex: 0 0 1px;
+        margin: 2px 0;
+    }
+
+    .widget-rail-compact-divider,
+    .widget-rail-compact-item.is-add {
+        display: none;
+    }
+
+    .widget-rail-compact-menu {
+        top: auto;
+        bottom: 8px;
+        left: calc(100% + 6px);
+    }
+
+    .vtab-footer-action {
+        width: 40px;
+        min-height: 36px;
+        justify-content: center;
+        margin: 0 6px 8px;
+        padding: 0;
+
+        span {
+            display: none;
+        }
+    }
+}
+
 .vtab-navigation-header {
     display: flex;
     min-height: 52px;

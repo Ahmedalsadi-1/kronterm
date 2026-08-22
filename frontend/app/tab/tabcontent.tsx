@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WidgetTabsLayout } from "./widget-tabs-layout";
 import { WorkspaceCanvas } from "./workspace-canvas";
 import { isWorkspacePresentation, type WorkspacePresentation } from "./workspace-presentation";
-import { WorkspacePresentationSwitcher } from "./workspace-presentation-switcher";
 
 const tileGapSizeAtom = atom((get) => {
     const settings = get(atoms.settingsAtom);
@@ -414,8 +413,7 @@ const TabContent = React.memo(
         const tabData = useAtomValue(tabAtom);
         const tileGapSize = useAtomValue(tileGapSizeAtom);
         const settingsLayoutModeValue = useAtomValue(getSettingsKeyAtom("app:layoutmode" as keyof SettingsType)) as
-            | string
-            | null;
+            string | null;
         const settingsLayoutMode: WorkspacePresentation = isWorkspacePresentation(settingsLayoutModeValue)
             ? settingsLayoutModeValue
             : "widgets";
@@ -428,17 +426,6 @@ const TabContent = React.memo(
             }
         });
         const layoutMode = layoutModeOverride ?? settingsLayoutMode;
-
-        const setLayoutMode = useCallback((mode: WorkspacePresentation) => {
-            setLayoutModeOverride(mode);
-            try {
-                window.localStorage.setItem(LayoutModeStorageKey, mode);
-                window.dispatchEvent(new CustomEvent(LayoutModeChangedEvent, { detail: { mode } }));
-            } catch {}
-            void RpcApi.SetConfigCommand(TabRpcClient, { "app:layoutmode": mode }).catch((error) => {
-                console.warn("[KronTerm] workspace presentation update failed", error);
-            });
-        }, []);
 
         useEffect(() => {
             (window as any).__krontermLayoutMode = layoutMode;
@@ -520,9 +507,6 @@ const TabContent = React.memo(
                 className={`flex flex-col flex-grow min-h-0 w-full items-center justify-center overflow-hidden relative ${noTopPadding ? "" : "pt-[3px]"} pr-[3px]`}
             >
                 {innerContent}
-                {!tabLoading && tabData && (
-                    <WorkspacePresentationSwitcher value={layoutMode} onChange={setLayoutMode} />
-                )}
                 {showWidgetLauncher && (
                     <div className="workspace-collapsed-widget-launcher">
                         <Widgets compact />

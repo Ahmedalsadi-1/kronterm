@@ -6,15 +6,20 @@ import {
 } from "./workspace-layout-model";
 
 describe("getWorkspaceTabPresentation", () => {
-    test.each(["hidden", "compact", "full"] as const)(
-        "keeps workspace tabs on the left in %s mode",
-        (sidePanelMode) => {
-            expect(getWorkspaceTabPresentation(sidePanelMode)).toEqual({
-                showLeftTabBar: true,
-                showTopWorkspaceTabs: false,
-            });
-        }
-    );
+    test("hides the left workspace tabs only in hidden mode", () => {
+        expect(getWorkspaceTabPresentation("hidden")).toEqual({
+            showLeftTabBar: false,
+            showTopWorkspaceTabs: false,
+        });
+        expect(getWorkspaceTabPresentation("compact")).toEqual({
+            showLeftTabBar: true,
+            showTopWorkspaceTabs: false,
+        });
+        expect(getWorkspaceTabPresentation("full")).toEqual({
+            showLeftTabBar: true,
+            showTopWorkspaceTabs: false,
+        });
+    });
 });
 
 describe("computeWorkspacePanelLayout", () => {

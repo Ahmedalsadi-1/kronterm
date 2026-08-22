@@ -17,6 +17,7 @@ import {
     workspaceCanvasComposerContextAtom,
 } from "@/app/tab/workspace-canvas-context";
 import { ComputerUseStreamManager } from "@/app/view/appstream/computer-use-stream-manager";
+import { KronarchyShell } from "@/app/workspace/kronarchy-shell";
 import { Widgets } from "@/app/workspace/widgets";
 import { getWorkspaceTabPresentation, WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { atoms, createBlock, getApi, getSettingsKeyAtom } from "@/store/global";
@@ -485,11 +486,12 @@ const WorkspaceElem = memo(() => {
 
     const innerHandleVisible = aiPanelVisible;
     const innerHandleClass = `workspace-panel-resize-handle ${innerHandleVisible ? "is-visible" : "pointer-events-none"}`;
-    const outerHandleVisible = vtabVisible;
+    const outerHandleVisible = vtabVisible && sidePanelMode === "full";
     const outerHandleClass = `workspace-panel-resize-handle ${outerHandleVisible ? "is-visible" : "pointer-events-none"}`;
 
     return (
         <div className="flex flex-col w-full flex-grow overflow-hidden">
+            <KronarchyShell workspace={ws} activeTabId={tabId} />
             {!isMacOS() && <TabBar key={ws.oid} workspace={ws} noTabs={!showTopWorkspaceTabs} />}
             <div ref={panelContainerRef} className="flex flex-row flex-grow overflow-hidden">
                 <ComputerUseStreamManager />
@@ -550,6 +552,17 @@ const WorkspaceElem = memo(() => {
                     </PanelGroup>
                     <ModalsRenderer />
                 </ErrorBoundary>
+                {sidePanelMode === "hidden" && (
+                    <button
+                        type="button"
+                        className="fixed bottom-3 left-3 z-[105] grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-white/10 bg-[#10131ae6] text-white/60 shadow-lg shadow-black/30 backdrop-blur-xl transition-colors hover:border-accent/40 hover:bg-accent/10 hover:text-accent"
+                        onClick={() => workspaceLayoutModel.setSidePanelMode("compact")}
+                        aria-label="Show workspace sidebar"
+                        title="Show workspace sidebar"
+                    >
+                        <i className="fa-solid fa-sidebar" aria-hidden="true" />
+                    </button>
+                )}
                 {widgetsPanelVisible && (
                     <div
                         className="absolute left-0 top-0 h-full z-50"

@@ -7,7 +7,7 @@ import {
     type AgentWidgetVisualSettings,
 } from "@/app/block/agent-widget-settings";
 import { buildAgentWidgetShortcutText, isAgentWidgetShortcutView } from "@/app/block/agent-widget-shortcuts";
-import { blockViewToIcon, blockViewToName, getViewIconElem, renderHeaderElements } from "@/app/block/blockutil";
+import { blockViewToName, renderHeaderElements } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
 import { DurableSessionFlyover } from "@/app/block/durable-session-flyover";
 import { getBlockBadgeAtom } from "@/app/store/badge";
@@ -409,14 +409,11 @@ const BlockFrame_Header = ({
     const waveEnv = useWaveEnv<BlockEnv>();
     const metaView = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "view"));
     const metaFrameTitle = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:title"));
-    const metaFrameIcon = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:icon"));
     const metaConnection = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "connection"));
     let viewName = util.useAtomValueSafe(viewModel?.viewName) ?? blockViewToName(metaView);
-    let viewIconUnion = util.useAtomValueSafe(viewModel?.viewIcon) ?? blockViewToIcon(metaView);
     const preIconButton = util.useAtomValueSafe(viewModel?.preIconButton);
     const useTermHeader = util.useAtomValueSafe(viewModel?.useTermHeader);
     const termConfigedDurable = util.useAtomValueSafe(viewModel?.termConfigedDurable);
-    const hideViewName = util.useAtomValueSafe(viewModel?.hideViewName);
     const headerTop = util.useAtomValueSafe(viewModel?.headerTop);
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
@@ -426,11 +423,9 @@ const BlockFrame_Header = ({
     const settingsPanelRef = React.useRef<HTMLDivElement>(null);
     const settingsPanelId = React.useId();
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
-    const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
     const isTerminalBlock = metaView === "term";
     viewName = metaFrameTitle ?? viewName;
-    viewIconUnion = metaFrameIcon ?? viewIconUnion;
     const surfaceLabel = getSurfaceChromeLabel(metaView, viewName);
     const surfaceName = getSurfaceChromeName(metaView);
 
@@ -478,8 +473,6 @@ const BlockFrame_Header = ({
         };
     }, [settingsPanelOpen]);
 
-    const viewIconElem = getViewIconElem(viewIconUnion, iconColor);
-
     const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) =>
         handleHeaderContextMenu(event, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView);
 
@@ -503,10 +496,6 @@ const BlockFrame_Header = ({
                 {!useTermHeader && preIconButton && (
                     <IconButton decl={preIconButton} className="block-frame-widget-action block-frame-preicon-button" />
                 )}
-                <div className="block-frame-surface-identity" title={`${surfaceLabel} surface`}>
-                    {viewIconElem}
-                    <span className={cn("block-frame-surface-name", hideViewName && "is-compact")}>{surfaceLabel}</span>
-                </div>
                 {manageConnection && (
                     <ConnectionButton
                         ref={connBtnRef}

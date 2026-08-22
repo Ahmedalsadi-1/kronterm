@@ -32,6 +32,8 @@ interface VTabProps {
     onDragEnd: () => void;
     onHoverChanged?: (isHovered: boolean) => void;
     renameRef?: React.RefObject<(() => void) | null>;
+    compact?: boolean;
+    compactIndex?: number;
 }
 
 export function VTab({
@@ -50,6 +52,8 @@ export function VTab({
     onDragEnd,
     onHoverChanged,
     renameRef,
+    compact = false,
+    compactIndex,
 }: VTabProps) {
     const [originalName, setOriginalName] = useState(tab.name);
     const [isEditable, setIsEditable] = useState(false);
@@ -168,51 +172,62 @@ export function VTab({
             }}
             role="tab"
             aria-selected={active}
+            aria-label={compact ? tab.name || "Workspace tab" : undefined}
+            title={compact ? tab.name || "Workspace tab" : undefined}
             tabIndex={0}
             className={cn(
                 "vtab-item group relative flex h-9 w-full shrink-0 cursor-pointer items-center pl-3 text-xs transition-colors select-none",
                 "whitespace-nowrap",
+                compact && "is-compact justify-center px-0",
                 active ? "text-primary" : isReordering ? "text-secondary" : "text-secondary hover:text-primary",
                 isDragging && "opacity-50"
             )}
         >
             {active && <div className="vtab-item-active-surface" />}
             {!active && !isReordering && <div className="vtab-item-hover-surface" />}
-            {!badges?.length && !flagColor && (
+            {compact ? (
+                <span className="vtab-item-number" aria-hidden="true">
+                    {compactIndex}
+                </span>
+            ) : !badges?.length && !flagColor ? (
                 <i
                     className={`fa-solid ${active ? "fa-folder-open" : "fa-folder"} vtab-item-icon`}
                     aria-hidden="true"
                 />
-            )}
+            ) : null}
             <div
                 className={cn(
                     "pointer-events-none absolute bottom-0 left-[5%] right-[5%] h-px bg-border/70",
                     !showDivider && "opacity-0"
                 )}
             />
-            <TabBadges
-                badges={badges}
-                flagColor={flagColor}
-                className="mr-1 min-w-[16px] shrink-0 static top-auto left-auto z-auto h-[16px] w-auto translate-y-0 justify-start px-[2px] py-[1px] [&_i]:text-[10px]"
-            />
-            <div
-                ref={editableRef}
-                className={cn(
-                    "vtab-item-name min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap transition-[padding-right] pr-3",
-                    onClose && !isReordering && "group-hover:pr-6",
-                    isEditable && "rounded-[2px] bg-white/15 outline-none"
-                )}
-                contentEditable={isEditable}
-                role="textbox"
-                aria-label="Tab name"
-                aria-readonly={!isEditable}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                suppressContentEditableWarning={true}
-            >
-                {tab.name}
-            </div>
-            {onClose && (
+            {!compact && (
+                <TabBadges
+                    badges={badges}
+                    flagColor={flagColor}
+                    className="mr-1 min-w-[16px] shrink-0 static top-auto left-auto z-auto h-[16px] w-auto translate-y-0 justify-start px-[2px] py-[1px] [&_i]:text-[10px]"
+                />
+            )}
+            {!compact && (
+                <div
+                    ref={editableRef}
+                    className={cn(
+                        "vtab-item-name min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap transition-[padding-right] pr-3",
+                        onClose && !isReordering && "group-hover:pr-6",
+                        isEditable && "rounded-[2px] bg-white/15 outline-none"
+                    )}
+                    contentEditable={isEditable}
+                    role="textbox"
+                    aria-label="Tab name"
+                    aria-readonly={!isEditable}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    suppressContentEditableWarning={true}
+                >
+                    {tab.name}
+                </div>
+            )}
+            {onClose && !compact && (
                 <button
                     type="button"
                     className={cn(
