@@ -63,6 +63,7 @@ import { handleCtrlShiftState } from "./emain-util";
 import { getWaveVersion } from "./emain-wavesrv";
 import { createNewWaveWindow, getWaveWindowByWebContentsId } from "./emain-window";
 import { ElectronWshClient } from "./emain-wsh";
+import { HermesRuntime } from "./hermes-runtime";
 import {
     isKronosCodeLoopbackUrl,
     KronosCodeRuntime,
@@ -272,6 +273,7 @@ export function initIpcHandlers() {
         broadcastKronosCodeEvent("kronoscode-boot-progress", payload)
     );
     KronosCodeRuntime.on("exit", (payload) => broadcastKronosCodeEvent("kronoscode-exit", payload));
+    HermesRuntime.on("connection", (payload) => broadcastKronosCodeEvent("hermes-connection", payload));
     electron.ipcMain.on("desktop-pet-options", (_event, options) => {
         updateDesktopPetOptions(options ?? {});
     });
@@ -1051,6 +1053,10 @@ export function initIpcHandlers() {
 
     electron.ipcMain.handle("kronoscode-get-connection", async () => {
         return KronosCodeRuntime.ensure();
+    });
+
+    electron.ipcMain.handle("hermes-get-connection", async () => {
+        return HermesRuntime.ensure();
     });
 
     electron.ipcMain.handle("kronoscode-revalidate-connection", async () => {

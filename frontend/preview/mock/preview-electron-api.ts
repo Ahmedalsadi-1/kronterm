@@ -344,6 +344,8 @@ const previewElectronApi: ElectronApi = {
     chathubv2Start: startPreviewChatHubV2,
     chathubv2Status: getPreviewChatHubV2Status,
     chathubv2Stop: () => Promise.resolve({ success: true }),
+    hermesGetConnection: () => Promise.reject(new Error("Hermes is only available in the Electron app")),
+    onHermesConnection: () => () => {},
     kronoscodeGetConnection: () =>
         Promise.resolve({
             mode: "managed" as const,

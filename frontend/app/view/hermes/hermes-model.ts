@@ -1,7 +1,13 @@
 import { BlockNodeModel } from "@/app/block/blocktypes";
 import { WOS } from "@/store/global";
 import * as jotai from "jotai";
-import { HermesView } from "./hermes";
+import { createElement, lazy, Suspense } from "react";
+
+const LazyHermesView = lazy(async () => ({ default: (await import("./hermes")).HermesView }));
+
+function HermesLazyView(props: ViewComponentProps<HermesViewModel>) {
+    return createElement(Suspense, { fallback: null }, createElement(LazyHermesView, props));
+}
 
 export class HermesViewModel implements ViewModel {
     viewType: string;
@@ -24,7 +30,7 @@ export class HermesViewModel implements ViewModel {
     }
 
     get viewComponent(): ViewComponent {
-        return HermesView;
+        return HermesLazyView;
     }
 
     giveFocus(): boolean {

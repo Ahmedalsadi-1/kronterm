@@ -103,6 +103,13 @@ declare global {
         health?: ChatHubV2RuntimeHealth;
     };
 
+    type HermesConnectionDescriptor = {
+        baseUrl: string;
+        wsUrl: string;
+        token: string;
+        pid: number;
+    };
+
     type KronosCodeConnectionDescriptor = {
         mode: "managed" | "external";
         baseUrl: string;
@@ -468,6 +475,8 @@ declare global {
             health?: ChatHubV2RuntimeHealth;
         }>;
         chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
+        hermesGetConnection: () => Promise<HermesConnectionDescriptor>; // hermes-get-connection
+        onHermesConnection: (callback: (connection: HermesConnectionDescriptor) => void) => () => void; // hermes-connection
         kronoscodeGetConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-get-connection
         kronoscodeRevalidateConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-revalidate-connection
         kronoscodeTouchBackend: () => Promise<boolean>; // kronoscode-touch-backend

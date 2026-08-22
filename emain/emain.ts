@@ -58,6 +58,7 @@ import {
     WaveBrowserWindow,
 } from "./emain-window";
 import { ElectronWshClient, initElectronWshClient } from "./emain-wsh";
+import { HermesRuntime } from "./hermes-runtime";
 import { KronosCodeRuntime } from "./kronoscode-runtime";
 import { getLaunchSettings } from "./launchsettings";
 import { configureAutoUpdater, updater } from "./updater";
@@ -296,6 +297,7 @@ electronApp.on("before-quit", (e) => {
     setGlobalIsQuitting(true);
     void stopAllAgentManagers();
     stopChatHubV2Server();
+    HermesRuntime.stop();
     KronosCodeRuntime.stop();
     stopAllLanguageServers();
     stopKrondesignDaemon();
@@ -414,6 +416,13 @@ async function appMain() {
     }
     configureAuthKeyRequestInjection(electron.session.defaultSession);
     initIpcHandlers();
+    fireAndForget(async () => {
+        try {
+            await HermesRuntime.ensure();
+        } catch (error) {
+            console.log("background Hermes startup failed", error);
+        }
+    });
 
     await sleep(10); // wait a bit for wavesrv to be ready
     try {

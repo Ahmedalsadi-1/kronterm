@@ -129,6 +129,12 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.invoke("chathubv2-start", context),
     chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
     chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
+    hermesGetConnection: () => ipcRenderer.invoke("hermes-get-connection"),
+    onHermesConnection: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: HermesConnectionDescriptor) => callback(payload);
+        ipcRenderer.on("hermes-connection", handler);
+        return () => ipcRenderer.removeListener("hermes-connection", handler);
+    },
     kronoscodeGetConnection: () => ipcRenderer.invoke("kronoscode-get-connection"),
     kronoscodeRevalidateConnection: () => ipcRenderer.invoke("kronoscode-revalidate-connection"),
     kronoscodeTouchBackend: () => ipcRenderer.invoke("kronoscode-touch-backend"),

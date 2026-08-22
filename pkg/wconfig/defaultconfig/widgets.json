@@ -113,17 +113,15 @@
         }
     },
     "defwidget@hermesdesktop": {
-        "display:order": 1.5,
-        "display:group": "apps",
+        "display:order": -5.45,
+        "display:group": "agents",
         "icon": "sparkles",
-        "label": "Hermes Desktop",
+        "label": "Hermes",
         "color": "#8b7cf6",
-        "description": "Open the Hermes Desktop agent UI inside KronTerm",
+        "description": "Open the native Hermes agent workspace",
         "blockdef": {
             "meta": {
-                "view": "appstream",
-                "appstream:appid": "com.nousresearch.hermes",
-                "appstream:appname": "Hermes"
+                "view": "hermes"
             }
         }
     }

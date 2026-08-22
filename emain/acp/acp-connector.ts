@@ -30,6 +30,9 @@ export async function spawnAcpAgent(
         runtimeEnv.KRONOSCODE_DISABLE_AUTOUPDATE ??= "1";
         runtimeEnv.KRONOSCODE_DISABLE_EXTERNAL_SKILLS ??= "1";
     }
+    if (backend === "hermes") {
+        runtimeEnv.HERMES_ACP_SKIP_CONFIGURED_MCP ??= "1";
+    }
     const bunBinary = path.join(process.env.HOME || "", ".bun", "bin", "bun");
     if (!runtimeEnv.BUN_BINARY && !process.env.BUN_BINARY && isExecutablePath(bunBinary)) {
         runtimeEnv.BUN_BINARY = bunBinary;
@@ -71,6 +74,21 @@ function detectKronosCodeCli(defaultCliPath?: string): string | null {
         path.join(process.cwd(), "kronoscode", "bin", "kronoscode"),
         process.env.HOME ? path.join(process.env.HOME, ".kronoscode", "bin", "kronoscode") : null,
         process.env.HOME ? path.join(process.env.HOME, "bin", "kronoscode") : null,
+        defaultCliPath,
+    ].filter((candidate): candidate is string => Boolean(candidate));
+    return candidates.find((candidate) => isExecutablePath(candidate)) ?? null;
+}
+
+function detectHermesCli(defaultCliPath?: string): string | null {
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    const executableName = process.platform === "win32" ? "hermes.exe" : "hermes";
+    const venvBinDir = process.platform === "win32" ? "Scripts" : "bin";
+    const candidates = [
+        process.env.HERMES_BIN,
+        process.env.KRONTERM_HERMES_BIN,
+        homeDir ? path.join(homeDir, ".hermes", "venvs", "kronterm-hermes", venvBinDir, executableName) : null,
+        homeDir ? path.join(homeDir, ".hermes", "bin", executableName) : null,
+        homeDir ? path.join(homeDir, ".local", "bin", executableName) : null,
         defaultCliPath,
     ].filter((candidate): candidate is string => Boolean(candidate));
     return candidates.find((candidate) => isExecutablePath(candidate)) ?? null;
@@ -128,6 +146,14 @@ export async function detectInstalledAgents(): Promise<
 
         if (id === "kronoscode") {
             const detectedCliPath = detectKronosCodeCli(config.defaultCliPath);
+            if (detectedCliPath) {
+                available = true;
+                cliPath = detectedCliPath;
+            }
+        }
+
+        if (id === "hermes") {
+            const detectedCliPath = detectHermesCli(config.defaultCliPath);
             if (detectedCliPath) {
                 available = true;
                 cliPath = detectedCliPath;
