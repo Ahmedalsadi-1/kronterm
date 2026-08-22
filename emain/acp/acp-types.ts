@@ -248,15 +248,15 @@ export const ACP_BACKENDS_ALL: Record<string, AcpBackendConfig> = {
     },
     hermes: {
         id: "hermes",
-        name: "Hermes Agent",
+        name: "KronTerm",
         cliCommand: "hermes",
         authRequired: true,
         enabled: true,
         supportsStreaming: false,
         acpArgs: ["acp"],
         skillsDirs: [".hermes/skills"],
-        avatar: "✦",
-        description: "Nous Research Hermes Agent",
+        avatar: "◎",
+        description: "Primary KronTerm agent harness",
     },
     snow: {
         id: "snow",

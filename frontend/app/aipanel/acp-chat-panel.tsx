@@ -156,6 +156,16 @@ function buildAcpMcpSessionServer(serverId: string, server: MCPConfig | undefine
 
 const fallbackAgents: AcpBackendInfo[] = [
     {
+        backend: "hermes",
+        name: "KronTerm",
+        cliPath: "hermes",
+        available: false,
+        avatar: "◎",
+        description: "Primary KronTerm agent harness",
+        acpArgs: ["acp"],
+        skillsDirs: [".hermes/skills"],
+    },
+    {
         backend: "kronoscode",
         name: "KronosCode",
         cliPath: "kronoscode",
@@ -185,7 +195,7 @@ const fallbackAgents: AcpBackendInfo[] = [
     },
 ];
 
-const DefaultEnabledAgentBackends = ["kronoscode"];
+const DefaultEnabledAgentBackends = ["hermes"];
 const EnabledAgentBackendsSettingsKey = "acp:enabledagentbackends" as keyof SettingsType;
 const KronosDirectEndpoint = "http://127.0.0.1:4096";
 const DefaultKronosCodeAgents: KronAgentOption[] = [
@@ -352,7 +362,7 @@ const RuntimeAgentPicker = memo(
         onConfigure: () => void;
     }) => {
         const [open, setOpen] = useState(false);
-        const selected = selectedAgent ?? agents.find((agent) => agent.backend === "kronoscode") ?? agents[0] ?? null;
+        const selected = selectedAgent ?? agents.find((agent) => agent.backend === "hermes") ?? agents[0] ?? null;
 
         return (
             <div className="relative">
@@ -673,7 +683,7 @@ const AgentLibraryPopup = memo(
                 <div className="min-h-0 overflow-y-auto p-2">
                     {agents.map((agent) => {
                         const enabled = enabledBackends.includes(agent.backend);
-                        const locked = agent.backend === "kronoscode";
+                        const locked = agent.backend === "hermes";
                         return (
                             <button
                                 type="button"
@@ -1009,7 +1019,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const storedGitIdentities = useAtomValue(getSettingsKeyAtom("acp:gitidentities")) ?? {};
     const storedEnabledAgentBackends =
         useAtomValue(getSettingsKeyAtom(EnabledAgentBackendsSettingsKey)) ?? DefaultEnabledAgentBackends;
-    const defaultBackend = useAtomValue(getSettingsKeyAtom("acp:defaultbackend")) ?? "kronoscode";
+    const defaultBackend = useAtomValue(getSettingsKeyAtom("acp:defaultbackend")) ?? "hermes";
     const mcpEnabled = useAtomValue(getSettingsKeyAtom("mcp:enabled")) ?? false;
     const mcpServers = useAtomValue(getSettingsKeyAtom("mcp:servers")) ?? {};
     const [profileOverrides, setProfileOverrides] = useState<Record<string, AcpAgentProfile>>({});
@@ -1115,11 +1125,11 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         const configured = Array.isArray(storedEnabledAgentBackends)
             ? (storedEnabledAgentBackends as string[]).filter(Boolean)
             : DefaultEnabledAgentBackends;
-        return Array.from(new Set(["kronoscode", ...configured]));
+        return Array.from(new Set(["hermes", ...configured]));
     }, [storedEnabledAgentBackends]);
     const pickerAgents = useMemo(() => {
         const enabled = agents.filter((agent) => enabledAgentBackends.includes(agent.backend));
-        return enabled.length ? enabled : agents.filter((agent) => agent.backend === "kronoscode");
+        return enabled.length ? enabled : agents.filter((agent) => agent.backend === "hermes");
     }, [agents, enabledAgentBackends]);
     const composerSuggestions = useMemo(
         () =>
@@ -1232,10 +1242,10 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 const visibleNextAgents = nextAgents.filter((agent) => enabledAgentBackends.includes(agent.backend));
                 const preferred =
                     visibleNextAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-                    visibleNextAgents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
+                    visibleNextAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
                     visibleNextAgents.find((agent) => agent.available) ??
                     visibleNextAgents[0] ??
-                    nextAgents.find((agent) => agent.backend === "kronoscode") ??
+                    nextAgents.find((agent) => agent.backend === "hermes") ??
                     null;
                 setSelectedAgent(preferred);
                 setAgentsLoaded(true);
@@ -1298,7 +1308,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         }
         const preferred =
             pickerAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-            pickerAgents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
+            pickerAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
             pickerAgents.find((agent) => agent.available);
         if (!preferred) {
             return;
@@ -1523,19 +1533,19 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     };
 
     const handleToggleAgentEnabled = (backend: string) => {
-        if (backend === "kronoscode") {
+        if (backend === "hermes") {
             return;
         }
         const next = enabledAgentBackends.includes(backend)
             ? enabledAgentBackends.filter((candidate) => candidate !== backend)
             : [...enabledAgentBackends, backend];
-        const normalized = Array.from(new Set(["kronoscode", ...next]));
+        const normalized = Array.from(new Set(["hermes", ...next]));
         void rpc.SetConfigCommand(TabRpcClient, {
             [EnabledAgentBackendsSettingsKey]: normalized,
         } as Partial<SettingsType>);
         if (selectedAgent?.backend === backend && !normalized.includes(backend)) {
-            const kronoscodeAgent = agents.find((agent) => agent.backend === "kronoscode") ?? null;
-            setSelectedAgent(kronoscodeAgent);
+            const hermesAgent = agents.find((agent) => agent.backend === "hermes") ?? null;
+            setSelectedAgent(hermesAgent);
         }
     };
 
@@ -1613,7 +1623,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         async (workspace?: string) => {
             const defaultAgent =
                 pickerAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-                pickerAgents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
+                pickerAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
                 pickerAgents.find((agent) => agent.available);
             if (!defaultAgent) return;
             setSelectedAgent(defaultAgent);
@@ -1880,7 +1890,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] transition-colors hover:bg-[#22211f]"
                                 aria-label="Show project rail"
                             >
-                                <AcpAgentMark backend="kronoscode" className="h-5 w-5" />
+                                <AcpAgentMark backend="hermes" className="h-5 w-5" />
                             </button>
                         ) : null}
                         <button
@@ -2058,7 +2068,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                             />
                             {state.status === "running" ? (
                                 <TypingIndicator
-                                    agentBackend={selectedAgent?.backend ?? state.backend ?? "kronoscode"}
+                                    agentBackend={selectedAgent?.backend ?? state.backend ?? "hermes"}
                                     detail={
                                         liveSurfaceActivity?.detail ??
                                         (liveSurfaceActivity?.action ? `${liveSurfaceActivity.action}` : "Working")
