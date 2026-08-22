@@ -1,6 +1,7 @@
 import { uxCloseBlock } from "@/app/store/keymodel";
 import { getApi, refocusNode } from "@/store/global";
 import { makeIconClass } from "@/util/util";
+import { markKronTermWidgetHost } from "@hermes/lib/kronterm-host";
 import { useAtomValue } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { configureHermesDesktopShim, installHermesDesktopShim } from "./hermes-desktop-shim";
@@ -18,6 +19,7 @@ let shimInstalled = false;
 const LazyHermesApp = lazy(async () => ({ default: (await import("./hermes-app")).HermesApp }));
 
 function ensureShim(): void {
+    markKronTermWidgetHost();
     if (shimInstalled) {
         return;
     }

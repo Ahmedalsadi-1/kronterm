@@ -27,6 +27,7 @@ import { RemoteDisplayBanner } from '@hermes/components/remote-display-banner'
 import { emitGatewayEvent } from '@hermes/contrib/events'
 import { getLatestSessionMessages } from '@hermes/hermes'
 import { type ChatMessage, chatMessageText, preserveLocalAssistantErrors, toChatMessages } from '@hermes/lib/chat-messages'
+import { isKronTermWidgetHost } from '@hermes/lib/kronterm-host'
 import { isMessagingSource } from '@hermes/lib/session-source'
 import { latestSessionTodos } from '@hermes/lib/todos'
 import { activateWakeIndicator } from '@hermes/lib/wake-indicator'
@@ -1155,7 +1156,9 @@ export function ContribWiring({ children }: { children: ReactNode }) {
 
       {/* Single persistent xterm host chasing the terminal pane's slot rect.
           The HUD has no terminal pane, so it has nothing to chase. */}
-      {!isHudWindow() && <PersistentTerminal onAddSelectionToChat={composer.addTerminalSelectionAttachment} />}
+      {!isHudWindow() && !isKronTermWidgetHost() && (
+        <PersistentTerminal onAddSelectionToChat={composer.addTerminalSelectionAttachment} />
+      )}
     </ContribWiringContext.Provider>
   )
 }

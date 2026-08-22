@@ -12,6 +12,7 @@ import { GlyphSpinner } from '@hermes/components/ui/glyph-spinner'
 import { useI18n } from '@hermes/i18n'
 import { displayPath, pathLeaf } from '@hermes/lib/display-path'
 import { Activity, AlertCircle, Clock, Command, FolderOpen, Globe, Hash, Loader2, Terminal } from '@hermes/lib/icons'
+import { isKronTermWidgetHost } from '@hermes/lib/kronterm-host'
 import type { RuntimeReadinessResult } from '@hermes/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@hermes/lib/statusbar'
 import { useStoreSelector } from '@hermes/lib/use-session-slice'
@@ -585,7 +586,7 @@ export function useStatusbarItems({
       {
         actionId: 'view.showTerminal',
         className: `w-7 justify-center px-0${terminalShowing ? ' bg-accent/55 text-foreground' : ''}`,
-        hidden: !chatOpen,
+        hidden: !chatOpen || isKronTermWidgetHost(),
         icon: <Terminal className="size-3.5" />,
         id: 'terminal',
         onSelect: () => togglePaneVisible('terminal'),

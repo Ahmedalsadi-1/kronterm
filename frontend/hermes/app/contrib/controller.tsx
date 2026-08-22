@@ -40,6 +40,7 @@ import { discoverRuntimePlugins } from '@hermes/contrib/runtime-loader'
 import { NEW_SESSION_TITLE, sessionTitle as storedSessionTitle } from '@hermes/lib/chat-runtime'
 import { Download, FileText, LayoutDashboard, PanelBottom, Terminal, Upload, Zap } from '@hermes/lib/icons'
 import { type KeybindContribution, KEYBINDS_AREA } from '@hermes/lib/keybinds/actions'
+import { isKronTermWidgetHost } from '@hermes/lib/kronterm-host'
 import { setYoloEnabled } from '@hermes/lib/yolo-session'
 import { pruneComposerPopoutZones } from '@hermes/store/composer-popout'
 import {
@@ -176,6 +177,7 @@ registry.registerMany([
     id: 'terminal',
     area: 'panes',
     title: 'terminal',
+    enabled: !isKronTermWidgetHost(),
     // revealOnPreset: choosing a layout that places the terminal (e.g.
     // "Terminal deck") turns takeover on so the zone actually shows, instead of
     // staying collapsed behind the ⌃` toggle. height sizes the fixed track (a
@@ -347,29 +349,45 @@ registry.registerMany([
 // each one directly beside the file tree wherever that currently lives — so a
 // file double-click still slides a preview open as its own pane next to the
 // tree, never as a tab stacked into the files sidebar.
-const DEFAULT_TREE = split(
-  'row',
-  [
-    group(['sessions'], { id: 'grp-sessions' }),
-    group(['workspace'], { id: 'grp-main' }),
-    split(
-      'column',
+const DEFAULT_TREE = isKronTermWidgetHost()
+  ? split(
+      'row',
       [
+        group(['sessions'], { id: 'grp-sessions' }),
+        group(['workspace'], { id: 'grp-main' }),
         split(
           'row',
           [group(['review'], { id: 'grp-review' }), group(['files'], { id: 'grp-files' })],
           [1, 1.2],
           'spl-rail'
-        ),
-        group(['terminal'], { id: 'grp-terminal' })
+        )
       ],
-      [1.6, 1],
-      'spl-right'
+      [1, 3.4, 1.25],
+      'spl-root'
     )
-  ],
-  [1, 3.4, 1.25],
-  'spl-root'
-)
+  : split(
+      'row',
+      [
+        group(['sessions'], { id: 'grp-sessions' }),
+        group(['workspace'], { id: 'grp-main' }),
+        split(
+          'column',
+          [
+            split(
+              'row',
+              [group(['review'], { id: 'grp-review' }), group(['files'], { id: 'grp-files' })],
+              [1, 1.2],
+              'spl-rail'
+            ),
+            group(['terminal'], { id: 'grp-terminal' })
+          ],
+          [1.6, 1],
+          'spl-right'
+        )
+      ],
+      [1, 3.4, 1.25],
+      'spl-root'
+    )
 
 const FOCUS_TREE = split('row', [group(['sessions']), group(['workspace', 'files', 'review', 'terminal'])], [1, 4.6])
 
@@ -394,8 +412,15 @@ const QUAD_TREE = split(
 registry.registerMany([
   { id: 'default', area: 'layouts', title: 'Default', order: 0, data: DEFAULT_TREE },
   { id: 'focus', area: 'layouts', title: 'Focus', order: 10, data: FOCUS_TREE },
-  { id: 'terminal-deck', area: 'layouts', title: 'Terminal deck', order: 20, data: TERMINAL_TREE },
-  { id: 'quad', area: 'layouts', title: 'Quad', order: 30, data: QUAD_TREE }
+  {
+    id: 'terminal-deck',
+    area: 'layouts',
+    title: 'Terminal deck',
+    order: 20,
+    enabled: !isKronTermWidgetHost(),
+    data: TERMINAL_TREE
+  },
+  { id: 'quad', area: 'layouts', title: 'Quad', order: 30, enabled: !isKronTermWidgetHost(), data: QUAD_TREE }
 ])
 
 declareDefaultTree(DEFAULT_TREE)
@@ -708,6 +733,7 @@ function TitlebarSlot({ area, className, style }: TitlebarSlotProps) {
 export function ContribController() {
   const sidebarOpen = useStore($sidebarOpen)
   const statusbarVisible = useStore($statusbarVisible)
+  const widgetHost = isKronTermWidgetHost()
 
   // HUD mode is the SAME app with its frame removed: the wiring (gateway,
   // sessions, streams, submit) mounts identically, and only the shell around
@@ -723,7 +749,7 @@ export function ContribController() {
 
   return (
     <SidebarProvider
-      className="h-screen min-h-0 flex-col bg-background"
+      className={`${widgetHost ? 'h-full' : 'h-screen'} min-h-0 flex-col bg-background`}
       onOpenChange={setSidebarOpen}
       open={sidebarOpen}
       style={{ '--sidebar-width': '100%' } as CSSProperties}
@@ -731,7 +757,7 @@ export function ContribController() {
       <ContribWiring>
         <ShellContextMenu>
           <div
-            className="flex h-screen min-h-0 w-screen flex-col bg-(--ui-bg-chrome) text-(--ui-text-primary)"
+            className={`flex ${widgetHost ? 'h-full w-full' : 'h-screen w-screen'} min-h-0 flex-col bg-(--ui-bg-chrome) text-(--ui-text-primary)`}
             style={{ '--titlebar-height': '0px' } as CSSProperties}
           >
             {/* Title bar: fixed chrome outside the grid, composable via slots.
