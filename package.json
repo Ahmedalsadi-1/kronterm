@@ -19,7 +19,7 @@
     ],
     "scripts": {
         "dev": "electron-vite dev",
-        "start": "electron-vite preview",
+        "start": "node --max-old-space-size=8192 ./node_modules/electron-vite/bin/electron-vite.js preview",
         "build:dev": "node --max-old-space-size=8192 ./node_modules/electron-vite/bin/electron-vite.js build --mode development",
         "build:prod": "node --max-old-space-size=8192 ./node_modules/electron-vite/bin/electron-vite.js build --mode production && node scripts/prepare-kronoschamber-runtime.mjs",
         "check:build-output": "node scripts/check-build-output.mjs",
