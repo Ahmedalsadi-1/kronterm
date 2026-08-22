@@ -153,9 +153,9 @@ registry.registerMany([
       collapsible: true,
       dock: { pane: 'workspace', pos: 'left' },
       revealAliases: ['chat-sidebar'],
-      width: `${SIDEBAR_DEFAULT_WIDTH}px`,
-      minWidth: `${SIDEBAR_DEFAULT_WIDTH}px`,
-      maxWidth: `${SIDEBAR_MAX_WIDTH}px`
+      width: isKronTermWidgetHost() ? '13rem' : `${SIDEBAR_DEFAULT_WIDTH}px`,
+      minWidth: isKronTermWidgetHost() ? '11rem' : `${SIDEBAR_DEFAULT_WIDTH}px`,
+      maxWidth: isKronTermWidgetHost() ? '16rem' : `${SIDEBAR_MAX_WIDTH}px`
     },
     render: () => <WiredPane part="sidebar" />
   },
@@ -166,7 +166,7 @@ registry.registerMany([
     title: NEW_SESSION_TITLE,
     data: {
       placement: 'main',
-      minWidth: '22vw',
+      minWidth: isKronTermWidgetHost() ? '28rem' : '22vw',
       tabDrag: workspaceTabDrag,
       tabWrap: wrapWorkspaceTab,
       uncloseable: true
@@ -206,9 +206,9 @@ registry.registerMany([
       collapsible: true,
       dock: { pane: 'workspace', pos: 'right' },
       revealAliases: ['file-browser'],
-      width: FILE_BROWSER_DEFAULT_WIDTH,
-      minWidth: FILE_BROWSER_MIN_WIDTH,
-      maxWidth: FILE_BROWSER_MAX_WIDTH
+      width: isKronTermWidgetHost() ? '15rem' : FILE_BROWSER_DEFAULT_WIDTH,
+      minWidth: isKronTermWidgetHost() ? '12rem' : FILE_BROWSER_MIN_WIDTH,
+      maxWidth: isKronTermWidgetHost() ? '20rem' : FILE_BROWSER_MAX_WIDTH
     },
     render: () => idle(<FilesPane />)
   },
@@ -222,9 +222,9 @@ registry.registerMany([
       placement: 'right',
       collapsible: true,
       revealAliases: [REVIEW_PANE_ID],
-      width: FILE_BROWSER_DEFAULT_WIDTH,
-      minWidth: FILE_BROWSER_MIN_WIDTH,
-      maxWidth: FILE_BROWSER_MAX_WIDTH
+      width: isKronTermWidgetHost() ? '15rem' : FILE_BROWSER_DEFAULT_WIDTH,
+      minWidth: isKronTermWidgetHost() ? '12rem' : FILE_BROWSER_MIN_WIDTH,
+      maxWidth: isKronTermWidgetHost() ? '20rem' : FILE_BROWSER_MAX_WIDTH
     },
     render: () => idle(<ReviewPaneContent />)
   }
