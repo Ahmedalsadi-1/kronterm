@@ -1,25 +1,6 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-    RiBarChartLine,
-    RiBookOpenLine,
-    RiBrainLine,
-    RiChat3Line,
-    RiCloudLine,
-    RiComputerLine,
-    RiContrastDropLine,
-    RiGitBranchLine,
-    RiGithubFill,
-    RiHistoryLine,
-    RiInformationLine,
-    RiKeyboardLine,
-    RiMicLine,
-    RiNotification3Line,
-    RiPaletteLine,
-    RiPlugLine,
-    RiTerminalBoxLine,
-} from "@remixicon/react";
 import { useAtomValue } from "jotai";
 import { memo } from "react";
 import { KronSettingsAboutContent } from "./kronsettings-about";
@@ -41,26 +22,6 @@ import { KronSettingsThemeContent } from "./kronsettings-theme";
 import { KronSettingsUsageContent } from "./kronsettings-usage";
 import { KronSettingsVisualContent } from "./kronsettings-visual";
 import { KronSettingsVoiceContent } from "./kronsettings-voice";
-
-const ICON_MAP: Record<string, React.ElementType> = {
-    theme: RiContrastDropLine,
-    visual: RiPaletteLine,
-    chat: RiChat3Line,
-    shortcuts: RiKeyboardLine,
-    sessions: RiHistoryLine,
-    git: RiGitBranchLine,
-    github: RiGithubFill,
-    notifications: RiNotification3Line,
-    voice: RiMicLine,
-    desktop: RiComputerLine,
-    agents: RiBrainLine,
-    commands: RiTerminalBoxLine,
-    skills: RiBookOpenLine,
-    mcp: RiPlugLine,
-    providers: RiCloudLine,
-    usage: RiBarChartLine,
-    about: RiInformationLine,
-};
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {
     theme: "Choose a theme preset or define your own accent color.",
@@ -139,17 +100,12 @@ const KronSettingsPage = memo(({ model }: KronSettingsPageProps) => {
     const config = SETTINGS_SECTIONS.find((s) => s.id === selectedSection);
     const title = config?.label ?? selectedSection;
     const description = SECTION_DESCRIPTIONS[selectedSection] ?? "";
-    const Icon = ICON_MAP[selectedSection];
 
     return (
         <div className="kron-settings-content" key={selectedSection}>
             <div className="kron-settings-content-inner">
                 <div className="kron-settings-content-header">
-                    <div className="kron-settings-content-eyebrow">KronTerm × KronosChamber</div>
-                    <div className="flex items-center gap-3 mb-1">
-                        {Icon && <Icon className="w-6 h-6 text-accent" />}
-                        <h1 className="kron-settings-content-title">{title}</h1>
-                    </div>
+                    <h1 className="kron-settings-content-title">{title}</h1>
                     {description && <p className="kron-settings-content-subtitle">{description}</p>}
                 </div>
                 <div className="mt-8">

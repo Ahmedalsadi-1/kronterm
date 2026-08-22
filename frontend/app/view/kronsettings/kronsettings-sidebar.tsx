@@ -77,10 +77,7 @@ const KronSettingsSidebar = memo(({ model }: KronSettingsSidebarProps) => {
                     <span className="kron-settings-brand-mark">
                         <RiSettings3Line aria-hidden="true" />
                     </span>
-                    <span>
-                        <strong>Kronos Chamber</strong>
-                        <small>Unified control center</small>
-                    </span>
+                    <strong>Settings</strong>
                 </div>
                 {groupedSections.map(({ group, sections }) => (
                     <div key={group} className="mb-6">
