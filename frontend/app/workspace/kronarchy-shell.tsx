@@ -92,6 +92,9 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
     const [layoutMode, setLayoutMode] = useState<WorkspacePresentation>(readLayoutMode);
     const [clock, setClock] = useState(() => formatClock(new Date()));
     const [online, setOnline] = useState(() => window.navigator.onLine);
+    const [addConnOpen, setAddConnOpen] = useState(false);
+    const [connValue, setConnValue] = useState("");
+    const [addingConn, setAddingConn] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
     const workspaceName = workspace?.name?.trim() || "workspace";
     const tabIds = workspace?.tabids ?? [];
@@ -121,6 +124,35 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
         await createBlock(blockDef, false, ephemeral);
         setOpen(false);
     }, []);
+
+    const openConnectionsEditor = useCallback(() => {
+        void launchWidget({ meta: { view: "waveconfig", file: "connections.json" } });
+        setAddConnOpen(false);
+    }, [launchWidget]);
+
+    const handleAddConnection = useCallback(
+        async (event: React.FormEvent) => {
+            event.preventDefault();
+            const host = connValue.trim();
+            if (!host || addingConn) {
+                return;
+            }
+            setAddingConn(true);
+            try {
+                await RpcApi.SetConnectionsConfigCommand(TabRpcClient, { host, metamaptype: {} });
+                RpcApi.ConnConnectCommand(TabRpcClient, { host }, { timeout: 60000 }).catch((error) =>
+                    console.warn("[Kronarchy] connection attempt failed", error)
+                );
+                setConnValue("");
+                setAddConnOpen(false);
+            } catch (error) {
+                console.warn("[Kronarchy] failed to save connection profile", error);
+            } finally {
+                setAddingConn(false);
+            }
+        },
+        [addingConn, connValue]
+    );
 
     const sections = useMemo<LauncherSection[]>(
         () => [
@@ -505,6 +537,13 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
 
     return (
         <>
+            {enabled && addConnOpen && (
+                <div
+                    className="kronarchy-popover-backdrop"
+                    role="presentation"
+                    onMouseDown={() => setAddConnOpen(false)}
+                />
+            )}
             {enabled && (
                 <header className={cn("kronarchy-bar", isMacOS() && "is-macos")}>
                     <div className="kronarchy-bar-section kronarchy-bar-left">
@@ -544,6 +583,51 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                         >
                             <span aria-hidden="true" /> {online ? "online" : "offline"}
                         </button>
+                        <div className="kronarchy-add-connection-wrap">
+                            <button
+                                type="button"
+                                className={cn("kronarchy-add-connection", addConnOpen && "is-open")}
+                                onClick={() => setAddConnOpen((open) => !open)}
+                                aria-label="New connection profile"
+                                aria-expanded={addConnOpen}
+                                title="New connection profile"
+                            >
+                                <span aria-hidden="true">+</span>
+                            </button>
+                            {addConnOpen && (
+                                <div
+                                    className="kronarchy-connection-pop"
+                                    role="dialog"
+                                    aria-label="New connection profile"
+                                >
+                                    <form onSubmit={(event) => void handleAddConnection(event)}>
+                                        <input
+                                            value={connValue}
+                                            onChange={(event) => setConnValue(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Escape") {
+                                                    setAddConnOpen(false);
+                                                }
+                                            }}
+                                            placeholder="user@host"
+                                            aria-label="Connection host"
+                                            autoFocus
+                                            spellCheck={false}
+                                        />
+                                        <button type="submit" disabled={!connValue.trim() || addingConn}>
+                                            {addingConn ? "…" : "Add"}
+                                        </button>
+                                    </form>
+                                    <button
+                                        type="button"
+                                        className="kronarchy-connection-pop-secondary"
+                                        onClick={openConnectionsEditor}
+                                    >
+                                        Edit connections
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <time title={new Date().toLocaleDateString()}>{clock}</time>
                     </div>
                 </header>

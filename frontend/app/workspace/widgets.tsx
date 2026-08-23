@@ -20,7 +20,7 @@ import {
 } from "@floating-ui/react";
 import clsx from "clsx";
 import { useAtom, useAtomValue } from "jotai";
-import { Boxes, ChevronRight, Settings, TriangleAlert } from "lucide-react";
+import { Boxes, ChevronRight, Settings, TriangleAlert, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import "./widgets.scss";
 
@@ -782,7 +782,24 @@ const WidgetGroupSection = memo(
 );
 WidgetGroupSection.displayName = "WidgetGroupSection";
 
-const Widgets = memo(({ position = "right", compact = false }: { position?: "left" | "right"; compact?: boolean }) => {
+type WidgetsProps = {
+    position?: "left" | "right";
+    compact?: boolean;
+    catalog?: boolean;
+    onDismiss?: () => void;
+    showCompactAddButton?: boolean;
+    compactTrailingAction?: React.ReactNode;
+};
+
+const Widgets = memo((props: WidgetsProps) => {
+    const {
+        position = "right",
+        compact = false,
+        catalog = false,
+        onDismiss,
+        showCompactAddButton = true,
+        compactTrailingAction,
+    } = props;
     const env = useWaveEnv<WidgetsEnv>();
     const fullConfig = useAtomValue(env.atoms.fullConfigAtom);
     const hasConfigErrors = useAtomValue(env.atoms.hasConfigErrors);
@@ -795,7 +812,7 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
     const featureWaveAppBuilder = fullConfig?.settings?.["feature:waveappbuilder"] ?? false;
     const widgetsMap = fullConfig?.widgets ?? {};
     const filteredWidgets = Object.fromEntries(
-        Object.entries(widgetsMap).filter(([key, widget]) => {
+        Object.entries(widgetsMap).filter(([_key, widget]) => {
             return shouldIncludeWidgetForWorkspace(widget, workspaceId);
         })
     );
@@ -909,6 +926,71 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
         return aOrder - bOrder;
     });
 
+    if (catalog) {
+        return (
+            <section className="widget-catalog" aria-label="Widget catalog">
+                <header className="widget-catalog-header">
+                    <div>
+                        <div className="widget-catalog-kicker">Launcher</div>
+                        <h2>All widgets</h2>
+                    </div>
+                    <div className="widget-catalog-header-actions">
+                        <span>{widgets.length}</span>
+                        {onDismiss && (
+                            <button type="button" onClick={onDismiss} aria-label="Close widget catalog">
+                                <X aria-hidden="true" />
+                            </button>
+                        )}
+                    </div>
+                </header>
+                <div className="widget-catalog-scroll">
+                    {sortedGroupKeys.map((groupKey) => {
+                        const groupWidgetsList = groupedWidgets.get(groupKey) ?? [];
+                        const group = DefaultWidgetGroups[groupKey] ?? { label: groupKey, order: 99 };
+                        return (
+                            <section className="widget-catalog-group" key={groupKey}>
+                                <h3>{group.label}</h3>
+                                <div className="widget-catalog-grid">
+                                    {groupWidgetsList.map((widget, index) => {
+                                        const label = getWidgetLabel(widget);
+                                        return (
+                                            <button
+                                                type="button"
+                                                className="widget-catalog-item"
+                                                key={`${groupKey}-${index}`}
+                                                onClick={() => {
+                                                    void handleWidgetSelect(widget, env);
+                                                    onDismiss?.();
+                                                }}
+                                                aria-label={`Open ${label || "widget"}`}
+                                            >
+                                                <span
+                                                    className="widget-catalog-item-icon"
+                                                    style={{ color: widget.color }}
+                                                >
+                                                    <i
+                                                        className={makeIconClass(widget.icon, true, {
+                                                            defaultIcon: "browser",
+                                                        })}
+                                                        aria-hidden="true"
+                                                    />
+                                                </span>
+                                                <span className="widget-catalog-item-copy">
+                                                    <strong>{label}</strong>
+                                                    <small>{getWidgetDescription(widget)}</small>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        );
+                    })}
+                </div>
+            </section>
+        );
+    }
+
     if (compact) {
         const primaryWidgets = getCompactPrimaryWidgets(widgets);
         const primaryWidgetSet = new Set(primaryWidgets);
@@ -935,7 +1017,9 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
                                     >
                                         <div style={{ color: widget.color }} className="text-sm">
                                             <i
-                                                className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}
+                                                className={makeIconClass(widget.icon, true, {
+                                                    defaultIcon: "browser",
+                                                })}
                                             ></i>
                                         </div>
                                         {chamber && <span>Chamber V2</span>}
@@ -943,16 +1027,60 @@ const Widgets = memo(({ position = "right", compact = false }: { position?: "lef
                                 </Tooltip>
                             );
                         })}
-                        <span className="widget-rail-compact-divider" aria-hidden="true" />
-                        <button
-                            type="button"
-                            className={clsx("widget-rail-compact-item", "is-add", compactMenuOpen && "is-active")}
-                            onClick={() => setCompactMenuOpen((open) => !open)}
-                            aria-label="Show more widgets"
-                            aria-expanded={compactMenuOpen}
-                        >
-                            <i className="fa-solid fa-plus" aria-hidden="true" />
-                        </button>
+                        {showCompactAddButton ? (
+                            <>
+                                <span className="widget-rail-compact-divider" aria-hidden="true" />
+                                <button
+                                    type="button"
+                                    className={clsx(
+                                        "widget-rail-compact-item",
+                                        "is-add",
+                                        compactMenuOpen && "is-active"
+                                    )}
+                                    onClick={() => setCompactMenuOpen((open) => !open)}
+                                    aria-label="Show more widgets"
+                                    aria-expanded={compactMenuOpen}
+                                >
+                                    <i className="fa-solid fa-plus" aria-hidden="true" />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <span className="widget-rail-compact-divider" aria-hidden="true" />
+                                {compactTrailingAction}
+                                {(env.isDev() || featureWaveAppBuilder) && (
+                                    <Tooltip content="Local WaveApps" placement="right" disable={isAppsOpen}>
+                                        <button
+                                            type="button"
+                                            ref={appsButtonRef}
+                                            className="widget-rail-compact-item"
+                                            onClick={() => setIsAppsOpen(!isAppsOpen)}
+                                            aria-label="Local WaveApps"
+                                        >
+                                            <Boxes className="widget-rail-compact-icon" />
+                                        </button>
+                                    </Tooltip>
+                                )}
+                                <Tooltip
+                                    content={<SettingsTooltipContent hasConfigErrors={hasConfigErrors} />}
+                                    placement="right"
+                                    disable={isSettingsOpen}
+                                >
+                                    <button
+                                        type="button"
+                                        ref={settingsButtonRef}
+                                        className="widget-rail-compact-item"
+                                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                        aria-label="Settings and help"
+                                    >
+                                        <span className="relative">
+                                            <Settings className="widget-rail-compact-icon" />
+                                            {hasConfigErrors && <TriangleAlert className="widget-rail-error-icon" />}
+                                        </span>
+                                    </button>
+                                </Tooltip>
+                            </>
+                        )}
                     </div>
                     {compactMenuOpen && (
                         <div className="widget-rail-compact-menu" role="menu" aria-label="More widgets">

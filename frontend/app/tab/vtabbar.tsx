@@ -11,6 +11,7 @@ import { SidePanelMode, WorkspaceLayoutModel } from "@/app/workspace/workspace-l
 import { validateCssColor } from "@/util/color-validator";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
+import { Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
@@ -20,40 +21,6 @@ import "./vtabbar.scss";
 import { VTabBarEnv } from "./vtabbarenv";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 export type { VTabItem } from "./vtab";
-
-const VTabBarWidgetButton = memo(() => {
-    const env = useWaveEnv<VTabBarEnv>();
-    const layoutModel = WorkspaceLayoutModel.getInstance();
-    const widgetsPanelVisible = useAtomValue(layoutModel.widgetsPanelVisibleAtom);
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
-
-    const onClick = () => {
-        layoutModel.toggleWidgetsPanel();
-    };
-
-    if (hideAiButton) {
-        return null;
-    }
-
-    return (
-        <Tooltip
-            content={widgetsPanelVisible ? "Hide widget launcher" : "Open widget launcher"}
-            placement="right"
-            hideOnClick
-        >
-            <button
-                type="button"
-                className={`vtab-header-action ${widgetsPanelVisible ? "is-active" : ""}`}
-                onClick={onClick}
-                aria-label={widgetsPanelVisible ? "Hide widget launcher" : "Open widget launcher"}
-                aria-pressed={widgetsPanelVisible}
-            >
-                <i className="fa-solid fa-grid-2" />
-            </button>
-        </Tooltip>
-    );
-});
-VTabBarWidgetButton.displayName = "VTabBarWidgetButton";
 
 const SidePanelModeButton = memo(() => {
     const layoutModel = WorkspaceLayoutModel.getInstance();
@@ -120,7 +87,6 @@ const VTabBarHeader = memo(() => {
                     </Tooltip>
                 </div>
                 <div className="vtab-header-actions">
-                    <VTabBarWidgetButton />
                     <UpdateStatusBanner />
                 </div>
             </div>
@@ -386,21 +352,20 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                     <span>Workspace tabs</span>
                     <span className="vtab-section-count">{orderedTabIds.length}</span>
                 </div>
-                <Tooltip content={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"} placement="right">
+                <Tooltip content="New workspace tab" placement="right">
                     <button
                         type="button"
-                        className={cn("vtab-section-action", widgetsPanelVisible && "is-active")}
-                        onClick={() => layoutModel.toggleWidgetsPanel()}
-                        aria-label={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
-                        aria-pressed={widgetsPanelVisible}
+                        className="vtab-section-action is-new-tab"
+                        onClick={() => env.electron.createTab()}
+                        aria-label="New workspace tab"
                     >
-                        <i className="fa-solid fa-plus" />
+                        <Plus aria-hidden="true" />
                     </button>
                 </Tooltip>
             </div>
             <div
                 ref={scrollContainerRef}
-                className="vtab-scroll-region relative flex min-h-0 flex-col overflow-y-auto"
+                className="vtab-scroll-region relative flex min-h-0 flex-1 flex-col overflow-y-auto"
                 role="tablist"
                 aria-label="Workspace tabs"
                 onDragOver={(event) => {
@@ -431,7 +396,9 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             key={`${tabId}:${hoverResetVersion}`}
                             tabId={tabId}
                             active={isActive}
-                            showDivider={!isActive && !isNextActive && !isHovered && !isNextHovered && !isLast}
+                            showDivider={
+                                !compact && !isActive && !isNextActive && !isHovered && !isNextHovered && !isLast
+                            }
                             isDragging={dragTabId === tabId}
                             isReordering={dragTabId != null}
                             hoverResetVersion={hoverResetVersion}
@@ -484,7 +451,27 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                     />
                 )}
             </div>
-            <Widgets compact />
+            <Widgets
+                compact
+                showCompactAddButton={false}
+                compactTrailingAction={
+                    <Tooltip
+                        content={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
+                        placement="right"
+                        hideOnClick
+                    >
+                        <button
+                            type="button"
+                            className={cn("widget-rail-compact-item", widgetsPanelVisible && "is-active")}
+                            onClick={() => layoutModel.toggleWidgetsPanel()}
+                            aria-label={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
+                            aria-pressed={widgetsPanelVisible}
+                        >
+                            <Plus className="widget-rail-compact-icon" aria-hidden="true" />
+                        </button>
+                    </Tooltip>
+                }
+            />
             <SidePanelModeButton />
         </div>
     );

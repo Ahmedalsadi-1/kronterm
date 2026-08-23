@@ -37,9 +37,9 @@
     }
 
     .vtab-section-header {
-        height: 34px;
+        height: 42px;
         justify-content: center;
-        padding: 0;
+        padding: 3px 0;
     }
 
     .vtab-section-title {
@@ -127,11 +127,6 @@
         height: 1px;
         flex: 0 0 1px;
         margin: 2px 0;
-    }
-
-    .widget-rail-compact-divider,
-    .widget-rail-compact-item.is-add {
-        display: none;
     }
 
     .widget-rail-compact-menu {
@@ -279,6 +274,18 @@
     width: 24px;
     height: 24px;
     font-size: 10px;
+
+    svg {
+        width: 14px;
+        height: 14px;
+        stroke-width: 2.4;
+    }
+}
+
+.vtab-navigation.is-compact .vtab-section-action.is-new-tab {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
 }
 
 .vtab-scroll-region {
@@ -342,7 +349,6 @@
 
 .vtab-footer-action {
     display: flex;
-    width: 100%;
     min-height: 34px;
     flex-shrink: 0;
     cursor: pointer;
@@ -370,13 +376,5 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-    }
-}
-
-@media (max-width: 900px) {
-    .vtab-navigation-header .workspace-switcher-name,
-    .vtab-navigation-header .workspace-switcher-chevron,
-    .vtab-footer-action span {
-        display: none;
     }
 }
