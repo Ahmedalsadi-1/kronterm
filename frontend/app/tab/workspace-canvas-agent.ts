@@ -54,6 +54,8 @@ export type CanvasComposerContextNode = {
 
 const AgentCardWidth = 320;
 const AgentCardHeight = 172;
+const AgentEvidenceWidth = 360;
+const AgentEvidenceHeight = 228;
 const MaxReasoningSteps = 20;
 const SurfaceActionIds = new Set<AgentActivityAction>([
     "move",
@@ -195,13 +197,19 @@ export function resolveAgentActivityContextIds(
         const leaves = runCards.filter((card) => !referencedIds.has(card.id));
         return (leaves.length > 0 ? leaves : runCards.slice(0, 1)).map((card) => card.id);
     }
-    if (nodeKind === "action" || nodeKind === "evidence" || nodeKind === "approval") {
-        const latestDecision = runCards.find((card) => card.agent.nodekind === "decision");
-        if (latestDecision) {
-            return [latestDecision.id];
+    const latestRunCard = runCards.reduce((latest, card) => {
+        if (card.agent.updatedts > latest.agent.updatedts) {
+            return card;
         }
+        if (card.agent.updatedts === latest.agent.updatedts && card.agent.createdts >= latest.agent.createdts) {
+            return card;
+        }
+        return latest;
+    });
+    if (nodeKind === "action" || nodeKind === "evidence" || nodeKind === "approval") {
+        return [latestRunCard.id];
     }
-    return [runCards[0].id];
+    return [latestRunCard.id];
 }
 
 function mergeReasoningSteps(existing: string[] | undefined, activity: LiveAgentSurfaceActivity): string[] | undefined {
@@ -374,3 +382,17 @@ export const WorkspaceAgentCardSize = {
     width: AgentCardWidth,
     height: AgentCardHeight,
 };
+
+export const WorkspaceAgentEvidenceSize = {
+    width: AgentEvidenceWidth,
+    height: AgentEvidenceHeight,
+};
+
+export function agentCardSizeForActivity(activity: LiveAgentSurfaceActivity): {
+    width: number;
+    height: number;
+} {
+    return nodeKindForAgentActivity(activity) === "evidence" && activity.previewimageurl
+        ? WorkspaceAgentEvidenceSize
+        : WorkspaceAgentCardSize;
+}

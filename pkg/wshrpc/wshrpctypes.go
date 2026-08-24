@@ -84,6 +84,9 @@ type WshRpcInterface interface {
 	GetBlockContentCommand(ctx context.Context, blockId string) (*CommandGetBlockContentRtnData, error)
 	DebugTermCommand(ctx context.Context, data CommandDebugTermData) (*CommandDebugTermRtnData, error)
 	BlocksListCommand(ctx context.Context, data BlocksListRequest) ([]BlocksListEntry, error)
+	WorkspaceSurfaceSnapshotCommand(ctx context.Context) (string, error)
+	WorkspaceSurfaceControlCommand(ctx context.Context, data CommandWorkspaceSurfaceControlData) (string, error)
+	WorkspaceSurfaceScreenshotCommand(ctx context.Context) (string, error)
 	WaveInfoCommand(ctx context.Context) (*WaveInfoData, error)
 	MacOSVersionCommand(ctx context.Context) (string, error)
 	WshActivityCommand(ct context.Context, data map[string]int) error
@@ -134,6 +137,7 @@ type WshRpcInterface interface {
 	// emain
 	WebSelectorCommand(ctx context.Context, data CommandWebSelectorData) ([]string, error)
 	WebEvalCommand(ctx context.Context, data CommandWebEvalData) (string, error)
+	LspQueryCommand(ctx context.Context, data CommandLspQueryData) (*CommandLspQueryRtnData, error)
 	NotifyCommand(ctx context.Context, notificationOptions WaveNotificationOptions) error
 	FocusWindowCommand(ctx context.Context, windowId string) error
 	ElectronEncryptCommand(ctx context.Context, data CommandElectronEncryptData) (*CommandElectronEncryptRtnData, error)
@@ -586,6 +590,21 @@ type CommandWebEvalData struct {
 	BlockId     string `json:"blockid"`
 	TabId       string `json:"tabid"`
 	Script      string `json:"script"`
+}
+
+type CommandLspQueryData struct {
+	WorkspacePath string `json:"workspacepath"`
+	FilePath      string `json:"filepath"`
+	Language      string `json:"language"`
+	Query         string `json:"query"`
+	Line          int    `json:"line,omitempty"`
+	Character     int    `json:"character,omitempty"`
+	MaxResults    int    `json:"maxresults,omitempty"`
+}
+
+type CommandLspQueryRtnData struct {
+	ResultJson string `json:"resultjson"`
+	Truncated  bool   `json:"truncated,omitempty"`
 }
 
 type BlockInfoData struct {
@@ -1184,6 +1203,25 @@ type WidgetScreenshotAnnotatedRtnData struct {
 
 type CommandWidgetSnapshotData struct {
 	BlockId string `json:"blockid"`
+}
+
+type CommandWorkspaceSurfaceControlData struct {
+	Action        string   `json:"action"`
+	Presentation  string   `json:"presentation,omitempty"`
+	BlockId       string   `json:"blockid,omitempty"`
+	TargetBlockId string   `json:"targetblockid,omitempty"`
+	Position      string   `json:"position,omitempty"`
+	Direction     string   `json:"direction,omitempty"`
+	Size          *float64 `json:"size,omitempty"`
+	X             *float64 `json:"x,omitempty"`
+	Y             *float64 `json:"y,omitempty"`
+	Width         *float64 `json:"width,omitempty"`
+	Height        *float64 `json:"height,omitempty"`
+	ObjectId      string   `json:"objectid,omitempty"`
+	FromObjectId  string   `json:"fromobjectid,omitempty"`
+	ToObjectId    string   `json:"toobjectid,omitempty"`
+	Text          string   `json:"text,omitempty"`
+	Color         string   `json:"color,omitempty"`
 }
 
 type WidgetSnapshotRtnData struct {

@@ -202,6 +202,13 @@ declare global {
         draftappid: string;
     };
 
+    type SystemSearchItem = {
+        kind: "file" | "folder" | "wallpaper";
+        name: string;
+        path: string;
+        detail: string;
+    };
+
     type ElectronApi = {
         getAuthKey(): string; // get-auth-key
         getIsDev(): boolean; // get-is-dev
@@ -261,6 +268,7 @@ declare global {
         saveTextFile: (fileName: string, content: string) => Promise<boolean>; // save-text-file
         selectDirectory: () => Promise<string | null>; // select-directory
         selectFiles: () => Promise<string[]>; // select-files
+        searchSystemItems: (query: string) => Promise<SystemSearchItem[]>; // search-system-items
         acpApplyGitIdentity: (opts: {
             workspace: string;
             userName: string;
@@ -475,7 +483,7 @@ declare global {
             health?: ChatHubV2RuntimeHealth;
         }>;
         chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
-        hermesGetConnection: () => Promise<HermesConnectionDescriptor>; // hermes-get-connection
+        hermesGetConnection: (context?: { tabId?: string; blockId?: string }) => Promise<HermesConnectionDescriptor>; // hermes-get-connection
         onHermesConnection: (callback: (connection: HermesConnectionDescriptor) => void) => () => void; // hermes-connection
         kronoscodeGetConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-get-connection
         kronoscodeRevalidateConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-revalidate-connection

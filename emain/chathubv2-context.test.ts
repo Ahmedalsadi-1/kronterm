@@ -48,10 +48,11 @@ describe("KronosChamber startup surface context", () => {
             KRONTERM_BLOCKID: "block-1",
             WAVETERM_BLOCKID: "block-1",
         });
-        expect(makeRuntimeTokenPayload(token)).toEqual({
+        expect(makeRuntimeTokenPayload(token, "surface-1")).toEqual({
             token: "header.payload.signature",
             tabId: "tab-1",
             blockId: "block-1",
+            surfaceId: "surface-1",
         });
     });
 });

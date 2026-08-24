@@ -162,6 +162,73 @@ const WebViewTabStrip = memo(({ model, tabs, activeTabId, left = false }: WebVie
 });
 WebViewTabStrip.displayName = "WebViewTabStrip";
 
+const WebViewBrowserChrome = memo(
+    ({ activeTabId, model, showTabs, tabs }: WebViewTabStripProps & { showTabs: boolean }) => {
+        const block = useAtomValue(model.blockAtom);
+        const currentUrl = useAtomValue(model.url);
+        const homepageUrl = useAtomValue(model.homepageUrl);
+        const canGoBack = useAtomValue(model.canGoBack);
+        const canGoForward = useAtomValue(model.canGoForward);
+        const refreshIcon = useAtomValue(model.refreshIcon);
+        const url = currentUrl ?? block?.meta?.url ?? homepageUrl ?? "";
+
+        return (
+            <div className="webview-browser-chrome">
+                {showTabs && <WebViewTabStrip model={model} tabs={tabs} activeTabId={activeTabId} />}
+                <div className="webview-navigation" role="toolbar" aria-label="Browser navigation">
+                    <button
+                        type="button"
+                        onClick={() => model.handleBack()}
+                        disabled={!canGoBack}
+                        aria-label="Back"
+                        title="Back"
+                    >
+                        <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => model.handleForward()}
+                        disabled={!canGoForward}
+                        aria-label="Forward"
+                        title="Forward"
+                    >
+                        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+                    </button>
+                    <button type="button" onClick={() => model.handleRefresh(null)} aria-label="Reload" title="Reload">
+                        <i className={`fa-solid fa-${refreshIcon}`} aria-hidden="true" />
+                    </button>
+                    <div className="webview-omnibox">
+                        <i className="fa-solid fa-shield-halved" aria-hidden="true" />
+                        <input
+                            ref={model.urlInputRef}
+                            value={url}
+                            onChange={(event) => model.handleUrlChange(event)}
+                            onKeyDown={(event) => model.handleKeyDown(event)}
+                            onFocus={(event) => model.handleFocus(event)}
+                            onBlur={(event) => model.handleBlur(event)}
+                            aria-label="Address and search"
+                            spellCheck={false}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (url) {
+                                void model.env.electron.openExternal(model.modifyExternalUrl?.(url) ?? url);
+                            }
+                        }}
+                        aria-label="Open in external browser"
+                        title="Open in external browser"
+                    >
+                        <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+);
+WebViewBrowserChrome.displayName = "WebViewBrowserChrome";
+
 // User agent strings for mobile emulation
 const USER_AGENT_IPHONE =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -313,7 +380,18 @@ export class WebViewModel implements ViewModel {
                 click: this.handleHome.bind(this),
                 disabled: this.shouldDisableHomeButton(),
             });
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: refreshIcon,
+                click: this.handleRefresh.bind(this),
+            });
             const divChildren: HeaderElem[] = [];
+            divChildren.push({
+                elemtype: "iconbutton",
+                icon: "shield-halved",
+                title: "Site information",
+                noAction: true,
+            });
             divChildren.push({
                 elemtype: "input",
                 value: url,
@@ -331,11 +409,6 @@ export class WebViewModel implements ViewModel {
                     click: this.handleMuteChange.bind(this),
                 });
             }
-            divChildren.push({
-                elemtype: "iconbutton",
-                icon: refreshIcon,
-                click: this.handleRefresh.bind(this),
-            });
             rtn.push({
                 elemtype: "div",
                 className: clsx("block-frame-div-url", urlWrapperClassName),
@@ -348,9 +421,10 @@ export class WebViewModel implements ViewModel {
 
         const tabStripPositionAtom = this.env.getSettingsKeyAtom("web:tabstripposition");
         this.headerTop = atom((get) => {
-            if (get(this.hideNav) || (get(tabStripPositionAtom) ?? "top") === "left") {
+            if (get(this.hideNav)) {
                 return null;
             }
+            const tabStripPosition = get(tabStripPositionAtom) ?? "top";
             const blockData = get(this.blockAtom);
             const meta = blockData?.meta as Record<string, any> | undefined;
             const fallbackUrl = meta?.url || get(this.homepageUrl) || "about:blank";
@@ -359,7 +433,14 @@ export class WebViewModel implements ViewModel {
             const activeTabId = tabs.some((tab) => tab.id === requestedActiveTabId)
                 ? requestedActiveTabId
                 : tabs[0]?.id;
-            return <WebViewTabStrip model={this} tabs={tabs} activeTabId={activeTabId} />;
+            return (
+                <WebViewBrowserChrome
+                    model={this}
+                    tabs={tabs}
+                    activeTabId={activeTabId}
+                    showTabs={tabStripPosition !== "left"}
+                />
+            );
         });
 
         this.endIconButtons = atom((get) => {

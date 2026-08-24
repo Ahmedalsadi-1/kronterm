@@ -137,8 +137,13 @@ describe("webview preview fallback", () => {
         });
 
         const markup = renderToStaticMarkup(<>{globalStore.get(model.headerTop)}</>);
+        const tabStripIndex = markup.indexOf("webview-tab-strip");
+        const navigationIndex = markup.indexOf("webview-navigation");
 
         expect(markup).toContain("webview-tab-strip");
+        expect(markup).toContain("webview-navigation");
+        expect(tabStripIndex).toBeGreaterThan(-1);
+        expect(navigationIndex).toBeGreaterThan(tabStripIndex);
         expect(markup).toContain("Docs");
         expect(markup).toContain('role="tablist"');
         expect(markup).toContain('role="tab"');

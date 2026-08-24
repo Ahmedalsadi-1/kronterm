@@ -5,11 +5,12 @@ import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { isWorkspacePresentation, type WorkspacePresentation } from "@/app/tab/workspace-presentation";
 import { applyThemePreset, readStoredThemePresetId } from "@/app/view/kronsettings/kronsettings-theme-presets";
-import { createBlock, setActiveTab } from "@/store/global";
+import { createBlock, getApi, setActiveTab } from "@/store/global";
 import { isMacOS } from "@/util/platformutil";
 import { cn } from "@/util/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./kronarchy-shell.scss";
+import { applyWorkspaceAppearance, readWorkspaceAppearance } from "./workspace-appearance";
 import { WorkspaceLayoutModel } from "./workspace-layout-model";
 
 const KronarchyEnabledStorageKey = "kronterm:kronarchy-enabled";
@@ -95,8 +96,10 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
     const [addConnOpen, setAddConnOpen] = useState(false);
     const [connValue, setConnValue] = useState("");
     const [addingConn, setAddingConn] = useState(false);
+    const [installedApps, setInstalledApps] = useState<InstalledAppInfo[]>([]);
+    const [systemItems, setSystemItems] = useState<SystemSearchItem[]>([]);
+    const [systemSearching, setSystemSearching] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
-    const workspaceName = workspace?.name?.trim() || "workspace";
     const tabIds = workspace?.tabids ?? [];
 
     const setKronarchyMode = useCallback((nextEnabled: boolean) => {
@@ -355,9 +358,44 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
     );
 
     const normalizedQuery = query.trim().toLowerCase();
+    const extendedSections = useMemo<LauncherSection[]>(() => {
+        if (!normalizedQuery) {
+            return sections;
+        }
+        const appItems = installedApps.map((app): LauncherItem => ({
+            id: `installed-app-${app.bundleid || app.appid}`,
+            label: app.name,
+            description: app.description || app.category || "Installed application",
+            icon: "fa-window-maximize",
+            keywords: `application app desktop ${app.category ?? ""} ${app.path}`,
+            action: () =>
+                launchWidget({
+                    meta: {
+                        view: "appstream",
+                        "appstream:appid": app.bundleid || app.appid,
+                        "appstream:appname": app.name,
+                    } as MetaType,
+                }),
+        }));
+        const nativeItems = systemItems.map((item): LauncherItem => ({
+            id: `system-${item.kind}-${item.path}`,
+            label: item.name,
+            description: item.detail,
+            icon: item.kind === "folder" ? "fa-folder" : item.kind === "wallpaper" ? "fa-image" : "fa-file-lines",
+            keywords: `${item.kind} file wallpaper background ${item.path}`,
+            action: () => launchWidget({ meta: { view: "preview", file: item.path } }),
+        }));
+        return [
+            ...sections,
+            ...(appItems.length > 0 ? [{ id: "installed-apps", label: "Computer apps", items: appItems }] : []),
+            ...(nativeItems.length > 0
+                ? [{ id: "system-files", label: "Files & wallpapers", items: nativeItems }]
+                : []),
+        ];
+    }, [installedApps, launchWidget, normalizedQuery, sections, systemItems]);
     const visibleSections = useMemo(
         () =>
-            sections
+            extendedSections
                 .map((section) => ({
                     ...section,
                     items: section.items.filter((item) =>
@@ -365,7 +403,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                     ),
                 }))
                 .filter((section) => section.items.length > 0),
-        [normalizedQuery, sections]
+        [extendedSections, normalizedQuery]
     );
     const visibleItems = useMemo(() => visibleSections.flatMap((section) => section.items), [visibleSections]);
 
@@ -373,6 +411,10 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
         document.documentElement.classList.toggle("kronarchy-mode", enabled);
         return () => document.documentElement.classList.remove("kronarchy-mode");
     }, [enabled]);
+
+    useEffect(() => {
+        applyWorkspaceAppearance(readWorkspaceAppearance());
+    }, []);
 
     useEffect(() => {
         if (enabled) {
@@ -496,6 +538,57 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
     }, [open]);
 
     useEffect(() => {
+        if (!open || installedApps.length > 0) {
+            return;
+        }
+        let cancelled = false;
+        void RpcApi.ListInstalledAppsCommand(TabRpcClient)
+            .then((apps) => {
+                if (!cancelled) {
+                    setInstalledApps(apps.sort((left, right) => left.name.localeCompare(right.name)));
+                }
+            })
+            .catch((error) => console.warn("[Kronarchy] failed to list installed apps", error));
+        return () => {
+            cancelled = true;
+        };
+    }, [installedApps.length, open]);
+
+    useEffect(() => {
+        if (!open || normalizedQuery.length < 2) {
+            setSystemItems([]);
+            setSystemSearching(false);
+            return;
+        }
+        let cancelled = false;
+        setSystemSearching(true);
+        const timeout = window.setTimeout(() => {
+            void getApi()
+                .searchSystemItems(normalizedQuery)
+                .then((items) => {
+                    if (!cancelled) {
+                        setSystemItems(items);
+                    }
+                })
+                .catch((error) => {
+                    console.warn("[Kronarchy] system search failed", error);
+                    if (!cancelled) {
+                        setSystemItems([]);
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setSystemSearching(false);
+                    }
+                });
+        }, 180);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeout);
+        };
+    }, [normalizedQuery, open]);
+
+    useEffect(() => {
         if (!open) {
             return;
         }
@@ -560,11 +653,6 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                         >
                             <span aria-hidden="true">K</span>
                         </button>
-                    </div>
-                    <div className="kronarchy-bar-title">
-                        <strong>Kronarchy</strong>
-                        <span aria-hidden="true">/</span>
-                        <span>{workspaceName}</span>
                     </div>
                     <div className="kronarchy-bar-section kronarchy-bar-right">
                         <button
@@ -656,8 +744,8 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                 ref={searchRef}
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
-                                placeholder="Type to search..."
-                                aria-label="Search widgets, settings, and layouts"
+                                placeholder="Search apps, widgets, files, wallpapers…"
+                                aria-label="Search apps, widgets, files, wallpapers, settings, and layouts"
                             />
                             <kbd>Shift + Super + Space</kbd>
                         </header>
@@ -701,7 +789,9 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                     </div>
                                 ))
                             ) : (
-                                <p className="kronarchy-launcher-empty">No matching command</p>
+                                <p className="kronarchy-launcher-empty">
+                                    {systemSearching ? "Searching your computer…" : "No matching item"}
+                                </p>
                             )}
                         </div>
                         <footer className="kronarchy-launcher-footer">
@@ -714,7 +804,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                 <i className="fa-solid fa-border-all" aria-hidden="true" />
                                 Kronarchy mode {enabled ? "on" : "off"}
                             </button>
-                            <span>Esc to close</span>
+                            <span>{systemSearching ? "Searching…" : "↑↓ move · Enter open · Esc close"}</span>
                         </footer>
                     </section>
                 </div>

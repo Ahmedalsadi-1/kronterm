@@ -14,6 +14,7 @@ import { makeIconClass } from "@/util/util";
 import { atom, useAtom, useAtomValue } from "jotai";
 import {
     ArrowUpRight,
+    Bookmark,
     Bot,
     Circle,
     Diamond,
@@ -29,6 +30,7 @@ import {
     Search,
     Square,
     StickyNote,
+    Target,
     X,
     ZoomIn,
     ZoomOut,
@@ -47,6 +49,7 @@ import {
 import { isAgentActivityActive, subscribeAgentActivityStream } from "../../types/agent-activity";
 import {
     agentActivityCardId,
+    agentCardSizeForActivity,
     makeCanvasRequestCard,
     resolveAgentActivityContextIds,
     shouldRecordAgentActivity,
@@ -64,10 +67,19 @@ import {
     WorkspaceCanvasComposerSubmitEvent,
     type WorkspaceCanvasComposerSubmit,
 } from "./workspace-canvas-context";
+import {
+    centerWorkspaceCanvasCamera,
+    findDirectionalWorkspaceCanvasRect,
+    findWorkspaceCanvasCluster,
+    snapWorkspaceCanvasRect,
+    workspaceCanvasEdgePanDelta,
+    workspaceCanvasViewportRect,
+} from "./workspace-canvas-drift";
 import { aggregateWorkspaceCanvasRuns, type WorkspaceCanvasRunAggregate } from "./workspace-canvas-task-graph";
 import {
     canvasBoundsForRects,
     clampCanvasZoom,
+    findNonOverlappingCanvasRect,
     fitCanvasCameraToBounds,
     isCanvasShortcutInteractiveTarget,
     makeViewportCenteredCanvasRect,
@@ -79,6 +91,7 @@ import {
     type WorkspaceCanvasSize,
 } from "./workspace-canvas-utils";
 import "./workspace-canvas.scss";
+import { registerWorkspaceSurfaceModeProvider } from "./workspace-surface-runtime";
 
 const DefaultCamera: WorkspaceCanvasCamera = { x: 80, y: 70, zoom: 0.9 };
 const DefaultWidgetSize: WorkspaceCanvasSize = { width: 840, height: 540 };
@@ -109,6 +122,7 @@ type WorkspaceCanvasState = {
     camera?: WorkspaceCanvasCamera;
     rects?: Record<string, WorkspaceCanvasRect>;
     objects?: WorkspaceCanvasObject[];
+    bookmarks?: Record<string, WorkspaceCanvasCamera>;
 };
 
 function widgetMenuGroup(key: string, widget: WidgetConfigType): WidgetMenuGroup {
@@ -150,6 +164,9 @@ type CanvasInteraction =
           pointerId: number;
           startClient: WorkspaceCanvasPoint;
           startCamera: WorkspaceCanvasCamera;
+          lastClient: WorkspaceCanvasPoint;
+          lastTime: number;
+          velocity: WorkspaceCanvasPoint;
       }
     | {
           kind: "create";
@@ -179,6 +196,7 @@ type CanvasNodeProps = {
     index: number;
     rect: WorkspaceCanvasRect;
     selected: boolean;
+    clustered: boolean;
     expanded: boolean;
     zoom: number;
     camera: WorkspaceCanvasCamera;
@@ -190,8 +208,14 @@ type CanvasNodeProps = {
         title: string,
         viewType: string
     ) => void;
-    onRectChange: (blockId: string, rect: WorkspaceCanvasRect) => void;
+    onRectChange: (
+        blockId: string,
+        rect: WorkspaceCanvasRect,
+        affectCluster?: boolean,
+        interaction?: "move" | "resize"
+    ) => void;
     onToggleExpand: (blockId: string) => void;
+    onEdgePan: (clientX: number, clientY: number) => WorkspaceCanvasPoint;
 };
 
 function readCanvasState(tabData: Tab): WorkspaceCanvasState {
@@ -242,6 +266,7 @@ const WorkspaceCanvasNode = memo(
         index,
         rect,
         selected,
+        clustered,
         expanded,
         zoom,
         camera,
@@ -250,9 +275,21 @@ const WorkspaceCanvasNode = memo(
         onShowContextMenu,
         onRectChange,
         onToggleExpand,
+        onEdgePan,
     }: CanvasNodeProps) => {
-        const dragStartRef = useRef<{ x: number; y: number; rect: WorkspaceCanvasRect } | null>(null);
-        const resizeStartRef = useRef<{ x: number; y: number; rect: WorkspaceCanvasRect } | null>(null);
+        const dragStartRef = useRef<{
+            x: number;
+            y: number;
+            rect: WorkspaceCanvasRect;
+            moveCluster: boolean;
+            edgeOffset: WorkspaceCanvasPoint;
+        } | null>(null);
+        const resizeStartRef = useRef<{
+            x: number;
+            y: number;
+            rect: WorkspaceCanvasRect;
+            resizeCluster: boolean;
+        } | null>(null);
         const onSelectRef = useRef(onSelect);
         const onToggleExpandRef = useRef(onToggleExpand);
         onSelectRef.current = onSelect;
@@ -315,23 +352,38 @@ const WorkspaceCanvasNode = memo(
             (event: PointerEvent) => {
                 if (dragStartRef.current) {
                     const start = dragStartRef.current;
-                    onRectChange(blockId, {
-                        ...start.rect,
-                        x: start.rect.x + (event.clientX - start.x) / zoom,
-                        y: start.rect.y + (event.clientY - start.y) / zoom,
-                    });
+                    const edgeOffset = onEdgePan(event.clientX, event.clientY);
+                    start.edgeOffset = {
+                        x: start.edgeOffset.x + edgeOffset.x,
+                        y: start.edgeOffset.y + edgeOffset.y,
+                    };
+                    onRectChange(
+                        blockId,
+                        {
+                            ...start.rect,
+                            x: start.rect.x + (event.clientX - start.x) / zoom + start.edgeOffset.x,
+                            y: start.rect.y + (event.clientY - start.y) / zoom + start.edgeOffset.y,
+                        },
+                        start.moveCluster,
+                        "move"
+                    );
                     return;
                 }
                 if (resizeStartRef.current) {
                     const start = resizeStartRef.current;
-                    onRectChange(blockId, {
-                        ...start.rect,
-                        width: Math.max(400, start.rect.width + (event.clientX - start.x) / zoom),
-                        height: Math.max(300, start.rect.height + (event.clientY - start.y) / zoom),
-                    });
+                    onRectChange(
+                        blockId,
+                        {
+                            ...start.rect,
+                            width: Math.max(400, start.rect.width + (event.clientX - start.x) / zoom),
+                            height: Math.max(300, start.rect.height + (event.clientY - start.y) / zoom),
+                        },
+                        start.resizeCluster,
+                        "resize"
+                    );
                 }
             },
-            [blockId, onRectChange, zoom]
+            [blockId, onEdgePan, onRectChange, zoom]
         );
 
         const onPointerUp = useCallback(() => {
@@ -348,7 +400,13 @@ const WorkspaceCanvasNode = memo(
             event.preventDefault();
             event.stopPropagation();
             onSelect(blockId);
-            dragStartRef.current = { x: event.clientX, y: event.clientY, rect };
+            dragStartRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+                rect,
+                moveCluster: event.shiftKey,
+                edgeOffset: { x: 0, y: 0 },
+            };
             window.addEventListener("pointermove", onPointerMove);
             window.addEventListener("pointerup", onPointerUp);
         };
@@ -360,14 +418,19 @@ const WorkspaceCanvasNode = memo(
             event.preventDefault();
             event.stopPropagation();
             onSelect(blockId);
-            resizeStartRef.current = { x: event.clientX, y: event.clientY, rect };
+            resizeStartRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+                rect,
+                resizeCluster: event.shiftKey,
+            };
             window.addEventListener("pointermove", onPointerMove);
             window.addEventListener("pointerup", onPointerUp);
         };
 
         return (
             <div
-                className={`workspace-canvas-node ${selected ? "is-selected" : ""} ${
+                className={`workspace-canvas-node ${selected ? "is-selected" : ""} ${clustered ? "is-clustered" : ""} ${
                     contextSelected ? "is-context-selected" : ""
                 } ${expanded ? "is-expanded" : ""}`}
                 style={
@@ -516,6 +579,41 @@ const CanvasObjectView = memo(
         if (object.kind === "agent") {
             const active = isAgentActivityActive(object.agent.phase);
             const reasoningSteps = object.agent.reasoningsteps?.slice(-2) ?? [];
+            if (object.agent.nodekind === "evidence" && object.agent.previewimageurl) {
+                return (
+                    <figure
+                        className={`workspace-canvas-agent-evidence ${selected ? "is-selected" : ""} ${
+                            contextSelected ? "is-context-selected" : ""
+                        }`}
+                        style={{ left: object.x, top: object.y, width: object.width, height: object.height }}
+                        tabIndex={0}
+                        aria-label={`${object.agent.title}, ${object.agent.phase}. ${object.agent.detail}`}
+                        onPointerDown={(event) => {
+                            event.stopPropagation();
+                            onSelect(object.id, event.shiftKey || event.metaKey);
+                            if (tool === "select") {
+                                onStartMove(event, object);
+                            }
+                        }}
+                        onContextMenu={(event) => onShowContextMenu(event, object)}
+                        onWheel={(event) => event.stopPropagation()}
+                    >
+                        <img
+                            src={object.agent.previewimageurl}
+                            alt={`${object.agent.title}: ${object.agent.detail}`}
+                            draggable={false}
+                        />
+                        {selected ? (
+                            <button
+                                type="button"
+                                className="workspace-canvas-object-resize"
+                                onPointerDown={(event) => onStartResize(event, object)}
+                                aria-label="Resize task evidence image"
+                            />
+                        ) : null}
+                    </figure>
+                );
+            }
             return (
                 <article
                     className={`workspace-canvas-agent-card is-${object.agent.phase} ${
@@ -888,6 +986,7 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     const viewportRef = useRef<HTMLDivElement>(null);
     const interactionRef = useRef<CanvasInteraction | null>(null);
     const persistTimerRef = useRef<number | null>(null);
+    const momentumFrameRef = useRef<number | null>(null);
     const pendingRequestRef = useRef<string | null>(null);
     const activityRunAliasesRef = useRef(new Map<string, string>());
     const removedLegacyDemoRef = useRef(initialObjects.length !== storedObjects.length);
@@ -895,6 +994,7 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     const [viewportSize, setViewportSize] = useState<WorkspaceCanvasSize>({ width: 0, height: 0 });
     const viewportSizeRef = useRef(viewportSize);
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(tabData.blockids?.[0] ?? null);
+    const selectedBlockIdRef = useRef(selectedBlockId);
     const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
     const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
     const [tool, setTool] = useState<WorkspaceCanvasTool>("select");
@@ -904,13 +1004,22 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     const [camera, setCamera] = useState<WorkspaceCanvasCamera>(() => canvasState.camera ?? DefaultCamera);
     const [rects, setRects] = useState<Record<string, WorkspaceCanvasRect>>(() => canvasState.rects ?? {});
     const [objects, setObjects] = useState<WorkspaceCanvasObject[]>(() => initialObjects);
+    const [bookmarks, setBookmarks] = useState<Record<string, WorkspaceCanvasCamera>>(
+        () => canvasState.bookmarks ?? {}
+    );
     const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
     const [manualContextNodes, setManualContextNodes] = useState<CanvasComposerContextNode[]>([]);
     const cameraRef = useRef(camera);
     const rectsRef = useRef(rects);
     const objectsRef = useRef(objects);
+    const bookmarksRef = useRef(bookmarks);
+    const homeReturnCameraRef = useRef<WorkspaceCanvasCamera | null>(null);
+    const fittedRectRef = useRef<{ blockId: string; rect: WorkspaceCanvasRect } | null>(null);
+    const mruBlockIdsRef = useRef<string[]>(tabData.blockids ?? []);
     const blockIds = tabData.blockids ?? [];
     const blockIdsKey = blockIds.join("|");
+    selectedBlockIdRef.current = selectedBlockId;
+    bookmarksRef.current = bookmarks;
     const contextMode = composerContext.tabid === tabId ? composerContext.mode : "follow";
     const totalContextCount = selectedContextIds.length + manualContextNodes.length;
 
@@ -918,6 +1027,11 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         const cards = objects.filter((object): object is WorkspaceCanvasAgentCard => object.kind === "agent");
         return aggregateWorkspaceCanvasRuns(cards).find((run) => run.total > 1);
     }, [objects]);
+
+    const selectedClusterIds = useMemo(
+        () => (selectedBlockId ? findWorkspaceCanvasCluster(selectedBlockId, rects) : []),
+        [rects, selectedBlockId]
+    );
 
     const visibleWidgets = useMemo(() => {
         return (Object.entries(fullConfig?.widgets ?? {}) as Array<[string, WidgetConfigType]>)
@@ -968,10 +1082,11 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             meta: {
                 "layout:mode": "canvas",
                 "layout:canvas": {
-                    version: 3,
+                    version: 4,
                     camera: cameraRef.current,
                     rects: rectsRef.current,
                     objects: objectsRef.current,
+                    bookmarks: bookmarksRef.current,
                 },
             } as unknown as MetaType,
         });
@@ -986,6 +1101,11 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             persistCanvasState();
         }, CanvasSaveDelayMs);
     }, [persistCanvasState]);
+
+    const toggleExpand = useCallback((blockId: string) => {
+        setExpandedBlockId((current) => (current === blockId ? null : blockId));
+        setSelectedBlockId(blockId);
+    }, []);
 
     useEffect(() => {
         if (!removedLegacyDemoRef.current) {
@@ -1006,6 +1126,46 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         },
         [schedulePersist]
     );
+
+    const cancelCameraMomentum = useCallback(() => {
+        if (momentumFrameRef.current == null) {
+            return;
+        }
+        window.cancelAnimationFrame(momentumFrameRef.current);
+        momentumFrameRef.current = null;
+    }, []);
+
+    const startCameraMomentum = useCallback(
+        (velocity: WorkspaceCanvasPoint) => {
+            cancelCameraMomentum();
+            let current = velocity;
+            let previousTime = performance.now();
+            const tick = (time: number) => {
+                const elapsed = Math.min(32, time - previousTime);
+                previousTime = time;
+                const decay = Math.pow(0.9, elapsed / 16.67);
+                current = { x: current.x * decay, y: current.y * decay };
+                if (Math.hypot(current.x, current.y) < 0.015) {
+                    momentumFrameRef.current = null;
+                    schedulePersist();
+                    return;
+                }
+                updateCamera(
+                    {
+                        ...cameraRef.current,
+                        x: cameraRef.current.x + current.x * elapsed,
+                        y: cameraRef.current.y + current.y * elapsed,
+                    },
+                    false
+                );
+                momentumFrameRef.current = window.requestAnimationFrame(tick);
+            };
+            momentumFrameRef.current = window.requestAnimationFrame(tick);
+        },
+        [cancelCameraMomentum, schedulePersist, updateCamera]
+    );
+
+    useEffect(() => cancelCameraMomentum, [cancelCameraMomentum]);
 
     const updateRects = useCallback(
         (updater: (current: Record<string, WorkspaceCanvasRect>) => Record<string, WorkspaceCanvasRect>) => {
@@ -1125,21 +1285,26 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                     ? agentCards.filter((card) => card.agent.contextids?.includes(parent.id)).length
                     : 0;
                 const rootIndex = agentCards.filter((card) => (card.agent.contextids?.length ?? 0) === 0).length;
-                const placement: WorkspaceCanvasRect = existing ?? {
+                const cardSize = agentCardSizeForActivity(canvasActivity);
+                const preferredPlacement: WorkspaceCanvasRect = {
                     x: parent
-                        ? parent.x + parent.width + 96
+                        ? parent.x + siblingIndex * (cardSize.width + 64)
                         : linkedBlock
-                          ? linkedBlock.x + linkedBlock.width + 96
-                          : viewportCenter.x - WorkspaceAgentCardSize.width / 2 + (rootIndex % 3) * 42,
+                          ? linkedBlock.x
+                          : viewportCenter.x - cardSize.width / 2 + (rootIndex % 3) * 42,
                     y: parent
-                        ? parent.y + siblingIndex * (WorkspaceAgentCardSize.height + 28)
+                        ? parent.y + parent.height + 88
                         : linkedBlock
-                          ? linkedBlock.y
-                          : viewportCenter.y -
-                            WorkspaceAgentCardSize.height / 2 +
-                            Math.floor(rootIndex / 3) * (WorkspaceAgentCardSize.height + 28),
-                    ...WorkspaceAgentCardSize,
+                          ? linkedBlock.y + linkedBlock.height + 88
+                          : viewportCenter.y - cardSize.height / 2 + Math.floor(rootIndex / 3) * (cardSize.height + 64),
+                    ...cardSize,
                 };
+                const occupied = [
+                    ...Object.values(rectsRef.current),
+                    ...primitiveObjects.map(objectBounds),
+                    ...agentCards.filter((card) => card.id !== existingId),
+                ];
+                const placement = existing ?? findNonOverlappingCanvasRect(preferredPlacement, occupied, 48);
                 const result = upsertAgentActivityCard(agentCards, canvasActivity, placement, contextIds);
                 const requestPhase =
                     result.card.agent.nodekind === "output" && !isAgentActivityActive(result.card.agent.phase)
@@ -1179,12 +1344,19 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                       (object) => object.kind === "agent" && object.agent.contextids?.includes(parent.id)
                   ).length
                 : 0;
-            const request = makeCanvasRequestCard(detail.prompt, detail.contextids, {
-                x: parent ? parent.x + parent.width + 96 : viewportCenter.x - WorkspaceAgentCardSize.width / 2,
-                y: parent
-                    ? parent.y + siblingIndex * (WorkspaceAgentCardSize.height + 28)
-                    : viewportCenter.y - WorkspaceAgentCardSize.height / 2,
-            });
+            const preferred = {
+                x: parent
+                    ? parent.x + siblingIndex * (WorkspaceAgentCardSize.width + 64)
+                    : viewportCenter.x - WorkspaceAgentCardSize.width / 2,
+                y: parent ? parent.y + parent.height + 88 : viewportCenter.y - WorkspaceAgentCardSize.height / 2,
+                ...WorkspaceAgentCardSize,
+            };
+            const placement = findNonOverlappingCanvasRect(
+                preferred,
+                [...Object.values(rectsRef.current), ...objectsRef.current.map(objectBounds)],
+                48
+            );
+            const request = makeCanvasRequestCard(detail.prompt, detail.contextids, placement);
             pendingRequestRef.current = request.id;
             updateObjects((current) => [...current, request]);
             setSelectedContextIds([request.id]);
@@ -1226,21 +1398,17 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             return;
         }
         const activeIds = new Set(blockIds);
-        let placementIndex = 0;
         updateRects((current) => {
             const next = Object.fromEntries(Object.entries(current).filter(([blockId]) => activeIds.has(blockId)));
             let changed = Object.keys(next).length !== Object.keys(current).length;
+            const occupied = [...Object.values(next), ...objectsRef.current.map(objectBounds)];
             for (const blockId of blockIds) {
                 if (next[blockId]) {
                     continue;
                 }
-                const column = placementIndex % 2;
-                const row = Math.floor(placementIndex / 2);
-                next[blockId] = makeViewportCenteredCanvasRect(cameraRef.current, viewportSize, DefaultWidgetSize, {
-                    x: column * 70 - 35,
-                    y: row * 56 - 28,
-                });
-                placementIndex += 1;
+                const preferred = makeViewportCenteredCanvasRect(cameraRef.current, viewportSize, DefaultWidgetSize);
+                next[blockId] = findNonOverlappingCanvasRect(preferred, occupied, 72);
+                occupied.push(next[blockId]);
                 changed = true;
             }
             return changed ? next : current;
@@ -1257,8 +1425,41 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     }, [blockIdsKey, expandedBlockId, selectedBlockId]);
 
     const updateRect = useCallback(
-        (blockId: string, rect: WorkspaceCanvasRect) => {
-            updateRects((current) => ({ ...current, [blockId]: rect }));
+        (blockId: string, rect: WorkspaceCanvasRect, affectCluster = false, interaction?: "move" | "resize") => {
+            updateRects((current) => {
+                const previous = current[blockId];
+                const adjusted =
+                    interaction === "move"
+                        ? snapWorkspaceCanvasRect(
+                              rect,
+                              Object.entries(current).filter(([candidateId]) => candidateId !== blockId)
+                          ).rect
+                        : rect;
+                const next = { ...current, [blockId]: adjusted };
+                if (!affectCluster || !previous) {
+                    return next;
+                }
+                const dx = adjusted.x - previous.x;
+                const dy = adjusted.y - previous.y;
+                const scaleX = adjusted.width / previous.width;
+                const scaleY = adjusted.height / previous.height;
+                for (const clusterId of findWorkspaceCanvasCluster(blockId, current)) {
+                    if (clusterId === blockId) {
+                        continue;
+                    }
+                    const clustered = current[clusterId];
+                    next[clusterId] =
+                        interaction === "resize"
+                            ? {
+                                  x: previous.x + (clustered.x - previous.x) * scaleX,
+                                  y: previous.y + (clustered.y - previous.y) * scaleY,
+                                  width: Math.max(240, clustered.width * scaleX),
+                                  height: Math.max(180, clustered.height * scaleY),
+                              }
+                            : { ...clustered, x: clustered.x + dx, y: clustered.y + dy };
+                }
+                return next;
+            });
         },
         [updateRects]
     );
@@ -1278,6 +1479,25 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         };
     }, []);
 
+    const edgePanAtPoint = useCallback(
+        (clientX: number, clientY: number): WorkspaceCanvasPoint => {
+            const delta = workspaceCanvasEdgePanDelta(viewportPoint(clientX, clientY), viewportSizeRef.current);
+            if (delta.x === 0 && delta.y === 0) {
+                return delta;
+            }
+            updateCamera({
+                ...cameraRef.current,
+                x: cameraRef.current.x + delta.x,
+                y: cameraRef.current.y + delta.y,
+            });
+            return {
+                x: -delta.x / cameraRef.current.zoom,
+                y: -delta.y / cameraRef.current.zoom,
+            };
+        },
+        [updateCamera, viewportPoint]
+    );
+
     const canvasPoint = useCallback(
         (clientX: number, clientY: number): WorkspaceCanvasPoint => {
             return screenPointToCanvas(cameraRef.current, viewportPoint(clientX, clientY));
@@ -1293,15 +1513,23 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         }
     };
 
-    const startPan = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-        interactionRef.current = {
-            kind: "pan",
-            pointerId: event.pointerId,
-            startClient: { x: event.clientX, y: event.clientY },
-            startCamera: cameraRef.current,
-        };
-        capturePointer(event.pointerId);
-    }, []);
+    const startPan = useCallback(
+        (event: ReactPointerEvent<HTMLElement>) => {
+            cancelCameraMomentum();
+            const point = { x: event.clientX, y: event.clientY };
+            interactionRef.current = {
+                kind: "pan",
+                pointerId: event.pointerId,
+                startClient: point,
+                startCamera: cameraRef.current,
+                lastClient: point,
+                lastTime: performance.now(),
+                velocity: { x: 0, y: 0 },
+            };
+            capturePointer(event.pointerId);
+        },
+        [cancelCameraMomentum]
+    );
 
     const startObjectMove = useCallback((event: ReactPointerEvent<HTMLElement>, object: WorkspaceCanvasObject) => {
         event.preventDefault();
@@ -1334,12 +1562,20 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
 
     const addNoteAtPoint = useCallback(
         (point: WorkspaceCanvasPoint, text = "") => {
-            const object: WorkspaceCanvasObject = {
-                id: makeObjectId("note"),
-                kind: "note",
+            const preferred = {
                 x: Math.round(point.x - DefaultNoteSize.width / 2),
                 y: Math.round(point.y - DefaultNoteSize.height / 2),
                 ...DefaultNoteSize,
+            };
+            const placement = findNonOverlappingCanvasRect(
+                preferred,
+                [...Object.values(rectsRef.current), ...objectsRef.current.map(objectBounds)],
+                32
+            );
+            const object: WorkspaceCanvasObject = {
+                id: makeObjectId("note"),
+                kind: "note",
+                ...placement,
                 text,
                 color: "amber",
             };
@@ -1419,6 +1655,18 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             return;
         }
         if (interaction.kind === "pan") {
+            const now = performance.now();
+            const elapsed = Math.max(1, now - interaction.lastTime);
+            const instantVelocity = {
+                x: (event.clientX - interaction.lastClient.x) / elapsed,
+                y: (event.clientY - interaction.lastClient.y) / elapsed,
+            };
+            interaction.velocity = {
+                x: interaction.velocity.x * 0.65 + instantVelocity.x * 0.35,
+                y: interaction.velocity.y * 0.65 + instantVelocity.y * 0.35,
+            };
+            interaction.lastClient = { x: event.clientX, y: event.clientY };
+            interaction.lastTime = now;
             updateCamera(
                 {
                     ...interaction.startCamera,
@@ -1495,6 +1743,9 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             return;
         }
         interactionRef.current = null;
+        if (interaction.kind === "pan" && performance.now() - interaction.lastTime < 80) {
+            startCameraMomentum(interaction.velocity);
+        }
         if (interaction.kind === "create") {
             objectsRef.current = objectsRef.current
                 .map((object) => (object.id === interaction.objectId ? normalizeObjectRect(object) : object))
@@ -1510,7 +1761,9 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             setObjects(objectsRef.current);
             setTool("select");
         }
-        persistCanvasState();
+        if (interaction.kind !== "pan") {
+            persistCanvasState();
+        }
     };
 
     const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -1601,6 +1854,141 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         }
     }, [blockIdsKey, updateCamera, updateRects]);
 
+    const focusCanvasBlock = useCallback(
+        (blockId: string, center = true) => {
+            const rect = rectsRef.current[blockId];
+            if (!rect) {
+                return;
+            }
+            selectedBlockIdRef.current = blockId;
+            setSelectedBlockId(blockId);
+            setSelectedObjectId(null);
+            setExpandedBlockId((current) => (current && current !== blockId ? null : current));
+            mruBlockIdsRef.current = [blockId, ...mruBlockIdsRef.current.filter((id) => id !== blockId)];
+            if (center) {
+                updateCamera(centerWorkspaceCanvasCamera(rect, viewportSizeRef.current, cameraRef.current.zoom));
+            }
+        },
+        [updateCamera]
+    );
+
+    const navigateCanvas = useCallback(
+        (direction: "left" | "right" | "up" | "down") => {
+            const sourceId = selectedBlockIdRef.current ?? blockIds[0];
+            if (!sourceId) {
+                return;
+            }
+            const targetId = findDirectionalWorkspaceCanvasRect(sourceId, direction, rectsRef.current);
+            if (targetId) {
+                focusCanvasBlock(targetId);
+            }
+        },
+        [blockIdsKey, focusCanvasBlock]
+    );
+
+    const nudgeSelectedCluster = useCallback(
+        (direction: "left" | "right" | "up" | "down") => {
+            const selectedId = selectedBlockIdRef.current;
+            if (!selectedId || !rectsRef.current[selectedId]) {
+                return;
+            }
+            const delta = {
+                x: direction === "left" ? -20 : direction === "right" ? 20 : 0,
+                y: direction === "up" ? -20 : direction === "down" ? 20 : 0,
+            };
+            const clusterIds = findWorkspaceCanvasCluster(selectedId, rectsRef.current);
+            updateRects((current) => {
+                const next = { ...current };
+                for (const id of clusterIds) {
+                    next[id] = { ...current[id], x: current[id].x + delta.x, y: current[id].y + delta.y };
+                }
+                return next;
+            });
+        },
+        [updateRects]
+    );
+
+    const toggleHome = useCallback(() => {
+        if (homeReturnCameraRef.current) {
+            updateCamera(homeReturnCameraRef.current);
+            homeReturnCameraRef.current = null;
+            return;
+        }
+        homeReturnCameraRef.current = cameraRef.current;
+        updateCamera({
+            x: viewportSizeRef.current.width / 2,
+            y: viewportSizeRef.current.height / 2,
+            zoom: 1,
+        });
+    }, [updateCamera]);
+
+    const saveBookmark = useCallback(
+        (slot: string) => {
+            const next = { ...bookmarksRef.current, [slot]: cameraRef.current };
+            bookmarksRef.current = next;
+            setBookmarks(next);
+            schedulePersist();
+        },
+        [schedulePersist]
+    );
+
+    const goToBookmark = useCallback(
+        (slot: string) => {
+            const bookmarkedCamera = bookmarksRef.current[slot];
+            if (bookmarkedCamera) {
+                updateCamera(bookmarkedCamera);
+            }
+        },
+        [updateCamera]
+    );
+
+    const toggleFitFocused = useCallback(() => {
+        const selectedId = selectedBlockIdRef.current;
+        if (!selectedId) {
+            return;
+        }
+        const restore = fittedRectRef.current;
+        if (restore?.blockId === selectedId) {
+            updateRects((current) => ({ ...current, [selectedId]: restore.rect }));
+            fittedRectRef.current = null;
+            updateCamera(centerWorkspaceCanvasCamera(restore.rect, viewportSizeRef.current, 1));
+            return;
+        }
+        const current = rectsRef.current[selectedId];
+        if (!current) {
+            return;
+        }
+        fittedRectRef.current = { blockId: selectedId, rect: current };
+        const visible = workspaceCanvasViewportRect(cameraRef.current, viewportSizeRef.current);
+        const center = {
+            x: visible.x + visible.width / 2,
+            y: visible.y + visible.height / 2,
+        };
+        const fitted = {
+            x: center.x - Math.max(400, viewportSizeRef.current.width - 36) / 2,
+            y: center.y - Math.max(300, viewportSizeRef.current.height - 36) / 2,
+            width: Math.max(400, viewportSizeRef.current.width - 36),
+            height: Math.max(300, viewportSizeRef.current.height - 36),
+        };
+        updateRects((rects) => ({ ...rects, [selectedId]: fitted }));
+        updateCamera(centerWorkspaceCanvasCamera(fitted, viewportSizeRef.current, 1));
+    }, [updateCamera, updateRects]);
+
+    const cycleMru = useCallback(
+        (reverse: boolean) => {
+            const available = mruBlockIdsRef.current.filter((id) => blockIds.includes(id));
+            const missing = blockIds.filter((id) => !available.includes(id));
+            const ordered = [...available, ...missing];
+            if (ordered.length < 2) {
+                return;
+            }
+            const currentIndex = Math.max(0, ordered.indexOf(selectedBlockIdRef.current ?? ordered[0]));
+            const offset = reverse ? ordered.length - 1 : 1;
+            focusCanvasBlock(ordered[(currentIndex + offset) % ordered.length]);
+        },
+        [blockIdsKey, focusCanvasBlock]
+    );
+
     const addFlowTemplate = useCallback(() => {
         const center = screenPointToCanvas(cameraRef.current, {
             x: viewportSizeRef.current.width / 2,
@@ -1680,16 +2068,18 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                 return undefined;
             }
             setLaunchingWidget(key);
+            setExpandedBlockId(null);
             try {
                 const blockId = await createBlock(blockDef, false);
-                const rect = makeViewportCenteredCanvasRect(
+                const preferred = makeViewportCenteredCanvasRect(
                     cameraRef.current,
                     viewportSizeRef.current,
-                    DefaultWidgetSize,
-                    {
-                        x: (Object.keys(rectsRef.current).length % 5) * 30,
-                        y: (Object.keys(rectsRef.current).length % 5) * 24,
-                    }
+                    DefaultWidgetSize
+                );
+                const rect = findNonOverlappingCanvasRect(
+                    preferred,
+                    [...Object.values(rectsRef.current), ...objectsRef.current.map(objectBounds)],
+                    72
                 );
                 updateRects((current) => ({ ...current, [blockId]: rect }));
                 setSelectedBlockId(blockId);
@@ -1850,13 +2240,244 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                         click: () => setBlockTaskContext(blockId, title, viewType, "quote"),
                     },
                     { type: "separator" },
-                    { label: "Expand widget", click: () => setExpandedBlockId(blockId) },
+                    { label: "Center window", click: () => focusCanvasBlock(blockId) },
+                    {
+                        label: "Fit window / restore",
+                        click: () => {
+                            selectedBlockIdRef.current = blockId;
+                            setSelectedBlockId(blockId);
+                            toggleFitFocused();
+                        },
+                    },
+                    { label: "Toggle fullscreen", click: () => toggleExpand(blockId) },
+                    { type: "separator" },
+                    { label: "Close window", click: () => services.ObjectService.DeleteBlock(blockId) },
                 ],
                 event
             );
         },
-        [setBlockTaskContext]
+        [focusCanvasBlock, setBlockTaskContext, toggleExpand, toggleFitFocused]
     );
+
+    useEffect(() => {
+        return registerWorkspaceSurfaceModeProvider(tabId, {
+            snapshot: () => ({
+                presentation: "canvas",
+                selectedblockid: selectedBlockIdRef.current ?? undefined,
+                expandedblockid: expandedBlockId ?? undefined,
+                camera: cameraRef.current,
+                rects: rectsRef.current,
+                objects: objectsRef.current,
+            }),
+            control: (input) => {
+                if (input.action === "fit") {
+                    fitAll();
+                    return { success: true, message: "Canvas fitted to visible content." };
+                }
+                if (input.action === "arrange") {
+                    arrangeWidgets();
+                    return { success: true, message: "Canvas widgets arranged into a fitted grid." };
+                }
+                if (input.action === "add_note") {
+                    const color = ["amber", "blue", "green", "rose", "slate"].includes(input.color ?? "")
+                        ? (input.color as WorkspaceCanvasColor)
+                        : "amber";
+                    const preferred = {
+                        x:
+                            input.x ??
+                            (viewportSizeRef.current.width / 2 - cameraRef.current.x) / cameraRef.current.zoom,
+                        y:
+                            input.y ??
+                            (viewportSizeRef.current.height / 2 - cameraRef.current.y) / cameraRef.current.zoom,
+                        width: Math.max(120, input.width ?? DefaultNoteSize.width),
+                        height: Math.max(96, input.height ?? DefaultNoteSize.height),
+                    };
+                    const placement = findNonOverlappingCanvasRect(
+                        preferred,
+                        [...Object.values(rectsRef.current), ...objectsRef.current.map(objectBounds)],
+                        32
+                    );
+                    const note: WorkspaceCanvasPrimitiveObject = {
+                        id: makeObjectId("note"),
+                        kind: "note",
+                        ...placement,
+                        text: input.text ?? "New note",
+                        color,
+                    };
+                    updateObjects((current) => [...current, note]);
+                    setSelectedObjectId(note.id);
+                    setSelectedBlockId(null);
+                    return { success: true, message: `Created sticky note ${note.id}.` };
+                }
+                if (input.action === "update_object") {
+                    const existing = objectsRef.current.find((object) => object.id === input.objectid);
+                    if (!existing || existing.kind === "agent") {
+                        return {
+                            success: false,
+                            message: `Editable canvas object not found: ${input.objectid ?? "<missing>"}`,
+                        };
+                    }
+                    const color = ["amber", "blue", "green", "rose", "slate"].includes(input.color ?? "")
+                        ? (input.color as WorkspaceCanvasColor)
+                        : existing.color;
+                    const requested = normalizeObjectRect({
+                        ...existing,
+                        x: input.x ?? existing.x,
+                        y: input.y ?? existing.y,
+                        width: input.width ?? existing.width,
+                        height: input.height ?? existing.height,
+                        text: input.text ?? existing.text,
+                        color,
+                    });
+                    const placement =
+                        requested.kind === "connector" || requested.kind === "draw"
+                            ? requested
+                            : {
+                                  ...requested,
+                                  ...findNonOverlappingCanvasRect(
+                                      requested,
+                                      [
+                                          ...Object.values(rectsRef.current),
+                                          ...objectsRef.current
+                                              .filter((object) => object.id !== existing.id)
+                                              .map(objectBounds),
+                                      ],
+                                      32
+                                  ),
+                              };
+                    updateObjects((current) =>
+                        current.map((object) => (object.id === existing.id ? placement : object))
+                    );
+                    setSelectedObjectId(existing.id);
+                    return { success: true, message: `Updated canvas object ${existing.id}.` };
+                }
+                if (input.action === "delete_object") {
+                    const existing = objectsRef.current.find((object) => object.id === input.objectid);
+                    if (!existing || existing.kind === "agent") {
+                        return {
+                            success: false,
+                            message: `Deletable canvas object not found: ${input.objectid ?? "<missing>"}`,
+                        };
+                    }
+                    updateObjects((current) => current.filter((object) => object.id !== existing.id));
+                    setSelectedObjectId(null);
+                    return { success: true, message: `Deleted canvas object ${existing.id}.` };
+                }
+                if (input.action === "connect_objects") {
+                    const from = objectsRef.current.find((object) => object.id === input.fromobjectid);
+                    const to = objectsRef.current.find((object) => object.id === input.toobjectid);
+                    if (!from || !to || from.id === to.id) {
+                        return { success: false, message: "Two different canvas object IDs are required." };
+                    }
+                    const fromBounds = objectBounds(from);
+                    const toBounds = objectBounds(to);
+                    const start = {
+                        x: fromBounds.x + fromBounds.width / 2,
+                        y: fromBounds.y + fromBounds.height / 2,
+                    };
+                    const connector: WorkspaceCanvasPrimitiveObject = {
+                        id: makeObjectId("connector"),
+                        kind: "connector",
+                        x: start.x,
+                        y: start.y,
+                        width: toBounds.x + toBounds.width / 2 - start.x,
+                        height: toBounds.y + toBounds.height / 2 - start.y,
+                        color: "slate",
+                    };
+                    updateObjects((current) => [...current, connector]);
+                    return {
+                        success: true,
+                        message: `Connected ${from.id} to ${to.id} with ${connector.id}.`,
+                    };
+                }
+                if (!input.blockid || !blockIds.includes(input.blockid)) {
+                    return { success: false, message: `Canvas widget not found: ${input.blockid ?? "<missing>"}` };
+                }
+                if (input.action === "focus") {
+                    selectedBlockIdRef.current = input.blockid;
+                    setSelectedBlockId(input.blockid);
+                    setSelectedObjectId(null);
+                    return { success: true, message: `Focused canvas widget ${input.blockid}.` };
+                }
+                if (input.action === "move" || input.action === "resize") {
+                    if (input.action === "move" && input.x == null && input.y == null) {
+                        return { success: false, message: "Canvas move requires x or y world coordinates." };
+                    }
+                    if (
+                        input.action === "resize" &&
+                        input.x == null &&
+                        input.y == null &&
+                        input.width == null &&
+                        input.height == null
+                    ) {
+                        return { success: false, message: "Canvas resize requires width, height, x, or y." };
+                    }
+                    const fallbackIndex = blockIds.indexOf(input.blockid);
+                    const current = rectsRef.current[input.blockid] ?? {
+                        x: 80 + (fallbackIndex % 3) * (DefaultWidgetSize.width + 84),
+                        y: 80 + Math.floor(fallbackIndex / 3) * (DefaultWidgetSize.height + 84),
+                        ...DefaultWidgetSize,
+                    };
+                    const requested = {
+                        ...current,
+                        x: input.x ?? current.x,
+                        y: input.y ?? current.y,
+                        width: Math.max(240, input.width ?? current.width),
+                        height: Math.max(180, input.height ?? current.height),
+                    };
+                    const placement = findNonOverlappingCanvasRect(
+                        requested,
+                        [
+                            ...Object.entries(rectsRef.current)
+                                .filter(([blockId]) => blockId !== input.blockid)
+                                .map(([, rect]) => rect),
+                            ...objectsRef.current.map(objectBounds),
+                        ],
+                        72
+                    );
+                    updateRects((rects) => ({ ...rects, [input.blockid!]: placement }));
+                    selectedBlockIdRef.current = input.blockid;
+                    setSelectedBlockId(input.blockid);
+                    return { success: true, message: `Updated canvas geometry for ${input.blockid}.` };
+                }
+                if (input.action === "navigate") {
+                    const source = rectsRef.current[input.blockid];
+                    if (!source || !input.direction) {
+                        return {
+                            success: false,
+                            message: "Canvas navigation requires a positioned widget and direction.",
+                        };
+                    }
+                    const sourceCenter = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+                    const candidates = blockIds
+                        .filter((blockId) => blockId !== input.blockid && rectsRef.current[blockId])
+                        .map((blockId) => {
+                            const rect = rectsRef.current[blockId];
+                            const dx = rect.x + rect.width / 2 - sourceCenter.x;
+                            const dy = rect.y + rect.height / 2 - sourceCenter.y;
+                            return { blockId, dx, dy, distance: Math.hypot(dx, dy) };
+                        })
+                        .filter(({ dx, dy }) => {
+                            if (input.direction === "left") return dx < 0 && Math.abs(dx) >= Math.abs(dy) / 2;
+                            if (input.direction === "right") return dx > 0 && Math.abs(dx) >= Math.abs(dy) / 2;
+                            if (input.direction === "up") return dy < 0 && Math.abs(dy) >= Math.abs(dx) / 2;
+                            return dy > 0 && Math.abs(dy) >= Math.abs(dx) / 2;
+                        })
+                        .sort((left, right) => left.distance - right.distance);
+                    if (!candidates[0]) {
+                        return {
+                            success: false,
+                            message: `No canvas widget exists ${input.direction} of ${input.blockid}.`,
+                        };
+                    }
+                    selectedBlockIdRef.current = candidates[0].blockId;
+                    setSelectedBlockId(candidates[0].blockId);
+                    return { success: true, message: `Focused canvas widget ${candidates[0].blockId}.` };
+                }
+                return { success: false, message: `Action ${input.action} is unavailable in canvas presentation.` };
+            },
+        });
+    }, [arrangeWidgets, blockIdsKey, expandedBlockId, fitAll, selectedBlockId, tabId, updateObjects, updateRects]);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -1864,7 +2485,88 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             if (!viewport || !(event.target instanceof Node) || !viewport.contains(event.target)) {
                 return;
             }
-            if (isCanvasShortcutInteractiveTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
+            const mod = event.metaKey || event.ctrlKey;
+            if (isCanvasShortcutInteractiveTarget(event.target)) {
+                return;
+            }
+            if (event.altKey && event.key === "Tab") {
+                event.preventDefault();
+                cycleMru(event.shiftKey);
+                return;
+            }
+            if (mod) {
+                const direction =
+                    event.key === "ArrowLeft"
+                        ? "left"
+                        : event.key === "ArrowRight"
+                          ? "right"
+                          : event.key === "ArrowUp"
+                            ? "up"
+                            : event.key === "ArrowDown"
+                              ? "down"
+                              : null;
+                if (direction) {
+                    event.preventDefault();
+                    if (event.shiftKey) {
+                        nudgeSelectedCluster(direction);
+                    } else {
+                        navigateCanvas(direction);
+                    }
+                    return;
+                }
+                if (/^[1-4]$/.test(event.key)) {
+                    event.preventDefault();
+                    if (event.shiftKey) {
+                        saveBookmark(event.key);
+                    } else {
+                        goToBookmark(event.key);
+                    }
+                    return;
+                }
+                const key = event.key.toLowerCase();
+                if (key === "w") {
+                    event.preventDefault();
+                    fitAll();
+                    return;
+                }
+                if (key === "a") {
+                    event.preventDefault();
+                    toggleHome();
+                    return;
+                }
+                if (key === "c" && selectedBlockIdRef.current) {
+                    event.preventDefault();
+                    focusCanvasBlock(selectedBlockIdRef.current);
+                    return;
+                }
+                if (key === "m") {
+                    event.preventDefault();
+                    toggleFitFocused();
+                    return;
+                }
+                if (key === "f" && selectedBlockIdRef.current) {
+                    event.preventDefault();
+                    toggleExpand(selectedBlockIdRef.current);
+                    return;
+                }
+                if (event.key === "0") {
+                    event.preventDefault();
+                    resetView();
+                    return;
+                }
+                if (event.key === "=" || event.key === "+") {
+                    event.preventDefault();
+                    zoomBy(1.15);
+                    return;
+                }
+                if (event.key === "-") {
+                    event.preventDefault();
+                    zoomBy(1 / 1.15);
+                    return;
+                }
+                return;
+            }
+            if (event.altKey) {
                 return;
             }
             if (event.code === "Space") {
@@ -1928,12 +2630,22 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             window.removeEventListener("keyup", onKeyUp);
             window.removeEventListener("blur", onWindowBlur);
         };
-    }, [expandedBlockId, fitAll, selectedObjectId, updateObjects, zoomBy]);
-
-    const toggleExpand = useCallback((blockId: string) => {
-        setExpandedBlockId((current) => (current === blockId ? null : blockId));
-        setSelectedBlockId(blockId);
-    }, []);
+    }, [
+        cycleMru,
+        expandedBlockId,
+        fitAll,
+        focusCanvasBlock,
+        goToBookmark,
+        navigateCanvas,
+        nudgeSelectedCluster,
+        resetView,
+        saveBookmark,
+        selectedObjectId,
+        toggleFitFocused,
+        toggleHome,
+        updateObjects,
+        zoomBy,
+    ]);
 
     return (
         <div
@@ -1962,8 +2674,30 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             >
                 <div className="workspace-canvas-identity">
                     <LayoutGrid />
-                    <span>Context playground</span>
+                    <span>KronTerm · Drift canvas</span>
                     <span className="workspace-canvas-zoom">{Math.round(camera.zoom * 100)}%</span>
+                    <div className="workspace-canvas-bookmarks" role="group" aria-label="Canvas bookmarks">
+                        <Bookmark aria-hidden="true" />
+                        {["1", "2", "3", "4"].map((slot) => (
+                            <button
+                                type="button"
+                                key={slot}
+                                className={bookmarks[slot] ? "is-set" : ""}
+                                onClick={() => (bookmarks[slot] ? goToBookmark(slot) : saveBookmark(slot))}
+                                title={
+                                    bookmarks[slot]
+                                        ? `Go to bookmark ${slot} (Mod+${slot})`
+                                        : `Save bookmark ${slot} (Mod+Shift+${slot})`
+                                }
+                                aria-label={bookmarks[slot] ? `Go to bookmark ${slot}` : `Save bookmark ${slot}`}
+                            >
+                                {slot}
+                            </button>
+                        ))}
+                    </div>
+                    {selectedClusterIds.length > 1 ? (
+                        <span className="workspace-canvas-cluster-count">{selectedClusterIds.length} snapped</span>
+                    ) : null}
                     {totalContextCount > 0 ? (
                         <span className="workspace-canvas-context-count">
                             {totalContextCount} {contextMode === "follow" ? "to follow" : "quoted"}
@@ -2004,6 +2738,14 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                     ) : null}
                 </div>
                 <div className="workspace-canvas-view-actions">
+                    <button
+                        type="button"
+                        onClick={() => selectedBlockId && focusCanvasBlock(selectedBlockId)}
+                        disabled={!selectedBlockId}
+                        title="Center focused window (Mod+C)"
+                    >
+                        <Target />
+                    </button>
                     <button type="button" onClick={() => zoomBy(1 / 1.15)} title="Zoom out (-)">
                         <ZoomOut />
                     </button>
@@ -2293,17 +3035,18 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                             makeViewportCenteredCanvasRect(DefaultCamera, viewportSize, DefaultWidgetSize)
                         }
                         selected={selectedBlockId === blockId}
+                        clustered={selectedClusterIds.includes(blockId)}
                         expanded={expandedBlockId === blockId}
                         zoom={camera.zoom}
                         camera={camera}
                         viewportSize={viewportSize}
                         onSelect={(id) => {
-                            setSelectedBlockId(id);
-                            setSelectedObjectId(null);
+                            focusCanvasBlock(id, false);
                         }}
                         onRectChange={updateRect}
                         onShowContextMenu={showBlockContextMenu}
                         onToggleExpand={toggleExpand}
+                        onEdgePan={edgePanAtPoint}
                     />
                 ))}
             </div>
@@ -2330,8 +3073,8 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             {expandedBlockId ? <div className="workspace-canvas-expanded-backdrop" /> : null}
 
             <div className="workspace-canvas-help">
-                Select an agent card to continue from it · Quote mode + Shift/⌘ selects multiple cards · Scroll to pan ·
-                Ctrl/⌘ + scroll to zoom
+                Mod+Arrow jump · Shift+drag/resize acts on a snapped cluster · Mod+W overview · Mod+A home · Mod+1–4
+                bookmarks · Scroll pans · Mod+scroll zooms
             </div>
         </div>
     );

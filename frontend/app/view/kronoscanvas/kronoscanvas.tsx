@@ -931,7 +931,7 @@ export const KronosCanvasView = memo(({ blockId }: ViewComponentProps<KronosCanv
                             Canvas cowork bridge
                         </CodeCardTitle>
                         <div className="flex shrink-0 items-center gap-1">
-                            <Badge variant="outline">Hermes</Badge>
+                            <Badge variant="outline">Kronos</Badge>
                             <Badge variant="outline">KronosChamber</Badge>
                             <Badge variant="outline">Flowith</Badge>
                         </div>

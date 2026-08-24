@@ -7,6 +7,7 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { KronTermSurfaceSystemPrompt } from "./kronterm-surface-prompt";
 
 const HealthTimeoutMs = 3_000;
 const ApiRequestTimeoutMs = 30_000;
@@ -386,6 +387,7 @@ export class KronosCodeRuntimeManager extends EventEmitter {
                 ...process.env,
                 KRONOSCODE_CLIENT: "desktop",
                 KRONOSCODE_DISABLE_AUTOUPDATE: "1",
+                KRONTERM_AGENT_SYSTEM_PROMPT: KronTermSurfaceSystemPrompt,
                 KRONOSCODE_SERVER_USERNAME: username,
                 KRONOSCODE_SERVER_PASSWORD: password,
                 ...(executable(bunBinary) ? { BUN_BINARY: bunBinary } : {}),

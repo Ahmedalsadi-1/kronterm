@@ -768,6 +768,12 @@ export class RpcApiType {
         return client.wshRpcCall("listinstalledapps", null, opts);
     }
 
+    // command "lspquery" [call]
+    LspQueryCommand(client: WshClient, data: CommandLspQueryData, opts?: RpcOpts): Promise<CommandLspQueryRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "lspquery", data, opts);
+        return client.wshRpcCall("lspquery", data, opts);
+    }
+
     // command "macosversion" [call]
     MacOSVersionCommand(client: WshClient, opts?: RpcOpts): Promise<string> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "macosversion", null, opts);
@@ -1378,6 +1384,24 @@ export class RpcApiType {
     WorkspaceListCommand(client: WshClient, opts?: RpcOpts): Promise<WorkspaceInfoData[]> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "workspacelist", null, opts);
         return client.wshRpcCall("workspacelist", null, opts);
+    }
+
+    // command "workspacesurfacecontrol" [call]
+    WorkspaceSurfaceControlCommand(client: WshClient, data: CommandWorkspaceSurfaceControlData, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "workspacesurfacecontrol", data, opts);
+        return client.wshRpcCall("workspacesurfacecontrol", data, opts);
+    }
+
+    // command "workspacesurfacescreenshot" [call]
+    WorkspaceSurfaceScreenshotCommand(client: WshClient, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "workspacesurfacescreenshot", null, opts);
+        return client.wshRpcCall("workspacesurfacescreenshot", null, opts);
+    }
+
+    // command "workspacesurfacesnapshot" [call]
+    WorkspaceSurfaceSnapshotCommand(client: WshClient, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "workspacesurfacesnapshot", null, opts);
+        return client.wshRpcCall("workspacesurfacesnapshot", null, opts);
     }
 
     // command "writetempfile" [call]

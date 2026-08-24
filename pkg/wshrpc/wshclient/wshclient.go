@@ -765,6 +765,12 @@ func ListInstalledAppsCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc
 	return resp, err
 }
 
+// command "lspquery", wshserver.LspQueryCommand
+func LspQueryCommand(w *wshutil.WshRpc, data wshrpc.CommandLspQueryData, opts *wshrpc.RpcOpts) (*wshrpc.CommandLspQueryRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandLspQueryRtnData](w, "lspquery", data, opts)
+	return resp, err
+}
+
 // command "macosversion", wshserver.MacOSVersionCommand
 func MacOSVersionCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error) {
 	resp, err := sendRpcRequestCallHelper[string](w, "macosversion", nil, opts)
@@ -1366,6 +1372,24 @@ func WindowListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.Window
 // command "workspacelist", wshserver.WorkspaceListCommand
 func WorkspaceListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.WorkspaceInfoData, error) {
 	resp, err := sendRpcRequestCallHelper[[]wshrpc.WorkspaceInfoData](w, "workspacelist", nil, opts)
+	return resp, err
+}
+
+// command "workspacesurfacecontrol", wshserver.WorkspaceSurfaceControlCommand
+func WorkspaceSurfaceControlCommand(w *wshutil.WshRpc, data wshrpc.CommandWorkspaceSurfaceControlData, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "workspacesurfacecontrol", data, opts)
+	return resp, err
+}
+
+// command "workspacesurfacescreenshot", wshserver.WorkspaceSurfaceScreenshotCommand
+func WorkspaceSurfaceScreenshotCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "workspacesurfacescreenshot", nil, opts)
+	return resp, err
+}
+
+// command "workspacesurfacesnapshot", wshserver.WorkspaceSurfaceSnapshotCommand
+func WorkspaceSurfaceSnapshotCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "workspacesurfacesnapshot", nil, opts)
 	return resp, err
 }
 

@@ -33,7 +33,6 @@ import { runKrondesignDaemon, stopKrondesignDaemon } from "./emain-krondesign";
 import { log } from "./emain-log";
 import { stopAllLanguageServers } from "./emain-lsp";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
-import { createDesktopPetWindow } from "./emain-pet";
 import {
     checkIfRunningUnderARM64Translation,
     getElectronAppBasePath,
@@ -456,9 +455,6 @@ async function appMain() {
     if (fullConfig?.settings?.["window:maxtabcachesize"] != null) {
         setMaxTabCacheSize(fullConfig.settings["window:maxtabcachesize"]);
     }
-
-    // Activate the desktop pet. The full-screen animation overlay is created lazily.
-    createDesktopPetWindow();
 
     electronApp.on("activate", () => {
         const allWindows = getAllWaveWindows();

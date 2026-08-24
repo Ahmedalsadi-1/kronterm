@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,64 @@ type RecentWebOpen = {
     timestamp: number;
 };
 
+type SurfaceCapability = {
+    token: string;
+    tabId: string;
+    blockId?: string;
+};
+
+export function readSurfaceCapability(filePath: string): SurfaceCapability {
+    const parsed = JSON.parse(readFileSync(filePath, "utf8")) as Partial<SurfaceCapability>;
+    if (typeof parsed.token !== "string" || !parsed.token || typeof parsed.tabId !== "string" || !parsed.tabId) {
+        throw new Error("surface capability file is missing token or tabId");
+    }
+    return {
+        token: parsed.token,
+        tabId: parsed.tabId,
+        ...(typeof parsed.blockId === "string" && parsed.blockId ? { blockId: parsed.blockId } : {}),
+    };
+}
+
+export type WorkspaceSurfaceControl = {
+    action: string;
+    presentation?: string;
+    blockId?: string;
+    targetBlockId?: string;
+    position?: string;
+    direction?: string;
+    size?: number;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    objectId?: string;
+    fromObjectId?: string;
+    toObjectId?: string;
+    text?: string;
+    color?: string;
+};
+
+export function makeWorkspaceSurfaceControlArgs(input: WorkspaceSurfaceControl): string[] {
+    const blockId = (value: string) => (value.startsWith("block:") ? value.slice("block:".length) : value);
+    const args = ["workspace-surface", "control", input.action];
+    if (input.presentation) args.push("--presentation", input.presentation);
+    if (input.blockId) args.push("--block", blockId(input.blockId));
+    if (input.targetBlockId) args.push("--target-block", blockId(input.targetBlockId));
+    if (input.position) args.push("--position", input.position);
+    if (input.direction) args.push("--direction", input.direction);
+    if (input.size != null) args.push("--size", String(input.size));
+    if (input.x != null) args.push("--x", String(input.x));
+    if (input.y != null) args.push("--y", String(input.y));
+    if (input.width != null) args.push("--width", String(input.width));
+    if (input.height != null) args.push("--height", String(input.height));
+    if (input.objectId) args.push("--object", input.objectId);
+    if (input.fromObjectId) args.push("--from-object", input.fromObjectId);
+    if (input.toObjectId) args.push("--to-object", input.toObjectId);
+    if (input.text != null) args.push("--text", input.text);
+    if (input.color) args.push("--color", input.color);
+    return args;
+}
+
 const RecentWebOpenWindowMs = 30_000;
 const RefusedBrowserHosts = new Set(["example.cpm"]);
 
@@ -30,6 +88,22 @@ export function makeWshBlockRef(blockId: string): string {
 
 export function makeSandboxArgs(sessionId: string, command: string): string[] {
     return ["sandbox", "--session-id", sessionId, command];
+}
+
+export function makeLspArgs(
+    workspacePath: string,
+    filePath: string,
+    language: string,
+    query: string,
+    line?: number,
+    character?: number,
+    maxResults?: number
+): string[] {
+    const args = ["lsp", workspacePath, filePath, language, query];
+    if (line != null) args.push("--line", String(line));
+    if (character != null) args.push("--character", String(character));
+    if (maxResults != null) args.push("--max-results", String(maxResults));
+    return args;
 }
 
 export function makeWidgetClickArgs(
@@ -136,10 +210,26 @@ export class WshBridge {
 
     private async run(args: string[]): Promise<string> {
         try {
+            const env = { ...process.env };
+            const capabilityFile = process.env.KRONTERM_SURFACE_CAPABILITY_FILE;
+            if (capabilityFile) {
+                const capability = readSurfaceCapability(capabilityFile);
+                env.KRONTERM_JWT = capability.token;
+                env.WAVETERM_JWT = capability.token;
+                env.KRONTERM_TABID = capability.tabId;
+                env.WAVETERM_TABID = capability.tabId;
+                if (capability.blockId) {
+                    env.KRONTERM_BLOCKID = capability.blockId;
+                    env.WAVETERM_BLOCKID = capability.blockId;
+                } else {
+                    delete env.KRONTERM_BLOCKID;
+                    delete env.WAVETERM_BLOCKID;
+                }
+            }
             const output = execFileSync(this.wshPath, args, {
                 encoding: "utf-8",
                 timeout: 15000,
-                env: { ...process.env },
+                env,
                 maxBuffer: 16 * 1024 * 1024,
             });
             return output.trim();
@@ -149,13 +239,25 @@ export class WshBridge {
     }
 
     getDiagnostics(): string {
+        const capabilityFile = process.env.KRONTERM_SURFACE_CAPABILITY_FILE;
+        let fileCapability: SurfaceCapability | null = null;
+        if (capabilityFile) {
+            try {
+                fileCapability = readSurfaceCapability(capabilityFile);
+            } catch {
+                fileCapability = null;
+            }
+        }
         return JSON.stringify(
             {
                 wshPath: this.wshPath,
-                hasJwt: Boolean(process.env.KRONTERM_JWT || process.env.WAVETERM_JWT),
-                hasTabId: Boolean(process.env.KRONTERM_TABID || process.env.WAVETERM_TABID),
-                hasBlockId: Boolean(process.env.KRONTERM_BLOCKID || process.env.WAVETERM_BLOCKID),
+                hasJwt: Boolean(process.env.KRONTERM_JWT || process.env.WAVETERM_JWT || fileCapability?.token),
+                hasTabId: Boolean(process.env.KRONTERM_TABID || process.env.WAVETERM_TABID || fileCapability?.tabId),
+                hasBlockId: Boolean(
+                    process.env.KRONTERM_BLOCKID || process.env.WAVETERM_BLOCKID || fileCapability?.blockId
+                ),
                 configuredWsh: process.env.KRONTERM_WSH ?? process.env.WAVETERM_WSH ?? null,
+                capabilityFile: capabilityFile ?? null,
             },
             null,
             2
@@ -232,9 +334,12 @@ export class WshBridge {
             return null;
         }
         const webBlocks = blocks.filter((block) => block.view === "web" || block.meta?.view === "web");
-        const match = webBlocks.find((block) => {
-            return this.sameBrowserUrl(this.getBrowserBlockUrl(block), normalizedUrl);
-        }) ?? webBlocks.find((block) => block.focused || block.meta?.focused === true) ?? webBlocks[0];
+        const match =
+            webBlocks.find((block) => {
+                return this.sameBrowserUrl(this.getBrowserBlockUrl(block), normalizedUrl);
+            }) ??
+            webBlocks.find((block) => block.focused || block.meta?.focused === true) ??
+            webBlocks[0];
         const blockId = match?.blockid ?? match?.blockId ?? null;
         if (blockId) {
             this.recentWebOpens.set(normalizedUrl, { blockId, timestamp: now });
@@ -246,6 +351,18 @@ export class WshBridge {
 
     async getWorkspaceInfo(): Promise<string> {
         return this.run(["workspace", "list"]);
+    }
+
+    async workspaceSurfaceSnapshot(): Promise<string> {
+        return this.run(["workspace-surface", "snapshot"]);
+    }
+
+    async workspaceSurfaceScreenshot(): Promise<string> {
+        return this.run(["workspace-surface", "screenshot"]);
+    }
+
+    async workspaceSurfaceControl(input: WorkspaceSurfaceControl): Promise<string> {
+        return this.run(makeWorkspaceSurfaceControlArgs(input));
     }
 
     async listBlocks(tabId?: string, json = false): Promise<string> {
@@ -371,6 +488,74 @@ export class WshBridge {
 
     async fileInfo(filePath: string): Promise<string> {
         return this.run(["file", "info", filePath]);
+    }
+
+    async lspQuery(
+        filePath: string,
+        language: string,
+        query: string,
+        line?: number,
+        character?: number,
+        maxResults?: number
+    ): Promise<string> {
+        const workspacePath = process.env.KRONTERM_WORKSPACE;
+        if (!workspacePath) {
+            throw new Error("KRONTERM_WORKSPACE is unavailable; start this tool through a KronTerm agent session");
+        }
+        return this.run(makeLspArgs(workspacePath, filePath, language, query, line, character, maxResults));
+    }
+
+    async canvasLoad(workspaceId: string, blockId: string): Promise<string> {
+        return this.run(["canvas", "load", workspaceId, this.blockId(blockId)]);
+    }
+
+    async canvasSnapshot(workspaceId: string, blockId: string, includeContent?: boolean): Promise<string> {
+        const args = ["canvas", "snapshot", workspaceId, this.blockId(blockId)];
+        if (includeContent) args.push("--include-content");
+        return this.run(args);
+    }
+
+    async canvasSave(workspaceId: string, blockId: string, document: Record<string, unknown>): Promise<string> {
+        return this.run(["canvas", "save", workspaceId, this.blockId(blockId), JSON.stringify(document)]);
+    }
+
+    async canvasCreateNode(workspaceId: string, blockId: string, node: Record<string, unknown>): Promise<string> {
+        return this.run(["canvas", "create-node", workspaceId, this.blockId(blockId), JSON.stringify(node)]);
+    }
+
+    async canvasUpdateNode(workspaceId: string, blockId: string, node: Record<string, unknown>): Promise<string> {
+        return this.run(["canvas", "update-node", workspaceId, this.blockId(blockId), JSON.stringify(node)]);
+    }
+
+    async canvasDeleteNode(workspaceId: string, blockId: string, nodeId: string): Promise<string> {
+        return this.run(["canvas", "delete-node", workspaceId, this.blockId(blockId), nodeId]);
+    }
+
+    async canvasConnectNodes(
+        workspaceId: string,
+        blockId: string,
+        fromNode: string,
+        toNode: string,
+        label?: string
+    ): Promise<string> {
+        const args = ["canvas", "connect", workspaceId, this.blockId(blockId), fromNode, toNode];
+        if (label) args.push(label);
+        return this.run(args);
+    }
+
+    async canvasLaunchNode(workspaceId: string, blockId: string, nodeId: string, tabId: string): Promise<string> {
+        return this.run(["canvas", "launch-node", workspaceId, this.blockId(blockId), nodeId, tabId]);
+    }
+
+    async canvasUploadAsset(
+        workspaceId: string,
+        blockId: string,
+        filePath: string,
+        mimeType?: string
+    ): Promise<string> {
+        const args = ["canvas", "upload-asset", workspaceId, this.blockId(blockId), filePath];
+        if (mimeType) args.push("--mime-type", mimeType);
+        return this.run(args);
     }
 
     // ── Widget Human Simulation ────────────────────────────────────────

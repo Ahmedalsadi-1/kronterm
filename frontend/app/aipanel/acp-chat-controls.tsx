@@ -967,15 +967,7 @@ type SettingsSection =
     | "workspace";
 
 type SettingsTab =
-    | "kronterm"
-    | "agents"
-    | "commands"
-    | "skills"
-    | "mcp"
-    | "marketplace"
-    | "providers"
-    | "usage"
-    | "gitidentities";
+    "kronterm" | "agents" | "commands" | "skills" | "mcp" | "marketplace" | "providers" | "usage" | "gitidentities";
 
 function getAcpMcpTransport(server: MCPConfig | undefined): "stdio" | "http" | "sse" {
     if (server?.type === "http" || server?.type === "streamable_http") {
@@ -1138,7 +1130,7 @@ export const SettingsPanel = memo(
                                     KronosChamber
                                 </Badge>
                                 <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
-                                    Hermes UI
+                                    Kronos agent
                                 </Badge>
                                 <Badge variant="outline" className="border-[#34322f] text-[#8a8580]">
                                     Canvas cowork

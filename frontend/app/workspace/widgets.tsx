@@ -4,9 +4,19 @@
 import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { AppStreamCreatedEvent } from "@/app/view/appstream/computer-use-stream-manager";
+import {
+    applyThemePreset,
+    readStoredThemePresetId,
+    THEME_PRESETS,
+} from "@/app/view/kronsettings/kronsettings-theme-presets";
 import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import { updateFoldState, widgetFoldStateAtom } from "@/app/workspace/widget-fold-state";
 import { shouldIncludeWidgetForWorkspace } from "@/app/workspace/widgetfilter";
+import {
+    publishWorkspaceAppearance,
+    readWorkspaceAppearance,
+    type WorkspaceAppearance,
+} from "@/app/workspace/workspace-appearance";
 import { modalsModel } from "@/store/modalmodel";
 import { fireAndForget, isBlank, makeIconClass } from "@/util/util";
 import {
@@ -823,6 +833,10 @@ const Widgets = memo((props: WidgetsProps) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const settingsButtonRef = useRef<HTMLButtonElement>(null);
     const [compactMenuOpen, setCompactMenuOpen] = useState(false);
+    const [catalogQuery, setCatalogQuery] = useState("");
+    const [appearancePanel, setAppearancePanel] = useState<"icons" | "spacing" | "theme" | "typography">();
+    const [appearance, setAppearance] = useState<WorkspaceAppearance>(readWorkspaceAppearance);
+    const [themePresetId, setThemePresetId] = useState(readStoredThemePresetId);
 
     const checkModeNeeded = useCallback(() => {
         if (!containerRef.current || !measurementRef.current) return;
@@ -919,7 +933,16 @@ const Widgets = memo((props: WidgetsProps) => {
         [foldState]
     );
 
-    const groupedWidgets = groupWidgets(widgets);
+    const normalizedCatalogQuery = catalogQuery.trim().toLowerCase();
+    const catalogWidgets = normalizedCatalogQuery
+        ? widgets.filter((widget) => {
+              const group = widget["display:group"] ?? "tools";
+              return `${getWidgetLabel(widget)} ${getWidgetDescription(widget)} ${group}`
+                  .toLowerCase()
+                  .includes(normalizedCatalogQuery);
+          })
+        : widgets;
+    const groupedWidgets = groupWidgets(catalog ? catalogWidgets : widgets);
     const sortedGroupKeys = Array.from(groupedWidgets.keys()).sort((a, b) => {
         const aOrder = DefaultWidgetGroups[a]?.order ?? 99;
         const bOrder = DefaultWidgetGroups[b]?.order ?? 99;
@@ -927,6 +950,20 @@ const Widgets = memo((props: WidgetsProps) => {
     });
 
     if (catalog) {
+        const openAppearanceSettings = (section: "theme" | "visual") => {
+            void env.createBlock({
+                meta: {
+                    view: "kronsettings",
+                    "kronsettings:section": section,
+                } as MetaType,
+            });
+            onDismiss?.();
+        };
+        const updateAppearance = (next: Partial<WorkspaceAppearance>) => {
+            const updated = { ...appearance, ...next };
+            setAppearance(updated);
+            publishWorkspaceAppearance(updated);
+        };
         return (
             <section className="widget-catalog" aria-label="Widget catalog">
                 <header className="widget-catalog-header">
@@ -943,7 +980,134 @@ const Widgets = memo((props: WidgetsProps) => {
                         )}
                     </div>
                 </header>
+                <div className="widget-catalog-tools">
+                    <label className="widget-catalog-search">
+                        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+                        <input
+                            value={catalogQuery}
+                            onChange={(event) => setCatalogQuery(event.target.value)}
+                            placeholder="Search widgets"
+                            aria-label="Search widgets"
+                            autoFocus
+                        />
+                    </label>
+                    <div className="widget-catalog-style" aria-label="Writing and appearance settings">
+                        <button
+                            type="button"
+                            className={appearancePanel === "theme" ? "is-active" : ""}
+                            onClick={() => setAppearancePanel((panel) => (panel === "theme" ? undefined : "theme"))}
+                        >
+                            <i className="fa-solid fa-swatchbook" aria-hidden="true" />
+                            Theme
+                        </button>
+                        <button
+                            type="button"
+                            className={appearancePanel === "typography" ? "is-active" : ""}
+                            onClick={() =>
+                                setAppearancePanel((panel) => (panel === "typography" ? undefined : "typography"))
+                            }
+                        >
+                            <i className="fa-solid fa-font" aria-hidden="true" />
+                            Typography
+                        </button>
+                        <button
+                            type="button"
+                            className={appearancePanel === "spacing" ? "is-active" : ""}
+                            onClick={() => setAppearancePanel((panel) => (panel === "spacing" ? undefined : "spacing"))}
+                        >
+                            <i className="fa-solid fa-arrows-left-right-to-line" aria-hidden="true" />
+                            Spacing
+                        </button>
+                        <button
+                            type="button"
+                            className={appearancePanel === "icons" ? "is-active" : ""}
+                            onClick={() => setAppearancePanel((panel) => (panel === "icons" ? undefined : "icons"))}
+                        >
+                            <i className="fa-solid fa-icons" aria-hidden="true" />
+                            Icons
+                        </button>
+                    </div>
+                    {appearancePanel && (
+                        <div className="widget-catalog-appearance-panel">
+                            {appearancePanel === "theme" &&
+                                THEME_PRESETS.slice(0, 8).map((preset) => (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        className={themePresetId === preset.id ? "is-selected" : ""}
+                                        onClick={() => {
+                                            applyThemePreset(preset.id);
+                                            setThemePresetId(preset.id);
+                                        }}
+                                    >
+                                        <span
+                                            style={{ background: preset.colors["--accent-color"] }}
+                                            aria-hidden="true"
+                                        />
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            {appearancePanel === "typography" &&
+                                (
+                                    [
+                                        ["hermes", "Hermes Mono"],
+                                        ["mono", "Compact Mono"],
+                                        ["system", "System Sans"],
+                                    ] as const
+                                ).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={appearance.font === value ? "is-selected" : ""}
+                                        onClick={() => updateAppearance({ font: value })}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            {appearancePanel === "spacing" &&
+                                (
+                                    [
+                                        ["comfortable", "Comfortable"],
+                                        ["compact", "Compact"],
+                                    ] as const
+                                ).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={appearance.density === value ? "is-selected" : ""}
+                                        onClick={() => updateAppearance({ density: value })}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            {appearancePanel === "icons" &&
+                                (
+                                    [
+                                        ["soft", "Soft Tiles"],
+                                        ["minimal", "Minimal"],
+                                    ] as const
+                                ).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={appearance.icons === value ? "is-selected" : ""}
+                                        onClick={() => updateAppearance({ icons: value })}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            <button
+                                type="button"
+                                className="widget-catalog-all-settings"
+                                onClick={() => openAppearanceSettings(appearancePanel === "theme" ? "theme" : "visual")}
+                            >
+                                All settings
+                            </button>
+                        </div>
+                    )}
+                </div>
                 <div className="widget-catalog-scroll">
+                    {sortedGroupKeys.length === 0 && <p className="widget-catalog-empty">No matching widget</p>}
                     {sortedGroupKeys.map((groupKey) => {
                         const groupWidgetsList = groupedWidgets.get(groupKey) ?? [];
                         const group = DefaultWidgetGroups[groupKey] ?? { label: groupKey, order: 99 };

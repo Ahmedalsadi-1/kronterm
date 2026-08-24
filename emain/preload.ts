@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld("api", {
     saveTextFile: (fileName: string, content: string) => ipcRenderer.invoke("save-text-file", fileName, content),
     selectDirectory: () => ipcRenderer.invoke("select-directory"),
     selectFiles: () => ipcRenderer.invoke("select-files"),
+    searchSystemItems: (query: string) => ipcRenderer.invoke("search-system-items", query),
     acpApplyGitIdentity: (opts) => ipcRenderer.invoke("acp-apply-git-identity", opts),
     setIsActive: () => ipcRenderer.invoke("set-is-active"),
     setDesktopPetActivity: (notification) => ipcRenderer.send("desktop-pet-activity", notification),
@@ -129,7 +130,8 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.invoke("chathubv2-start", context),
     chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
     chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
-    hermesGetConnection: () => ipcRenderer.invoke("hermes-get-connection"),
+    hermesGetConnection: (context?: { tabId?: string; blockId?: string }) =>
+        ipcRenderer.invoke("hermes-get-connection", context),
     onHermesConnection: (callback) => {
         const handler = (_event: Electron.IpcRendererEvent, payload: HermesConnectionDescriptor) => callback(payload);
         ipcRenderer.on("hermes-connection", handler);

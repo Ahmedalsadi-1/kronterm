@@ -36,7 +36,7 @@ func GetStarterLayout() PortableLayout {
 	return PortableLayout{
 		{IndexArr: []int{0}, BlockDef: &waveobj.BlockDef{
 			Meta: waveobj.MetaMapType{
-				waveobj.MetaKey_View: "chathubv2",
+				waveobj.MetaKey_View: "web",
 			},
 		}, Focused: true},
 	}
@@ -46,7 +46,7 @@ func GetNewTabLayout() PortableLayout {
 	return PortableLayout{
 		{IndexArr: []int{0}, BlockDef: &waveobj.BlockDef{
 			Meta: waveobj.MetaMapType{
-				waveobj.MetaKey_View: "chathubv2",
+				waveobj.MetaKey_View: "web",
 			},
 		}, Focused: true},
 	}

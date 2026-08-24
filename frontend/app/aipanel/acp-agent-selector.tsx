@@ -21,6 +21,7 @@ const backendIcons: Record<string, string> = {
     claude: "🧠",
     codex: "⚡",
     gemini: "💎",
+    hermes: "✦",
     kronoscode: "🚀",
     qwen: "🔮",
     custom: "🔧",

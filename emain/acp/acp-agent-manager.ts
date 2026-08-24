@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { RpcApi } from "../../frontend/app/store/wshclientapi";
 import { ElectronWshClient } from "../emain-wsh";
 import { withKronosCodeAttachArgs } from "../kronoscode-runtime";
+import { KronTermSurfaceSystemPrompt } from "../kronterm-surface-prompt";
 import { detectInstalledAgents, spawnAcpAgent } from "./acp-connector";
 import {
     AcpCapabilityLease,
@@ -57,45 +58,7 @@ const DEFAULT_MAX_RECONNECT_ATTEMPTS = 3;
 const DEFAULT_RECONNECT_DELAY_MS = 2000;
 const SharedSkillDirectories = [".agents/skills", ".kronoscode/skills", ".hermes/skills"];
 
-const waveSurfaceBootstrap = `[KronTerm Surface Capability]
-This chat is connected to the kron-term MCP server with a temporary Wave surface-session capability.
-
-<surface_scope>
-Use Wave surface tools for Kronterm tabs, widgets, terminals, the in-app browser, and host-scoped file context. Use other desktop or browser tools only when the Wave surface cannot perform the operation.
-</surface_scope>
-
-<tool_selection>
-Pick the tool family by the target, not by habit:
-- Workspace layout, tabs, blocks, badges, connections, secrets -> workspace tools (surface_status, list_blocks, get_block_info, get_layout_tree, create_block, close_block, focus_block, set_block_meta, tab_set_badge, notify, connection_*, secret_*).
-- Content inside a block (buttons, forms, canvas, browser page) -> widget tools after a widget_snapshot (widget_click, widget_type, widget_press, widget_scroll_to, widget_drag, widget_get_value, widget_set_value).
-- A terminal block or one-shot shell command -> terminal tools (terminal_open, terminal_scrollback, block_run_command).
-- The isolated Linux sandbox VM -> sandbox tools (sandbox_start, sandbox_status, sandbox_screenshot, sandbox_* pointer tools). Sandbox tools never touch the host.
-- A native macOS application outside KronTerm -> kron_computer_* tools (kron_computer_list_apps, kron_computer_get_app_state first, then click/type/press/scroll/drag).
-- Files and directories -> file tools (file_list, file_read, file_info, file_open). Prefer these over terminal cat/ls.
-- Persistent memory, workspace sessions, action items -> memory tools (get_memories, search_memories, create_memory, get_workspace_sessions, get_action_items).
-- Allowlisted project skills -> shared_skill_list then shared_skill_read.
-</tool_selection>
-
-<interaction_protocol>
-1. Call surface_status if a tool fails or before the first operation.
-2. Call list_blocks to obtain live block IDs.
-3. Before interacting with block content, call widget_snapshot and use element refs (@eN) instead of raw coordinates.
-4. Re-run widget_snapshot after navigation or DOM changes because refs become stale.
-5. For sandbox and native desktop targets, capture a screenshot first and prefer element indexes over raw pixel coordinates.
-</interaction_protocol>
-
-<fallback_rules>
-- If a widget ref is stale or a block operation fails, re-run surface_status and list_blocks before retrying.
-- If a surface is unavailable, state that clearly and offer the closest alternative instead of guessing.
-</fallback_rules>
-
-<safety>
-- Writes, destructive actions, external side effects, and credential access require explicit approval through ACP.
-- Never use sandbox tools to control the host, or kron_computer_* tools to control KronTerm blocks.
-- Project skills shared with KronTerm and KronosCode are available through shared_skill_list and shared_skill_read.
-</safety>
-
-Full guidance is available from the MCP prompt "kron-term-guide" or resource "kron-term://skill".`;
+const waveSurfaceBootstrap = KronTermSurfaceSystemPrompt;
 
 type AcpSessionMcpNameValue = {
     name: string;
@@ -422,7 +385,7 @@ export class AcpAgentManager extends EventEmitter {
     }
 
     private supportsMcpType(type: "stdio" | "http" | "sse"): boolean {
-        if (type === "stdio" && this.backend === "kronoscode") {
+        if (type === "stdio" && (this.backend === "hermes" || this.backend === "kronoscode")) {
             return true;
         }
         return Boolean(this.capabilities?.mcpCapabilities?.[type]);
@@ -509,7 +472,10 @@ export class AcpAgentManager extends EventEmitter {
         const mcpServers: AcpSessionMcpServer[] = [];
         const surfaceServerPath = this.resolveSurfaceServerPath();
         if (this.supportsMcpType("stdio") && surfaceServerPath) {
-            const surfaceEnv: AcpSessionMcpNameValue[] = [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }];
+            const surfaceEnv: AcpSessionMcpNameValue[] = [
+                { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+                { name: "KRONTERM_WORKSPACE", value: this.workspace },
+            ];
             const sharedSkillDirs = SharedSkillDirectories.map((directory) =>
                 path.join(this.workspace, directory)
             ).filter((directory) => fs.existsSync(directory));
@@ -530,11 +496,15 @@ export class AcpAgentManager extends EventEmitter {
                     surfaceEnv.push({ name: "WAVETERM_BLOCKID", value: sessionToken.blockid });
                 }
             }
-            if (process.env.KRONTERM_WSH) {
-                surfaceEnv.push({ name: "KRONTERM_WSH", value: process.env.KRONTERM_WSH });
-            }
-            if (process.env.WAVETERM_WSH) {
-                surfaceEnv.push({ name: "WAVETERM_WSH", value: process.env.WAVETERM_WSH });
+            const wshPath = [
+                process.env.KRONTERM_WSH,
+                process.env.WAVETERM_WSH,
+                process.env.WAVETERM_WSH_BIN,
+                path.join(process.cwd(), "wsh"),
+            ].find((candidate) => candidate && fs.existsSync(candidate));
+            if (fs.existsSync(wshPath)) {
+                surfaceEnv.push({ name: "KRONTERM_WSH", value: wshPath });
+                surfaceEnv.push({ name: "WAVETERM_WSH", value: wshPath });
             }
             mcpServers.push({
                 type: "stdio",

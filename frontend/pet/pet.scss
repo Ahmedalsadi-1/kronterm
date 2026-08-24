@@ -21,8 +21,8 @@ body {
     height: 100%;
     align-items: center;
     flex-direction: column;
-    justify-content: flex-end;
-    padding-bottom: 9px;
+    justify-content: flex-start;
+    padding: 24px 8px 8px;
     --pet-glow: rgba(88, 193, 66, 0.55);
 }
 
@@ -39,7 +39,7 @@ input {
 .sprite-shell {
     position: relative;
     display: grid;
-    width: 160px;
+    width: 148px;
     height: 148px;
     place-items: center;
     filter: drop-shadow(0 0 12px var(--pet-glow));
@@ -73,7 +73,7 @@ input {
 }
 
 .activity {
-    display: flex;
+    display: none;
     max-width: 255px;
     height: 29px;
     align-items: center;
@@ -170,12 +170,20 @@ input {
     font-size: 13px;
     transition:
         background 0.12s,
-        color 0.12s;
+        color 0.12s,
+        opacity 0.12s;
+    opacity: 0;
 
     &:hover {
         background: var(--surface-hover-color);
         color: var(--text-primary-color);
     }
+}
+
+#pet-root:hover .pet-menu-toggle,
+.pet-menu-toggle:focus-visible,
+#pet-root:has(.pet-menu:not([hidden])) .pet-menu-toggle {
+    opacity: 1;
 }
 
 .pet-menu {
@@ -360,7 +368,7 @@ input {
     right: 0;
     bottom: 0;
     background-color: rgba(255, 255, 255, 0.15);
-    transition: .2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
     border-radius: 34px;
 
     &::before {
@@ -371,7 +379,7 @@ input {
         left: 2px;
         bottom: 2px;
         background-color: #fff;
-        transition: .2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        transition: 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
         border-radius: 50%;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     }
@@ -417,7 +425,6 @@ input:checked + .pet-switch-slider::before {
     }
 }
 
-
 .chat-toggle,
 .reasoning-toggle {
     // These are now macOS menu items, styled via .pet-menu-action
@@ -439,15 +446,20 @@ input:checked + .pet-switch-slider::before {
 
 .capture-preview {
     position: absolute;
-    left: 7px;
-    bottom: 43px;
+    left: 136px;
+    top: 77px;
     z-index: 5;
-    width: 164px;
+    display: flex;
+    width: 72px;
+    height: 34px;
+    align-items: center;
+    gap: 5px;
     margin: 0;
-    overflow: hidden;
+    padding: 0 8px;
+    overflow: visible;
     border: 1px solid color-mix(in srgb, var(--pet-glow) 48%, var(--border-color));
-    border-radius: 10px;
-    background: rgba(5, 8, 13, 0.97);
+    border-radius: 10px 10px 10px 3px;
+    background: rgba(5, 8, 13, 0.86);
     box-shadow:
         0 16px 38px rgba(0, 0, 0, 0.5),
         0 0 18px color-mix(in srgb, var(--pet-glow) 22%, transparent);
@@ -458,46 +470,76 @@ input:checked + .pet-switch-slider::before {
     display: none;
 }
 
-.capture-preview figcaption {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.capture-preview-caption {
+    overflow: hidden;
     color: var(--text-secondary-color);
     font-size: 9px;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.capture-preview figcaption::before {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--pet-glow);
-    box-shadow: 0 0 8px var(--pet-glow);
-    content: "";
+.capture-preview-grip {
+    position: absolute;
+    left: -13px;
+    top: 15px;
+    width: 14px;
+    height: 2px;
+    background: color-mix(in srgb, var(--pet-glow) 65%, transparent);
+    transform: rotate(12deg);
 }
 
 .capture-preview img {
-    display: block;
-    width: 100%;
-    height: 106px;
+    position: absolute;
+    right: 0;
+    top: 42px;
+    display: none;
+    width: 196px;
+    height: 118px;
     object-fit: contain;
     background: #02050a;
+    border: 1px solid color-mix(in srgb, var(--pet-glow) 42%, var(--border-color));
+    border-radius: 10px;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55);
 }
 
-.has-preview .sprite-shell {
-    width: 142px;
-    height: 142px;
-    align-self: flex-end;
-    margin-right: 3px;
+.preview-expanded .capture-preview {
+    left: 8px;
+    top: 8px;
+    z-index: 20;
+    width: 204px;
+    height: 174px;
+    align-items: flex-end;
+    padding: 10px;
+    overflow: hidden;
+    border-radius: 12px;
 }
 
-.has-preview #pet-sprite {
-    max-width: 134px;
-    max-height: 134px;
+.preview-expanded .capture-preview img[src] {
+    display: block;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+}
+
+.preview-expanded .capture-preview-caption,
+.preview-expanded .capture-preview-icon {
+    z-index: 1;
+    border-radius: 5px;
+    background: rgba(2, 5, 10, 0.8);
+    padding: 3px 5px;
+}
+
+.preview-expanded .capture-preview-grip {
+    display: none;
+}
+
+.capture-preview-icon {
+    color: var(--pet-glow);
+    font-size: 14px;
 }
 
 @keyframes preview-arrive {
@@ -549,7 +591,7 @@ input:checked + .pet-switch-slider::before {
     left: 0;
     right: 0;
     height: 20px;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     cursor: grab;
@@ -768,7 +810,7 @@ input:checked + .pet-switch-slider::before {
     z-index: 5;
     width: 18px;
     height: 18px;
-    display: grid;
+    display: none;
     place-items: center;
     cursor: nwse-resize;
     color: rgba(255, 255, 255, 0.2);

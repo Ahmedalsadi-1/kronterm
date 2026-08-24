@@ -15,6 +15,16 @@
     background: var(--main-bg-color);
 }
 
+.kron-settings--embedded {
+    min-height: 0;
+    background: transparent;
+
+    .kron-settings-content-inner {
+        max-width: 760px;
+        padding-top: 24px;
+    }
+}
+
 .kron-settings-sidebar {
     width: 208px;
     min-width: 208px;

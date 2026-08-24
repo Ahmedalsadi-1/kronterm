@@ -116,9 +116,9 @@
         "display:order": -5.45,
         "display:group": "agents",
         "icon": "sparkles",
-        "label": "Hermes",
+        "label": "Kronos",
         "color": "#8b7cf6",
-        "description": "Open the native Hermes agent workspace",
+        "description": "Open Kronos, the built-in KronTerm agent",
         "blockdef": {
             "meta": {
                 "view": "hermes"

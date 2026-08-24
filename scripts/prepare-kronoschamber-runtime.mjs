@@ -8,16 +8,21 @@ const SourceRoot = path.resolve("third_party/kronoschamber-web");
 const OutputRoot = path.resolve("dist/kronoschamber-web");
 const McpSourceRoot = path.resolve("mcp-kron-term");
 const McpOutputRoot = path.resolve("dist/mcp-kron-term");
+const HermesPluginSourceRoot = path.resolve("agents/hermes/plugins");
+const HermesPluginOutputRoot = path.resolve("dist/hermes-plugins");
 
 await rm(OutputRoot, { recursive: true, force: true });
 await rm(McpOutputRoot, { recursive: true, force: true });
+await rm(HermesPluginOutputRoot, { recursive: true, force: true });
 await mkdir(path.join(OutputRoot, "server"), { recursive: true });
 await mkdir(path.join(McpOutputRoot, "dist"), { recursive: true });
+await mkdir(HermesPluginOutputRoot, { recursive: true });
 
 await Promise.all([
   cp(path.join(SourceRoot, "dist"), path.join(OutputRoot, "dist"), { recursive: true }),
   copyRuntimePackage("node-pty"),
   copyRuntimePackage("node-addon-api"),
+  cp(HermesPluginSourceRoot, HermesPluginOutputRoot, { recursive: true }),
 ]);
 
 await build({
@@ -46,7 +51,18 @@ await build({
   format: "esm",
   target: "node22",
   sourcemap: false,
-    logLevel: "warning",
+  logLevel: "warning",
+});
+
+await build({
+  entryPoints: [path.join(McpSourceRoot, "dist/native-bridge.js")],
+  outfile: path.join(McpOutputRoot, "dist/native-bridge.js"),
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+  sourcemap: false,
+  logLevel: "warning",
 });
 
 const sourcePackage = JSON.parse(await readFile(path.join(SourceRoot, "package.json"), "utf8"));

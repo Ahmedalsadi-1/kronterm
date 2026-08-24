@@ -28,6 +28,7 @@ import {
     type AcpOpenWidgetMention,
 } from "./acp-chat-controls";
 import { AcpToolApproval } from "./acp-tool-approval";
+import { ChatMessageListV2 } from "./ChatMessageListV2";
 import {
     ImprovedChatInput,
     type CommandDeckSuggestion,
@@ -43,7 +44,6 @@ import {
     type KronchatProject,
 } from "./kronchat-projects";
 import { ChatEmptyState, TypingIndicator } from "./kronos-chat-components";
-import { ChatMessageListV2 } from "./ChatMessageListV2";
 import { useAcpSession, type AcpAgentMessage, type AcpAgentProfile, type AcpBackendInfo } from "./use-acp-session";
 import { WaveAIModel } from "./waveai-model";
 
@@ -157,13 +157,13 @@ function buildAcpMcpSessionServer(serverId: string, server: MCPConfig | undefine
 const fallbackAgents: AcpBackendInfo[] = [
     {
         backend: "hermes",
-        name: "KronTerm",
+        name: "Kronos",
         cliPath: "hermes",
         available: false,
         avatar: "◎",
-        description: "Primary KronTerm agent harness",
+        description: "Built-in KronTerm agent",
         acpArgs: ["acp"],
-        skillsDirs: [".hermes/skills"],
+        skillsDirs: [".agents/skills", ".kronoscode/skills", ".hermes/skills"],
     },
     {
         backend: "kronoscode",
@@ -556,7 +556,7 @@ const AgentSurfaceViewer = memo(
         const surfaceActivity =
             activity != null && (activity.surface === "browser" || activity.surface === "sandbox")
                 ? activity
-                : timeline.find((item) => item.surface === "browser" || item.surface === "sandbox") ?? null;
+                : (timeline.find((item) => item.surface === "browser" || item.surface === "sandbox") ?? null);
         if (!surfaceActivity) {
             return null;
         }
@@ -760,16 +760,14 @@ const ChatWidgetAppsStrip = memo(({ compact = false }: { compact?: boolean }) =>
                         ? desktopResult.value
                               .sort((left, right) => left.name.localeCompare(right.name))
                               .slice(0, 10)
-                              .map(
-                                  (app): ChatLaunchableApp => ({
-                                      kind: "desktop",
-                                      id: `desktop:${app.bundleid || app.appid}`,
-                                      label: app.name,
-                                      icon: app.icon,
-                                      description: app.description || app.category,
-                                      app,
-                                  })
-                              )
+                              .map((app): ChatLaunchableApp => ({
+                                  kind: "desktop",
+                                  id: `desktop:${app.bundleid || app.appid}`,
+                                  label: app.name,
+                                  icon: app.icon,
+                                  description: app.description || app.category,
+                                  app,
+                              }))
                         : [];
                 const waveApps =
                     waveResult.status === "fulfilled"
@@ -1844,12 +1842,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     };
 
     return (
-        <div
-            className={cn(
-                "@container relative flex min-h-0 flex-1 overflow-hidden bg-panel text-primary",
-                className
-            )}
-        >
+        <div className={cn("@container relative flex min-h-0 flex-1 overflow-hidden bg-panel text-primary", className)}>
             {!settingsOpen && sessionSidebarMode === "open" ? (
                 <SessionSidebar
                     sessions={sessions}

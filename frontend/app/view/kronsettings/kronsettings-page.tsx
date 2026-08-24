@@ -91,31 +91,42 @@ const PageRenderer = memo(({ model, section }: { model: KronSettingsViewModel; s
 
 PageRenderer.displayName = "PageRenderer";
 
-interface KronSettingsPageProps {
+interface KronSettingsSectionPageProps {
     model: KronSettingsViewModel;
+    section: SettingsSection;
 }
 
-const KronSettingsPage = memo(({ model }: KronSettingsPageProps) => {
-    const selectedSection = useAtomValue(model.selectedSectionAtom);
-    const config = SETTINGS_SECTIONS.find((s) => s.id === selectedSection);
-    const title = config?.label ?? selectedSection;
-    const description = SECTION_DESCRIPTIONS[selectedSection] ?? "";
+const KronSettingsSectionPage = memo(({ model, section }: KronSettingsSectionPageProps) => {
+    const config = SETTINGS_SECTIONS.find((item) => item.id === section);
+    const title = config?.label ?? section;
+    const description = SECTION_DESCRIPTIONS[section] ?? "";
 
     return (
-        <div className="kron-settings-content" key={selectedSection}>
+        <div className="kron-settings-content" key={section}>
             <div className="kron-settings-content-inner">
                 <div className="kron-settings-content-header">
                     <h1 className="kron-settings-content-title">{title}</h1>
                     {description && <p className="kron-settings-content-subtitle">{description}</p>}
                 </div>
                 <div className="mt-8">
-                    <PageRenderer model={model} section={selectedSection} />
+                    <PageRenderer model={model} section={section} />
                 </div>
             </div>
         </div>
     );
 });
 
+KronSettingsSectionPage.displayName = "KronSettingsSectionPage";
+
+interface KronSettingsPageProps {
+    model: KronSettingsViewModel;
+}
+
+const KronSettingsPage = memo(({ model }: KronSettingsPageProps) => {
+    const selectedSection = useAtomValue(model.selectedSectionAtom);
+    return <KronSettingsSectionPage model={model} section={selectedSection} />;
+});
+
 KronSettingsPage.displayName = "KronSettingsPage";
 
-export { KronSettingsPage };
+export { KronSettingsPage, KronSettingsSectionPage };

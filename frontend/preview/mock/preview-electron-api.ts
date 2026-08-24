@@ -180,6 +180,7 @@ const previewElectronApi: ElectronApi = {
             "/Users/albsheralsadi/kronterm/frontend/app/aipanel/acp-chat-panel.tsx",
             "/Users/albsheralsadi/kronterm/frontend/app/aipanel/use-acp-session.ts",
         ]),
+    searchSystemItems: (_query: string) => Promise.resolve([]),
     acpApplyGitIdentity: (_opts: { workspace: string; userName: string; userEmail: string }) =>
         Promise.resolve({ success: true }),
     setIsActive: async () => {},
@@ -344,7 +345,8 @@ const previewElectronApi: ElectronApi = {
     chathubv2Start: startPreviewChatHubV2,
     chathubv2Status: getPreviewChatHubV2Status,
     chathubv2Stop: () => Promise.resolve({ success: true }),
-    hermesGetConnection: () => Promise.reject(new Error("Hermes is only available in the Electron app")),
+    hermesGetConnection: (_context?: { tabId?: string; blockId?: string }) =>
+        Promise.reject(new Error("Hermes is only available in the Electron app")),
     onHermesConnection: () => () => {},
     kronoscodeGetConnection: () =>
         Promise.resolve({

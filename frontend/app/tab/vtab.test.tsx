@@ -71,5 +71,6 @@ describe("VTab badges", () => {
         expect(markup).toContain("vtab-item-number");
         expect(markup).toContain(">3</span>");
         expect(markup).not.toContain("vtab-item-name");
+        expect(markup).not.toContain("vtab-item-divider");
     });
 });

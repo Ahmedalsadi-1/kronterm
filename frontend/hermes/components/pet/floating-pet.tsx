@@ -3,15 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useGatewayRequest } from '@hermes/app/gateway/hooks/use-gateway-request'
 import { useOnProfileSwitch } from '@hermes/app/hooks/use-on-profile-switch'
-import { useRouteOverlayActive } from '@hermes/app/hooks/use-route-overlay-active'
 import { PetHeartField } from '@hermes/components/chat/vibe-hearts'
+import type { HermesKronTermSurface } from '@hermes/global'
 import { persistString, storedString } from '@hermes/lib/storage'
 import { $changeEventsAvailable, $petChange } from '@hermes/store/live-sync'
 import {
-  $petAtRest,
   $petInfo,
-  $petRoam,
-  $petRoamDir,
   clearPetUnread,
   hasPetSpriteForMeta,
   mergePetInfoMeta,
@@ -22,18 +19,18 @@ import {
 } from '@hermes/store/pet'
 import { resetPetGallery, setPetScale } from '@hermes/store/pet-gallery'
 import { $petOverlayActive, initPetOverlayBridge, popOutPet, restorePetOverlay } from '@hermes/store/pet-overlay'
+import { $previewTarget } from '@hermes/store/preview'
 import { $gatewayState } from '@hermes/store/session'
 import { isSecondaryWindow } from '@hermes/store/windows'
 import { useTheme } from '@hermes/themes/context'
 
 import { PET_STARTUP_RETRY_MS, petInfoPollIntervalMs } from './pet-info-poll'
-import { PetSprite, roamWalkRow } from './pet-sprite'
-import { usePetRoam } from './use-pet-roam'
+import { PetSprite } from './pet-sprite'
 import { type PetZoomAnchor, usePetZoomGesture } from './use-pet-zoom-gesture'
 
-// v2: positions are now top/left anchored (v1 stored bottom-anchored values,
-// which dragged inverted). Bumping the key discards stale v1 coordinates.
-const POSITION_KEY = 'hermes.desktop.pet-position.v2'
+// Bump the saved position whenever the default dock changes so stale free-roam
+// coordinates cannot pull the mascot away from chat on upgrade.
+const POSITION_KEY = 'hermes.desktop.pet-position.v3'
 
 // Stand-in pet size for the pre-load clamp (real size flows in with `info`).
 const NOMINAL_PET_PX = 96
@@ -73,8 +70,7 @@ function loadPosition(): Point {
     // fall through to default
   }
 
-  // Default: lower-left corner (top/left anchored).
-  return clampPoint(24, (window.innerHeight || 600) - 220, NOMINAL_PET_PX, NOMINAL_PET_PX)
+  return clampPoint(24, 64, NOMINAL_PET_PX, NOMINAL_PET_PX)
 }
 
 /**
@@ -107,13 +103,14 @@ export function FloatingPet() {
   const changeEventsAvailable = useStore($changeEventsAvailable)
   const petChange = useStore($petChange)
   const overlayActive = useStore($petOverlayActive)
-  const roamEnabled = useStore($petRoam)
-  const atRest = useStore($petAtRest)
-  const roamDir = useStore($petRoamDir)
-  const routeOverlayOpen = useRouteOverlayActive()
+  const previewTarget = useStore($previewTarget)
 
   const [position, setPosition] = useState<Point>(loadPosition)
+  const [activeSurface, setActiveSurface] = useState<HermesKronTermSurface | null>(null)
+  const [surfacePreview, setSurfacePreview] = useState<string>('')
+  const [previewExpanded, setPreviewExpanded] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const activeSurfaceIdRef = useRef<string | null>(null)
   // The facing mirror lives on the sprite wrapper, not the container, so the
   // speech bubble (a container child) never renders flipped/backwards.
   const spriteWrapRef = useRef<HTMLDivElement | null>(null)
@@ -137,6 +134,68 @@ export function FloatingPet() {
   // signature moves; a slow backstop covers silent seed + cold-start races.
   // Older backends (no change_events) keep the legacy fast-while-inactive poll.
   const active = info.enabled && Boolean(info.spritesheetBase64)
+
+  useEffect(() => {
+    const bridge = window.hermesDesktop?.krontermSurfaces
+
+    if (!bridge) {
+      return
+    }
+
+    let cancelled = false
+    const refresh = async () => {
+      const surfaces = await bridge.list().catch(() => [])
+
+      if (cancelled) {
+        return
+      }
+
+      const next = surfaces.find((surface) => surface.active) ?? null
+      const previousSurfaceId = activeSurfaceIdRef.current
+      activeSurfaceIdRef.current = next?.id ?? null
+      setActiveSurface(next)
+      setSurfacePreview((preview) => next?.previewImageUrl ?? (previousSurfaceId === next?.id ? preview : ''))
+
+      if (!next) {
+        setPreviewExpanded(false)
+      }
+    }
+
+    void refresh()
+    const timer = window.setInterval(refresh, 1200)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    const dock = () => {
+      const chatSurface = document.querySelector<HTMLElement>('[data-chat-surface]')
+      const rect = chatSurface?.getBoundingClientRect()
+
+      if (!rect || rect.width <= 0 || rect.height <= 0) {
+        return
+      }
+
+      setPosition(clampPoint(rect.left + 12, rect.top + 52, petW, petH))
+    }
+
+    dock()
+    window.addEventListener('resize', dock)
+    const observer = new ResizeObserver(dock)
+    const chatSurface = document.querySelector<HTMLElement>('[data-chat-surface]')
+
+    if (chatSurface) {
+      observer.observe(chatSurface)
+    }
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', dock)
+    }
+  }, [petH, petW])
   useEffect(() => {
     if (gatewayState !== 'open') {
       return
@@ -235,7 +294,7 @@ export function FloatingPet() {
 
     // Cover the cold-start race where the first pull hit fail-open enabled:false
     // before the pet store was warm. Skip further retries once the mascot is live.
-    const startupRetryTimers = PET_STARTUP_RETRY_MS.map(delay =>
+    const startupRetryTimers = PET_STARTUP_RETRY_MS.map((delay) =>
       window.setTimeout(() => {
         if (cancelled) {
           return
@@ -303,7 +362,6 @@ export function FloatingPet() {
   // Restore a popped-out pet on boot, once the pet has loaded (so we never spawn
   // an empty overlay window). Primary window only; runs at most once.
   const restoredRef = useRef(false)
-  // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
     if (isSecondaryWindow() || restoredRef.current || !active) {
       return
@@ -318,7 +376,7 @@ export function FloatingPet() {
   // current size, so depending on it covers both triggers.
   useEffect(() => {
     const reclamp = () =>
-      setPosition(prev => {
+      setPosition((prev) => {
         const next = clamp(prev)
 
         if (next.x === prev.x && next.y === prev.y) {
@@ -410,7 +468,7 @@ export function FloatingPet() {
   const onScale = useCallback(
     (next: number, { clientX, clientY, ratio }: PetZoomAnchor) => {
       setPetScale(requestGateway, next)
-      setPosition(prev => {
+      setPosition((prev) => {
         const at = clampPoint(
           clientX - (clientX - prev.x) * ratio,
           clientY - (clientY - prev.y) * ratio,
@@ -428,34 +486,23 @@ export function FloatingPet() {
 
   usePetZoomGesture(containerRef, onScale, active && !overlayActive)
 
-  // Commit a roamed-to position back to React state + storage when the wander
-  // loop settles, so the inline style matches the DOM once the loop stops
-  // driving it imperatively. Stable identity keeps the roam effect from
-  // restarting every render.
-  const commitRoamPosition = useCallback((point: Point) => {
-    setPosition(point)
-    persistString(POSITION_KEY, JSON.stringify(point))
-  }, [])
+  const toggleSurfacePreview = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    const surface = activeSurface
 
-  const isDragging = useCallback(() => dragRef.current !== null, [])
+    const nextExpanded = !previewExpanded
+    setPreviewExpanded(nextExpanded)
 
-  // Roam only the in-window pet, only while it's idle (agent at rest) and not
-  // popped out into the OS overlay. Activity pauses the wander; the pet reacts
-  // in place, then resumes strolling when the turn ends.
-  usePetRoam({
-    commit: commitRoamPosition,
-    containerRef,
-    enabled: roamEnabled && active && !overlayActive && atRest,
-    isInteracting: isDragging,
-    loopMs: info.loopMs ?? 1100,
-    overlayOpen: routeOverlayOpen,
-    petH,
-    petW
-  })
+    if (surface && nextExpanded && !surfacePreview) {
+      const preview = await window.hermesDesktop?.krontermSurfaces?.preview(surface.id).catch(() => '')
+      setSurfacePreview(preview ?? '')
+    }
+  }
 
-  // While roaming, drive the directional run row + mirror from the travel
-  // direction; at rest, fall back to the inward-facing static mascot.
-  const walk = roamWalkRow(roamDir, info.stateRows)
+  const imagePreview = previewTarget?.previewKind === 'image' ? previewTarget.dataUrl || previewTarget.url : ''
+  const previewTitle = activeSurface?.title ?? previewTarget?.label ?? 'image'
+  const previewUrl = activeSurface ? surfacePreview : imagePreview
+  const showPreviewControl = Boolean(activeSurface || imagePreview)
 
   // While popped out, the desktop overlay window owns the mascot — hide the
   // in-window one so there aren't two.
@@ -499,12 +546,56 @@ export function FloatingPet() {
         style={{
           lineHeight: 0,
           position: 'relative',
-          transform: roamDir !== 0 ? (walk.mirror ? 'scaleX(-1)' : 'none') : facing(position.x, petW),
+          transform: facing(position.x, petW),
           zIndex: 1
         }}
       >
-        <PetSprite info={info} rowOverride={walk.row} />
+        <PetSprite info={info} stateOverride="idle" />
       </div>
+      {showPreviewControl ? (
+        <button
+          aria-expanded={previewExpanded}
+          aria-label={`Preview ${previewTitle}`}
+          className="group absolute left-[82%] top-[44%] z-10 flex h-9 max-w-28 cursor-pointer items-center gap-1.5 rounded-lg rounded-bl-sm border border-(--ui-accent)/35 bg-(--ui-bg-secondary)/92 px-2 text-[0.625rem] font-semibold text-(--ui-text-secondary) shadow-lg backdrop-blur-md transition-colors hover:border-(--ui-accent)/60 hover:text-foreground"
+          onClick={(event) => void toggleSurfacePreview(event)}
+          onPointerDown={(event) => event.stopPropagation()}
+          type="button"
+        >
+          <span className="absolute -left-3 top-1/2 h-0.5 w-3 -translate-y-1/2 rotate-12 bg-(--ui-accent)/55" />
+          <span aria-hidden="true">▣</span>
+          <span className="truncate">Preview</span>
+        </button>
+      ) : null}
+      {showPreviewControl && previewExpanded ? (
+        <button
+          aria-label={activeSurface ? `Open ${previewTitle} in KronTerm` : `Close ${previewTitle} preview`}
+          className="absolute left-[92%] top-[74%] z-10 w-56 cursor-pointer overflow-hidden rounded-xl border border-(--ui-border) bg-(--ui-bg-secondary)/96 text-left shadow-2xl backdrop-blur-xl"
+          onClick={(event) => {
+            event.stopPropagation()
+            if (activeSurface) {
+              void window.hermesDesktop?.krontermSurfaces?.focus(activeSurface.id)
+            }
+            setPreviewExpanded(false)
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          type="button"
+        >
+          {previewUrl ? (
+            <img
+              alt={`${previewTitle} preview`}
+              className="aspect-video w-full bg-black/30 object-contain"
+              src={previewUrl}
+            />
+          ) : (
+            <span className="grid aspect-video place-items-center text-xs text-(--ui-text-tertiary)">
+              Loading preview…
+            </span>
+          )}
+          <span className="block truncate border-t border-(--ui-border) px-2 py-1.5 text-[0.625rem] text-(--ui-text-secondary)">
+            {previewTitle}
+          </span>
+        </button>
+      ) : null}
       {/* Hearts puff off the pet; its celebrate ("yay"/jump) pose is driven by
           burstVibeHearts's router. */}
       <PetHeartField petH={petH} petW={petW} />

@@ -1,42 +1,34 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentRunStrip } from "@/app/aipanel/agent-run-strip";
-import { AIPanel } from "@/app/aipanel/aipanel";
-import { FloatingIsland, loadFloatingIslandState, saveFloatingIslandState } from "@/app/aipanel/floating-island";
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { ErrorBoundary } from "@/app/element/errorboundary";
 import { CenteredDiv } from "@/app/element/quickelems";
 import { ModalsRenderer } from "@/app/modals/modalsrenderer";
+import { globalStore } from "@/app/store/jotaiStore";
+import * as WOS from "@/app/store/wos";
+import { RpcApi } from "@/app/store/wshclientapi";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { TabBar } from "@/app/tab/tabbar";
 import { TabContent } from "@/app/tab/tabcontent";
-import { VTabBar } from "@/app/tab/vtabbar";
 import { buildCanvasContextPrompt } from "@/app/tab/workspace-canvas-agent";
 import {
     publishWorkspaceCanvasComposerSubmit,
     workspaceCanvasComposerContextAtom,
 } from "@/app/tab/workspace-canvas-context";
 import { ComputerUseStreamManager } from "@/app/view/appstream/computer-use-stream-manager";
+import { HermesHudHost, HermesPanelHost } from "@/app/view/hermes/hermes-hud-host";
+import { consumeHermesHudAutoOpen } from "@/app/view/hermes/hermes-startup";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import { KronarchyShell } from "@/app/workspace/kronarchy-shell";
 import { Widgets } from "@/app/workspace/widgets";
-import { getWorkspaceTabPresentation, WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { atoms, createBlock, getApi, getSettingsKeyAtom } from "@/store/global";
+import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { WorkspaceShellRail } from "@/app/workspace/workspace-shell-rail";
+import { atoms, createBlock, getApi, refocusNode } from "@/store/global";
 import { isMacOS } from "@/util/platformutil";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import {
-    ImperativePanelGroupHandle,
-    ImperativePanelHandle,
-    Panel,
-    PanelGroup,
-    PanelResizeHandle,
-} from "react-resizable-panels";
-
-const KronosPetImageUrl = new URL(
-    "../../../assets/pet/sprite-sheets/iterations/expressive-status/frames/frame-1.png",
-    import.meta.url
-).href;
+import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const BottomQuickComposer = memo(({ onOpenDock }: { onOpenDock: () => void }) => {
     const model = WaveAIModel.getInstance();
@@ -224,14 +216,6 @@ export const KronosChamberCanvasComposer = memo(
                     {currentNode ? (
                         <div className="max-h-48 overflow-y-auto border-b border-white/10 px-3 py-3">
                             <div className="flex items-start gap-3">
-                                <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-accent/25 bg-black/35 shadow-[0_0_22px_rgba(237,180,73,0.1)]">
-                                    <img
-                                        src={KronosPetImageUrl}
-                                        alt=""
-                                        aria-hidden="true"
-                                        className="h-12 w-12 object-contain [image-rendering:pixelated]"
-                                    />
-                                </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <strong className="text-xs font-semibold text-white/90">
@@ -376,220 +360,133 @@ const WorkspaceElem = memo(() => {
     const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
     const tabId = useAtomValue(atoms.staticTabId);
     const ws = useAtomValue(atoms.workspace);
-    const quickComposerEnabled = useAtomValue(getSettingsKeyAtom("app:quickcomposer" as keyof SettingsType)) ?? false;
     const canvasComposerContext = useAtomValue(workspaceCanvasComposerContextAtom);
-    const sidePanelMode = useAtomValue(workspaceLayoutModel.sidePanelModeAtom);
-    const aiPanelVisible = useAtomValue(workspaceLayoutModel.panelVisibleAtom);
-    const vtabVisible = useAtomValue(workspaceLayoutModel.vtabVisibleAtom);
     const widgetsPanelVisible = useAtomValue(workspaceLayoutModel.widgetsPanelVisibleAtom);
-    const windowWidth = window.innerWidth;
-    const { showLeftTabBar, showTopWorkspaceTabs } = getWorkspaceTabPresentation(sidePanelMode);
-    const vtabInitialPct = workspaceLayoutModel.getVTabInitialPercentage(windowWidth, showLeftTabBar);
-    const innerContentInitialPct = workspaceLayoutModel.getInnerContentInitialPercentage(windowWidth, showLeftTabBar);
-    const innerAIPanelInitialPct = workspaceLayoutModel.getInnerAIPanelInitialPercentage(windowWidth, showLeftTabBar);
-    const outerPanelGroupRef = useRef<ImperativePanelGroupHandle>(null);
-    const innerPanelGroupRef = useRef<ImperativePanelGroupHandle>(null);
-    const aiPanelRef = useRef<ImperativePanelHandle>(null);
-    const vtabPanelRef = useRef<ImperativePanelHandle>(null);
-    const panelContainerRef = useRef<HTMLDivElement>(null);
-    const aiPanelWrapperRef = useRef<HTMLDivElement>(null);
-    const [floatingIslandVisible, setFloatingIslandVisible] = useState(() => loadFloatingIslandState().enabled);
-    const [hiddenCanvasComposerTabId, setHiddenCanvasComposerTabId] = useState<string | null>(null);
+    const surface = useSyncExternalStore(
+        hermesSurfaceController.subscribe,
+        hermesSurfaceController.getSnapshot,
+        hermesSurfaceController.getSnapshot
+    );
+    const [autoOpenHud] = useState(consumeHermesHudAutoOpen);
+    const [panelWidth, setPanelWidth] = useState(() =>
+        Math.max(320, Math.min(520, Number(ws?.meta?.["layout:hermespanelwidth"] ?? 390)))
+    );
+    const panelWidthRef = useRef(panelWidth);
+    panelWidthRef.current = panelWidth;
 
-    useEffect(() => {
-        setHiddenCanvasComposerTabId(null);
+    const expandHermes = useCallback(async () => {
+        if (!tabId) {
+            throw new Error("A workspace tab is required to expand Kronos.");
+        }
+        const tab = globalStore.get(WOS.getWaveObjectAtom<Tab>(WOS.makeORef("tab", tabId)));
+        const existingBlockId = tab?.blockids?.find((blockId) => {
+            const block = globalStore.get(WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId)));
+            return block?.meta?.view === "hermes";
+        });
+        if (existingBlockId) {
+            refocusNode(existingBlockId);
+            return;
+        }
+        await createBlock({ meta: { view: "hermes" } }, false);
     }, [tabId]);
 
     useEffect(() => {
-        if (!canvasComposerContext.active) {
-            setHiddenCanvasComposerTabId(null);
-        }
-    }, [canvasComposerContext.active]);
-
-    const openCanvasKronosChamber = useCallback(async () => {
-        const sourceTabId = canvasComposerContext.tabid;
-        if (!sourceTabId) {
+        if (!widgetsPanelVisible) {
             return;
         }
-        await createBlock({ meta: { view: "chathubv2" } }, false);
-        setHiddenCanvasComposerTabId(sourceTabId);
-    }, [canvasComposerContext.tabid]);
-
-    const handleOpenFloatingIsland = () => {
-        workspaceLayoutModel.setAIPanelVisible(false);
-        setFloatingIslandVisible(true);
-        saveFloatingIslandState({ enabled: true, mode: "expanded" });
-    };
-
-    const handleCloseFloatingIsland = () => {
-        setFloatingIslandVisible(false);
-        saveFloatingIslandState({ enabled: false, mode: "collapsed" });
-    };
-
-    const handleReturnToPanel = () => {
-        setFloatingIslandVisible(false);
-        saveFloatingIslandState({ enabled: false, mode: "collapsed" });
-        workspaceLayoutModel.setAIPanelVisible(true);
-    };
-
-    // showLeftTabBar is passed as a seed value only; subsequent changes are handled by setShowLeftTabBar below.
-    // Do NOT add showLeftTabBar as a dep here — re-registering refs on config changes would redundantly re-run commitLayouts.
-    useEffect(() => {
-        const outerGroup = outerPanelGroupRef.current;
-        if (
-            aiPanelRef.current &&
-            outerGroup &&
-            innerPanelGroupRef.current &&
-            panelContainerRef.current &&
-            aiPanelWrapperRef.current
-        ) {
-            workspaceLayoutModel.registerRefs(
-                aiPanelRef.current,
-                outerPanelGroupRef.current,
-                innerPanelGroupRef.current,
-                panelContainerRef.current,
-                aiPanelWrapperRef.current,
-                vtabPanelRef.current ?? undefined,
-                showLeftTabBar
-            );
-        }
-        return () => {
-            if (outerGroup) {
-                workspaceLayoutModel.unregisterRefs(outerGroup);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                workspaceLayoutModel.setWidgetsPanelVisible(false);
             }
         };
-    }, []);
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [widgetsPanelVisible, workspaceLayoutModel]);
 
-    useEffect(() => {
-        const isVisible = workspaceLayoutModel.getAIPanelVisible();
-        getApi().setWaveAIOpen(isVisible);
-    }, []);
-
-    useEffect(() => {
-        workspaceLayoutModel.setShowLeftTabBar(showLeftTabBar);
-    }, [showLeftTabBar]);
-
-    useEffect(() => {
-        window.addEventListener("resize", workspaceLayoutModel.handleWindowResize);
-        return () => window.removeEventListener("resize", workspaceLayoutModel.handleWindowResize);
-    }, []);
-
-    useEffect(() => {
-        const handleFocus = () => workspaceLayoutModel.syncVTabWidthFromMeta();
-        window.addEventListener("focus", handleFocus);
-        return () => window.removeEventListener("focus", handleFocus);
-    }, []);
-
-    useEffect(() => {
-        return getApi().onDesktopPetResume(() => workspaceLayoutModel.setAIPanelVisible(true));
-    }, []);
-
-    const innerHandleVisible = aiPanelVisible;
-    const innerHandleClass = `workspace-panel-resize-handle ${innerHandleVisible ? "is-visible" : "pointer-events-none"}`;
-    const outerHandleVisible = vtabVisible && sidePanelMode === "full";
-    const outerHandleClass = `workspace-panel-resize-handle ${outerHandleVisible ? "is-visible" : "pointer-events-none"}`;
+    useEffect(() => getApi().onDesktopPetResume(() => hermesSurfaceController.requestOpenPanel()), []);
 
     return (
         <div className="flex flex-col w-full flex-grow overflow-hidden">
             <KronarchyShell workspace={ws} activeTabId={tabId} />
-            {!isMacOS() && <TabBar key={ws.oid} workspace={ws} noTabs={!showTopWorkspaceTabs} />}
-            <div ref={panelContainerRef} className="flex flex-row flex-grow overflow-hidden">
+            {!isMacOS() && <TabBar key={ws.oid} workspace={ws} noTabs />}
+            <div className="workspace-surface-row workspace-reference-shell flex flex-row flex-grow overflow-hidden">
                 <ComputerUseStreamManager />
-                <ErrorBoundary key={tabId}>
-                    <PanelGroup
-                        direction="horizontal"
-                        onLayout={workspaceLayoutModel.handleOuterPanelLayout}
-                        ref={outerPanelGroupRef}
-                    >
-                        <Panel
-                            ref={vtabPanelRef}
-                            collapsible
-                            defaultSize={vtabInitialPct}
-                            order={0}
-                            className="overflow-hidden"
-                        >
-                            {showLeftTabBar && <VTabBar workspace={ws} />}
-                        </Panel>
-                        <PanelResizeHandle className={outerHandleClass} />
-                        <Panel order={1} defaultSize={100 - vtabInitialPct} className="overflow-hidden">
-                            <PanelGroup
-                                direction="horizontal"
-                                onLayout={workspaceLayoutModel.handleInnerPanelLayout}
-                                ref={innerPanelGroupRef}
-                            >
-                                <Panel order={0} defaultSize={innerContentInitialPct} className="overflow-hidden">
-                                    {tabId === "" ? (
-                                        <CenteredDiv>No Active Tab</CenteredDiv>
-                                    ) : (
-                                        <div className="relative flex flex-row h-full">
-                                            <TabContent key={tabId} tabId={tabId} noTopPadding={isMacOS()} />
-                                        </div>
-                                    )}
-                                </Panel>
-                                <PanelResizeHandle className={innerHandleClass} />
-                                <Panel
-                                    ref={aiPanelRef}
-                                    collapsible
-                                    defaultSize={innerAIPanelInitialPct}
-                                    order={1}
-                                    className="overflow-hidden"
-                                >
-                                    <div
-                                        ref={aiPanelWrapperRef}
-                                        className={`w-full h-full pl-0.5 ${aiPanelVisible ? "" : "opacity-0"}`}
-                                    >
-                                        {tabId !== "" && (
-                                            <AIPanel
-                                                roundTopLeft={false}
-                                                onFloatingIsland={handleOpenFloatingIsland}
-                                                floatingIslandActive={floatingIslandVisible}
-                                            />
-                                        )}
-                                    </div>
-                                </Panel>
-                            </PanelGroup>
-                        </Panel>
-                    </PanelGroup>
-                    <ModalsRenderer />
-                </ErrorBoundary>
-                {sidePanelMode === "hidden" && (
-                    <button
-                        type="button"
-                        className="fixed bottom-3 left-3 z-[105] grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-white/10 bg-[#10131ae6] text-white/60 shadow-lg shadow-black/30 backdrop-blur-xl transition-colors hover:border-accent/40 hover:bg-accent/10 hover:text-accent"
-                        onClick={() => workspaceLayoutModel.setSidePanelMode("compact")}
-                        aria-label="Show workspace sidebar"
-                        title="Show workspace sidebar"
-                    >
-                        <i className="fa-solid fa-sidebar" aria-hidden="true" />
-                    </button>
+                <WorkspaceShellRail activeTabId={tabId} workspace={ws} />
+                {surface.presentation === "panel" && (
+                    <div className="workspace-hermes-dock" style={{ width: panelWidth }}>
+                        <HermesPanelHost tabId={tabId} />
+                        <div
+                            className="workspace-hermes-dock-resizer"
+                            role="separator"
+                            aria-label="Resize Kronos side panel"
+                            aria-orientation="vertical"
+                            aria-valuemin={320}
+                            aria-valuemax={520}
+                            aria-valuenow={panelWidth}
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                                    return;
+                                }
+                                event.preventDefault();
+                                setPanelWidth((width) =>
+                                    Math.max(320, Math.min(520, width + (event.key === "ArrowRight" ? 12 : -12)))
+                                );
+                            }}
+                            onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+                            onPointerMove={(event) => {
+                                if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+                                    return;
+                                }
+                                const dock = event.currentTarget.parentElement?.getBoundingClientRect();
+                                if (dock) {
+                                    setPanelWidth(Math.max(320, Math.min(520, event.clientX - dock.left)));
+                                }
+                            }}
+                            onPointerUp={(event) => {
+                                event.currentTarget.releasePointerCapture(event.pointerId);
+                                void RpcApi.SetMetaCommand(TabRpcClient, {
+                                    oref: WOS.makeORef("workspace", ws.oid),
+                                    meta: {
+                                        "layout:hermespanelwidth": panelWidthRef.current,
+                                    } as unknown as MetaType,
+                                });
+                            }}
+                        />
+                    </div>
                 )}
+                <main className="workspace-reference-content">
+                    <ErrorBoundary key={tabId}>
+                        <div className="workspace-widget-surface">
+                            <div className="workspace-widget-surface-content">
+                                {tabId === "" ? (
+                                    <CenteredDiv>No Active Tab</CenteredDiv>
+                                ) : (
+                                    <div className="relative flex h-full flex-row">
+                                        <TabContent key={tabId} tabId={tabId} noTopPadding={isMacOS()} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <ModalsRenderer />
+                    </ErrorBoundary>
+                </main>
                 {widgetsPanelVisible && (
-                    <div
-                        className="absolute left-0 top-0 h-full z-50"
-                        style={{
-                            width: "280px",
-                            backdropFilter: "blur(20px)",
-                            background: "rgba(0, 0, 0, 0.35)",
-                            borderRight: "1px solid rgb(from var(--border-color) r g b / 0.3)",
-                        }}
-                    >
-                        <Widgets position="left" />
+                    <div className="workspace-reference-widget-catalog">
+                        <Widgets
+                            position="left"
+                            catalog
+                            onDismiss={() => workspaceLayoutModel.setWidgetsPanelVisible(false)}
+                        />
                     </div>
                 )}
             </div>
-            {floatingIslandVisible && !canvasComposerContext.active && (
-                <FloatingIsland onClose={handleCloseFloatingIsland} onReturnToPanel={handleReturnToPanel} />
-            )}
-            {canvasComposerContext.active && hiddenCanvasComposerTabId !== canvasComposerContext.tabid ? (
-                <KronosChamberCanvasComposer onOpenKronosChamber={openCanvasKronosChamber} />
-            ) : quickComposerEnabled ? (
-                !canvasComposerContext.active ? (
-                    <BottomQuickComposer onOpenDock={() => workspaceLayoutModel.setAIPanelVisible(true)} />
-                ) : null
-            ) : null}
-            {!canvasComposerContext.active && (
-                <AgentRunStrip onInspect={() => workspaceLayoutModel.setAIPanelVisible(true)} />
-            )}
+            <HermesHudHost
+                autoOpen={autoOpenHud || canvasComposerContext.active}
+                canvasContext={canvasComposerContext}
+                onExpand={expandHermes}
+                tabId={tabId}
+            />
         </div>
     );
 });

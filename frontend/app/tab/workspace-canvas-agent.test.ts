@@ -182,7 +182,7 @@ describe("workspace canvas agent graph", () => {
         expect(nodeKindForAgentActivity(activity({ action: "focus", surface: "panel" }))).toBe("output");
     });
 
-    it("branches tool work from the latest AI decision", () => {
+    it("maps sequential tool work as a connected action string", () => {
         const decision = upsertAgentActivityCard(
             [],
             activity({ action: "thinking", id: "decision-1", runid: "task-1", surface: "panel" }),
@@ -200,7 +200,7 @@ describe("workspace canvas agent graph", () => {
                 [decision, firstTool],
                 activity({ action: "inspect", id: "tool-2", runid: "task-1", surface: "file" })
             )
-        ).toEqual([decision.id]);
+        ).toEqual([firstTool.id]);
     });
 
     it("connects the final reply to every live branch leaf", () => {

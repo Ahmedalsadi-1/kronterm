@@ -3,9 +3,9 @@
     "ai:model": "gpt-5-mini",
     "ai:maxtokens": 4000,
     "ai:timeoutms": 60000,
-    "app:defaultnewblock": "chathubv2",
+    "app:defaultnewblock": "web",
     "app:tabbar": "left",
-    "app:layoutmode": "widgets",
+    "app:layoutmode": "tabs",
     "app:quickcomposer": false,
     "app:confirmquit": true,
     "app:hideaibutton": false,
@@ -41,7 +41,7 @@
     "term:durable": false,
     "waveai:showcloudmodes": false,
     "waveai:defaultmode": "waveai@kronos",
-    "acp:defaultbackend": "kronoscode",
+    "acp:defaultbackend": "hermes",
     "kronoscode:username": "kronoscode",
     "preview:defaultsort": "name"
 }

@@ -1,11 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-    loadAgentWidgetVisualSettings,
-    updateAgentWidgetVisualSetting,
-    type AgentWidgetVisualSettings,
-} from "@/app/block/agent-widget-settings";
+import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting } from "@/app/block/agent-widget-settings";
 import { buildAgentWidgetShortcutText, isAgentWidgetShortcutView } from "@/app/block/agent-widget-shortcuts";
 import { blockViewToName, renderHeaderElements } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
@@ -22,7 +18,6 @@ import * as util from "@/util/util";
 import { cn, makeIconClass } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
-import { AgentActionButton } from "./agent-action-button";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
 import { getSurfaceChromeLabel, getSurfaceChromeName } from "./surface-chrome";
@@ -308,95 +303,55 @@ const HeaderTextElems = React.memo(({ viewModel, blockId, preview, error }: Head
 });
 HeaderTextElems.displayName = "HeaderTextElems";
 
-type HeaderEndIconsProps = {
-    viewModel: ViewModel;
+type WidgetTrafficLightsProps = {
     nodeModel: NodeModel;
+    magnified: boolean;
+    folded: boolean;
 };
 
-const HeaderEndIcons = React.memo(({ viewModel, nodeModel }: HeaderEndIconsProps) => {
-    const endIconButtons = util.useAtomValueSafe(viewModel?.endIconButtons);
-
-    const endIconsElem: React.ReactElement[] = [];
-
-    if (endIconButtons && endIconButtons.length > 0) {
-        endIconsElem.push(
-            ...endIconButtons.map((button, idx) => (
-                <IconButton key={idx} decl={button} className="block-frame-widget-action block-frame-view-action" />
-            ))
-        );
-    }
-
-    const closeDecl: IconButtonDecl = {
-        elemtype: "iconbutton",
-        icon: "xmark-large",
-        title: "Close",
-        click: () => uxCloseBlock(nodeModel.blockId, () => nodeModel.onClose()),
-    };
-    endIconsElem.push(
-        <IconButton key="close" decl={closeDecl} className="block-frame-widget-action block-frame-default-close" />
-    );
-
-    return <div className="block-frame-end-icons">{endIconsElem}</div>;
-});
-HeaderEndIcons.displayName = "HeaderEndIcons";
-
-const WidgetSettingsPanel = ({ blockId }: { blockId: string }) => {
-    const settings = loadAgentWidgetVisualSettings(blockId);
-    const [_, forceUpdate] = React.useState(0);
-    const toggle = (key: keyof AgentWidgetVisualSettings, value: boolean | string) => {
-        updateAgentWidgetVisualSetting(blockId, key, value);
-        forceUpdate((n) => n + 1);
-    };
-    const items = [
-        { key: "glow" as const, label: "Glow" },
-        { key: "actionChip" as const, label: "Action Chip" },
-        { key: "cursor" as const, label: "Agent Cursor" },
-        { key: "screenshots" as const, label: "Screenshot Preview" },
-        { key: "aura" as const, label: "Pixel Aura" },
-    ];
-    const pointerStyles = [
-        { value: "pixel" as const, label: "Pixel" },
-        { value: "smooth" as const, label: "Smooth" },
-        { value: "minimal" as const, label: "Minimal" },
-    ];
+const WidgetTrafficLights = React.memo(({ nodeModel, magnified, folded }: WidgetTrafficLightsProps) => {
+    const stopDrag = (event: React.PointerEvent<HTMLButtonElement>) => event.stopPropagation();
     return (
-        <div className="flex flex-col gap-1 p-2">
-            {items.map((item) => (
-                <label
-                    key={item.key}
-                    className="flex cursor-pointer items-center gap-2 text-xs text-[#9e9a93] hover:text-[#eeeeee]"
-                >
-                    <input
-                        type="checkbox"
-                        checked={settings[item.key]}
-                        onChange={() => toggle(item.key, !settings[item.key])}
-                        className="accent-[#5b9ef5] size-3"
-                    />
-                    {item.label}
-                </label>
-            ))}
-            <div className="my-1 border-t border-[#2a2a2a]" />
-            <div className="mb-1 text-[10px] text-[#6b6863]">Pointer Style</div>
-            <div className="flex gap-1">
-                {pointerStyles.map((style) => (
-                    <button
-                        key={style.value}
-                        onClick={() => toggle("pointerStyle", style.value)}
-                        className={cn(
-                            "cursor-pointer rounded border px-2 py-0.5 text-[10px] transition-colors",
-                            settings.pointerStyle === style.value
-                                ? "border-[#5b9ef5] bg-[#1e2a3a] text-[#5b9ef5]"
-                                : "border-[#2a2a2a] text-[#9e9a93] hover:border-[#3a3a3a] hover:text-[#eeeeee]"
-                        )}
-                    >
-                        {style.label}
-                    </button>
-                ))}
-            </div>
+        <div className="block-frame-traffic-lights" aria-label="Widget window controls">
+            <button
+                type="button"
+                className="is-close"
+                title="Close widget"
+                aria-label="Close widget"
+                onPointerDown={stopDrag}
+                onClick={() => uxCloseBlock(nodeModel.blockId, () => nodeModel.onClose())}
+            >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
+            </button>
+            <button
+                type="button"
+                className="is-fold"
+                title={folded ? "Restore widget" : "Fold widget"}
+                aria-label={folded ? "Restore widget" : "Fold widget"}
+                aria-pressed={folded}
+                onPointerDown={stopDrag}
+                onClick={() => nodeModel.toggleFold()}
+            >
+                <i className="fa-solid fa-minus" aria-hidden="true" />
+            </button>
+            <button
+                type="button"
+                className="is-expand"
+                title={magnified ? "Restore widget" : "Expand widget"}
+                aria-label={magnified ? "Restore widget" : "Expand widget"}
+                aria-pressed={magnified}
+                onPointerDown={stopDrag}
+                onClick={() => {
+                    nodeModel.toggleMagnify();
+                    setTimeout(() => refocusNode(nodeModel.blockId), 50);
+                }}
+            >
+                <i className="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true" />
+            </button>
         </div>
     );
-};
-WidgetSettingsPanel.displayName = "WidgetSettingsPanel";
+});
+WidgetTrafficLights.displayName = "WidgetTrafficLights";
 
 const BlockFrame_Header = ({
     nodeModel,
@@ -417,11 +372,8 @@ const BlockFrame_Header = ({
     const headerTop = util.useAtomValueSafe(viewModel?.headerTop);
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
+    const folded = jotai.useAtomValue(nodeModel.isFolded);
     const prevMagifiedState = React.useRef(magnified);
-    const [settingsPanelOpen, setSettingsPanelOpen] = React.useState(false);
-    const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
-    const settingsPanelRef = React.useRef<HTMLDivElement>(null);
-    const settingsPanelId = React.useId();
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
     const isTerminalBlock = metaView === "term";
@@ -436,42 +388,6 @@ const BlockFrame_Header = ({
         }
         prevMagifiedState.current = magnified;
     }, [magnified]);
-
-    React.useEffect(() => {
-        if (!settingsPanelOpen) {
-            return;
-        }
-        const closeSettingsPanel = (restoreFocus: boolean) => {
-            setSettingsPanelOpen(false);
-            if (restoreFocus) {
-                window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
-            }
-        };
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") {
-                return;
-            }
-            event.preventDefault();
-            closeSettingsPanel(true);
-        };
-        const handlePointerDown = (event: PointerEvent) => {
-            const target = event.target as Node;
-            if (settingsPanelRef.current?.contains(target) || settingsButtonRef.current?.contains(target)) {
-                return;
-            }
-            closeSettingsPanel(false);
-        };
-        document.addEventListener("keydown", handleKeyDown);
-        document.addEventListener("pointerdown", handlePointerDown);
-        const focusFrame = window.requestAnimationFrame(() => {
-            settingsPanelRef.current?.querySelector<HTMLElement>("input, button")?.focus();
-        });
-        return () => {
-            window.cancelAnimationFrame(focusFrame);
-            document.removeEventListener("keydown", handleKeyDown);
-            document.removeEventListener("pointerdown", handlePointerDown);
-        };
-    }, [settingsPanelOpen]);
 
     const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) =>
         handleHeaderContextMenu(event, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView);
@@ -493,6 +409,7 @@ const BlockFrame_Header = ({
                 onContextMenu={handleContextMenu}
                 onDoubleClick={handleContextMenu}
             >
+                <WidgetTrafficLights nodeModel={nodeModel} magnified={magnified} folded={folded} />
                 {!useTermHeader && preIconButton && (
                     <IconButton decl={preIconButton} className="block-frame-widget-action block-frame-preicon-button" />
                 )}
@@ -523,50 +440,6 @@ const BlockFrame_Header = ({
                     </div>
                 )}
                 <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
-                <div className="block-frame-standard-actions">
-                    <IconButton
-                        decl={{
-                            elemtype: "iconbutton",
-                            icon: magnified ? "compress" : "expand",
-                            title: magnified ? "Restore Widget" : "Expand Widget",
-                            click: () => {
-                                nodeModel.toggleMagnify();
-                                setTimeout(() => refocusNode(nodeModel.blockId), 50);
-                            },
-                        }}
-                        className="block-frame-widget-action block-frame-expand-action"
-                    />
-                    <button
-                        ref={settingsButtonRef}
-                        type="button"
-                        title="Widget Settings"
-                        aria-label="Widget Settings"
-                        aria-haspopup="dialog"
-                        aria-expanded={settingsPanelOpen}
-                        aria-controls={settingsPanelId}
-                        onClick={() => setSettingsPanelOpen((open) => !open)}
-                        className={cn(
-                            "wave-iconbutton block-frame-widget-action block-frame-settings-action cursor-pointer",
-                            settingsPanelOpen && "is-active"
-                        )}
-                    >
-                        <i className={makeIconClass("sliders", true)} aria-hidden="true" />
-                    </button>
-                </div>
-                <HeaderEndIcons viewModel={viewModel} nodeModel={nodeModel} />
-                {!preview && <AgentActionButton blockType={metaView ?? "term"} blockId={nodeModel.blockId} />}
-                {settingsPanelOpen && (
-                    <div
-                        ref={settingsPanelRef}
-                        id={settingsPanelId}
-                        className="block-frame-settings-panel"
-                        role="dialog"
-                        aria-label="Widget settings"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <WidgetSettingsPanel blockId={nodeModel.blockId} />
-                    </div>
-                )}
             </div>
         </>
     );

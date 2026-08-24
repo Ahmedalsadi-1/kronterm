@@ -39,7 +39,7 @@ wsh edit [path]
 wsh edit -m [path]           # opens in magnified block
 ```
 
-This will open up a codeedit block for the specified file. This is useful for quickly editing files on a local or remote machine in Wave's graphical editor. This command returns immediately after opening the block. 
+This will open up a codeedit block for the specified file. This is useful for quickly editing files on a local or remote machine in Wave's graphical editor. This command returns immediately after opening the block.
 
 For `$EDITOR` integration (e.g. with `git commit`), see [`wsh editor`](#editor) which blocks until the editor is closed.
 
@@ -161,12 +161,14 @@ wsh ai architecture.png api-spec.pdf server.go -m "review the system design"
 ```
 
 **File Size Limits:**
+
 - Text files: 200KB maximum
 - PDF files: 5MB maximum
 - Image files: 7MB maximum (accounts for base64 encoding overhead)
 - Maximum 15 files per command
 
 **Flags:**
+
 - `-m, --message <text>` - Add message text along with files
 - `-s, --submit` - Auto-submit immediately (default waits for user)
 - `-n, --new` - Clear current chat and start fresh conversation
@@ -981,6 +983,7 @@ wsh blocks list [flags]
 List all blocks with optional filtering by workspace, window, tab, or view type. Output can be formatted as a table (default) or JSON for scripting.
 
 Flags:
+
 - `--workspace <id>` - restrict to specific workspace id
 - `--window <id>` - restrict to specific window id
 - `--tab <id>` - restrict to specific tab id
@@ -1004,6 +1007,87 @@ wsh blocks list --workspace=12d0c067-378e-454c-872e-77a314248114
 wsh blocks list --json
 ```
 
+---
+
+## canvas
+
+Inspect and mutate a persisted KronTerm canvas graph. Every subcommand requires the canvas workspace ID and canvas block ID.
+
+```sh
+wsh canvas load <workspace-id> <block-id>
+wsh canvas snapshot <workspace-id> <block-id> [--include-content]
+wsh canvas save <workspace-id> <block-id> '<document-json>'
+wsh canvas create-node <workspace-id> <block-id> '<node-json>'
+wsh canvas update-node <workspace-id> <block-id> '<node-json>'
+wsh canvas delete-node <workspace-id> <block-id> <node-id>
+wsh canvas connect <workspace-id> <block-id> <from-node> <to-node> [label]
+wsh canvas launch-node <workspace-id> <block-id> <node-id> <tab-id>
+wsh canvas upload-asset <workspace-id> <block-id> <path> [--mime-type <type>]
+```
+
+Use `snapshot` before graph mutations. `delete-node` also removes attached edges, and `save` replaces the full document.
+
+Examples:
+
+```sh
+wsh canvas snapshot workspace-1 block-1 --include-content
+wsh canvas create-node workspace-1 block-1 '{"type":"note","title":"Investigation","content":"Start here"}'
+wsh canvas connect workspace-1 block-1 node-1 node-2 "next"
+wsh canvas upload-asset workspace-1 block-1 ./diagram.png
+```
+
+---
+
+## workspace-surface
+
+Inspect and control the active rendered workspace presentation. Unlike `blocks list`, the snapshot reports what the user
+actually sees: `widgets`, `tabs`, or `canvas`, ordered widget identities, focus and visibility, screen bounds, canvas world
+bounds and camera, and the tiled split tree when applicable.
+
+```sh
+wsh workspace-surface snapshot
+wsh workspace-surface screenshot
+wsh workspace-surface control <action> [flags]
+```
+
+Control actions:
+
+- `set_presentation` with `--presentation widgets|tabs|canvas`
+- `focus` with `--block <id>`
+- `move` with `--block <id>` and either `--target-block <id> --position before|after`, a directional target, or canvas `--x/--y`
+- `swap` with `--block <id> --target-block <id>`
+- `resize` with `--block <id> --size 10..90` in widgets, or `--width/--height [--x/--y]` in canvas
+- `magnify` with `--block <id>` in widgets
+- `navigate` with `--block <id> --direction up|right|down|left`
+- `fit` or `arrange` in canvas
+- `add_note` with `--text`, optional `--color amber|blue|green|rose|slate`, and optional canvas geometry
+- `update_object` or `delete_object` with `--object <id>`
+- `connect_objects` with `--from-object <id> --to-object <id>`
+
+Examples:
+
+```sh
+# Learn the active presentation, widget order, geometry, and supported controls
+wsh workspace-surface snapshot
+
+# Switch to canvas and arrange every live widget
+wsh workspace-surface control set_presentation --presentation canvas
+wsh workspace-surface control arrange
+
+# Move and resize a widget in canvas world coordinates, including a valid zero origin
+wsh workspace-surface control move --block <id> --x 0 --y 0
+wsh workspace-surface control resize --block <id> --width 840 --height 540
+
+# Build a collision-free whiteboard task chain
+wsh workspace-surface control add_note --text "Investigate login" --color amber --x 0 --y 640
+wsh workspace-surface snapshot
+wsh workspace-surface control connect_objects --from-object <first-note-id> --to-object <second-note-id>
+
+# Resize a tiled widget to 65% of its immediate split
+wsh workspace-surface control resize --block <id> --size 65
+```
+
+Run `snapshot` again after mutations. The returned capabilities explain which controls apply to the current presentation.
 
 ---
 
@@ -1114,4 +1198,5 @@ The secrets UI provides a convenient visual way to browse, add, edit, and delete
 :::tip
 Use secrets in your scripts to avoid hardcoding sensitive values. Secrets work across remote machines - store an API key locally with `wsh secret set`, then access it from any SSH or WSL connection with `wsh secret get`. The secret is securely retrieved from your local machine without needing to duplicate it on remote systems.
 :::
+
 </PlatformProvider>

@@ -341,6 +341,16 @@ function getWshBinDir(): string {
     return path.join(getWaveDataDir(), "bin");
 }
 
+function resolveSurfaceServerPath(): string | undefined {
+    const candidates = [
+        process.env.KRONTERM_SURFACE_MCP,
+        path.join(repoRoot(), "mcp-kron-term", "dist", "index.js"),
+        path.join(process.resourcesPath ?? "", "mcp-kron-term", "dist", "index.js"),
+        path.resolve(import.meta.dirname, "..", "mcp-kron-term", "dist", "index.js"),
+    ].filter(Boolean);
+    return candidates.find((candidate) => fs.existsSync(candidate));
+}
+
 function getWaveSockPath(): string {
     return path.join(getWaveDataDir(), "wave.sock");
 }
@@ -439,6 +449,8 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
             [WaveAppElectronExecPath]: getElectronExecPath(),
             WAVETERM_WSH_BIN: path.join(getWshBinDir(), "wsh"),
             WAVETERM_WSH_BIN_DIR: getWshBinDir(),
+            KRONTERM_WSH: path.join(getWshBinDir(), "wsh"),
+            WAVETERM_WSH: path.join(getWshBinDir(), "wsh"),
             WAVETERM_WSH_SOCKET: getWaveSockPath(),
             WAVETERM_WEB_ENDPOINT: getWebServerEndpoint(),
             WAVETERM_WS_ENDPOINT: getWSServerEndpoint(),
@@ -448,6 +460,10 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
             no_proxy: "localhost,127.0.0.1",
             PATH: buildPathEnv(),
         };
+        const surfaceServerPath = resolveSurfaceServerPath();
+        if (surfaceServerPath) {
+            env.KRONTERM_SURFACE_MCP = surfaceServerPath;
+        }
         if (kronosCodeBinary) {
             env.KRONOSCODE_BINARY = kronosCodeBinary;
         }

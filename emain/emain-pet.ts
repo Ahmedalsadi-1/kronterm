@@ -40,6 +40,7 @@ export type DesktopPetState = {
     cursorPoint?: { x: number; y: number } | null;
     reasoningLog?: string[];
     previewImageUrl?: string;
+    previewBlockId?: string;
     surface?: AgentActivitySurface;
     action?: AgentActivityAction;
     appName?: string;
@@ -68,7 +69,7 @@ export type ClickThroughState = {
     enabled: boolean;
 };
 
-const PetWindowSize = { width: 322, height: 300 };
+const PetWindowSize = { width: 220, height: 190 };
 const MovementStateMs = 900;
 const ReasoningLogMax = 20;
 const CursorFollowIntervalMs = 20; // 50fps smooth update loop
@@ -87,6 +88,7 @@ let idleStateTimer: NodeJS.Timeout = null;
 let followCursorTimer: NodeJS.Timeout = null;
 let petActivityServer: Server = null;
 let agentCursorFollowUntil = 0;
+let chatDockTarget: Electron.Rectangle = null;
 let options: DesktopPetOptions = {
     mode: "docked",
     roam: false,
@@ -132,6 +134,7 @@ function scheduleIdleState(detail = "KronosCode ready", delayMs = SuccessStateMs
             cursorAction: "idle",
             cursorPoint: null,
             previewImageUrl: undefined,
+            previewBlockId: undefined,
             surface: "panel",
             action: "focus",
             appName: undefined,
@@ -161,17 +164,21 @@ function movePet(point: Electron.Point) {
 
 function dockNearKronterm(force = false) {
     const shouldDock = options.mode === "status-only" || options.mode === "docked";
-    if (state.active || (!shouldDock && !options.roam && !force)) {
+    if ((state.active && !force) || (!shouldDock && !options.roam && !force)) {
         return;
     }
     const waveBounds = focusedWaveWindow?.getBounds();
     const display = waveBounds ? screen.getDisplayMatching(waveBounds) : screen.getPrimaryDisplay();
     const area = display.workArea;
-    const size = petWindow?.getBounds() ?? PetWindowSize;
-    const point = {
-        x: waveBounds ? waveBounds.x + waveBounds.width - size.width - 18 : area.x + area.width - size.width - 18,
-        y: waveBounds ? waveBounds.y + waveBounds.height - size.height - 18 : area.y + area.height - size.height - 18,
-    };
+    const point = chatDockTarget
+        ? {
+              x: (waveBounds?.x ?? 0) + chatDockTarget.x + 12,
+              y: (waveBounds?.y ?? 0) + chatDockTarget.y + 44,
+          }
+        : {
+              x: waveBounds ? waveBounds.x + 104 : area.x + 24,
+              y: waveBounds ? waveBounds.y + 84 : area.y + 48,
+          };
     movePet(limitPositionToDisplay(point, display));
 }
 
@@ -310,21 +317,6 @@ function startPetActivityServer() {
     petActivityServer.listen(PetActivityPort, "127.0.0.1");
 }
 
-function moveToAgentTarget(target: Electron.Rectangle | undefined) {
-    if (options.mode !== "expressive" || target == null) {
-        return;
-    }
-    const display = screen.getDisplayMatching(target);
-    const size = petWindow?.getBounds() ?? PetWindowSize;
-    const targetCenterX = target.x + target.width / 2;
-    const targetCenterY = target.y + target.height / 2;
-    const point = {
-        x: targetCenterX - Math.round(size.width / 2),
-        y: targetCenterY - Math.round(size.height * 0.45),
-    };
-    movePet(limitPositionToDisplay(point, display));
-}
-
 export function createDesktopPetWindow() {
     if (unamePlatform !== "darwin" || petWindow != null) {
         return;
@@ -333,11 +325,11 @@ export function createDesktopPetWindow() {
         ...PetWindowSize,
         transparent: true,
         frame: false,
-        resizable: true,
+        resizable: false,
         movable: true,
         focusable: false,
-        minWidth: 250,
-        minHeight: 220,
+        minWidth: PetWindowSize.width,
+        minHeight: PetWindowSize.height,
         fullscreenable: false,
         hasShadow: false,
         show: false,
@@ -1079,8 +1071,12 @@ export function notifyDesktopPetActivity(event: AcpEvent) {
 }
 
 export function notifyDesktopPetNotification(notification: DesktopPetNotification) {
+    const incomingActivity = activityForNotification(notification);
+    if (incomingActivity.surface === "panel" && notification.target != null) {
+        chatDockTarget = notification.target;
+    }
     if (notification.kind === "idle") {
-        const activity = activityForNotification(notification);
+        const activity = incomingActivity;
         updateState({
             active: false,
             context: "idle",
@@ -1090,6 +1086,7 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
             cursorAction: "idle",
             cursorPoint: null,
             previewImageUrl: notification.previewImageUrl,
+            previewBlockId: activity.blockid,
             surface: activity.surface,
             action: activity.action,
             appName: activity.appname,
@@ -1123,11 +1120,13 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
             surface: "panel",
             action: "thinking",
             appName: undefined,
+            previewImageUrl: undefined,
+            previewBlockId: undefined,
         });
-        moveToAgentTarget(notification.target);
+        dockNearKronterm(true);
         return;
     }
-    const activity = activityForNotification(notification);
+    const activity = incomingActivity;
     const detail = typeof notification.detail === "string" ? notification.detail.slice(0, 48) : "Using tool";
     const cursorAction =
         notification.cursorAction ?? cursorActionForAgentActivity(activity) ?? legacyCursorActionForTool(detail);
@@ -1141,6 +1140,7 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
         cursorAction,
         cursorPoint,
         previewImageUrl: notification.previewImageUrl,
+        previewBlockId: activity.blockid,
         surface: activity.surface,
         action: activity.action,
         appName: activity.appname,
@@ -1151,10 +1151,7 @@ export function notifyDesktopPetNotification(notification: DesktopPetNotificatio
         }
         cursorTimer = setTimeout(() => updateState({ cursorAction: "idle", cursorPoint: null }), 2500);
     }
-    moveToAgentTarget(notification.target);
-    if (cursorPoint) {
-        moveToAgentTarget({ x: cursorPoint.x, y: cursorPoint.y, width: 1, height: 1 });
-    }
+    dockNearKronterm(true);
     if (cursorAction != null && cursorAction !== "idle") {
         startAgentCursorFollow();
     }

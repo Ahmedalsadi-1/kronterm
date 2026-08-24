@@ -4,9 +4,12 @@
 import { describe, expect, it } from "vitest";
 import {
     canvasBoundsForRects,
+    canvasRectsOverlap,
+    findNonOverlappingCanvasRect,
     fitCanvasCameraToBounds,
     isCanvasShortcutInteractiveTarget,
     makeViewportCenteredCanvasRect,
+    packCanvasRects,
     screenPointToCanvas,
     zoomCanvasCameraAtPoint,
 } from "./workspace-canvas-utils";
@@ -73,5 +76,30 @@ describe("workspace canvas camera", () => {
             y: 375,
             zoom: 0.05,
         });
+    });
+});
+
+describe("workspace canvas collision-free placement", () => {
+    it("treats the requested whiteboard gutter as occupied space", () => {
+        const first = { x: 0, y: 0, width: 320, height: 180 };
+        expect(canvasRectsOverlap(first, { x: 360, y: 0, width: 320, height: 180 }, 56)).toBe(true);
+        expect(canvasRectsOverlap(first, { x: 376, y: 0, width: 320, height: 180 }, 56)).toBe(false);
+    });
+
+    it("places a new node below or beside existing nodes without overlap", () => {
+        const preferred = { x: 100, y: 100, width: 320, height: 180 };
+        const result = findNonOverlappingCanvasRect(preferred, [preferred], 56);
+        expect(canvasRectsOverlap(result, preferred, 56)).toBe(false);
+    });
+
+    it("repacks legacy overlapping widgets deterministically", () => {
+        const packed = packCanvasRects([
+            ["a", { x: 20, y: 20, width: 400, height: 300 }],
+            ["b", { x: 20, y: 20, width: 400, height: 300 }],
+            ["c", { x: 20, y: 20, width: 400, height: 300 }],
+        ]);
+        expect(canvasRectsOverlap(packed.a, packed.b, 56)).toBe(false);
+        expect(canvasRectsOverlap(packed.a, packed.c, 56)).toBe(false);
+        expect(canvasRectsOverlap(packed.b, packed.c, 56)).toBe(false);
     });
 });

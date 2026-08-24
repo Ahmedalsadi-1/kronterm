@@ -2,10 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
-import { getApi, getBlockComponentModel, getConnStatusAtom, globalStore, WOS } from "@/app/store/global";
+import { atoms, getApi, getBlockComponentModel, getConnStatusAtom, globalStore, WOS } from "@/app/store/global";
+import { isWorkspacePresentation, type WorkspacePresentation } from "@/app/tab/workspace-presentation";
+import { getWorkspaceSurfaceModeProvider } from "@/app/tab/workspace-surface-runtime";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import type { TermViewModel } from "@/app/view/term/term-model";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { getLayoutModelForStaticTab } from "@/layout/index";
+import type {
+    LayoutNode,
+    LayoutTreeComputeMoveNodeAction,
+    LayoutTreeResizeNodeAction,
+    LayoutTreeSwapNodeAction,
+} from "@/layout/index";
+import { DropDirection, getLayoutModelForStaticTab, LayoutTreeActionType, NavigateDirection } from "@/layout/index";
 import { base64ToArrayBuffer } from "@/util/util";
 import { WebviewTag } from "electron";
 import { RpcResponseHelper, WshClient } from "./wshclient";
@@ -22,9 +30,7 @@ const DefaultKrontermDesktopComputerUseUrl = "http://localhost:9990/computer-use
 
 export function sandboxComputerUseUrlFromStatus(status: SandboxStatusResponse | null | undefined): string {
     const statusWithUrls = status as
-        | (SandboxStatusResponse & { mcpUrl?: string; desktopUrl?: string })
-        | null
-        | undefined;
+        (SandboxStatusResponse & { mcpUrl?: string; desktopUrl?: string }) | null | undefined;
     if (statusWithUrls?.mcpUrl) {
         return statusWithUrls.mcpUrl.replace(/\/+$/, "");
     }
@@ -595,11 +601,320 @@ export class TabClient extends WshClient {
         return await getApi().captureScreenshot(electronRect);
     }
 
-    async handle_waveaiaddcontext(rh: RpcResponseHelper, data: CommandWaveAIAddContextData): Promise<void> {
-        const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
-        if (!workspaceLayoutModel.getAIPanelVisible()) {
-            workspaceLayoutModel.setAIPanelVisible(true, { nofocus: true });
+    async handle_workspacesurfacesnapshot(): Promise<string> {
+        return JSON.stringify(this.makeWorkspaceSurfaceSnapshot(), null, 2);
+    }
+
+    async handle_workspacesurfacescreenshot(): Promise<string> {
+        const presentation = this.getWorkspacePresentation();
+        const layoutModel = getLayoutModelForStaticTab();
+        const container =
+            presentation === "canvas"
+                ? document.querySelector<HTMLElement>(".workspace-canvas")
+                : presentation === "tabs"
+                  ? document.querySelector<HTMLElement>(".widget-tabs-layout")
+                  : layoutModel?.displayContainerRef.current;
+        if (!container) {
+            throw new Error(`Workspace ${presentation} surface is not mounted`);
         }
+        const rect = container.getBoundingClientRect();
+        return getApi().captureScreenshot({
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.max(1, Math.round(rect.width)),
+            height: Math.max(1, Math.round(rect.height)),
+        });
+    }
+
+    async handle_workspacesurfacecontrol(
+        _rh: RpcResponseHelper,
+        data: CommandWorkspaceSurfaceControlData
+    ): Promise<string> {
+        const presentation = this.getWorkspacePresentation();
+        const tabId = globalStore.get(atoms.staticTabId);
+        const provider = getWorkspaceSurfaceModeProvider(tabId);
+        if (data.action === "set_presentation") {
+            if (!isWorkspacePresentation(data.presentation)) {
+                throw new Error(`Invalid workspace presentation: ${data.presentation}`);
+            }
+            window.localStorage.setItem("kronterm:layoutmode", data.presentation);
+            (window as any).__krontermLayoutMode = data.presentation;
+            window.dispatchEvent(
+                new CustomEvent("kronterm:layoutmode-changed", { detail: { mode: data.presentation } })
+            );
+            await RpcApi.SetConfigCommand(this, { "app:layoutmode": data.presentation });
+            return JSON.stringify({
+                success: true,
+                message: `Workspace presentation changed to ${data.presentation}.`,
+                presentation: data.presentation,
+            });
+        }
+        if (presentation === "canvas" && provider) {
+            const result = provider.control({
+                action: data.action as
+                    | "focus"
+                    | "move"
+                    | "resize"
+                    | "navigate"
+                    | "fit"
+                    | "arrange"
+                    | "add_note"
+                    | "update_object"
+                    | "delete_object"
+                    | "connect_objects",
+                blockid: data.blockid,
+                direction: data.direction as "up" | "right" | "down" | "left",
+                x: data.x,
+                y: data.y,
+                width: data.width,
+                height: data.height,
+                objectid: data.objectid,
+                fromobjectid: data.fromobjectid,
+                toobjectid: data.toobjectid,
+                text: data.text,
+                color: data.color,
+            });
+            if (!result.success) {
+                throw new Error(result.message);
+            }
+            return JSON.stringify({ ...result, snapshot: this.makeWorkspaceSurfaceSnapshot() }, null, 2);
+        }
+
+        const layoutModel = getLayoutModelForStaticTab();
+        if (!layoutModel) {
+            throw new Error("Layout model not found");
+        }
+        const node = data.blockid ? layoutModel.getNodeByBlockId(data.blockid) : undefined;
+        if (["focus", "move", "resize", "swap", "magnify", "navigate"].includes(data.action) && !node) {
+            throw new Error(`Block not found in active tab: ${data.blockid || "<missing>"}`);
+        }
+        if (data.action === "focus") {
+            layoutModel.focusNode(node.id);
+        } else if (data.action === "move") {
+            const target = layoutModel.getNodeByBlockId(data.targetblockid);
+            if (!target || target.id === node.id) {
+                throw new Error(`A different target block is required: ${data.targetblockid || "<missing>"}`);
+            }
+            const directionByValue = {
+                before: DropDirection.Left,
+                after: DropDirection.Right,
+                left: DropDirection.Left,
+                right: DropDirection.Right,
+                up: DropDirection.Top,
+                down: DropDirection.Bottom,
+            } as const;
+            const direction = directionByValue[(data.direction || data.position) as keyof typeof directionByValue];
+            if (direction == null) {
+                throw new Error("Move requires position before/after or direction up/right/down/left");
+            }
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.ComputeMove,
+                nodeId: target.id,
+                nodeToMoveId: node.id,
+                direction,
+            } as LayoutTreeComputeMoveNodeAction);
+            layoutModel.onDrop();
+            layoutModel.focusNode(node.id);
+        } else if (data.action === "swap") {
+            const target = layoutModel.getNodeByBlockId(data.targetblockid);
+            if (!target || target.id === node.id) {
+                throw new Error(`A different target block is required: ${data.targetblockid || "<missing>"}`);
+            }
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.Swap,
+                node1Id: node.id,
+                node2Id: target.id,
+            } as LayoutTreeSwapNodeAction);
+        } else if (data.action === "resize") {
+            if (presentation !== "widgets") {
+                throw new Error("Proportional resize is available only in widgets presentation");
+            }
+            if (data.size == null || !Number.isFinite(data.size)) {
+                throw new Error("Widgets resize requires size between 10 and 90");
+            }
+            const size = Math.min(90, Math.max(10, data.size));
+            const parent = this.findWorkspaceSurfaceParent(layoutModel.treeState.rootNode, node.id);
+            if (!parent || parent.children.length < 2) {
+                throw new Error("The widget is not in a resizable split");
+            }
+            const total = parent.children.reduce((sum, child) => sum + child.size, 0);
+            const targetSize = (total * size) / 100;
+            const otherTotal = total - node.size;
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.ResizeNode,
+                resizeOperations: parent.children.map((child) => ({
+                    nodeId: child.id,
+                    size:
+                        child.id === node.id
+                            ? targetSize
+                            : otherTotal > 0
+                              ? (child.size / otherTotal) * (total - targetSize)
+                              : (total - targetSize) / (parent.children.length - 1),
+                })),
+            } as LayoutTreeResizeNodeAction);
+        } else if (data.action === "magnify") {
+            if (presentation !== "widgets") {
+                throw new Error("Magnification is available only in widgets presentation");
+            }
+            layoutModel.magnifyNodeToggle(node.id);
+        } else if (data.action === "navigate") {
+            const direction = data.direction as "up" | "right" | "down" | "left";
+            if (!direction) {
+                throw new Error("Navigate requires a direction");
+            }
+            if (presentation === "tabs") {
+                const order = globalStore.get(layoutModel.leafOrder);
+                const index = order.findIndex((entry) => entry.nodeid === node.id);
+                const delta = direction === "left" || direction === "up" ? -1 : 1;
+                const next = order[(index + delta + order.length) % order.length];
+                layoutModel.focusNode(next.nodeid);
+            } else {
+                const directionMap = {
+                    up: NavigateDirection.Up,
+                    right: NavigateDirection.Right,
+                    down: NavigateDirection.Down,
+                    left: NavigateDirection.Left,
+                };
+                const result = layoutModel.switchNodeFocusInDirection(directionMap[direction], false);
+                if (!result.success) {
+                    throw new Error(`No widget exists ${direction} of ${data.blockid}`);
+                }
+            }
+        } else if (data.action === "fit" || data.action === "arrange") {
+            throw new Error(`${data.action} is available only in canvas presentation`);
+        } else {
+            throw new Error(`Unknown workspace surface action: ${data.action}`);
+        }
+        return JSON.stringify({ success: true, snapshot: this.makeWorkspaceSurfaceSnapshot() }, null, 2);
+    }
+
+    private getWorkspacePresentation(): WorkspacePresentation {
+        const current = (window as any).__krontermLayoutMode;
+        return isWorkspacePresentation(current) ? current : "widgets";
+    }
+
+    private findWorkspaceSurfaceParent(root: LayoutNode, nodeId: string): LayoutNode | undefined {
+        if (!root?.children?.length) {
+            return undefined;
+        }
+        if (root.children.some((child) => child.id === nodeId)) {
+            return root;
+        }
+        for (const child of root.children) {
+            const parent = this.findWorkspaceSurfaceParent(child, nodeId);
+            if (parent) {
+                return parent;
+            }
+        }
+        return undefined;
+    }
+
+    private makeWorkspaceSurfaceSnapshot(): Record<string, unknown> {
+        const presentation = this.getWorkspacePresentation();
+        const tabId = globalStore.get(atoms.staticTabId);
+        const tabAtom = WOS.getWaveObjectAtom<Tab>(WOS.makeORef("tab", tabId));
+        const tab = globalStore.get(tabAtom);
+        const layoutModel = getLayoutModelForStaticTab();
+        const modeState = getWorkspaceSurfaceModeProvider(tabId)?.snapshot();
+        const leafOrder = layoutModel ? globalStore.get(layoutModel.leafOrder) : [];
+        const orderedBlockIds =
+            presentation === "canvas" ? (tab?.blockids ?? []) : leafOrder.map((entry) => entry.blockid);
+        const focusedNode = layoutModel ? globalStore.get(layoutModel.focusedNode) : undefined;
+        const focusedBlockId = presentation === "canvas" ? modeState?.selectedblockid : focusedNode?.data?.blockId;
+        const containerRect = layoutModel?.displayContainerRef.current?.getBoundingClientRect();
+        const canvasRect = document.querySelector<HTMLElement>(".workspace-canvas")?.getBoundingClientRect();
+        const blocks = orderedBlockIds.map((blockId, index) => {
+            const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId));
+            const block = globalStore.get(blockAtom);
+            const node = layoutModel?.getNodeByBlockId(blockId);
+            const localRect = node ? layoutModel.getNodeRect(node) : undefined;
+            const worldBounds = modeState?.rects?.[blockId];
+            const camera = modeState?.camera;
+            const bounds =
+                presentation === "canvas" && worldBounds && camera && canvasRect
+                    ? {
+                          x: canvasRect.x + camera.x + worldBounds.x * camera.zoom,
+                          y: canvasRect.y + camera.y + worldBounds.y * camera.zoom,
+                          width: worldBounds.width * camera.zoom,
+                          height: worldBounds.height * camera.zoom,
+                      }
+                    : localRect && containerRect
+                      ? {
+                            x: containerRect.x + localRect.left,
+                            y: containerRect.y + localRect.top,
+                            width: localRect.width,
+                            height: localRect.height,
+                        }
+                      : undefined;
+            const view = String(block?.meta?.view ?? "unknown");
+            const title = String(block?.meta?.["frame:title"] ?? "").trim() || view;
+            return {
+                order: index + 1,
+                blockid: blockId,
+                nodeid: node?.id,
+                view,
+                title,
+                focused: focusedBlockId === blockId,
+                visible: presentation !== "tabs" || focusedBlockId === blockId,
+                bounds,
+                worldbounds: worldBounds,
+                meta: block?.meta ?? {},
+            };
+        });
+        return {
+            version: 1,
+            timestamp: Date.now(),
+            tabid: tabId,
+            presentation,
+            focusedblockid: focusedBlockId,
+            magnifiedblockid: layoutModel?.magnifiedNodeId
+                ? globalStore.get(layoutModel.leafs).find((leaf) => leaf.id === layoutModel.magnifiedNodeId)?.data
+                      ?.blockId
+                : undefined,
+            viewport:
+                presentation === "canvas" && canvasRect
+                    ? { x: canvasRect.x, y: canvasRect.y, width: canvasRect.width, height: canvasRect.height }
+                    : containerRect
+                      ? {
+                            x: containerRect.x,
+                            y: containerRect.y,
+                            width: containerRect.width,
+                            height: containerRect.height,
+                        }
+                      : undefined,
+            camera: modeState?.camera,
+            canvasobjects: modeState?.objects ?? [],
+            layouttree: presentation === "widgets" ? layoutModel?.treeState.rootNode : undefined,
+            blocks,
+            capabilities: {
+                presentation: ["set_presentation"],
+                widgets: ["focus", "move", "swap", "resize", "magnify", "navigate", "screenshot"],
+                tabs: ["focus", "move", "swap", "navigate", "screenshot"],
+                canvas: [
+                    "focus",
+                    "move",
+                    "resize",
+                    "navigate",
+                    "fit",
+                    "arrange",
+                    "add_note",
+                    "update_object",
+                    "delete_object",
+                    "connect_objects",
+                    "screenshot",
+                ],
+            },
+            guidance:
+                presentation === "canvas"
+                    ? "Use worldbounds for widget geometry, canvasobjects for whiteboard object IDs and geometry, and bounds for on-screen interactions. Requested placements are moved to open space to prevent overlap."
+                    : presentation === "tabs"
+                      ? "Only the focused widget is visible; use focus or navigate before widget interaction."
+                      : "Use layouttree and bounds for split-aware move, resize, magnify, and directional navigation.",
+        };
+    }
+
+    async handle_waveaiaddcontext(rh: RpcResponseHelper, data: CommandWaveAIAddContextData): Promise<void> {
+        hermesSurfaceController.requestOpenPanel();
 
         const model = WaveAIModel.getInstance();
 

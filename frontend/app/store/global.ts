@@ -1,6 +1,7 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import {
@@ -28,6 +29,7 @@ import {
     NullAtom,
 } from "@/util/util";
 import { atom, Atom, PrimitiveAtom, useAtomValue } from "jotai";
+import { getAdaptiveSplitDirection } from "./adaptive-split";
 import { setupBadgesSubscription } from "./badge";
 import { atoms, blockComponentModelMap, ConnStatusMapAtom, initGlobalAtoms, orefAtomCache } from "./global-atoms";
 import { globalStore } from "./jotaiStore";
@@ -36,7 +38,6 @@ import { ClientService, ObjectService } from "./services";
 import { isPreviewWindow } from "./windowtype";
 import * as WOS from "./wos";
 import { getFileSubject, waveEventSubscribeSingle } from "./wps";
-import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 
 let globalPrimaryTabStartup: boolean = false;
 let removeDesktopPetSurfaceActivityListener: (() => void) | null = null;
@@ -409,6 +410,34 @@ async function createBlock(blockDef: BlockDef, magnified = false, ephemeral = fa
         layoutModel.newEphemeralNode(blockId);
         return blockId;
     }
+    const focusedNode = globalStore.get(layoutModel.focusedNode);
+    const focusedBlockId = focusedNode?.data?.blockId;
+    const focusedBlockElement = focusedBlockId
+        ? document.querySelector<HTMLElement>(`[data-blockid="${focusedBlockId}"]`)
+        : null;
+    if (!magnified && focusedNode && focusedBlockElement) {
+        const { width, height } = focusedBlockElement.getBoundingClientRect();
+        const direction = getAdaptiveSplitDirection(width, height);
+        const newNode = newLayoutNode(undefined, undefined, undefined, { blockId });
+        const splitAction: LayoutTreeSplitHorizontalAction | LayoutTreeSplitVerticalAction =
+            direction === "horizontal"
+                ? {
+                      type: LayoutTreeActionType.SplitHorizontal,
+                      targetNodeId: focusedNode.id,
+                      newNode,
+                      position: "after",
+                      focused: true,
+                  }
+                : {
+                      type: LayoutTreeActionType.SplitVertical,
+                      targetNodeId: focusedNode.id,
+                      newNode,
+                      position: "after",
+                      focused: true,
+                  };
+        layoutModel.treeReducer(splitAction);
+        return blockId;
+    }
     const insertNodeAction: LayoutTreeInsertNodeAction = {
         type: LayoutTreeActionType.InsertNode,
         node: newLayoutNode(undefined, undefined, undefined, { blockId }),
@@ -680,8 +709,8 @@ export {
     getApi,
     getBlockComponentModel,
     getBlockMetaKeyAtom,
-    getConnConfigKeyAtom,
     getBlockTermDurableAtom,
+    getConnConfigKeyAtom,
     getConnStatusAtom,
     getFocusedBlockId,
     getHostName,

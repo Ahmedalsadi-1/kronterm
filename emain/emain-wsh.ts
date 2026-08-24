@@ -6,6 +6,7 @@ import { RpcResponseHelper, WshClient } from "@/app/store/wshclient";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { Notification, net, safeStorage, shell } from "electron";
 import { getResolvedUpdateChannel } from "emain/updater";
+import { queryLanguageServer } from "./emain-lsp";
 import { unamePlatform } from "./emain-platform";
 import { getWebContentsByBlockId, webGetSelector } from "./emain-web";
 import { createBrowserWindow, getWaveWindowById, getWaveWindowByWorkspaceId } from "./emain-window";
@@ -30,6 +31,10 @@ export class ElectronWshClientType extends WshClient {
         const result = await wc.executeJavaScript(data.script);
         const rtn = typeof result === "string" ? result : JSON.stringify(result, null, 2);
         return rtn;
+    }
+
+    async handle_lspquery(rh: RpcResponseHelper, data: CommandLspQueryData): Promise<CommandLspQueryRtnData> {
+        return queryLanguageServer(data);
     }
 
     async handle_webselector(rh: RpcResponseHelper, data: CommandWebSelectorData): Promise<string[]> {

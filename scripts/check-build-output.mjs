@@ -31,6 +31,8 @@ for (const requiredPath of [
   "dist/kronoschamber-web/server/index.js",
   "dist/kronoschamber-web/node_modules/node-pty/package.json",
   "dist/mcp-kron-term/dist/index.js",
+  "dist/mcp-kron-term/dist/native-bridge.js",
+  "dist/hermes-plugins/kronterm-tools/plugin.yaml",
 ]) {
   if (!existsSync(requiredPath)) {
     failures.push(`Required packaged runtime artifact is missing: ${requiredPath}`);

@@ -50,9 +50,19 @@ const config = {
             filter: ["dist/**/*", "package.json"],
         },
         {
+            from: "dist/hermes-plugins",
+            to: "hermes-plugins",
+            filter: ["**/*"],
+        },
+        {
             from: "agents/kronoscode",
             to: "agents/kronoscode",
             filter: ["bin/kronoscode", "LICENSE", "README.md"],
+        },
+        {
+            from: ".agents/skills",
+            to: "kronterm-skills",
+            filter: ["**/*"],
         },
         {
             from: "dist/kronoschamber-web",

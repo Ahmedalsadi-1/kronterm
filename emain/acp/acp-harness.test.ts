@@ -87,6 +87,9 @@ describe("KronTerm toolset registry", () => {
         expect(KronTermToolsets.desktop.tools).toContain("kron_computer_click");
         expect(KronTermToolsets.sandbox.tools).toContain("sandbox_start");
         expect(KronTermToolsets.widget.tools).toContain("widget_snapshot");
+        expect(KronTermToolsets.workspace.tools).toContain("workspace_snapshot");
+        expect(KronTermToolsets.workspace.tools).toContain("workspace_set_presentation");
+        expect(KronTermToolsets.workspace.tools).toContain("workspace_canvas_add_note");
         expect(KronTermToolsets.memory.tools).toContain("get_memories");
     });
 

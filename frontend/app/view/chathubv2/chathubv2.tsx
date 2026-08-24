@@ -3,6 +3,7 @@
 
 import { VoiceModel } from "@/app/aipanel/voice-model";
 import { createBlock, getApi, refocusNode } from "@/app/store/global";
+import { focusAgentWidget, listAgentWidgets, previewAgentWidget } from "@/app/view/agent-widget-bridge";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { useAtomValue } from "jotai";
 import { RefreshCw, Settings, Terminal, TriangleAlert } from "lucide-react";
@@ -342,6 +343,44 @@ const ChatHubV2LoadedFrame = memo(
                     syncTheme();
                     return;
                 }
+                if (data?.type === "kronterm:list-widgets") {
+                    iframeRef.current?.contentWindow?.postMessage(
+                        {
+                            type: "kronterm:widgets",
+                            requestId: typeof data.requestId === "string" ? data.requestId : "",
+                            widgets: listAgentWidgets(blockId),
+                        },
+                        frameOrigin
+                    );
+                    return;
+                }
+                if (data?.type === "kronterm:preview-widget") {
+                    const requestId = typeof data.requestId === "string" ? data.requestId : "";
+                    const targetBlockId = typeof data.blockId === "string" ? data.blockId.trim() : "";
+                    void previewAgentWidget(targetBlockId).then(
+                        (previewImageUrl) =>
+                            iframeRef.current?.contentWindow?.postMessage(
+                                { type: "kronterm:widget-preview", requestId, blockId: targetBlockId, previewImageUrl },
+                                frameOrigin
+                            ),
+                        (failure) =>
+                            iframeRef.current?.contentWindow?.postMessage(
+                                {
+                                    type: "kronterm:widget-preview",
+                                    requestId,
+                                    blockId: targetBlockId,
+                                    error: failure instanceof Error ? failure.message : "preview-unavailable",
+                                },
+                                frameOrigin
+                            )
+                    );
+                    return;
+                }
+                if (data?.type === "kronterm:focus-widget") {
+                    const targetBlockId = typeof data.blockId === "string" ? data.blockId.trim() : "";
+                    focusAgentWidget(targetBlockId);
+                    return;
+                }
                 if (data?.type === "kronterm:open-widget") {
                     const widget = String(data.widget ?? "");
                     const existingBlockId =
@@ -408,7 +447,7 @@ const ChatHubV2LoadedFrame = memo(
 
             window.addEventListener("message", handleMessage);
             return () => window.removeEventListener("message", handleMessage);
-        }, [frameOrigin, syncTheme, voiceListening, voiceModel]);
+        }, [blockId, frameOrigin, syncTheme, voiceListening, voiceModel]);
 
         useEffect(() => {
             if (!iframeReady) {

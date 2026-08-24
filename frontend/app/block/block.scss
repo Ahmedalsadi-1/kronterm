@@ -339,6 +339,22 @@
                 );
                 position: relative;
 
+                &[data-surface="hermes"] .block-frame-traffic-lights {
+                    display: none;
+                }
+
+                &:not([data-surface="web"]):not([data-surface="hermes"]) {
+                    min-height: calc(var(--header-height) + 16px);
+                    max-height: calc(var(--header-height) + 16px);
+                    padding-top: 19px;
+
+                    .block-frame-traffic-lights {
+                        position: absolute;
+                        top: 5px;
+                        left: 8px;
+                    }
+                }
+
                 .block-frame-default-header-iconview {
                     display: none;
 
@@ -553,6 +569,66 @@
                                 fill: var(--main-text-color);
                             }
                         }
+                    }
+                }
+
+                .block-frame-traffic-lights {
+                    display: flex;
+                    min-width: 35px;
+                    flex: 0 0 35px;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 0 4px;
+
+                    button {
+                        display: grid;
+                        width: 9px;
+                        height: 9px;
+                        cursor: pointer;
+                        place-items: center;
+                        padding: 0;
+                        border: 0;
+                        border-radius: 50%;
+                        color: rgb(38 28 24 / 0.82);
+                        box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.2);
+                        -webkit-app-region: no-drag;
+
+                        &.is-close {
+                            background: #ff5f57;
+                        }
+
+                        &.is-fold {
+                            background: #febc2e;
+                        }
+
+                        &.is-expand {
+                            background: #28c840;
+                        }
+
+                        i {
+                            font-size: 5px;
+                            opacity: 0;
+                            transform: scale(0.78);
+                            transition:
+                                opacity 120ms ease,
+                                transform 120ms ease;
+                        }
+
+                        &:hover i,
+                        &:focus-visible i {
+                            opacity: 0.88;
+                            transform: scale(1);
+                        }
+
+                        &:focus-visible {
+                            outline: 2px solid rgb(from var(--focus-ring-color) r g b / 0.72);
+                            outline-offset: 2px;
+                        }
+                    }
+
+                    &:hover button i {
+                        opacity: 0.72;
+                        transform: scale(1);
                     }
                 }
 

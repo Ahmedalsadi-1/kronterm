@@ -6,6 +6,13 @@
 // localhost origins. WS uses the token query param. Everything else is an honest
 // "not supported" stub so the renderer never mistakes the shim for the real bridge.
 
+import {
+    focusAgentWidget,
+    listAgentWidgets,
+    previewAgentWidget,
+    snapshotAgentWidget,
+} from "@/app/view/agent-widget-bridge";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import type {
     DesktopActiveProfile,
     DesktopAgentRoster,
@@ -24,6 +31,7 @@ import type {
     DesktopSshHostsResult,
     HermesApiRequest,
     HermesConnection,
+    HermesKronTermSurface,
     HermesNotification,
     HermesPreviewWatch,
     HermesReadDirResult,
@@ -38,10 +46,10 @@ import type { QuickEntryStatePush, QuickEntrySubmitPayload } from "@hermes/store
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:9119";
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
-const SHORT_TIMEOUT_MS = 5_000;
 
 const STORAGE_BASE_URL = "kronterm.hermes.shim.baseUrl";
-const STORAGE_TOKEN = "kronterm.hermes.shim.token";
+const LEGACY_STORAGE_TOKEN = "kronterm.hermes.shim.token";
+const ShimStateKey = Symbol.for("kronterm.hermes.desktopShimState");
 
 export interface HermesDesktopShimConfig {
     baseUrl?: string;
@@ -58,14 +66,9 @@ function readStoredShimConfig(): HermesDesktopShimConfigState {
 
     try {
         const baseUrl = window.localStorage.getItem(STORAGE_BASE_URL);
-        const token = window.localStorage.getItem(STORAGE_TOKEN);
 
         if (baseUrl) {
             state.baseUrl = baseUrl;
-        }
-
-        if (token) {
-            state.token = token;
         }
     } catch {
         // localStorage unavailable (e.g. privacy mode) — keep defaults
@@ -74,7 +77,15 @@ function readStoredShimConfig(): HermesDesktopShimConfigState {
     return state;
 }
 
-const shimState: HermesDesktopShimConfigState = readStoredShimConfig();
+const shimStateHost = globalThis as typeof globalThis & { [ShimStateKey]?: HermesDesktopShimConfigState };
+const shimState = (shimStateHost[ShimStateKey] ??= readStoredShimConfig());
+
+function requireSessionToken(): string {
+    if (!shimState.token) {
+        throw new Error("Kronos connection is not ready. Reopen the widget or retry the connection.");
+    }
+    return shimState.token;
+}
 
 /** Point the shim at a gateway (idempotent). Returns the applied config. */
 export function configureHermesDesktopShim(config?: HermesDesktopShimConfig): HermesDesktopShimConfigState {
@@ -90,7 +101,7 @@ export function configureHermesDesktopShim(config?: HermesDesktopShimConfig): He
 
     try {
         window.localStorage.setItem(STORAGE_BASE_URL, shimState.baseUrl);
-        window.localStorage.setItem(STORAGE_TOKEN, shimState.token);
+        window.localStorage.removeItem(LEGACY_STORAGE_TOKEN);
     } catch {
         // localStorage unavailable — in-memory config is enough for this session
     }
@@ -98,12 +109,23 @@ export function configureHermesDesktopShim(config?: HermesDesktopShimConfig): He
     return { baseUrl: shimState.baseUrl, token: shimState.token };
 }
 
-function buildGatewayWsUrl(baseUrl: string, token: string): string {
+export function buildGatewayWsUrl(baseUrl: string, token: string, profile?: null | string): string {
     const parsed = new URL(baseUrl);
     const wsScheme = parsed.protocol === "https:" ? "wss" : "ws";
     const prefix = parsed.pathname.replace(/\/+$/, "");
+    const query = new URLSearchParams({ token });
+    if (profile?.trim()) {
+        query.set("profile", profile.trim());
+    }
+    return `${wsScheme}://${parsed.host}${prefix}/api/ws?${query.toString()}`;
+}
 
-    return `${wsScheme}://${parsed.host}${prefix}/api/ws?token=${encodeURIComponent(token)}`;
+export function buildProfileScopedApiUrl(baseUrl: string, requestPath: string, profile?: null | string): string {
+    const url = new URL(requestPath.startsWith("/") ? requestPath : `/${requestPath}`, `${baseUrl}/`);
+    if (profile?.trim()) {
+        url.searchParams.set("profile", profile.trim());
+    }
+    return url.toString();
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined): number {
@@ -116,7 +138,8 @@ function resolveTimeoutMs(timeoutMs: number | undefined): number {
 
 /** Mirror of the Electron main process fetchJson contract. */
 async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
-    const url = `${shimState.baseUrl}${request.path.startsWith("/") ? request.path : `/${request.path}`}`;
+    const token = requireSessionToken();
+    const url = buildProfileScopedApiUrl(shimState.baseUrl, request.path, request.profile);
     const timeoutMs = resolveTimeoutMs(request.timeoutMs);
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), timeoutMs);
@@ -143,7 +166,7 @@ async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
             body = request.body === undefined ? undefined : JSON.stringify(request.body);
         }
 
-        const headers: Record<string, string> = { "X-Hermes-Session-Token": shimState.token };
+        const headers: Record<string, string> = { "X-Hermes-Session-Token": token };
 
         if (contentType) {
             headers["Content-Type"] = contentType;
@@ -172,7 +195,7 @@ async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
         if (looksHtml || contentTypeHeader.includes("text/html")) {
             throw new Error(
                 `Expected JSON from ${url} but got HTML (status ${res.status}). ` +
-                    "The endpoint is likely missing on the Hermes backend."
+                    "The endpoint is likely missing on the Kronos backend."
             );
         }
 
@@ -183,7 +206,7 @@ async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
         }
     } catch (error) {
         if (controller.signal.aborted) {
-            throw new Error(`Timed out connecting to Hermes backend after ${timeoutMs}ms`);
+            throw new Error(`Timed out connecting to Kronos after ${timeoutMs}ms`);
         }
 
         throw error;
@@ -193,8 +216,9 @@ async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
 }
 
 async function getConnection(profile?: null | string): Promise<HermesConnection> {
+    const token = requireSessionToken();
     const isNamedProfile = typeof profile === "string" && profile.trim() !== "" && profile.trim() !== "default";
-    const wsUrl = buildGatewayWsUrl(shimState.baseUrl, shimState.token);
+    const wsUrl = buildGatewayWsUrl(shimState.baseUrl, token, profile);
 
     return {
         baseUrl: shimState.baseUrl,
@@ -202,7 +226,7 @@ async function getConnection(profile?: null | string): Promise<HermesConnection>
         mode: "local",
         authMode: "token",
         source: "local",
-        token: shimState.token,
+        token,
         wsUrl,
         logs: [],
         nativeOverlayWidth: 0,
@@ -225,9 +249,9 @@ async function getConnectionFor(payload: {
 }
 
 async function getGatewayWsUrl(profile?: null | string): Promise<GatewayWsUrlResult> {
-    void profile;
+    const token = requireSessionToken();
 
-    return { ok: true, wsUrl: buildGatewayWsUrl(shimState.baseUrl, shimState.token) };
+    return { ok: true, wsUrl: buildGatewayWsUrl(shimState.baseUrl, token, profile) };
 }
 
 async function getGatewayWsUrlFor(payload: {
@@ -295,18 +319,81 @@ function localConnectionConfig(profile?: null | string): DesktopConnectionConfig
     };
 }
 
+async function listKronTermSurfaces(): Promise<HermesKronTermSurface[]> {
+    return listAgentWidgets();
+}
+
+async function focusKronTermSurface(blockId: string): Promise<{ ok: boolean; error?: string }> {
+    return focusAgentWidget(blockId);
+}
+
 const shim: Window["hermesDesktop"] = {
     getConnection,
     getConnectionFor,
     getGatewayWsUrl,
     getGatewayWsUrlFor,
     getAgentRoster,
+    krontermSurfaces: {
+        list: listKronTermSurfaces,
+        focus: focusKronTermSurface,
+        preview: previewAgentWidget,
+        snapshot: snapshotAgentWidget,
+    },
     revalidateConnection: async () => ({ ok: true, rebuilt: false }),
     touchBackend: async () => ({ ok: true }),
     claimAmbientCue: async () => true,
     openSessionWindow: async () => ({ ok: false, error: "not-supported" }),
     openSessionInTerminal: async () => ({ ok: false, error: "not-supported" }),
     openWindow: async () => ({ ok: false, error: "not-supported" }),
+
+    hud: {
+        open: async (request) => {
+            hermesSurfaceController.requestOpenHud(request?.sessionId);
+            return { ok: true };
+        },
+        close: async () => {
+            try {
+                await hermesSurfaceController.expandToWidget();
+                return { ok: true };
+            } catch {
+                return { ok: false };
+            }
+        },
+        dock: async () => {
+            hermesSurfaceController.requestOpenPanel();
+            return { ok: true };
+        },
+        expand: async () => {
+            try {
+                await hermesSurfaceController.expandToWidget();
+                return { ok: true };
+            } catch {
+                return { ok: false };
+            }
+        },
+        dismiss: async () => {
+            hermesSurfaceController.dismiss();
+            return { ok: true };
+        },
+        setIgnoreMouse: (_ignore: boolean) => undefined,
+        moveBy: (delta) => hermesSurfaceController.moveBy(delta),
+        setBounds: (bounds) => hermesSurfaceController.setGeometry(bounds),
+        setVibrancy: async (_on: boolean) => ({ ok: true }),
+        setSession: (sessionId) => hermesSurfaceController.setSession(sessionId),
+        onGoto: (_callback) => () => undefined,
+        onChanged: (callback) => {
+            const publish = () => {
+                const state = hermesSurfaceController.getSnapshot();
+                callback({
+                    open: state.presentation === "hud",
+                    sessionId: state.sessionId,
+                });
+            };
+            publish();
+            return hermesSurfaceController.subscribe(publish);
+        },
+        onCursor: (_callback) => () => undefined,
+    },
 
     wakeIndicator: {
         getState: async () => "hidden" as WakeIndicatorState,
@@ -415,8 +502,19 @@ const shim: Window["hermesDesktop"] = {
     },
 
     profile: {
-        get: async (): Promise<DesktopActiveProfile> => ({ profile: null }),
-        set: async (name: string | null): Promise<DesktopActiveProfile> => ({ profile: name }),
+        get: async (): Promise<DesktopActiveProfile> => {
+            const profile = await apiFetch<{ active?: string; current?: string }>({ path: "/api/profiles/active" });
+            return { profile: profile.active || profile.current || null };
+        },
+        set: async (name: string | null): Promise<DesktopActiveProfile> => {
+            const target = name?.trim() || "default";
+            const profile = await apiFetch<{ active?: string }>({
+                path: "/api/profiles/active",
+                method: "POST",
+                body: { name: target },
+            });
+            return { profile: profile.active || target };
+        },
     },
 
     api: apiFetch,
@@ -439,7 +537,7 @@ const shim: Window["hermesDesktop"] = {
                 }
             }
 
-            const title = payload.title || "Hermes";
+            const title = payload.title || "Kronos";
 
             if (typeof payload.body === "string" && payload.body) {
                 new Notification(title, { body: payload.body });
@@ -525,7 +623,6 @@ const shim: Window["hermesDesktop"] = {
     revealLogs: async () => ({ ok: false, path: "", error: "not-supported" }),
     getRecentLogs: async () => ({ path: "", lines: [] }),
     reportRendererError: (report: { label: string; boundary: string; message: string; componentStack: string }) => {
-        // eslint-disable-next-line no-console
         console.warn(`[hermes-shim] renderer error boundary ${report.boundary}: ${report.message}`);
     },
     readDir: async (): Promise<HermesReadDirResult> => ({ entries: [], error: "not-supported" }),

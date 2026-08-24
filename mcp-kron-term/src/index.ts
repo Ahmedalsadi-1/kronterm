@@ -2,6 +2,8 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { DeveloperActionRegistry, DeveloperMemoryStore } from "./developer-memory.js";
 import { runInteraction, type InteractionAction, type InteractionResult } from "./interaction-contract.js";
@@ -17,7 +19,7 @@ const wsh = new WshBridge();
 const kronComputerUse = new KronComputerUseClient();
 const developerMemoryStore = new DeveloperMemoryStore();
 const sharedSkills = new SharedSkillCatalog();
-const server = new McpServer({
+export const server = new McpServer({
     name: "kron-term",
     version: "2.0.0",
     description:
@@ -27,12 +29,43 @@ const server = new McpServer({
 
 const SERVER_UNAVAILABLE = " (unavailable — wsh command not exposed by this version of KronTerm)";
 
+const canvasNodeSchema = z.object({
+    id: z.string().optional(),
+    shapeid: z.string().optional(),
+    type: z.string().min(1),
+    title: z.string().min(1),
+    path: z.string().optional(),
+    content: z.string().optional(),
+    parentid: z.string().optional(),
+    liveblockid: z.string().optional(),
+    appid: z.string().optional(),
+    appname: z.string().optional(),
+    sessionid: z.string().optional(),
+    status: z.string().optional(),
+    meta: z.object({}).passthrough().optional(),
+});
+
 function blockIdFromResult(result: string): string | undefined {
     return result.match(/block:([a-z0-9-]+)/i)?.[1] ?? result.match(/\b([a-f0-9]{8}-[a-f0-9-]{20,})\b/i)?.[1];
 }
 
 function previewImageUrl(result: string): string | undefined {
     return result.match(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+/i)?.[0]?.replace(/\s+/g, "");
+}
+
+function screenshotContent(result: string, label: string) {
+    const imageUrl = previewImageUrl(result);
+    if (!imageUrl) {
+        return [{ type: "text" as const, text: result }];
+    }
+    const match = imageUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+    if (!match) {
+        return [{ type: "text" as const, text: result }];
+    }
+    return [
+        { type: "image" as const, data: match[2], mimeType: match[1] },
+        { type: "text" as const, text: label },
+    ];
 }
 
 function jsonText(value: unknown): { content: Array<{ type: "text"; text: string }> } {
@@ -60,6 +93,26 @@ type ToolActivity = {
 };
 
 const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
+    workspace_snapshot: () => ({ action: "inspect", detail: "Inspecting workspace presentation and widget geometry" }),
+    workspace_screenshot: () => ({ action: "screenshot", detail: "Capturing the active workspace presentation" }),
+    workspace_set_presentation: (a) => ({ action: "execute", detail: `Switching workspace to ${a.presentation}` }),
+    workspace_focus_widget: (a) => ({ action: "focus", detail: `Focusing workspace widget ${a.blockId}` }),
+    workspace_move_widget: (a) => ({ action: "execute", detail: `Moving workspace widget ${a.blockId}` }),
+    workspace_resize_widget: (a) => ({ action: "execute", detail: `Resizing workspace widget ${a.blockId}` }),
+    workspace_swap_widgets: (a) => ({
+        action: "execute",
+        detail: `Swapping workspace widgets ${a.blockId} and ${a.targetBlockId}`,
+    }),
+    workspace_toggle_magnify: (a) => ({ action: "execute", detail: `Toggling magnification for ${a.blockId}` }),
+    workspace_navigate: (a) => ({ action: "focus", detail: `Navigating ${a.direction} from ${a.blockId}` }),
+    workspace_canvas_view: (a) => ({ action: "execute", detail: `${a.action} canvas widgets` }),
+    workspace_canvas_add_note: () => ({ action: "execute", detail: "Adding a canvas sticky note" }),
+    workspace_canvas_update_object: (a) => ({ action: "execute", detail: `Updating canvas object ${a.objectId}` }),
+    workspace_canvas_delete_object: (a) => ({ action: "execute", detail: `Deleting canvas object ${a.objectId}` }),
+    workspace_canvas_connect: (a) => ({
+        action: "execute",
+        detail: `Connecting canvas objects ${a.fromObjectId} and ${a.toObjectId}`,
+    }),
     browser_open: () => ({ action: "open", detail: "Opening browser" }),
     browser_navigate: (a) => ({ action: "focus", detail: `Navigating to ${a.url ?? ""}` }),
     browser_get_html: (a) => ({ action: "inspect", detail: `Getting HTML: ${a.selector ?? ""}` }),
@@ -80,6 +133,15 @@ const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
         action: "drag",
         detail: `Dragging sandbox (${a.startX},${a.startY}) → (${a.endX},${a.endY})`,
     }),
+    canvas_load: () => ({ action: "inspect", detail: "Loading canvas graph" }),
+    canvas_snapshot: () => ({ action: "inspect", detail: "Snapshotting canvas graph" }),
+    canvas_save: () => ({ action: "execute", detail: "Saving canvas graph" }),
+    canvas_create_node: (a) => ({ action: "execute", detail: `Creating canvas node ${a.node?.title ?? ""}` }),
+    canvas_update_node: (a) => ({ action: "execute", detail: `Updating canvas node ${a.node?.id ?? ""}` }),
+    canvas_delete_node: (a) => ({ action: "execute", detail: `Deleting canvas node ${a.nodeId ?? ""}` }),
+    canvas_connect_nodes: (a) => ({ action: "execute", detail: `Connecting ${a.fromNode} → ${a.toNode}` }),
+    canvas_launch_node: (a) => ({ action: "open", detail: `Launching canvas node ${a.nodeId ?? ""}` }),
+    canvas_upload_asset: (a) => ({ action: "execute", detail: `Uploading ${a.path ?? ""} to canvas` }),
     widget_snapshot: () => ({ action: "inspect", detail: "Taking widget snapshot" }),
     widget_screenshot: () => ({ action: "screenshot", detail: "Taking screenshot" }),
     widget_screenshot_annotated: () => ({ action: "screenshot", detail: "Taking annotated screenshot" }),
@@ -113,14 +175,22 @@ const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
     file_list: (a) => ({ action: "inspect", detail: `Listing ${a.path ?? ""}` }),
     file_read: (a) => ({ action: "inspect", detail: `Reading ${a.path ?? ""}` }),
     file_info: (a) => ({ action: "inspect", detail: `Info ${a.path ?? ""}` }),
+    lsp_diagnostics: (a) => ({ action: "inspect", detail: `Diagnostics for ${a.path ?? ""}` }),
+    lsp_symbols: (a) => ({ action: "inspect", detail: `Symbols in ${a.path ?? ""}` }),
+    lsp_hover: (a) => ({ action: "inspect", detail: `Hover at ${a.path ?? ""}:${a.line ?? 0}` }),
+    lsp_definition: (a) => ({ action: "inspect", detail: `Definition at ${a.path ?? ""}:${a.line ?? 0}` }),
+    lsp_references: (a) => ({ action: "inspect", detail: `References at ${a.path ?? ""}:${a.line ?? 0}` }),
     terminal_open: () => ({ action: "open", detail: "Opening terminal" }),
     create_block: (a) => ({ action: "open", detail: `Creating ${a.view ?? ""} block` }),
 };
 
 function inferSurface(toolName: string, args: Record<string, unknown>): string {
+    if (toolName.startsWith("workspace_")) return "panel";
     if (toolName.startsWith("terminal_") || toolName === "block_run_command") return "terminal";
     if (toolName.startsWith("file_")) return "file";
+    if (toolName.startsWith("lsp_")) return "editor";
     if (toolName.startsWith("sandbox_")) return "sandbox";
+    if (toolName.startsWith("canvas_")) return "panel";
     if (toolName.startsWith("browser_") || toolName.startsWith("widget_")) return "browser";
     if (typeof args.blockId === "string") {
         if (args.blockId.includes("sandbox") || args.blockId.startsWith("sb-")) return "sandbox";
@@ -181,11 +251,35 @@ function publishActivity(
     }).catch(() => undefined);
 }
 
+function validateInteractionArgs(toolName: string, args: Record<string, unknown>): string | undefined {
+    const hasX = args.x != null;
+    const hasY = args.y != null;
+    if (["sandbox_click", "sandbox_scroll", "widget_click", "widget_mouse_move"].includes(toolName)) {
+        if (hasX !== hasY) {
+            return "Provide both x and y, or neither.";
+        }
+    }
+
+    if (["widget_click", "widget_mouse_move"].includes(toolName)) {
+        const hasCoordinates = hasX && hasY;
+        const hasElementRef = args.elementRef != null;
+        if (hasElementRef === hasCoordinates) {
+            return `Provide exactly one ${toolName === "widget_click" ? "widget click" : "widget mouse-move"} target: elementRef or both x and y.`;
+        }
+    }
+
+    return undefined;
+}
+
 function wrapActivity(toolName: string, blockIdArg?: string) {
     return function activityDecorator<T extends Record<string, unknown>>(
         fn: (args: T) => Promise<any>
     ): (args: T) => Promise<any> {
         return async (args: T) => {
+            const validationError = validateInteractionArgs(toolName, args);
+            if (validationError) {
+                return { content: [{ type: "text", text: validationError }], isError: true };
+            }
             publishActivity(toolName, "start", blockIdArg, args as unknown as Record<string, unknown>);
             const isInteraction = toolName.startsWith("widget_") || toolName.startsWith("sandbox_");
             try {
@@ -346,21 +440,22 @@ async function callKronComputerUse(
 
 const kronTermGuide = `# KronTerm Surface Capability
 
-Use the kron-term MCP tools to inspect and control KronTerm blocks.
+You are operating as Kronos, KronTerm's built-in persistent agent. Use the complete live kron-term MCP manifest to inspect and control KronTerm; this guide routes the tool families but does not narrow the advertised toolset.
 
 ## Tool usage policy
 
 - Prefer the kron-term surface tools over generic desktop/browser tools whenever the target lives inside KronTerm (tabs, blocks, terminals, in-app browser, host files).
 - Prefer element refs (@eN) and element indexes over raw pixel coordinates. Use coordinates only when no ref/index exists.
 - Prefer file tools (file_read, file_list, file_info) over running cat/ls in a terminal. Use terminal tools for interactive sessions or command execution, not for reading files.
-- Batch independent read-only calls (for example surface_status, list_blocks, and widget_snapshot) in a single message instead of sequential round trips.
+- Batch independent read-only calls (for example surface_status, workspace_snapshot, and a scoped widget_snapshot) in a single message instead of sequential round trips.
 - Never use sandbox_* tools to control the host, and never use kron_computer_* tools to control KronTerm blocks. Each pointer family targets exactly one surface.
 
 ## Surface decision table
 
 | Target | Tool family | First call |
 | --- | --- | --- |
-| Workspace layout, tabs, blocks, connections, secrets | workspace tools (\`surface_status\`, \`list_blocks\`, \`get_block_info\`, \`get_layout_tree\`, \`create_block\`, \`close_block\`, \`focus_block\`, \`set_block_meta\`, \`connection_*\`, \`secret_*\`) | \`surface_status\`, then \`list_blocks\` |
+| Workspace presentation, widget order/appearance/geometry, layout, tabs | \`workspace_snapshot\`, \`workspace_screenshot\`, \`workspace_*\` controls | \`workspace_snapshot\` |
+| Block membership, metadata, connections, secrets | workspace data tools (\`list_blocks\`, \`get_block_info\`, \`connection_*\`, \`secret_*\`) | \`list_blocks\` |
 | Content inside a KronTerm block (forms, canvas, browser page) | \`widget_*\` | \`widget_snapshot\` |
 | In-app browser navigation | \`browser_open\`, \`browser_navigate\`, \`browser_get_html\` | \`browser_open\` / \`browser_navigate\`, then \`widget_snapshot\` |
 | Terminal session or one-shot shell command | \`terminal_open\`, \`terminal_scrollback\`, \`block_run_command\` | \`terminal_open\` (interactive) or \`block_run_command\` (one-shot) |
@@ -373,13 +468,18 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
 ## Workflow
 
 1. Call \`surface_status\` if a tool fails or before the first operation.
-2. Call \`list_blocks\` to obtain live block IDs.
-3. For content interaction, call \`widget_snapshot\` before using element refs.
-4. Re-run \`widget_snapshot\` after navigation or DOM changes because refs become stale.
-5. After acting, verify the effect (re-snapshot, read scrollback, or check state) before reporting success.
+2. Call \`workspace_snapshot\` to learn whether the active surface is widgets, tabs, or canvas and obtain ordered live block IDs, focus, visibility, and geometry.
+3. Call \`workspace_screenshot\` when the overall visual arrangement matters; call \`widget_screenshot\` for one widget.
+4. Use the control advertised for the active presentation: split actions in widgets, sequential focus/order in tabs, and world-space geometry/fit/arrange in canvas.
+5. For content interaction, call \`widget_snapshot\` before using element refs.
+6. Re-run \`widget_snapshot\` after navigation or DOM changes because refs become stale.
+7. After acting, verify with \`workspace_snapshot\`, content snapshot, scrollback, or state before reporting success.
 
 ## Functional paths
 
+- Presentation context: \`workspace_snapshot\` is authoritative for mode, order, focus, visibility, bounds, split tree, canvas camera, and supported controls.
+- Presentation control: \`workspace_set_presentation\`, \`workspace_focus_widget\`, \`workspace_move_widget\`, \`workspace_resize_widget\`, \`workspace_swap_widgets\`, \`workspace_toggle_magnify\`, \`workspace_navigate\`, and \`workspace_canvas_view\`.
+- Canvas whiteboard: \`workspace_canvas_add_note\`, \`workspace_canvas_update_object\`, \`workspace_canvas_delete_object\`, and \`workspace_canvas_connect\`. Read \`workspace_snapshot\` first and use its world-space object IDs and geometry; placements are automatically moved clear of occupied widgets and objects.
 - Blocks: \`list_blocks\`, \`create_block\`, \`close_block\`, \`focus_block\`, \`get_block_info\`, and \`set_block_meta\`.
 - Widgets: \`widget_*\` operations inspect or interact with content in an existing block, including clipboard control.
 - Browser blocks: \`browser_open\`, \`browser_navigate\`, and \`browser_get_html\`, followed by \`widget_snapshot\`, \`widget_click\`, and related widget actions.
@@ -396,16 +496,16 @@ Use the kron-term MCP tools to inspect and control KronTerm blocks.
   \`promote_memory\`, \`get_workspace_sessions\`, \`create_workspace_session\`, \`append_workspace_session_event\`,
   \`complete_workspace_session\`, \`get_action_items\`, \`create_action_item\`, and \`ingest_workspace_event\`.
 - Native desktop apps: \`kron_computer_*\` tools expose the local \`kron-computer-use\` runtime. Start with \`kron_computer_list_apps\`, then call \`kron_computer_get_app_state\` before actions. The macOS runtime displays its software cursor overlay during click and set-value actions.
-- Shared skills: call \`shared_skill_list\`, then \`shared_skill_read\` with an exact skill id. These expose the allowlisted project skills shared by KronTerm, KronosCode, and ACP agents such as Hermes.
+- Shared skills: call \`shared_skill_list\`, then \`shared_skill_read\` with an exact skill id. These expose the allowlisted packaged, project, and user skill roots shared by KronTerm, KronosCode, and Kronos.
 
 ## Fallback rules
 
-- If a widget ref is stale or a block operation fails, re-run \`surface_status\` and \`list_blocks\` before retrying.
+- If a widget ref is stale or a presentation-aware block operation fails, re-run \`surface_status\` and \`workspace_snapshot\` before retrying.
 - If a target surface is unavailable (sandbox stopped, runtime missing, block closed), state that clearly and offer the closest alternative instead of guessing.
 
 ## Runtime requirements
 
-KronTerm ACP sessions automatically issue a temporary KronTerm capability and pass \`KRONTERM_JWT\` and \`KRONTERM_TABID\` to this MCP server. For standalone MCP launches, the subprocess must inherit an authenticated \`KRONTERM_JWT\` (or \`WAVETERM_JWT\`); tab-scoped creation and focus also require \`KRONTERM_TABID\`. Set \`KRONTERM_WSH\` (or \`WAVETERM_WSH\`) to a widget-capable development binary when running against an unbundled build.`;
+KronTerm sessions automatically issue a temporary scoped capability. The managed Kronos widget reads the refreshed capability from \`KRONTERM_SURFACE_CAPABILITY_FILE\` before every WSH action so JWT rotation does not require restarting MCP. ACP sessions receive equivalent \`KRONTERM_JWT\`/\`WAVETERM_JWT\` and tab/block environment values at session creation. For standalone MCP launches, the subprocess must inherit an authenticated \`KRONTERM_JWT\` (or \`WAVETERM_JWT\`); tab-scoped creation and focus also require \`KRONTERM_TABID\`. Set \`KRONTERM_WSH\` (or \`WAVETERM_WSH\`) to a widget-capable development binary when running against an unbundled build.`;
 
 server.registerPrompt(
     "kron-term-guide",
@@ -486,6 +586,7 @@ server.tool(
     "kron_computer_status",
     "Report whether the optional kron-computer-use native desktop runtime is installed and running.",
     {},
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async () => ({
         content: [{ type: "text", text: JSON.stringify(kronComputerUse.diagnostics(), null, 2) }],
     })
@@ -495,6 +596,7 @@ server.tool(
     "kron_computer_list_apps",
     "List native desktop applications available to kron-computer-use. Returns running apps and recently used apps.",
     {},
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async () => {
         try {
             return await callKronComputerUse("list_apps", {}, "inspect", "Listing native desktop apps");
@@ -510,6 +612,7 @@ server.tool(
     {
         app: z.string().min(1).describe("App name or bundle identifier"),
     },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async ({ app }) => {
         try {
             return await callKronComputerUse("get_app_state", { app }, "screenshot", `Observing ${app}`);
@@ -530,6 +633,7 @@ server.tool(
         clickCount: z.number().int().min(1).max(3).optional().describe("Click count (default: 1)"),
         mouseButton: z.enum(["left", "right", "middle"]).optional().describe("Mouse button (default: left)"),
     },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     async ({ app, elementIndex, x, y, clickCount, mouseButton }) => {
         if ((x == null) !== (y == null)) {
             return { content: [{ type: "text", text: "Provide both x and y, or neither." }], isError: true };
@@ -705,6 +809,356 @@ server.tool(
     }
 );
 
+const workspaceReadAnnotations = {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+} as const;
+const workspaceWriteAnnotations = {
+    readOnlyHint: false,
+    destructiveHint: false,
+    openWorldHint: false,
+} as const;
+const workspaceDeleteAnnotations = {
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+} as const;
+const workspaceDirectionSchema = z.enum(["up", "right", "down", "left"]);
+
+server.tool(
+    "workspace_snapshot",
+    "Read the authoritative active KronTerm presentation before operating. Returns widgets/tabs/canvas mode, ordered widget identities, titles and views, focus and visibility, on-screen bounds, canvas world bounds/camera, split tree, and the actions supported by each presentation.",
+    {},
+    workspaceReadAnnotations,
+    wrapActivity("workspace_snapshot")(async () => {
+        try {
+            return { content: [{ type: "text", text: await wsh.workspaceSurfaceSnapshot() }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_screenshot",
+    "Capture the complete active KronTerm widgets, tabs, or canvas presentation. Use with workspace_snapshot when visual appearance matters; use widget_screenshot for one widget's content.",
+    {},
+    workspaceReadAnnotations,
+    wrapActivity("workspace_screenshot")(async () => {
+        try {
+            const result = await wsh.workspaceSurfaceScreenshot();
+            return { content: screenshotContent(result, "Active KronTerm workspace presentation screenshot.") };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_set_presentation",
+    "Switch the active workspace between tiled widgets, focused widget tabs, and spatial canvas. Snapshot again after switching because visibility and geometry semantics change.",
+    { presentation: z.enum(["widgets", "tabs", "canvas"]) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_set_presentation")(async ({ presentation }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({ action: "set_presentation", presentation }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_focus_widget",
+    "Focus a widget in any presentation. In tabs this makes the widget visible; in canvas this selects it; in widgets this focuses its pane.",
+    { blockId: z.string().min(1) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_focus_widget")(async ({ blockId }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.workspaceSurfaceControl({ action: "focus", blockId }) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_move_widget",
+    "Move a widget using the active presentation's semantics. In widgets/tabs provide targetBlockId plus before/after or a direction. In canvas provide world-space x/y from workspace_snapshot.",
+    {
+        blockId: z.string().min(1),
+        targetBlockId: z.string().min(1).optional(),
+        position: z.enum(["before", "after"]).optional(),
+        direction: workspaceDirectionSchema.optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+    },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_move_widget")(async ({ blockId, targetBlockId, position, direction, x, y }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({
+                            action: "move",
+                            blockId,
+                            targetBlockId,
+                            position,
+                            direction,
+                            x,
+                            y,
+                        }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_resize_widget",
+    "Resize a widget using the active presentation's semantics. In widgets provide proportional size 10-90. In canvas provide width/height and optionally x/y world coordinates. Tabs intentionally have no resize operation.",
+    {
+        blockId: z.string().min(1),
+        size: z.number().min(10).max(90).optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().min(240).optional(),
+        height: z.number().min(180).optional(),
+    },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_resize_widget")(async ({ blockId, size, x, y, width, height }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({
+                            action: "resize",
+                            blockId,
+                            size,
+                            x,
+                            y,
+                            width,
+                            height,
+                        }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_swap_widgets",
+    "Swap two widgets in widgets or tabs presentation. Use workspace_move_widget for canvas geometry.",
+    { blockId: z.string().min(1), targetBlockId: z.string().min(1) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_swap_widgets")(async ({ blockId, targetBlockId }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({ action: "swap", blockId, targetBlockId }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_toggle_magnify",
+    "Toggle fullscreen magnification for a widget in tiled widgets presentation.",
+    { blockId: z.string().min(1) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_toggle_magnify")(async ({ blockId }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.workspaceSurfaceControl({ action: "magnify", blockId }) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_navigate",
+    "Navigate focus from a widget according to the active presentation: spatially in widgets/canvas and sequentially in tabs.",
+    { blockId: z.string().min(1), direction: workspaceDirectionSchema },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_navigate")(async ({ blockId, direction }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({ action: "navigate", blockId, direction }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_canvas_view",
+    "Fit all canvas content into view or arrange live canvas widgets into a fitted grid. Canvas presentation only.",
+    { action: z.enum(["fit", "arrange"]) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_canvas_view")(async ({ action }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.workspaceSurfaceControl({ action }) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+const workspaceCanvasColorSchema = z.enum(["amber", "blue", "green", "rose", "slate"]);
+
+server.tool(
+    "workspace_canvas_add_note",
+    "Add a sticky note to the active workspace canvas. Coordinates are world-space and placement is automatically adjusted to avoid overlapping widgets or other whiteboard objects.",
+    {
+        text: z.string().default("New note"),
+        color: workspaceCanvasColorSchema.optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().min(120).optional(),
+        height: z.number().min(96).optional(),
+    },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_canvas_add_note")(async ({ text, color, x, y, width, height }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({
+                            action: "add_note",
+                            text,
+                            color,
+                            x,
+                            y,
+                            width,
+                            height,
+                        }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_canvas_update_object",
+    "Edit or reposition a sticky note or primitive whiteboard object from workspace_snapshot. Agent activity cards are read-only. Placement is adjusted to remain collision-free.",
+    {
+        objectId: z.string().min(1),
+        text: z.string().optional(),
+        color: workspaceCanvasColorSchema.optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().min(24).optional(),
+        height: z.number().min(24).optional(),
+    },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_canvas_update_object")(async ({ objectId, text, color, x, y, width, height }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({
+                            action: "update_object",
+                            objectId,
+                            text,
+                            color,
+                            x,
+                            y,
+                            width,
+                            height,
+                        }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_canvas_delete_object",
+    "Delete a sticky note or primitive whiteboard object from the active canvas. Agent activity cards cannot be deleted with this tool.",
+    { objectId: z.string().min(1) },
+    workspaceDeleteAnnotations,
+    wrapActivity("workspace_canvas_delete_object")(async ({ objectId }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({ action: "delete_object", objectId }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "workspace_canvas_connect",
+    "Draw a whiteboard connector between two canvas object IDs returned by workspace_snapshot.",
+    { fromObjectId: z.string().min(1), toObjectId: z.string().min(1) },
+    workspaceWriteAnnotations,
+    wrapActivity("workspace_canvas_connect")(async ({ fromObjectId, toObjectId }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.workspaceSurfaceControl({
+                            action: "connect_objects",
+                            fromObjectId,
+                            toObjectId,
+                        }),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
 server.tool(
     "list_blocks",
     "List all blocks in the current tab with their IDs, view types, and status",
@@ -739,21 +1193,24 @@ server.tool(
 
 server.tool(
     "get_layout_tree",
-    "List blocks for the current tab (split-tree geometry is not exposed by the current wsh route)",
+    "Get the authoritative presentation-aware workspace layout, including split-tree, ordered tabs, or canvas geometry",
     {
         tabId: z.string().optional().describe("Tab ID (defaults to active tab)"),
     },
     async ({ tabId }) => {
         try {
-            const result = await wsh.listBlocks(tabId, true);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `The current wsh route exposes block membership, not split-tree geometry.\n${result}`,
-                    },
-                ],
-            };
+            if (tabId) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: "get_layout_tree is scoped to the active rendered tab; omit tabId or activate that tab first.",
+                        },
+                    ],
+                    isError: true,
+                };
+            }
+            return { content: [{ type: "text", text: await wsh.workspaceSurfaceSnapshot() }] };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
@@ -878,6 +1335,7 @@ server.tool(
             .optional()
             .describe("Create a separate browser block instead of reusing one (default: false)"),
     },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     wrapActivity("browser_open")(async ({ url, magnified, newSurface }) => {
         try {
             const result = await wsh.openWeb(url, magnified, newSurface);
@@ -895,6 +1353,7 @@ server.tool(
         blockId: z.string().describe("Web block ID"),
         url: z.string().url().describe("URL to navigate to"),
     },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     wrapActivity("browser_navigate")(async ({ blockId, url }) => {
         try {
             const result = await wsh.navigateWeb(blockId, url);
@@ -914,6 +1373,7 @@ server.tool(
         inner: z.boolean().optional().describe("Return inner HTML rather than matched element outer HTML"),
         all: z.boolean().optional().describe("Return all selector matches rather than the first match"),
     },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     wrapActivity("browser_get_html")(async ({ blockId, selector, inner, all }) => {
         try {
             const result = await wsh.browserGetHtml(blockId, selector, inner, all);
@@ -936,6 +1396,7 @@ server.tool(
         mode: z.enum(["desktop", "background"]).optional().describe("Presentation mode (default: desktop)"),
         browserUrl: z.string().url().optional().describe("Browser URL associated with background mode"),
     },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     wrapActivity("sandbox_start")(async ({ sessionId, mode, browserUrl }) => {
         try {
             const result = await wsh.sandboxStart(sessionId, mode, browserUrl);
@@ -950,6 +1411,7 @@ server.tool(
     "sandbox_status",
     "Get the status of an isolated KronTerm sandbox desktop session.",
     { sessionId: z.string().optional().describe("Sandbox session ID (default: default)") },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     wrapActivity("sandbox_status")(async ({ sessionId }) => {
         try {
             return { content: [{ type: "text", text: await wsh.sandboxStatus(sessionId) }] };
@@ -963,6 +1425,7 @@ server.tool(
     "sandbox_stop",
     "Stop an isolated KronTerm sandbox desktop session.",
     { sessionId: z.string().optional().describe("Sandbox session ID (default: default)") },
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     wrapActivity("sandbox_stop")(async ({ sessionId }) => {
         try {
             return { content: [{ type: "text", text: await wsh.sandboxStop(sessionId) }] };
@@ -976,6 +1439,7 @@ server.tool(
     "sandbox_screenshot",
     "Capture the current isolated KronTerm sandbox desktop as a screenshot.",
     { sessionId: z.string().optional().describe("Sandbox session ID (default: default)") },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     wrapActivity("sandbox_screenshot")(async ({ sessionId }) => {
         try {
             return { content: [{ type: "text", text: await wsh.sandboxScreenshot(sessionId) }] };
@@ -1118,6 +1582,290 @@ server.tool(
 );
 
 // ══════════════════════════════════════════════════════════════════════════
+// LSP TOOLS
+// ══════════════════════════════════════════════════════════════════════════
+
+const lspLanguageSchema = z.enum(["go", "python", "rust", "cpp"]);
+const lspReadAnnotations = {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+} as const;
+const lspPositionSchema = {
+    path: z.string().min(1).describe("Workspace-relative source file path"),
+    language: lspLanguageSchema,
+    line: z.number().int().nonnegative().describe("Zero-based line"),
+    character: z.number().int().nonnegative().describe("Zero-based UTF-16 character offset"),
+    maxResults: z.number().int().min(1).max(200).optional(),
+};
+
+server.tool(
+    "lsp_diagnostics",
+    "Read bounded language-server diagnostics for a workspace-contained source file.",
+    {
+        path: z.string().min(1).describe("Workspace-relative source file path"),
+        language: lspLanguageSchema,
+        maxResults: z.number().int().min(1).max(200).optional(),
+    },
+    lspReadAnnotations,
+    wrapActivity("lsp_diagnostics")(async ({ path, language, maxResults }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.lspQuery(path, language, "diagnostics", 0, 0, maxResults) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "lsp_symbols",
+    "Read bounded document symbols for a workspace-contained source file.",
+    {
+        path: z.string().min(1).describe("Workspace-relative source file path"),
+        language: lspLanguageSchema,
+        maxResults: z.number().int().min(1).max(200).optional(),
+    },
+    lspReadAnnotations,
+    wrapActivity("lsp_symbols")(async ({ path, language, maxResults }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.lspQuery(path, language, "symbols", 0, 0, maxResults) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "lsp_hover",
+    "Read language-server hover information at a zero-based source position.",
+    lspPositionSchema,
+    lspReadAnnotations,
+    wrapActivity("lsp_hover")(async ({ path, language, line, character, maxResults }) => {
+        try {
+            return {
+                content: [
+                    { type: "text", text: await wsh.lspQuery(path, language, "hover", line, character, maxResults) },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "lsp_definition",
+    "Read language-server definition locations at a zero-based source position.",
+    lspPositionSchema,
+    lspReadAnnotations,
+    wrapActivity("lsp_definition")(async ({ path, language, line, character, maxResults }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.lspQuery(path, language, "definition", line, character, maxResults),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "lsp_references",
+    "Read bounded language-server reference locations at a zero-based source position.",
+    lspPositionSchema,
+    lspReadAnnotations,
+    wrapActivity("lsp_references")(async ({ path, language, line, character, maxResults }) => {
+        try {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: await wsh.lspQuery(path, language, "references", line, character, maxResults),
+                    },
+                ],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// CANVAS TOOLS
+// ══════════════════════════════════════════════════════════════════════════
+
+server.tool(
+    "canvas_load",
+    "Load the full persisted KronTerm canvas document.",
+    { workspaceId: z.string().min(1), blockId: z.string().min(1) },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    wrapActivity("canvas_load")(async ({ workspaceId, blockId }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.canvasLoad(workspaceId, blockId) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_snapshot",
+    "Inspect a stable, sorted canvas graph before changing nodes or edges.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        includeContent: z.boolean().optional().describe("Include node bodies; defaults to false"),
+    },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    wrapActivity("canvas_snapshot")(async ({ workspaceId, blockId, includeContent }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.canvasSnapshot(workspaceId, blockId, includeContent) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_create_node",
+    "Create a typed node in a KronTerm canvas graph.",
+    { workspaceId: z.string().min(1), blockId: z.string().min(1), node: canvasNodeSchema },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    wrapActivity("canvas_create_node")(async ({ workspaceId, blockId, node }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.canvasCreateNode(workspaceId, blockId, node) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_save",
+    "Replace the full persisted canvas document. Prefer node-level tools for focused changes.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        document: z.object({}).passthrough(),
+    },
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    wrapActivity("canvas_save")(async ({ workspaceId, blockId, document }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.canvasSave(workspaceId, blockId, document) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_update_node",
+    "Replace an existing canvas node. Snapshot first and preserve fields you are not changing.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        node: canvasNodeSchema.extend({ id: z.string().min(1) }),
+    },
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    wrapActivity("canvas_update_node")(async ({ workspaceId, blockId, node }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.canvasUpdateNode(workspaceId, blockId, node) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_delete_node",
+    "Delete a canvas node and every edge attached to it.",
+    { workspaceId: z.string().min(1), blockId: z.string().min(1), nodeId: z.string().min(1) },
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    wrapActivity("canvas_delete_node")(async ({ workspaceId, blockId, nodeId }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.canvasDeleteNode(workspaceId, blockId, nodeId) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_connect_nodes",
+    "Create an edge between two existing canvas nodes.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        fromNode: z.string().min(1),
+        toNode: z.string().min(1),
+        label: z.string().optional(),
+    },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    wrapActivity("canvas_connect_nodes")(async ({ workspaceId, blockId, fromNode, toNode, label }) => {
+        try {
+            const text = await wsh.canvasConnectNodes(workspaceId, blockId, fromNode, toNode, label);
+            return { content: [{ type: "text", text }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_launch_node",
+    "Launch a launchable canvas node as a live KronTerm block.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        nodeId: z.string().min(1),
+        tabId: z.string().min(1),
+    },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    wrapActivity("canvas_launch_node")(async ({ workspaceId, blockId, nodeId, tabId }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.canvasLaunchNode(workspaceId, blockId, nodeId, tabId) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "canvas_upload_asset",
+    "Copy a host-scoped local file into the canvas asset store.",
+    {
+        workspaceId: z.string().min(1),
+        blockId: z.string().min(1),
+        path: z.string().min(1),
+        mimeType: z.string().optional(),
+    },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    wrapActivity("canvas_upload_asset")(async ({ workspaceId, blockId, path, mimeType }) => {
+        try {
+            return {
+                content: [{ type: "text", text: await wsh.canvasUploadAsset(workspaceId, blockId, path, mimeType) }],
+            };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+// ══════════════════════════════════════════════════════════════════════════
 // TERMINAL TOOLS
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -1128,6 +1876,7 @@ server.tool(
         cwd: z.string().optional().describe("Working directory for the new terminal"),
         magnified: z.boolean().optional().describe("Open in magnified mode"),
     },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     wrapActivity("terminal_open")(async ({ cwd, magnified }) => {
         try {
             const result = await wsh.openTerminal(cwd, magnified);
@@ -1147,6 +1896,7 @@ server.tool(
         end: z.number().int().min(0).optional().describe("Ending scrollback line"),
         lastCommand: z.boolean().optional().describe("Return only the last command output"),
     },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     wrapActivity("terminal_scrollback")(async ({ blockId, start, end, lastCommand }) => {
         try {
             const result = await wsh.terminalScrollback(blockId, start, end, lastCommand);
@@ -2547,17 +3297,26 @@ server.tool(
 // START SERVER
 // ══════════════════════════════════════════════════════════════════════════
 
-const transport = new StdioServerTransport();
-process.once("exit", () => kronComputerUse.close());
-process.once("SIGINT", () => {
-    kronComputerUse.close();
-    process.exit(0);
-});
-process.once("SIGTERM", () => {
-    kronComputerUse.close();
-    process.exit(0);
-});
-server.connect(transport).catch((err) => {
-    console.error("mcp-kron-term: Server error:", err);
-    process.exit(1);
-});
+export async function startKronTermMcpServer(): Promise<void> {
+    const transport = new StdioServerTransport();
+    process.once("exit", () => kronComputerUse.close());
+    process.once("SIGINT", () => {
+        kronComputerUse.close();
+        process.exit(0);
+    });
+    process.once("SIGTERM", () => {
+        kronComputerUse.close();
+        process.exit(0);
+    });
+    await server.connect(transport);
+}
+
+const modulePath = fileURLToPath(import.meta.url);
+const isMainModule =
+    process.argv[1] != null && path.basename(modulePath) === "index.js" && path.resolve(process.argv[1]) === modulePath;
+if (isMainModule) {
+    startKronTermMcpServer().catch((err) => {
+        console.error("mcp-kron-term: Server error:", err);
+        process.exit(1);
+    });
+}

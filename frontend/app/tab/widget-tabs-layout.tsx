@@ -3,6 +3,7 @@
 
 import { Block as BlockView } from "@/app/block/block";
 import { blockViewToName, resolveBlockIcon } from "@/app/block/blockutil";
+import { globalStore } from "@/app/store/jotaiStore";
 import { LayoutModel } from "@/layout/lib/layoutModel";
 import { useNodeModel, useTileLayout } from "@/layout/lib/layoutModelHooks";
 import { DropDirection, LayoutNode, NodeModel, TileLayoutContents } from "@/layout/lib/types";
@@ -11,6 +12,16 @@ import * as WOS from "@/store/wos";
 import { makeIconClass } from "@/util/util";
 import { Atom, atom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    isAgentActivityActive,
+    subscribeAgentActivityStream,
+    type LiveAgentSurfaceActivity,
+} from "../../types/agent-activity";
+import {
+    isAgentChatView,
+    TabsAgentCompanionRequestEvent,
+    type TabsAgentCompanionRequest,
+} from "./tabs-agent-workspace";
 import { WidgetPickerPopover } from "./widget-picker-popover";
 import { getWidgetFocusAfterClose, getWidgetTabCloseAccessibility, moveWidgetTab } from "./widget-tabs-layout-utils";
 import "./widget-tabs-layout.scss";
@@ -28,6 +39,38 @@ interface WidgetTabProps {
     onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
     onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
     onDragEnd: () => void;
+}
+
+type AgentWorkbenchPair = {
+    agentNodeId: string;
+    companionNodeId: string;
+};
+
+type WorkbenchPaneRole = "agent" | "companion" | undefined;
+
+function readNodeView(node?: LayoutNode): string {
+    const blockId = node?.data?.blockId;
+    if (!blockId) {
+        return "";
+    }
+    const block = globalStore.get(WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId)));
+    return String(block?.meta?.view ?? "term");
+}
+
+function activityLabel(activity?: LiveAgentSurfaceActivity): string {
+    if (!activity) {
+        return "Ready";
+    }
+    if (activity.phase === "awaiting-approval") {
+        return "Approval needed";
+    }
+    if (activity.phase === "failed") {
+        return "Action failed";
+    }
+    if (isAgentActivityActive(activity.phase)) {
+        return activity.phase === "verifying" ? "Verifying" : "Live";
+    }
+    return "Complete";
 }
 
 const SplitDropTargets = [
@@ -68,7 +111,10 @@ const WidgetTab = memo(({ node, active, onSelect, onClose, onKeyDown, onDragStar
                 title={displayTitle}
             >
                 <i className={makeIconClass(icon, true, { defaultIcon: "square" })} aria-hidden="true" />
-                <span>{displayTitle}</span>
+                <span className="widget-surface-tab-copy">
+                    <span>{displayTitle}</span>
+                    <span>{viewName}</span>
+                </span>
             </button>
             <button
                 type="button"
@@ -95,11 +141,19 @@ const WidgetTabPane = memo(
         active,
         layoutModel,
         onClose,
+        onExpandCompanion,
+        onReturnToAgent,
+        recentActivity,
+        workbenchRole,
     }: {
         node: LayoutNode;
         active: boolean;
         layoutModel: LayoutModel;
         onClose: (nodeId: string) => void;
+        onExpandCompanion: () => void;
+        onReturnToAgent: () => void;
+        recentActivity: LiveAgentSurfaceActivity[];
+        workbenchRole: WorkbenchPaneRole;
     }) => {
         const baseNodeModel = useNodeModel(layoutModel, node);
         const nodeModel = useMemo<NodeModel>(
@@ -118,16 +172,63 @@ const WidgetTabPane = memo(
             [baseNodeModel, node.id, onClose]
         );
         const blockId = node.data?.blockId;
+        const blockAtom = useMemo(() => WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId)), [blockId]);
+        const blockData = useAtomValue(blockAtom);
+        const viewType = String(blockData?.meta?.view ?? "term");
+        const title = String(blockData?.meta?.["frame:title"] ?? "").trim() || blockViewToName(viewType);
+        const latestActivity = recentActivity.at(-1);
+        const visible = active || workbenchRole != null;
 
         return (
             <div
                 id={`widget-surface-panel-${blockId}`}
-                className={`widget-surface-pane ${active ? "is-active" : ""}`}
+                className={`widget-surface-pane ${visible ? "is-active" : ""} ${workbenchRole ? `is-workbench-${workbenchRole}` : ""}`}
                 role="tabpanel"
                 aria-labelledby={`widget-surface-tab-${blockId}`}
-                aria-hidden={!active}
+                aria-hidden={!visible}
             >
-                <BlockView key={blockId} nodeModel={nodeModel} preview={false} />
+                {workbenchRole === "companion" && (
+                    <div className="widget-agent-workbench-header">
+                        <div className="widget-agent-workbench-heading">
+                            <span
+                                className={`widget-agent-workbench-live ${isAgentActivityActive(latestActivity?.phase) ? "is-active" : ""}`}
+                            />
+                            <div>
+                                <strong>{title}</strong>
+                                <span>{activityLabel(latestActivity)}</span>
+                            </div>
+                        </div>
+                        <div className="widget-agent-workbench-actions">
+                            <button type="button" onClick={onExpandCompanion} title="Show work widget only">
+                                <i className="fa-solid fa-expand" aria-hidden="true" />
+                                <span>Expand</span>
+                            </button>
+                            <button type="button" onClick={onReturnToAgent} title="Close work panel and return to chat">
+                                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+                <div className="widget-agent-workbench-content">
+                    <BlockView key={blockId} nodeModel={nodeModel} preview={false} />
+                </div>
+                {workbenchRole === "companion" && recentActivity.length > 0 && (
+                    <div className="widget-agent-workbench-timeline" aria-label="Recent agent tool activity">
+                        {recentActivity.slice(-4).map((activity, index) => (
+                            <div
+                                key={`${activity.id ?? activity.timestamp}-${index}`}
+                                className={`widget-agent-workbench-step ${isAgentActivityActive(activity.phase) ? "is-active" : ""}`}
+                                title={activity.detail}
+                            >
+                                <i
+                                    className={`fa-solid fa-${activity.surface === "browser" ? "globe" : activity.surface === "file" ? "file-code" : activity.surface === "terminal" ? "terminal" : "display"}`}
+                                    aria-hidden="true"
+                                />
+                                <span>{activity.detail?.trim() || `${activity.action} ${activity.surface}`}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     }
@@ -147,16 +248,107 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
     const activeNode = orderedNodes.find((node) => node.id === focusedNode?.id) ?? orderedNodes[0];
     const nodesRef = useRef(orderedNodes);
     const activeNodeIdRef = useRef(activeNode?.id);
+    const pendingCompanionRef = useRef<{ agentNodeId: string; blockId: string } | null>(null);
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const [widgetPickerOpen, setWidgetPickerOpen] = useState(false);
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
     const [dropDirection, setDropDirection] = useState<DropDirection | null>(null);
+    const [workbenchPair, setWorkbenchPair] = useState<AgentWorkbenchPair | null>(null);
+    const [workbenchWidth, setWorkbenchWidth] = useState(42);
+    const [recentActivity, setRecentActivity] = useState<LiveAgentSurfaceActivity[]>([]);
     nodesRef.current = orderedNodes;
     activeNodeIdRef.current = activeNode?.id;
+
+    const nodeByBlockId = useCallback((blockId: string) => {
+        return nodesRef.current.find((node) => node.data?.blockId === blockId);
+    }, []);
+
+    const openAgentWorkbench = useCallback(
+        (companionBlockId: string) => {
+            const companionNode = nodeByBlockId(companionBlockId);
+            const active = nodesRef.current.find((node) => node.id === activeNodeIdRef.current);
+            const existingAgent = workbenchPair
+                ? nodesRef.current.find((node) => node.id === workbenchPair.agentNodeId)
+                : undefined;
+            const agentNode = isAgentChatView(readNodeView(active)) ? active : existingAgent;
+            if (
+                !agentNode ||
+                !companionNode ||
+                agentNode.id === companionNode.id ||
+                isAgentChatView(readNodeView(companionNode))
+            ) {
+                return;
+            }
+            setWorkbenchPair({ agentNodeId: agentNode.id, companionNodeId: companionNode.id });
+        },
+        [nodeByBlockId, workbenchPair]
+    );
 
     useEffect(() => {
         setReady(true);
     }, [setReady]);
+
+    useEffect(() => {
+        const handleCompanionRequest = (event: Event) => {
+            const blockId = (event as CustomEvent<TabsAgentCompanionRequest>).detail?.blockId;
+            if (blockId) {
+                openAgentWorkbench(blockId);
+            }
+        };
+        window.addEventListener(TabsAgentCompanionRequestEvent, handleCompanionRequest);
+        return () => window.removeEventListener(TabsAgentCompanionRequestEvent, handleCompanionRequest);
+    }, [openAgentWorkbench]);
+
+    useEffect(() => {
+        return subscribeAgentActivityStream((activity) => {
+            const targetNode = activity.blockid ? nodeByBlockId(activity.blockid) : undefined;
+            const active = nodesRef.current.find((node) => node.id === activeNodeIdRef.current);
+            if (activity.blockid && isAgentChatView(readNodeView(active)) && isAgentActivityActive(activity.phase)) {
+                if (targetNode) {
+                    openAgentWorkbench(activity.blockid);
+                } else if (active) {
+                    pendingCompanionRef.current = { agentNodeId: active.id, blockId: activity.blockid };
+                }
+            }
+            setRecentActivity((current) => {
+                const companionBlockId = workbenchPair
+                    ? nodesRef.current.find((node) => node.id === workbenchPair.companionNodeId)?.data?.blockId
+                    : activity.blockid;
+                if (!companionBlockId || activity.blockid !== companionBlockId) {
+                    return current;
+                }
+                const withoutPrior = current.filter((entry) => entry.id == null || entry.id !== activity.id);
+                return [...withoutPrior, activity].slice(-12);
+            });
+        });
+    }, [nodeByBlockId, openAgentWorkbench, workbenchPair]);
+
+    useEffect(() => {
+        const pending = pendingCompanionRef.current;
+        if (!pending) {
+            return;
+        }
+        const agentNode = orderedNodes.find((node) => node.id === pending.agentNodeId);
+        const companionNode = orderedNodes.find((node) => node.data?.blockId === pending.blockId);
+        if (!agentNode || !companionNode || isAgentChatView(readNodeView(companionNode))) {
+            return;
+        }
+        pendingCompanionRef.current = null;
+        setWorkbenchPair({ agentNodeId: agentNode.id, companionNodeId: companionNode.id });
+    }, [orderedNodes]);
+
+    useEffect(() => {
+        if (!workbenchPair) {
+            return;
+        }
+        const pairStillExists =
+            orderedNodes.some((node) => node.id === workbenchPair.agentNodeId) &&
+            orderedNodes.some((node) => node.id === workbenchPair.companionNodeId);
+        if (!pairStillExists) {
+            setWorkbenchPair(null);
+            setRecentActivity([]);
+        }
+    }, [orderedNodes, workbenchPair]);
 
     useEffect(() => {
         if (activeNode && focusedNode?.id !== activeNode.id) {
@@ -164,12 +356,34 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
         }
     }, [activeNode, focusedNode?.id, layoutModel]);
 
+    useEffect(() => {
+        if (
+            !workbenchPair ||
+            !focusedNode ||
+            focusedNode.id === workbenchPair.agentNodeId ||
+            focusedNode.id === workbenchPair.companionNodeId
+        ) {
+            return;
+        }
+        if (isAgentChatView(readNodeView(focusedNode))) {
+            setWorkbenchPair(null);
+            setRecentActivity([]);
+            return;
+        }
+        setWorkbenchPair((current) => current && { ...current, companionNodeId: focusedNode.id });
+        setRecentActivity([]);
+    }, [focusedNode, workbenchPair]);
+
     const focusNode = useCallback(
         (node: LayoutNode) => {
+            if (workbenchPair && !isAgentChatView(readNodeView(node))) {
+                setWorkbenchPair((current) => current && { ...current, companionNodeId: node.id });
+                setRecentActivity([]);
+            }
             layoutModel.focusNode(node.id);
             window.requestAnimationFrame(() => refocusNode(node.data?.blockId));
         },
-        [layoutModel]
+        [layoutModel, workbenchPair]
     );
 
     const closeNode = useCallback(
@@ -210,7 +424,83 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
 
     return (
         <div className="widget-tabs-layout">
-            <div ref={layoutModel.displayContainerRef} className="widget-surface-content">
+            <aside className="widget-surface-sidebar" aria-label="Widget tabs">
+                <div className="widget-surface-sidebar-header">
+                    <span className="widget-surface-sidebar-title">
+                        <span className="widget-surface-sidebar-mark" aria-hidden="true">
+                            <i className="fa-solid fa-window-restore" />
+                        </span>
+                    </span>
+                </div>
+                <div
+                    className="widget-surface-tabstrip"
+                    role="tablist"
+                    aria-label="Widgets in this workspace tab"
+                    aria-orientation="horizontal"
+                >
+                    {orderedNodes.map((node, index) => (
+                        <WidgetTab
+                            key={node.id}
+                            node={node}
+                            active={node.id === activeNode?.id}
+                            onSelect={() => focusNode(node)}
+                            onClose={() => closeNode(node.id)}
+                            onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData("text/plain", node.id);
+                                setDraggedNodeId(node.id);
+                                setWidgetPickerOpen(false);
+                            }}
+                            onDragEnd={() => {
+                                setDraggedNodeId(null);
+                                setDropDirection(null);
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === "ArrowRight") {
+                                    event.preventDefault();
+                                    focusByIndex(index + 1);
+                                } else if (event.key === "ArrowLeft") {
+                                    event.preventDefault();
+                                    focusByIndex(index - 1);
+                                } else if (event.key === "Home") {
+                                    event.preventDefault();
+                                    focusByIndex(0);
+                                } else if (event.key === "End") {
+                                    event.preventDefault();
+                                    focusByIndex(orderedNodes.length - 1);
+                                }
+                            }}
+                        />
+                    ))}
+                </div>
+                <div className="widget-surface-sidebar-footer">
+                    <button
+                        ref={addButtonRef}
+                        type="button"
+                        className={`widget-surface-add ${widgetPickerOpen ? "is-open" : ""}`}
+                        onClick={() => setWidgetPickerOpen((current) => !current)}
+                        aria-haspopup="menu"
+                        aria-expanded={widgetPickerOpen}
+                        aria-label="Add widget"
+                        title="Add widget"
+                    >
+                        <i className="fa-solid fa-plus" aria-hidden="true" />
+                        <span>New widget</span>
+                    </button>
+                    {addButtonRef.current && (
+                        <WidgetPickerPopover
+                            anchorElement={addButtonRef.current}
+                            open={widgetPickerOpen}
+                            onClose={() => setWidgetPickerOpen(false)}
+                        />
+                    )}
+                </div>
+            </aside>
+            <div
+                ref={layoutModel.displayContainerRef}
+                className={`widget-surface-content ${workbenchPair ? "is-agent-workbench" : ""}`}
+                style={{ "--agent-workbench-chat-width": `${workbenchWidth}%` } as React.CSSProperties}
+            >
                 {draggedNodeId && draggedNodeId !== activeNode?.id && (
                     <div className="widget-surface-split-overlay" aria-label="Choose where to split the focused widget">
                         {SplitDropTargets.map((target) => (
@@ -246,62 +536,63 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
                         active={node.id === activeNode?.id}
                         layoutModel={layoutModel}
                         onClose={closeNode}
-                    />
-                ))}
-            </div>
-            <div className="widget-surface-tabstrip" role="tablist" aria-label="Widgets in this workspace tab">
-                {orderedNodes.map((node, index) => (
-                    <WidgetTab
-                        key={node.id}
-                        node={node}
-                        active={node.id === activeNode?.id}
-                        onSelect={() => focusNode(node)}
-                        onClose={() => closeNode(node.id)}
-                        onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", node.id);
-                            setDraggedNodeId(node.id);
-                            setWidgetPickerOpen(false);
+                        workbenchRole={
+                            node.id === workbenchPair?.agentNodeId
+                                ? "agent"
+                                : node.id === workbenchPair?.companionNodeId
+                                  ? "companion"
+                                  : undefined
+                        }
+                        recentActivity={node.id === workbenchPair?.companionNodeId ? recentActivity : []}
+                        onExpandCompanion={() => {
+                            setWorkbenchPair(null);
+                            setRecentActivity([]);
+                            focusNode(node);
                         }}
-                        onDragEnd={() => {
-                            setDraggedNodeId(null);
-                            setDropDirection(null);
-                        }}
-                        onKeyDown={(event) => {
-                            if (event.key === "ArrowRight") {
-                                event.preventDefault();
-                                focusByIndex(index + 1);
-                            } else if (event.key === "ArrowLeft") {
-                                event.preventDefault();
-                                focusByIndex(index - 1);
-                            } else if (event.key === "Home") {
-                                event.preventDefault();
-                                focusByIndex(0);
-                            } else if (event.key === "End") {
-                                event.preventDefault();
-                                focusByIndex(orderedNodes.length - 1);
+                        onReturnToAgent={() => {
+                            const agentNode = orderedNodes.find((entry) => entry.id === workbenchPair?.agentNodeId);
+                            setWorkbenchPair(null);
+                            setRecentActivity([]);
+                            if (agentNode) {
+                                focusNode(agentNode);
                             }
                         }}
                     />
                 ))}
-                <span className="widget-surface-tab-divider" aria-hidden="true" />
-                <button
-                    ref={addButtonRef}
-                    type="button"
-                    className={`widget-surface-add ${widgetPickerOpen ? "is-open" : ""}`}
-                    onClick={() => setWidgetPickerOpen((current) => !current)}
-                    aria-haspopup="menu"
-                    aria-expanded={widgetPickerOpen}
-                    aria-label="Add widget"
-                    title="Add widget"
-                >
-                    <i className="fa-solid fa-plus" aria-hidden="true" />
-                </button>
-                {addButtonRef.current && (
-                    <WidgetPickerPopover
-                        anchorElement={addButtonRef.current}
-                        open={widgetPickerOpen}
-                        onClose={() => setWidgetPickerOpen(false)}
+                {workbenchPair && (
+                    <div
+                        className="widget-agent-workbench-resizer"
+                        role="separator"
+                        aria-label="Resize chat and work widget"
+                        aria-orientation="vertical"
+                        aria-valuemin={28}
+                        aria-valuemax={68}
+                        aria-valuenow={workbenchWidth}
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                                return;
+                            }
+                            event.preventDefault();
+                            setWorkbenchWidth((current) =>
+                                Math.min(68, Math.max(28, current + (event.key === "ArrowRight" ? 2 : -2)))
+                            );
+                        }}
+                        onPointerDown={(event) => {
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                        }}
+                        onPointerMove={(event) => {
+                            if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+                                return;
+                            }
+                            const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+                            if (!bounds?.width) {
+                                return;
+                            }
+                            setWorkbenchWidth(
+                                Math.min(68, Math.max(28, ((event.clientX - bounds.left) / bounds.width) * 100))
+                            );
+                        }}
                     />
                 )}
             </div>

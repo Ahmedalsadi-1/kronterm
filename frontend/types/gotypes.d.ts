@@ -824,6 +824,23 @@ declare global {
         terminal: boolean;
     };
 
+    // wshrpc.CommandLspQueryData
+    type CommandLspQueryData = {
+        workspacepath: string;
+        filepath: string;
+        language: string;
+        query: string;
+        line?: number;
+        character?: number;
+        maxresults?: number;
+    };
+
+    // wshrpc.CommandLspQueryRtnData
+    type CommandLspQueryRtnData = {
+        resultjson: string;
+        truncated?: boolean;
+    };
+
     // wshrpc.CommandMessageData
     type CommandMessageData = {
         message: string;
@@ -1238,6 +1255,26 @@ declare global {
         elementref?: string;
         condition: string;
         timeoutms: number;
+    };
+
+    // wshrpc.CommandWorkspaceSurfaceControlData
+    type CommandWorkspaceSurfaceControlData = {
+        action: string;
+        presentation?: string;
+        blockid?: string;
+        targetblockid?: string;
+        position?: string;
+        direction?: string;
+        size?: number;
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        objectid?: string;
+        fromobjectid?: string;
+        toobjectid?: string;
+        text?: string;
+        color?: string;
     };
 
     // wshrpc.CommandWriteTempFileData

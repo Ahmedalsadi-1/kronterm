@@ -195,12 +195,14 @@ export function VTab({
                     aria-hidden="true"
                 />
             ) : null}
-            <div
-                className={cn(
-                    "pointer-events-none absolute bottom-0 left-[5%] right-[5%] h-px bg-border/70",
-                    !showDivider && "opacity-0"
-                )}
-            />
+            {!compact && (
+                <div
+                    className={cn(
+                        "vtab-item-divider pointer-events-none absolute bottom-0 left-[5%] right-[5%] h-px bg-border/70",
+                        !showDivider && "opacity-0"
+                    )}
+                />
+            )}
             {!compact && (
                 <TabBadges
                     badges={badges}

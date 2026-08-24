@@ -40,6 +40,10 @@ import {
   readTerminalInputWsControlFrame,
 } from './lib/terminal/index.js';
 import { resolveEmbeddedWorkspace, scopeSettingsToEmbeddedWorkspace } from './lib/runtime/embedded-workspace.js';
+import {
+  makeKronTermRuntimeTokenBody,
+  makeKronTermSurfaceMcpBody,
+} from './lib/kronterm/surface-registration.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import webPush from 'web-push';
@@ -6528,6 +6532,36 @@ async function registerKrondesignMcpWithCoreEngine() {
   }
 }
 
+async function registerKronTermMcpWithCoreEngine(surface) {
+  if (!openCodePort) throw new Error('KronosCode is not ready');
+  const serverPath = typeof process.env.KRONTERM_SURFACE_MCP === 'string' ? process.env.KRONTERM_SURFACE_MCP.trim() : '';
+  if (!serverPath || !fs.existsSync(serverPath)) throw new Error('KronTerm surface MCP bundle was not found');
+
+  const wshPath = process.env.KRONTERM_WSH || process.env.WAVETERM_WSH || process.env.WAVETERM_WSH_BIN || '';
+  const environment = {
+    ELECTRON_RUN_AS_NODE: '1',
+    ...(wshPath ? { KRONTERM_WSH: wshPath, WAVETERM_WSH: wshPath } : {}),
+    ...(process.env.KRONTERM_WORKSPACE ? { KRONTERM_WORKSPACE: process.env.KRONTERM_WORKSPACE } : {}),
+  };
+  const runtimeTokenResponse = await fetch(buildOpenCodeUrl('/kronterm/runtime-token', ''), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...getOpenCodeAuthHeaders() },
+    body: JSON.stringify(makeKronTermRuntimeTokenBody(surface)),
+  });
+  if (!runtimeTokenResponse.ok) {
+    throw new Error(`KronosCode rejected the KronTerm surface token (${runtimeTokenResponse.status})`);
+  }
+
+  const response = await fetch(buildOpenCodeUrl('/mcp', ''), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...getOpenCodeAuthHeaders() },
+    body: JSON.stringify(makeKronTermSurfaceMcpBody(serverPath, environment)),
+  });
+  if (!response.ok) {
+    throw new Error(`KronosCode rejected the KronTerm MCP configuration (${response.status})`);
+  }
+}
+
 const startGlobalEventWatcher = async () => {
   if (globalEventWatcherAbortController) {
     return;
@@ -8488,6 +8522,34 @@ function setupProxy(app) {
 
   // KronosChamber MCP server — exposes all Tauri capabilities as MCP tools
   registerMcpRoutes(app);
+
+  app.post('/api/kronterm/runtime-token', express.json({ limit: '16kb' }), async (req, res) => {
+    const expectedAuthKey = process.env.WAVETERM_AUTH_KEY || '';
+    if (!expectedAuthKey || req.get('x-authkey') !== expectedAuthKey) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = typeof req.body?.token === 'string' ? req.body.token : '';
+    const tabId = typeof req.body?.tabId === 'string' ? req.body.tabId : '';
+    const blockId = typeof req.body?.blockId === 'string' ? req.body.blockId : '';
+    if (!token || !tabId) {
+      return res.status(400).json({ error: 'token and tabId are required' });
+    }
+    try {
+      await registerKronTermMcpWithCoreEngine({
+        token,
+        tabId,
+        blockId,
+        surfaceId: typeof req.body?.surfaceId === 'string' ? req.body.surfaceId : '',
+      });
+      return res.status(204).end();
+    } catch (error) {
+      console.warn(
+        '[KronTerm MCP] Surface capability registration failed:',
+        error instanceof Error ? error.message : String(error),
+      );
+      return res.status(503).json({ error: 'KronTerm surface capability could not be installed' });
+    }
+  });
 
   app.post('/api/kronoscode/gateway-ticket', express.json(), async (req, res) => {
     try {

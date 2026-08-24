@@ -25,6 +25,133 @@
     flex: 1;
 }
 
+.block-frame-header-top:has(.webview-browser-chrome) {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto !important;
+    order: 0;
+    background: rgb(from var(--surface-base-color) r g b / 0.9);
+}
+
+.block-frame-default-inner:has(> .block-frame-header-top .webview-browser-chrome) {
+    display: flex !important;
+    flex-direction: column;
+
+    > .block-frame-header-top,
+    > .block-frame-default-header,
+    > .block-content {
+        min-width: 0;
+        min-height: 0;
+    }
+
+    > .block-frame-default-header[data-surface="web"] {
+        height: 20px !important;
+        min-height: 20px !important;
+        max-height: 20px !important;
+        order: -1;
+        padding: 4px 10px !important;
+        border-bottom: 0 !important;
+        background: rgb(from var(--surface-base-color) r g b / 0.9) !important;
+
+        .block-frame-textelems-wrapper,
+        .block-frame-end-icons,
+        .block-frame-widget-action {
+            display: none !important;
+        }
+
+        .block-frame-traffic-lights {
+            position: static;
+            display: flex;
+            min-width: 35px;
+            padding: 0;
+        }
+    }
+}
+
+.webview-browser-chrome {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.webview-navigation {
+    display: flex;
+    width: 100%;
+    height: 49px;
+    min-height: 49px;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 10px;
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.38);
+    background: rgb(from var(--surface-base-color) r g b / 0.78);
+
+    > button {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        cursor: pointer;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        color: var(--text-secondary-color);
+        background: transparent;
+        font-size: 11px;
+
+        &:hover:not(:disabled) {
+            color: var(--text-primary-color);
+            background: var(--surface-hover-color);
+        }
+
+        &:disabled {
+            cursor: default;
+            opacity: 0.3;
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--focus-ring-color);
+            outline-offset: -2px;
+        }
+    }
+}
+
+.webview-omnibox {
+    display: flex;
+    min-width: 90px;
+    height: 34px;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.5);
+    border-radius: 999px;
+    background: rgb(from var(--surface-raised-color) r g b / 0.68);
+    color: var(--text-muted-color);
+
+    &:focus-within {
+        border-color: rgb(from var(--accent-color) r g b / 0.55);
+        box-shadow: 0 0 0 2px rgb(from var(--accent-color) r g b / 0.12);
+    }
+
+    i {
+        flex: 0 0 auto;
+        font-size: 10px;
+    }
+
+    input {
+        min-width: 0;
+        height: 100%;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        color: var(--text-primary-color);
+        background: transparent;
+        font: inherit;
+        font-size: 11px;
+    }
+}
+
 .webview,
 .webview-container {
     height: 100%;
@@ -47,15 +174,15 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    height: 38px;
-    min-height: 38px;
-    padding: 6px 8px 0;
+    height: 43px;
+    min-height: 43px;
+    padding: 7px 10px 0;
     border: 0;
     border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.34);
     background: linear-gradient(
         180deg,
-        rgb(from var(--surface-raised-color) r g b / 0.72),
-        rgb(from var(--surface-base-color) r g b / 0.86)
+        rgb(from var(--surface-raised-color) r g b / 0.78),
+        rgb(from var(--surface-base-color) r g b / 0.94)
     );
 }
 
@@ -127,14 +254,14 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 112px;
-    max-width: 220px;
-    height: 32px;
+    min-width: 124px;
+    max-width: 230px;
+    height: 34px;
     margin-bottom: -1px;
     padding: 0 5px 0 10px;
     border: 1px solid transparent;
     border-bottom: 0;
-    border-radius: 8px 8px 0 0;
+    border-radius: 10px 10px 0 0;
     color: rgba(255, 255, 255, 0.68);
 
     .webview-tab-main {
@@ -161,7 +288,7 @@
         border-color: rgb(from var(--border-color) r g b / 0.44);
         background: var(--main-bg-color);
         color: rgba(255, 255, 255, 0.96);
-        box-shadow: inset 0 2px 0 rgb(from var(--accent-color) r g b / 0.68);
+        box-shadow: inset 0 2px 0 rgb(from var(--accent-color) r g b / 0.58);
 
         &::after {
             position: absolute;
@@ -257,11 +384,12 @@
 }
 
 .block-frame-div-url {
-    min-width: 80px;
-    padding: 0 4px 0 8px;
-    border: 0;
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.045);
+    min-width: 120px;
+    height: 34px;
+    padding: 0 6px 0 8px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.48);
+    border-radius: 999px;
+    background: rgb(from var(--surface-raised-color) r g b / 0.62);
     transition:
         background 0.2s ease,
         box-shadow 0.2s ease;
@@ -271,12 +399,14 @@
     }
 
     &.hovered {
-        background: rgba(255, 255, 255, 0.07);
+        border-color: rgb(from var(--border-color) r g b / 0.7);
+        background: rgb(from var(--surface-raised-color) r g b / 0.82);
     }
 
     &:focus-within {
-        background: rgba(0, 0, 0, 0.38);
-        box-shadow: inset 0 0 0 1px rgba(132, 159, 255, 0.34);
+        border-color: rgb(from var(--accent-color) r g b / 0.52);
+        background: rgb(from var(--surface-raised-color) r g b / 0.94);
+        box-shadow: 0 0 0 2px rgb(from var(--accent-color) r g b / 0.12);
     }
 
     .wave-iconbutton {
@@ -286,9 +416,26 @@
 }
 
 .block-frame-default-header:has(.block-frame-div-url) {
-    padding: 3px 8px;
+    min-height: 49px !important;
+    max-height: 49px !important;
+    gap: 5px !important;
+    padding: 7px 10px !important;
     border: 0 !important;
-    background: rgba(255, 255, 255, 0.012) !important;
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.38) !important;
+    background: rgb(from var(--surface-base-color) r g b / 0.78) !important;
+
+    .block-frame-textelems-wrapper {
+        gap: 4px;
+    }
+
+    .block-frame-header-iconbutton {
+        border-radius: 8px;
+    }
+}
+
+.webview-shell.is-top-tabs .webview-stage,
+.webview-shell.is-top-tabs .webview {
+    border-radius: 0 0 10px 10px;
 }
 
 .block-frame-div-url .block-frame-header-iconbutton.disabled,

@@ -41,6 +41,7 @@ type PetState = {
     cursorPoint?: { x: number; y: number } | null;
     reasoningLog?: string[];
     previewImageUrl?: string;
+    previewBlockId?: string;
     surface?: PetSurface;
     action?: PetAction;
     appName?: string;
@@ -86,41 +87,6 @@ const idleFrames = sortedFrames(
         query: "?url",
     }) as unknown as Record<string, string>
 );
-const walkFrames = sortedFrames(
-    import.meta.glob("../../assets/pet/walk/*.png", {
-        eager: true,
-        import: "default",
-        query: "?url",
-    }) as unknown as Record<string, string>
-);
-const terminalOperatorFrames = sortedFrames(
-    import.meta.glob("../../assets/pet/sprite-sheets/iterations/terminal-operator/frames/*.png", {
-        eager: true,
-        import: "default",
-        query: "?url",
-    }) as unknown as Record<string, string>
-);
-const browserScoutFrames = sortedFrames(
-    import.meta.glob("../../assets/pet/sprite-sheets/iterations/browser-scout/frames/*.png", {
-        eager: true,
-        import: "default",
-        query: "?url",
-    }) as unknown as Record<string, string>
-);
-const codeReviewFrames = sortedFrames(
-    import.meta.glob("../../assets/pet/sprite-sheets/iterations/code-review-detective/frames/*.png", {
-        eager: true,
-        import: "default",
-        query: "?url",
-    }) as unknown as Record<string, string>
-);
-const sandboxBuilderFrames = sortedFrames(
-    import.meta.glob("../../assets/pet/sprite-sheets/iterations/sandbox-builder/frames/*.png", {
-        eager: true,
-        import: "default",
-        query: "?url",
-    }) as unknown as Record<string, string>
-);
 const expressiveStatusFrames = sortedFrames(
     import.meta.glob("../../assets/pet/sprite-sheets/iterations/expressive-status/frames/*.png", {
         eager: true,
@@ -133,42 +99,8 @@ function sequence(frames: string[], start: number, end: number): string[] {
     return frames.slice(start - 1, end);
 }
 
-const TerminalSequences = {
-    input: sequence(terminalOperatorFrames, 1, 4),
-    logs: sequence(terminalOperatorFrames, 5, 8),
-    running: sequence(terminalOperatorFrames, 9, 10),
-    succeeded: sequence(terminalOperatorFrames, 11, 12),
-    failed: sequence(terminalOperatorFrames, 13, 14),
-    recovery: sequence(terminalOperatorFrames, 15, 16),
-};
-const BrowserSequences = {
-    open: sequence(browserScoutFrames, 1, 4),
-    interact: sequence(browserScoutFrames, 5, 8),
-    inspect: sequence(browserScoutFrames, 9, 12),
-    recover: sequence(browserScoutFrames, 13, 15),
-    succeeded: sequence(browserScoutFrames, 16, 16),
-};
-const ReviewSequences = {
-    read: sequence(codeReviewFrames, 1, 4),
-    inspect: sequence(codeReviewFrames, 5, 8),
-    decide: sequence(codeReviewFrames, 9, 12),
-    resolve: sequence(codeReviewFrames, 13, 16),
-};
-const SandboxSequences = {
-    open: sequence(sandboxBuilderFrames, 1, 4),
-    build: sequence(sandboxBuilderFrames, 5, 8),
-    complete: sequence(sandboxBuilderFrames, 9, 12),
-    recover: sequence(sandboxBuilderFrames, 13, 16),
-};
 const StatusSequences = {
     idle: sequence(expressiveStatusFrames, 1, 4),
-    thinking: sequence(expressiveStatusFrames, 5, 8),
-    approval: sequence(expressiveStatusFrames, 9, 9),
-    warning: sequence(expressiveStatusFrames, 10, 10),
-    failed: sequence(expressiveStatusFrames, 11, 11),
-    paused: sequence(expressiveStatusFrames, 12, 12),
-    active: sequence(expressiveStatusFrames, 13, 14),
-    succeeded: sequence(expressiveStatusFrames, 15, 16),
 };
 const root = document.getElementById("pet-root");
 const sprite = document.getElementById("pet-sprite") as HTMLImageElement;
@@ -338,24 +270,24 @@ function renderCursor(action: PetCursorAction, point: { x: number; y: number } |
             const maxY = root.clientHeight - 60;
             cursorTargetX = Math.max(10, Math.min(maxX, local.x));
             cursorTargetY = Math.max(10, Math.min(maxY, local.y));
-            
+
             // Initialize positions if it just started following to prevent huge jumps
             if (!cursorFollowActive) {
                 currentCursorX = cursorTargetX;
                 currentCursorY = cursorTargetY;
-                
+
                 const shellRect = spriteShell.getBoundingClientRect();
                 const rootRect = root.getBoundingClientRect();
                 const shellW = shellRect.width || 160;
                 const shellH = shellRect.height || 148;
                 const naturalCenterX = shellRect.left - rootRect.left + shellW / 2;
                 const naturalCenterY = shellRect.top - rootRect.top + shellH / 2;
-                
+
                 currentSpriteX = cursorTargetX - naturalCenterX;
                 currentSpriteY = cursorTargetY + 54 - naturalCenterY;
                 currentSpriteTilt = 0;
             }
-            
+
             startCursorFollow();
         }
     }
@@ -390,38 +322,38 @@ function updateAnimationLoop() {
         // Fast-lerp the cursor overlay to follow the target coordinates smoothly
         currentCursorX += (cursorTargetX - currentCursorX) * 0.35;
         currentCursorY += (cursorTargetY - currentCursorY) * 0.35;
-        
+
         petCursor.style.left = `${currentCursorX}px`;
         petCursor.style.top = `${currentCursorY}px`;
         petCursor.style.transform = "translate(-50%, -50%)";
-        
+
         // Target offset for the sprite (below the cursor to appear carrying it)
         const targetDx = cursorTargetX - naturalCenterX;
         const targetDy = cursorTargetY + 54 - naturalCenterY;
-        
+
         // Interpolate position with inertia
         currentSpriteX += (targetDx - currentSpriteX) * 0.12;
         currentSpriteY += (targetDy - currentSpriteY) * 0.12;
-        
+
         // Dynamic tilt proportional to horizontal distance/velocity
         const diffX = targetDx - currentSpriteX;
         const targetTilt = Math.max(-16, Math.min(16, diffX * 0.18));
         currentSpriteTilt += (targetTilt - currentSpriteTilt) * 0.1;
-        
+
         spriteShell.style.transform = `translate(${currentSpriteX}px, ${currentSpriteY}px) rotate(${currentSpriteTilt}deg)`;
     } else {
         // Return smoothly to natural resting position
         currentSpriteX += (0 - currentSpriteX) * 0.15;
         currentSpriteY += (0 - currentSpriteY) * 0.15;
         currentSpriteTilt += (0 - currentSpriteTilt) * 0.15;
-        
+
         if (Math.abs(currentSpriteX) > 0.05 || Math.abs(currentSpriteY) > 0.05 || Math.abs(currentSpriteTilt) > 0.05) {
             spriteShell.style.transform = `translate(${currentSpriteX}px, ${currentSpriteY}px) rotate(${currentSpriteTilt}deg)`;
         } else {
             spriteShell.style.transform = "";
         }
     }
-    
+
     requestAnimationFrame(updateAnimationLoop);
 }
 
@@ -452,7 +384,6 @@ function renderReasoningLog(log: string[] | undefined) {
 let lastThoughtText = "";
 
 function renderState(nextState: PetState) {
-    const prevAction = state.cursorAction;
     state = nextState;
     root.classList.remove(
         "context-idle",
@@ -505,17 +436,27 @@ function renderState(nextState: PetState) {
 
     renderCursor(state.cursorAction, state.cursorPoint);
     if (capturePreview && capturePreviewImage) {
-        const previewSurface =
-            state.surface === "browser" || state.surface === "desktop" || state.surface === "sandbox";
         const showPreview =
-            options.mode !== "off" && options.mode !== "status-only" && previewSurface && state.previewImageUrl;
+            options.mode !== "off" &&
+            options.mode !== "status-only" &&
+            (Boolean(state.previewImageUrl) || Boolean(state.previewBlockId));
         root.classList.toggle("has-preview", Boolean(showPreview));
         if (showPreview) {
-            capturePreviewImage.src = state.previewImageUrl;
+            if (state.previewImageUrl) {
+                capturePreviewImage.src = state.previewImageUrl;
+            } else {
+                capturePreviewImage.removeAttribute("src");
+            }
             capturePreviewCaption.textContent =
-                state.surface === "browser" ? "Browser view" : `${state.appName ?? "App"} view`;
+                state.surface === "browser" ? "Preview browser" : `Preview ${state.appName ?? "widget"}`;
+            capturePreview.setAttribute(
+                "aria-label",
+                state.previewImageUrl ? "Expand the latest agent preview" : "Open the active KronTerm widget"
+            );
             capturePreview.removeAttribute("hidden");
         } else {
+            root.classList.remove("preview-expanded");
+            capturePreview.setAttribute("aria-expanded", "false");
             capturePreview.setAttribute("hidden", "");
             capturePreviewImage.removeAttribute("src");
         }
@@ -523,67 +464,11 @@ function renderState(nextState: PetState) {
 }
 
 function framesForState(): string[] {
-    if (state.moving) {
-        return walkFrames;
-    }
-    if (state.lifecycle === "awaiting-approval") {
-        return StatusSequences.approval;
-    }
-    if (state.lifecycle === "degraded") {
-        return StatusSequences.warning;
-    }
-    if (state.lifecycle === "failed" || state.lifecycle === "cancelled") {
-        if (state.surface === "terminal") return TerminalSequences.failed;
-        if (state.surface === "browser") return BrowserSequences.recover;
-        if (state.surface === "file") return ReviewSequences.decide;
-        if (state.surface === "sandbox" || state.surface === "desktop") return SandboxSequences.recover;
-        return StatusSequences.failed;
-    }
-    if (state.lifecycle === "paused") {
-        return StatusSequences.paused;
-    }
-    if (state.lifecycle === "succeeded") {
-        if (state.surface === "terminal") return TerminalSequences.succeeded;
-        if (state.surface === "browser") return BrowserSequences.succeeded;
-        if (state.surface === "file") return ReviewSequences.resolve;
-        if (state.surface === "sandbox" || state.surface === "desktop") return SandboxSequences.complete;
-        return StatusSequences.succeeded;
-    }
-    if (state.surface === "terminal") {
-        if (state.cursorAction === "type" || state.action === "press") return TerminalSequences.input;
-        if (state.action === "wait") return TerminalSequences.running;
-        if (state.action === "verify") return TerminalSequences.recovery;
-        return TerminalSequences.logs;
-    }
-    if (state.surface === "browser") {
-        if (state.action === "open" || state.action === "focus") return BrowserSequences.open;
-        if (state.action === "inspect" || state.action === "screenshot" || state.cursorAction === "scroll") {
-            return BrowserSequences.inspect;
-        }
-        return BrowserSequences.interact;
-    }
-    if (state.surface === "file") {
-        if (state.action === "inspect" || state.action === "verify") return ReviewSequences.inspect;
-        if (state.action === "click" || state.action === "press") return ReviewSequences.decide;
-        return ReviewSequences.read;
-    }
-    if (state.surface === "sandbox" || state.surface === "desktop") {
-        if (state.action === "open" || state.action === "inspect") return SandboxSequences.open;
-        if (state.action === "verify") return SandboxSequences.complete;
-        return SandboxSequences.build;
-    }
-    if (state.context === "thinking" || state.action === "thinking" || state.action === "wait") {
-        return StatusSequences.thinking;
-    }
-    if (state.active) {
-        return StatusSequences.active;
-    }
     return StatusSequences.idle.length > 0 ? StatusSequences.idle : idleFrames;
 }
 
 function animate() {
-    const isFollowingCursor = cursorFollowActive && state.cursorAction && state.cursorAction !== "idle";
-    const frames = isFollowingCursor ? walkFrames : framesForState();
+    const frames = framesForState();
     if (frames.length > 0) {
         sprite.src = frames[frame % frames.length];
         frame++;
@@ -722,6 +607,15 @@ reasoningFeedClose?.addEventListener("click", () => {
 });
 
 resizeHandle?.addEventListener("mousedown", initResize);
+
+capturePreview?.addEventListener("click", () => {
+    if (!state.previewImageUrl) {
+        window.petApi?.resumeContext();
+        return;
+    }
+    const expanded = root.classList.toggle("preview-expanded");
+    capturePreview.setAttribute("aria-expanded", String(expanded));
+});
 
 applyOptions();
 renderState(state);

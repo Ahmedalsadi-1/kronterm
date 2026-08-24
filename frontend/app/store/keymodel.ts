@@ -21,6 +21,7 @@ import {
     WOS,
 } from "@/app/store/global";
 import { getActiveTabModel } from "@/app/store/tab-model";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { deleteLayoutModelForTab, getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { NavigateDirection } from "@/layout/lib/types";
@@ -182,7 +183,7 @@ function uxCloseBlock(blockId: string, closeOwnedNode: () => void = () => {}) {
 function genericClose() {
     const focusType = FocusManager.getInstance().getFocusType();
     if (focusType === "waveai") {
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(false);
+        hermesSurfaceController.dismiss();
         return;
     }
 
@@ -344,10 +345,10 @@ function globalRefocus() {
 function getDefaultNewBlockDef(): BlockDef {
     const adnbAtom = getSettingsKeyAtom("app:defaultnewblock");
     const adnb = globalStore.get(adnbAtom) ?? "term";
-    if (adnb == "launcher") {
+    if (adnb == "launcher" || adnb == "web" || adnb == "hermes" || adnb == "preview") {
         return {
             meta: {
-                view: "launcher",
+                view: adnb,
             },
         };
     }
@@ -728,8 +729,12 @@ function registerGlobalKeys() {
         return false;
     });
     globalKeyMap.set("Cmd:Shift:a", () => {
-        const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+        const presentation = hermesSurfaceController.getSnapshot().presentation;
+        if (presentation === "panel") {
+            hermesSurfaceController.dismiss();
+        } else {
+            hermesSurfaceController.requestOpenPanel();
+        }
         return true;
     });
     globalKeyMap.set("Cmd:Shift:p", () => {

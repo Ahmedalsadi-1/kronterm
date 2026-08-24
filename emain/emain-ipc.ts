@@ -80,6 +80,81 @@ let webviewKeys: string[] = [];
 
 const MaxImageDownloadBytes = 50 * 1024 * 1024;
 const ImageHeadersTimeoutMs = 15_000;
+const SystemSearchLimit = 36;
+const SystemSearchTimeoutMs = 2_500;
+
+function execFileLines(command: string, args: string[]): Promise<string[]> {
+    return new Promise((resolve) => {
+        child_process.execFile(
+            command,
+            args,
+            { timeout: SystemSearchTimeoutMs, maxBuffer: 2 * 1024 * 1024 },
+            (error, stdout) => {
+                if (error && !stdout) {
+                    resolve([]);
+                    return;
+                }
+                resolve(
+                    stdout
+                        .split(/\r?\n/)
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                        .slice(0, SystemSearchLimit)
+                );
+            }
+        );
+    });
+}
+
+async function searchSystemPaths(query: string): Promise<string[]> {
+    const homeDir = electronApp.getPath("home");
+    if (process.platform === "darwin") {
+        const safeQuery = query.replace(/[\\"*?]/g, " ").trim();
+        if (!safeQuery) {
+            return [];
+        }
+        return execFileLines("mdfind", ["-onlyin", homeDir, `kMDItemFSName == "*${safeQuery}*"cd`]);
+    }
+    if (process.platform === "win32") {
+        const safeQuery = query.replace(/[[\]'"`$]/g, "").trim();
+        return execFileLines("powershell.exe", [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            `Get-ChildItem -LiteralPath '${homeDir.replace(/'/g, "''")}' -Recurse -Force -ErrorAction SilentlyContinue -Filter '*${safeQuery}*' | Select-Object -First ${SystemSearchLimit} -ExpandProperty FullName`,
+        ]);
+    }
+    return execFileLines("find", [homeDir, "-maxdepth", "6", "-iname", `*${query.replace(/[\\*?[\]]/g, "")}*`]);
+}
+
+async function makeSystemSearchItems(query: string): Promise<SystemSearchItem[]> {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+        return [];
+    }
+    const homeDir = electronApp.getPath("home");
+    const paths = await searchSystemPaths(normalizedQuery);
+    const uniquePaths = Array.from(new Set(paths)).slice(0, SystemSearchLimit);
+    const items = await Promise.all(
+        uniquePaths.map(async (filePath): Promise<SystemSearchItem | null> => {
+            try {
+                const stat = await fs.promises.stat(filePath);
+                const extension = path.extname(filePath).toLowerCase();
+                const isImage = [".avif", ".gif", ".heic", ".jpeg", ".jpg", ".png", ".webp"].includes(extension);
+                const looksLikeWallpaper = /(?:wallpaper|background|desktop pictures)/i.test(filePath);
+                return {
+                    kind: stat.isDirectory() ? "folder" : isImage && looksLikeWallpaper ? "wallpaper" : "file",
+                    name: path.basename(filePath),
+                    path: filePath,
+                    detail: filePath.startsWith(homeDir) ? `~${filePath.slice(homeDir.length)}` : filePath,
+                };
+            } catch {
+                return null;
+            }
+        })
+    );
+    return items.filter((item): item is SystemSearchItem => item != null);
+}
 
 type UrlInSessionResult = {
     stream: Readable;
@@ -649,6 +724,10 @@ export function initIpcHandlers() {
         return result.filePaths;
     });
 
+    electron.ipcMain.handle("search-system-items", async (_event, query: string): Promise<SystemSearchItem[]> => {
+        return makeSystemSearchItems(typeof query === "string" ? query : "");
+    });
+
     electron.ipcMain.handle(
         "acp-apply-git-identity",
         async (
@@ -1055,8 +1134,8 @@ export function initIpcHandlers() {
         return KronosCodeRuntime.ensure();
     });
 
-    electron.ipcMain.handle("hermes-get-connection", async () => {
-        return HermesRuntime.ensure();
+    electron.ipcMain.handle("hermes-get-connection", async (_event, context?: { tabId?: string; blockId?: string }) => {
+        return HermesRuntime.ensureSurface(context);
     });
 
     electron.ipcMain.handle("kronoscode-revalidate-connection", async () => {

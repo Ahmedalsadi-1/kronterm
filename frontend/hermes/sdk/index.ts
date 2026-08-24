@@ -18,39 +18,50 @@
  *  - `ui.*` — the design language, so plugin UI looks native by default.
  */
 
-import { atom, computed, type ReadableAtom } from 'nanostores'
+import { atom, computed, type ReadableAtom } from "nanostores";
 
-import { PRIMARY_SESSION_VIEW } from '@hermes/app/chat/session-view'
-import { openSession, type OpenSessionIntent } from '@hermes/app/open-session'
-import type { ClientSessionState } from '@hermes/app/types'
-import { $narrowViewport } from '@hermes/components/pane-shell/tree/store'
-import { onGatewayEvent } from '@hermes/contrib/events'
-import { deleteProfile, getLogs, getStatus, type HermesGateway } from '@hermes/hermes'
-import { $gateway, openGatewayForAgent, openGatewayForProfile } from '@hermes/store/gateway'
-import { notify, notifyError } from '@hermes/store/notifications'
+import { PRIMARY_SESSION_VIEW } from "@hermes/app/chat/session-view";
+import { openSession, type OpenSessionIntent } from "@hermes/app/open-session";
+import type { ClientSessionState } from "@hermes/app/types";
+import { $narrowViewport, revealTreePane } from "@hermes/components/pane-shell/tree/store";
+import { onGatewayEvent } from "@hermes/contrib/events";
+import type {
+    HermesKronTermInspectableElement,
+    HermesKronTermInspectableSnapshot,
+    HermesKronTermSurface,
+} from "@hermes/global";
+import { deleteProfile, getLogs, getStatus, type HermesGateway } from "@hermes/hermes";
+import { $gateway, openGatewayForAgent, openGatewayForProfile } from "@hermes/store/gateway";
+import { notify, notifyError } from "@hermes/store/notifications";
 import {
-  $activeGatewayProfile,
-  ensureGatewayAgent,
-  ensureGatewayProfile,
-  newSessionInProfile,
-  normalizeProfileKey,
-  selectProfile,
-  setActiveProfile,
-  setShowAllProfiles
-} from '@hermes/store/profile'
-import { $activeSessionId, $currentCwd, $currentModel, $gatewayState, $selectedStoredSessionId } from '@hermes/store/session'
+    $activeGatewayProfile,
+    ensureGatewayAgent,
+    ensureGatewayProfile,
+    newSessionInProfile,
+    normalizeProfileKey,
+    selectProfile,
+    setActiveProfile,
+    setShowAllProfiles,
+} from "@hermes/store/profile";
 import {
-  $focusedRuntimeId,
-  $focusedSessionState,
-  $focusedStoredSessionId,
-  $sessionStates
-} from '@hermes/store/session-states'
-import { runGatewayRestart } from '@hermes/store/system-actions'
-import type { UsageStats } from '@hermes/types/hermes'
+    $activeSessionId,
+    $currentCwd,
+    $currentModel,
+    $gatewayState,
+    $selectedStoredSessionId,
+} from "@hermes/store/session";
+import {
+    $focusedRuntimeId,
+    $focusedSessionState,
+    $focusedStoredSessionId,
+    $sessionStates,
+} from "@hermes/store/session-states";
+import { runGatewayRestart } from "@hermes/store/system-actions";
+import type { UsageStats } from "@hermes/types/hermes";
 
 // -- state: readonly views over the app's live atoms -------------------------
 
-const readonlyAtom = <T>(atomLike: ReadableAtom<T>): ReadableAtom<T> => atomLike
+const readonlyAtom = <T>(atomLike: ReadableAtom<T>): ReadableAtom<T> => atomLike;
 
 /**
  * Turn flag for the FOCUSED chat — same semantics as the statusbar's busy
@@ -60,301 +71,358 @@ const readonlyAtom = <T>(atomLike: ReadableAtom<T>): ReadableAtom<T> => atomLike
  * state slice is authoritative — a background session can never leak in.
  */
 const focusedTurnFlag = (
-  select: (state: ClientSessionState) => boolean,
-  $primary: ReadableAtom<boolean>
+    select: (state: ClientSessionState) => boolean,
+    $primary: ReadableAtom<boolean>
 ): ReadableAtom<boolean> =>
-  computed(
-    [$focusedStoredSessionId, $selectedStoredSessionId, $focusedSessionState, $primary],
-    (focused, selected, state, primary) =>
-      !focused || focused === selected ? primary : Boolean(state && select(state))
-  )
+    computed(
+        [$focusedStoredSessionId, $selectedStoredSessionId, $focusedSessionState, $primary],
+        (focused, selected, state, primary) =>
+            !focused || focused === selected ? primary : Boolean(state && select(state))
+    );
 
-const $focusedBusy = focusedTurnFlag(state => state.busy, PRIMARY_SESSION_VIEW.$busy)
+const $focusedBusy = focusedTurnFlag((state) => state.busy, PRIMARY_SESSION_VIEW.$busy);
 
 const $focusedAwaitingResponse = focusedTurnFlag(
-  state => state.awaitingResponse,
-  PRIMARY_SESSION_VIEW.$awaitingResponse
-)
+    (state) => state.awaitingResponse,
+    PRIMARY_SESSION_VIEW.$awaitingResponse
+);
 
 /** Window geometry + the app's responsive posture, one readonly rect. */
 export interface ViewportRect {
-  width: number
-  height: number
-  /** Below the app's sidebar-collapse breakpoint (rails become overlays). */
-  narrow: boolean
+    width: number;
+    height: number;
+    /** Below the app's sidebar-collapse breakpoint (rails become overlays). */
+    narrow: boolean;
 }
 
+export type KronTermSurface = HermesKronTermSurface;
+export type KronTermInspectableElement = HermesKronTermInspectableElement;
+export type KronTermInspectableSnapshot = HermesKronTermInspectableSnapshot;
+
 const readViewport = (): ViewportRect => ({
-  width: typeof window === 'undefined' ? 0 : window.innerWidth,
-  height: typeof window === 'undefined' ? 0 : window.innerHeight,
-  narrow: $narrowViewport.get()
-})
+    width: typeof window === "undefined" ? 0 : window.innerWidth,
+    height: typeof window === "undefined" ? 0 : window.innerHeight,
+    narrow: $narrowViewport.get(),
+});
 
 /** Runtime session id → mid-turn. Not gateway socket state. */
-const $busyBySession = computed($sessionStates, states => {
-  const map: Record<string, boolean> = {}
+const $busyBySession = computed($sessionStates, (states) => {
+    const map: Record<string, boolean> = {};
 
-  for (const [id, state] of Object.entries(states)) {
-    map[id] = Boolean(state.busy)
-  }
+    for (const [id, state] of Object.entries(states)) {
+        map[id] = Boolean(state.busy);
+    }
 
-  return map
-})
+    return map;
+});
 
-const $viewport = atom<ViewportRect>(readViewport())
+const $viewport = atom<ViewportRect>(readViewport());
 
-if (typeof window !== 'undefined') {
-  const refresh = () => $viewport.set(readViewport())
-  window.addEventListener('resize', refresh)
-  $narrowViewport.listen(refresh)
+if (typeof window !== "undefined") {
+    const refresh = () => $viewport.set(readViewport());
+    window.addEventListener("resize", refresh);
+    $narrowViewport.listen(refresh);
 }
 
 /** Live usage of the FOCUSED session, projected out of the streamed session
  *  state — the same readout the core statusbar's context chip paints. */
-const $focusedUsage = computed($focusedSessionState, state => state?.usage ?? null)
+const $focusedUsage = computed($focusedSessionState, (state) => state?.usage ?? null);
 
 export const host = {
-  state: {
-    /** Runtime id of the active chat session (null on a fresh draft). */
-    activeSessionId: readonlyAtom<null | string>($activeSessionId),
-    /** True from send until the first assistant payload on the focused chat. */
-    awaitingResponse: readonlyAtom<boolean>($focusedAwaitingResponse),
-    /**
-     * True while the focused chat is working after a send. Covers the wait
-     * for the first token and the stream that follows. Follows tile focus —
-     * same signal the statusbar's busy pulse reads. A draft with no runtime
-     * id uses the global flag.
-     */
-    busy: readonlyAtom<boolean>($focusedBusy),
-    /** Runtime session id → mid-turn. Not socket state; see `gateway`. */
-    busyBySession: readonlyAtom<Record<string, boolean>>($busyBySession),
-    /** Active workspace cwd ('' when detached). */
-    cwd: readonlyAtom<string>($currentCwd),
-    /** Runtime id of the FOCUSED chat session — the interacted tile, else the
-     *  primary. Prefer this over `activeSessionId` for any readout that
-     *  should follow the user between tiles (context, tokens, cost). */
-    focusedSessionId: readonlyAtom<null | string>($focusedRuntimeId),
-    /** Stored (durable) id of the focused session — for navigation and
-     *  session-list matching, where runtime ids don't survive reloads. */
-    focusedStoredSessionId: readonlyAtom<null | string>($focusedStoredSessionId),
-    /** Live usage snapshot of the focused session (`context_used` /
-     *  `context_max` / `context_percent`, token counts, `cost_usd`) —
-     *  streamed by the backend, no RPC needed. Null while unresolved.
-     *  The UsageStats-optional fields (context_*, cost_usd) arrive as the
-     *  backend reports them, so read them with a fallback. */
-    focusedUsage: readonlyAtom<null | UsageStats>($focusedUsage),
-    /** Gateway socket state: 'idle' | 'connecting' | 'open' | …. Not turn-busy. */
-    gateway: readonlyAtom<string>($gatewayState),
-    /** Current main model slug. */
-    model: readonlyAtom<string>($currentModel),
-    /** Profile the live gateway is routed to. */
-    profile: readonlyAtom<string>($activeGatewayProfile),
-    /** Window geometry ({ width, height, narrow }). */
-    viewport: readonlyAtom<ViewportRect>($viewport)
-  },
+    state: {
+        /** Runtime id of the active chat session (null on a fresh draft). */
+        activeSessionId: readonlyAtom<null | string>($activeSessionId),
+        /** True from send until the first assistant payload on the focused chat. */
+        awaitingResponse: readonlyAtom<boolean>($focusedAwaitingResponse),
+        /**
+         * True while the focused chat is working after a send. Covers the wait
+         * for the first token and the stream that follows. Follows tile focus —
+         * same signal the statusbar's busy pulse reads. A draft with no runtime
+         * id uses the global flag.
+         */
+        busy: readonlyAtom<boolean>($focusedBusy),
+        /** Runtime session id → mid-turn. Not socket state; see `gateway`. */
+        busyBySession: readonlyAtom<Record<string, boolean>>($busyBySession),
+        /** Active workspace cwd ('' when detached). */
+        cwd: readonlyAtom<string>($currentCwd),
+        /** Runtime id of the FOCUSED chat session — the interacted tile, else the
+         *  primary. Prefer this over `activeSessionId` for any readout that
+         *  should follow the user between tiles (context, tokens, cost). */
+        focusedSessionId: readonlyAtom<null | string>($focusedRuntimeId),
+        /** Stored (durable) id of the focused session — for navigation and
+         *  session-list matching, where runtime ids don't survive reloads. */
+        focusedStoredSessionId: readonlyAtom<null | string>($focusedStoredSessionId),
+        /** Live usage snapshot of the focused session (`context_used` /
+         *  `context_max` / `context_percent`, token counts, `cost_usd`) —
+         *  streamed by the backend, no RPC needed. Null while unresolved.
+         *  The UsageStats-optional fields (context_*, cost_usd) arrive as the
+         *  backend reports them, so read them with a fallback. */
+        focusedUsage: readonlyAtom<null | UsageStats>($focusedUsage),
+        /** Gateway socket state: 'idle' | 'connecting' | 'open' | …. Not turn-busy. */
+        gateway: readonlyAtom<string>($gatewayState),
+        /** Current main model slug. */
+        model: readonlyAtom<string>($currentModel),
+        /** Profile the live gateway is routed to. */
+        profile: readonlyAtom<string>($activeGatewayProfile),
+        /** Window geometry ({ width, height, narrow }). */
+        viewport: readonlyAtom<ViewportRect>($viewport),
+    },
 
-  /** Toast into the app's notification stack. */
-  notify,
-  notifyError,
+    /** Toast into the app's notification stack. */
+    notify,
+    notifyError,
 
-  // NOTE: every host door is async-safe — wrapped so a sync throw from an
-  // internal helper (e.g. no desktop bridge in a plain browser) becomes a
-  // rejection a plugin's .catch() sees, never an error-boundary crash.
+    // NOTE: every host door is async-safe — wrapped so a sync throw from an
+    // internal helper (e.g. no desktop bridge in a plain browser) becomes a
+    // rejection a plugin's .catch() sees, never an error-boundary crash.
 
-  /** Tail an app log file (`agent` / `errors` / `gateway` / `gui` / …). */
-  logs: async (...args: Parameters<typeof getLogs>) => getLogs(...args),
+    /** Tail an app log file (`agent` / `errors` / `gateway` / `gui` / …). */
+    logs: async (...args: Parameters<typeof getLogs>) => getLogs(...args),
 
-  /** Navigate the app router (hash routes, e.g. '/command-center?section=system'). */
-  navigate: (path: string) => {
-    window.location.hash = path.startsWith('#') ? path : `#${path}`
-  },
+    /** Navigate the app router (hash routes, e.g. '/command-center?section=system'). */
+    navigate: (path: string) => {
+        window.location.hash = path.startsWith("#") ? path : `#${path}`;
+    },
 
-  /** Open a stored session the way core surfaces do (focus an existing
-   *  tile/main, else load into main). When `profile` names a non-active
-   *  profile, its backend is activated first so the resume routes to the
-   *  right state.db — the same soft profile swap the unified sidebar does.
-   *  `keepAllProfilesScope` (default true) keeps the Sessions sidebar in the
-   *  unified all-profiles view instead of narrowing it to the target
-   *  profile's sessions — a cross-profile open from a plugin surface is a
-   *  navigation, not a scope choice; pass false to also scope the sidebar. */
-  /** Pre-dial a profile's gateway socket in the background — pool-only, no
-   *  activation, no navigation, no scope change (openGatewayForProfile; it
-   *  already no-ops for shared-remote routes and the primary). Roster UIs
-   *  call this after mount so the FIRST click on an agent doesn't pay the
-   *  whole backend spawn + socket dial latency. Fire-and-forget: failures
-   *  are swallowed — the click path re-runs its own ensure and surfaces
-   *  errors properly. */
-  warmProfile: (profile: string): void => {
-    const name = (profile ?? '').trim()
+    /** Open a stored session the way core surfaces do (focus an existing
+     *  tile/main, else load into main). When `profile` names a non-active
+     *  profile, its backend is activated first so the resume routes to the
+     *  right state.db — the same soft profile swap the unified sidebar does.
+     *  `keepAllProfilesScope` (default true) keeps the Sessions sidebar in the
+     *  unified all-profiles view instead of narrowing it to the target
+     *  profile's sessions — a cross-profile open from a plugin surface is a
+     *  navigation, not a scope choice; pass false to also scope the sidebar. */
+    /** Pre-dial a profile's gateway socket in the background — pool-only, no
+     *  activation, no navigation, no scope change (openGatewayForProfile; it
+     *  already no-ops for shared-remote routes and the primary). Roster UIs
+     *  call this after mount so the FIRST click on an agent doesn't pay the
+     *  whole backend spawn + socket dial latency. Fire-and-forget: failures
+     *  are swallowed — the click path re-runs its own ensure and surfaces
+     *  errors properly. */
+    warmProfile: (profile: string): void => {
+        const name = (profile ?? "").trim();
 
-    if (!name || name === $activeGatewayProfile.get()) {
-      return
-    }
-
-    void openGatewayForProfile(name).catch(() => undefined)
-  },
-
-  /** Delete a profile THROUGH the desktop's teardown-routed REST path — the
-   *  same door core surfaces use (DeleteProfileDialog). Electron intercepts
-   *  the DELETE, tears down that profile's pool/primary backend first, and
-   *  routes the follow-up request away from it, so a live (or hover-warmed)
-   *  backend can't hold the profile dir open or respawn mid-delete and
-   *  resurrect the directory (issue #52279). Plugins must prefer this over
-   *  `cli.exec ['profile','delete',…]`, which bypasses that interception
-   *  entirely. When the deleted profile was the live gateway's, the app is
-   *  re-homed to the default profile — same semantics as the core dialog.
-   *  Rejects with the backend's error when the delete fails. */
-  deleteProfile: async (profile: string): Promise<void> => {
-    const name = (profile ?? '').trim()
-
-    if (!name) {
-      throw new Error('deleteProfile: profile name required')
-    }
-
-    if (normalizeProfileKey(name) === 'default') {
-      throw new Error('The default profile cannot be deleted.')
-    }
-
-    // Capture before the delete; re-home after so our write is the last one
-    // (mirrors DeleteProfileDialog — a refreshActiveProfile racing the dying
-    // backend can't clobber the pill back to the deleted profile).
-    const wasActive = normalizeProfileKey(name) === normalizeProfileKey($activeGatewayProfile.get())
-
-    await deleteProfile(name)
-
-    if (wasActive) {
-      selectProfile('default')
-      setActiveProfile('default')
-    }
-  },
-
-  // ── Multi-source agents (the Bot Mode door) ───────────────────────────────
-
-  /** The registered connection list (labels, kinds, primary) — token bytes
-   *  never included. Rejects on Desktop builds without the registry. */
-  connections: async () => {
-    const bridge = window.hermesDesktop?.connections
-
-    if (!bridge) {
-      throw new Error('This Desktop build has no connection registry. Update Hermes Desktop.')
-    }
-
-    return bridge.list()
-  },
-
-  /** The union agent roster across every registered connection: one row per
-   *  (source, profile) with the pre-computed @name-device handle for
-   *  duplicates. Sources that are unreachable (or ssh connect-on-demand)
-   *  appear in `sources` with an error instead of failing the call. */
-  agents: async () => {
-    const roster = window.hermesDesktop?.getAgentRoster
-
-    if (!roster) {
-      throw new Error('This Desktop build cannot enumerate multi-source agents. Update Hermes Desktop.')
-    }
-
-    return roster()
-  },
-
-  /** Pre-dial an agent's socket on ITS source — the (connection, profile)
-   *  analogue of warmProfile. Fire-and-forget, same semantics. */
-  warmAgent: (connectionId: null | string, profile: string): void => {
-    void openGatewayForAgent(connectionId, (profile ?? '').trim() || 'default').catch(() => undefined)
-  },
-
-  /** Activate an agent's gateway (dialing it if needed) so subsequent
-   *  host.request calls hit that agent's backend. Goes through the store's
-   *  serialized activation path so $connection / $activeGatewayProfile follow
-   *  and rapid switches can't land out of order. The local source falls
-   *  through to the profile path — single-source plugins keep working
-   *  against older behavior unchanged. */
-  ensureAgent: async (connectionId: null | string, profile: string): Promise<void> =>
-    ensureGatewayAgent(connectionId, (profile ?? '').trim() || 'default'),
-
-  openSession: async (
-    storedSessionId: string,
-    options: { intent?: OpenSessionIntent; keepAllProfilesScope?: boolean; profile?: null | string } = {}
-  ): Promise<void> => {
-    const profile = (options.profile ?? '').trim()
-
-    if (profile && profile !== $activeGatewayProfile.get()) {
-      await ensureGatewayProfile(profile)
-
-      if (options.keepAllProfilesScope !== false) {
-        setShowAllProfiles(true)
-      }
-    }
-
-    openSession(
-      storedSessionId,
-      (to: string, opts?: { replace?: boolean }) => {
-        const target = to.startsWith('#') ? to : `#${to}`
-
-        if (opts?.replace) {
-          window.location.replace(target)
-        } else {
-          window.location.hash = target
+        if (!name || name === $activeGatewayProfile.get()) {
+            return;
         }
-      },
-      options.intent ?? 'in-place'
-    )
-  },
 
-  /** Start a fresh chat draft, optionally pointed at another profile (its
-   *  backend spins up in the background — same door the sidebar's per-profile
-   *  "+" uses). */
-  newChat: (profile?: null | string): void => {
-    newSessionInProfile((profile ?? '').trim() || $activeGatewayProfile.get())
-    window.location.hash = '#/'
-  },
+        void openGatewayForProfile(name).catch(() => undefined);
+    },
 
-  /** HEAR the gateway stream (message deltas, session lifecycle, tool
-   *  activity, …) by event type — `'*'` for everything. Returns a disposer.
-   *  Listeners are isolated; a throw can't affect app dispatch. */
-  onEvent: onGatewayEvent,
+    /** Delete a profile THROUGH the desktop's teardown-routed REST path — the
+     *  same door core surfaces use (DeleteProfileDialog). Electron intercepts
+     *  the DELETE, tears down that profile's pool/primary backend first, and
+     *  routes the follow-up request away from it, so a live (or hover-warmed)
+     *  backend can't hold the profile dir open or respawn mid-delete and
+     *  resurrect the directory (issue #52279). Plugins must prefer this over
+     *  `cli.exec ['profile','delete',…]`, which bypasses that interception
+     *  entirely. When the deleted profile was the live gateway's, the app is
+     *  re-homed to the default profile — same semantics as the core dialog.
+     *  Rejects with the backend's error when the delete fails. */
+    deleteProfile: async (profile: string): Promise<void> => {
+        const name = (profile ?? "").trim();
 
-  /** Restart the backend gateway (progress surfaces in the core statusbar). */
-  restartGateway: async () => runGatewayRestart(),
+        if (!name) {
+            throw new Error("deleteProfile: profile name required");
+        }
 
-  /** One-shot system status snapshot (platforms, versions, …). */
-  status: async () => getStatus(),
+        if (normalizeProfileKey(name) === "default") {
+            throw new Error("The default profile cannot be deleted.");
+        }
 
-  /** Gateway JSON-RPC — sessions, config, skills, cron, kanban, everything
-   *  the app itself uses. Lazy: resolves the LIVE socket per call. */
-  request: async <T>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
-    const gateway = $gateway.get()
+        // Capture before the delete; re-home after so our write is the last one
+        // (mirrors DeleteProfileDialog — a refreshActiveProfile racing the dying
+        // backend can't clobber the pill back to the deleted profile).
+        const wasActive = normalizeProfileKey(name) === normalizeProfileKey($activeGatewayProfile.get());
 
-    if (!gateway) {
-      throw new Error('Hermes gateway unavailable')
-    }
+        await deleteProfile(name);
 
-    return gateway.request<T>(method, params)
-  },
+        if (wasActive) {
+            selectProfile("default");
+            setActiveProfile("default");
+        }
+    },
 
-  /** The LIVE gateway instance for the active profile (null before the first
-   *  socket opens). Most plugins want `host.request`; this exists for SDK
-   *  components that take a `HermesGateway` prop directly (e.g. `McpTab`),
-   *  which need the instance, not just a JSON-RPC door. Re-read per use — the
-   *  active instance changes on a profile swap. */
-  getGateway: (): HermesGateway | null => $gateway.get()
-}
+    // ── Multi-source agents (the Bot Mode door) ───────────────────────────────
+
+    /** The registered connection list (labels, kinds, primary) — token bytes
+     *  never included. Rejects on Desktop builds without the registry. */
+    connections: async () => {
+        const bridge = window.hermesDesktop?.connections;
+
+        if (!bridge) {
+            throw new Error("This build has no connection registry. Update Kronos.");
+        }
+
+        return bridge.list();
+    },
+
+    /** The union agent roster across every registered connection: one row per
+     *  (source, profile) with the pre-computed @name-device handle for
+     *  duplicates. Sources that are unreachable (or ssh connect-on-demand)
+     *  appear in `sources` with an error instead of failing the call. */
+    agents: async () => {
+        const roster = window.hermesDesktop?.getAgentRoster;
+
+        if (!roster) {
+            throw new Error("This build cannot enumerate multi-source agents. Update Kronos.");
+        }
+
+        return roster();
+    },
+
+    /** Current KronTerm-tab surfaces through the embedding host's scoped door.
+     *  Only display-safe descriptors and focus are exposed; no raw block meta,
+     *  Electron bridge, or arbitrary workspace RPC leaks into plugin code. */
+    krontermSurfaces: {
+        list: async (): Promise<KronTermSurface[]> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            return bridge.list();
+        },
+        focus: async (blockId: string): Promise<void> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            const result = await bridge.focus(blockId);
+
+            if (!result.ok) {
+                throw new Error(result.error || "KronTerm could not focus that surface.");
+            }
+        },
+        preview: async (blockId: string): Promise<string> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            return bridge.preview(blockId);
+        },
+        snapshot: async (blockId: string): Promise<KronTermInspectableSnapshot> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            return bridge.snapshot(blockId);
+        },
+    },
+
+    /** Reveal a contributed Hermes pane without exposing the layout store. */
+    revealPane: (paneId: string): void => revealTreePane(paneId),
+
+    /** Pre-dial an agent's socket on ITS source — the (connection, profile)
+     *  analogue of warmProfile. Fire-and-forget, same semantics. */
+    warmAgent: (connectionId: null | string, profile: string): void => {
+        void openGatewayForAgent(connectionId, (profile ?? "").trim() || "default").catch(() => undefined);
+    },
+
+    /** Activate an agent's gateway (dialing it if needed) so subsequent
+     *  host.request calls hit that agent's backend. Goes through the store's
+     *  serialized activation path so $connection / $activeGatewayProfile follow
+     *  and rapid switches can't land out of order. The local source falls
+     *  through to the profile path — single-source plugins keep working
+     *  against older behavior unchanged. */
+    ensureAgent: async (connectionId: null | string, profile: string): Promise<void> =>
+        ensureGatewayAgent(connectionId, (profile ?? "").trim() || "default"),
+
+    openSession: async (
+        storedSessionId: string,
+        options: { intent?: OpenSessionIntent; keepAllProfilesScope?: boolean; profile?: null | string } = {}
+    ): Promise<void> => {
+        const profile = (options.profile ?? "").trim();
+
+        if (profile && profile !== $activeGatewayProfile.get()) {
+            await ensureGatewayProfile(profile);
+
+            if (options.keepAllProfilesScope !== false) {
+                setShowAllProfiles(true);
+            }
+        }
+
+        openSession(
+            storedSessionId,
+            (to: string, opts?: { replace?: boolean }) => {
+                const target = to.startsWith("#") ? to : `#${to}`;
+
+                if (opts?.replace) {
+                    window.location.replace(target);
+                } else {
+                    window.location.hash = target;
+                }
+            },
+            options.intent ?? "in-place"
+        );
+    },
+
+    /** Start a fresh chat draft, optionally pointed at another profile (its
+     *  backend spins up in the background — same door the sidebar's per-profile
+     *  "+" uses). */
+    newChat: (profile?: null | string): void => {
+        newSessionInProfile((profile ?? "").trim() || $activeGatewayProfile.get());
+        window.location.hash = "#/";
+    },
+
+    /** HEAR the gateway stream (message deltas, session lifecycle, tool
+     *  activity, …) by event type — `'*'` for everything. Returns a disposer.
+     *  Listeners are isolated; a throw can't affect app dispatch. */
+    onEvent: onGatewayEvent,
+
+    /** Restart the backend gateway (progress surfaces in the core statusbar). */
+    restartGateway: async () => runGatewayRestart(),
+
+    /** One-shot system status snapshot (platforms, versions, …). */
+    status: async () => getStatus(),
+
+    /** Gateway JSON-RPC — sessions, config, skills, cron, kanban, everything
+     *  the app itself uses. Lazy: resolves the LIVE socket per call. */
+    request: async <T>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
+        const gateway = $gateway.get();
+
+        if (!gateway) {
+            throw new Error("Kronos gateway unavailable");
+        }
+
+        return gateway.request<T>(method, params);
+    },
+
+    /** The LIVE gateway instance for the active profile (null before the first
+     *  socket opens). Most plugins want `host.request`; this exists for SDK
+     *  components that take a `HermesGateway` prop directly (e.g. `McpTab`),
+     *  which need the instance, not just a JSON-RPC door. Re-read per use — the
+     *  active instance changes on a profile swap. */
+    getGateway: (): HermesGateway | null => $gateway.get(),
+};
 
 // -- react bridge -------------------------------------------------------------
 
 // Every contribution surface, plugin-reachable: register keybinds, palette
 // commands, routes, themes, panes, composer extensions, and bar items with
 // the same area ids + payload types core uses.
-export { COMPOSER_AREAS, type ComposerAttachmentProvider, type ComposerMiddleware } from '@hermes/app/chat/composer/contrib'
+export {
+    COMPOSER_AREAS,
+    type ComposerAttachmentProvider,
+    type ComposerMiddleware,
+} from "@hermes/app/chat/composer/contrib";
 
 // -- ui: the design language --------------------------------------------------
 
-export { PALETTE_AREA, type PaletteContribution } from '@hermes/app/command-palette/contrib'
-export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@hermes/app/routes'
+export { PALETTE_AREA, type PaletteContribution } from "@hermes/app/command-palette/contrib";
+export { ROUTES_AREA, SIDEBAR_NAV_AREA, type RouteContribution, type SidebarNavContribution } from "@hermes/app/routes";
 /** THE full per-toolset config panel core Settings renders — provider picker,
  *  env vars / API keys, model catalog picker, and post-setup runners. Route-
  *  decoupled (the "manage keys" deep link is a no-op outside the router); pass
  *  `toolset`, optional `onConfiguredChange`, and an optional `profile`. */
-export { ToolsetConfigPanel } from '@hermes/app/settings/toolset-config-panel'
+export { ToolsetConfigPanel } from "@hermes/app/settings/toolset-config-panel";
 /** THE model catalog menu — the same searchable, provider-grouped, family-
  *  collapsing picker the chat composer uses, including the per-row
  *  thinking/effort/fast submenu. Drive it with a `ModelMenuController`: the
@@ -362,94 +430,94 @@ export { ToolsetConfigPanel } from '@hermes/app/settings/toolset-config-panel'
  *  (write to a session, hold a per-task override, …). Never fork it — a copy
  *  drifts from the composer the first time either side changes. */
 export {
-  ModelCatalogMenu,
-  type ModelChoice,
-  ModelMenuCloseContext,
-  type ModelMenuController
-} from '@hermes/app/shell/model-catalog-menu'
-export type { StatusbarItem } from '@hermes/app/shell/statusbar-controls'
+    ModelCatalogMenu,
+    ModelMenuCloseContext,
+    type ModelChoice,
+    type ModelMenuController,
+} from "@hermes/app/shell/model-catalog-menu";
+export type { StatusbarItem } from "@hermes/app/shell/statusbar-controls";
 
-export type { TitlebarTool } from '@hermes/app/shell/titlebar-controls'
+export type { TitlebarTool } from "@hermes/app/shell/titlebar-controls";
 /** THE whole Capabilities surface (Skills / Tools / MCP tabs, installed
  *  lists, full-skill detail pane, embedded hub picker with one-click
  *  installs). For plugin dialogs pass `embedded` (tab state stays local —
  *  never touches the page router) and `fixedProfile` to pin every tab to one
  *  bot's backend; the internal profile selector hides itself. Bot Mode's
  *  Advanced section is the reference consumer. */
-export { SkillsView } from '@hermes/app/skills'
+export { SkillsView } from "@hermes/app/skills";
 /** THE full MCP tab core Settings renders — per-server enable + OAuth sign-in
  *  + API-key setup + live probes, not a checkbox list. Route-decoupled so it
  *  renders anywhere (a plugin dialog); pass a live `gateway` (see
  *  `host.getGateway()`) and an optional `profile` to scope it to one bot. */
-export { McpTab } from '@hermes/app/skills/mcp-tab'
+export { McpTab } from "@hermes/app/skills/mcp-tab";
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above
  *  it — it takes no width from any zone, has no tab, and can't be docked.
  *  Pair it with `anchor` (spawn corner, default `'top-right'`) plus
  *  `width`/`height`. */
-export type { FloatingAnchor } from '@hermes/components/pane-shell/tree/renderer/floating-rect'
-export { StatusDot, type StatusTone } from '@hermes/components/status-dot'
-export { Badge } from '@hermes/components/ui/badge'
-export { Button } from '@hermes/components/ui/button'
-export { Checkbox } from '@hermes/components/ui/checkbox'
-export { Codicon } from '@hermes/components/ui/codicon'
-export { ConfirmDialog } from '@hermes/components/ui/confirm-dialog'
+export type { FloatingAnchor } from "@hermes/components/pane-shell/tree/renderer/floating-rect";
+export { StatusDot, type StatusTone } from "@hermes/components/status-dot";
+export { Badge } from "@hermes/components/ui/badge";
+export { Button } from "@hermes/components/ui/button";
+export { Checkbox } from "@hermes/components/ui/checkbox";
+export { Codicon } from "@hermes/components/ui/codicon";
+export { ConfirmDialog } from "@hermes/components/ui/confirm-dialog";
 export {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger
-} from '@hermes/components/ui/context-menu'
-export { CopyButton } from '@hermes/components/ui/copy-button'
-export { DecodeText } from '@hermes/components/ui/decode-text'
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger,
+} from "@hermes/components/ui/context-menu";
+export { CopyButton } from "@hermes/components/ui/copy-button";
+export { DecodeText } from "@hermes/components/ui/decode-text";
 export {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@hermes/components/ui/dialog'
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@hermes/components/ui/dialog";
 export {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@hermes/components/ui/dropdown-menu'
-export { EmptyState } from '@hermes/components/ui/empty-state'
-export { ErrorState } from '@hermes/components/ui/error-state'
-export { FadeScroll } from '@hermes/components/ui/fade-scroll'
-export { GlyphSpinner } from '@hermes/components/ui/glyph-spinner'
-export { Input } from '@hermes/components/ui/input'
-export { Kbd, KbdGroup } from '@hermes/components/ui/kbd'
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@hermes/components/ui/dropdown-menu";
+export { EmptyState } from "@hermes/components/ui/empty-state";
+export { ErrorState } from "@hermes/components/ui/error-state";
+export { FadeScroll } from "@hermes/components/ui/fade-scroll";
+export { GlyphSpinner } from "@hermes/components/ui/glyph-spinner";
+export { Input } from "@hermes/components/ui/input";
+export { Kbd, KbdGroup } from "@hermes/components/ui/kbd";
 /** The app's canonical loader (animated curves; `lemniscate-bloom` for long
  *  page loads) — the same one every core page uses. */
-export { Loader, type LoaderType } from '@hermes/components/ui/loader'
-export { LogView } from '@hermes/components/ui/log-view'
-export { Popover, PopoverContent, PopoverTrigger } from '@hermes/components/ui/popover'
-export { ScrollArea } from '@hermes/components/ui/scroll-area'
-export { SearchField } from '@hermes/components/ui/search-field'
-export { SegmentedControl } from '@hermes/components/ui/segmented-control'
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@hermes/components/ui/select'
-export { Separator } from '@hermes/components/ui/separator'
-export { Skeleton } from '@hermes/components/ui/skeleton'
-export { Switch } from '@hermes/components/ui/switch'
-export { Tabs, TabsList, TabsTrigger } from '@hermes/components/ui/tabs'
-export { Textarea } from '@hermes/components/ui/textarea'
-export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@hermes/components/ui/tooltip'
-export type { GatewayEventListener } from '@hermes/contrib/events'
+export { Loader, type LoaderType } from "@hermes/components/ui/loader";
+export { LogView } from "@hermes/components/ui/log-view";
+export { Popover, PopoverContent, PopoverTrigger } from "@hermes/components/ui/popover";
+export { ScrollArea } from "@hermes/components/ui/scroll-area";
+export { SearchField } from "@hermes/components/ui/search-field";
+export { SegmentedControl } from "@hermes/components/ui/segmented-control";
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@hermes/components/ui/select";
+export { Separator } from "@hermes/components/ui/separator";
+export { Skeleton } from "@hermes/components/ui/skeleton";
+export { Switch } from "@hermes/components/ui/switch";
+export { Tabs, TabsList, TabsTrigger } from "@hermes/components/ui/tabs";
+export { Textarea } from "@hermes/components/ui/textarea";
+export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@hermes/components/ui/tooltip";
+export type { GatewayEventListener } from "@hermes/contrib/events";
 export type {
-  HermesPlugin,
-  PluginContext,
-  PluginContribution,
-  PluginNativeNotificationInput,
-  PluginOs,
-  PluginRestOptions,
-  PluginStorage
-} from '@hermes/contrib/plugin'
+    HermesPlugin,
+    PluginContext,
+    PluginContribution,
+    PluginNativeNotificationInput,
+    PluginOs,
+    PluginRestOptions,
+    PluginStorage,
+} from "@hermes/contrib/plugin";
 
 // -- contracts ----------------------------------------------------------------
 
@@ -458,71 +526,71 @@ export type {
  *  page-owned chrome (a page's titlebar control leaves with the page) —
  *  `ctx.register` stays the door for permanent contributions. Namespace the
  *  id with your plugin slug (`kanban:board-switcher`). */
-export { Contribute, type ContributeProps } from '@hermes/contrib/react/contribute'
-export type { Contribution } from '@hermes/contrib/types'
+export { Contribute, type ContributeProps } from "@hermes/contrib/react/contribute";
+export type { Contribution } from "@hermes/contrib/types";
 /** The live gateway instance type — for typing the `gateway` prop `McpTab`
  *  takes; obtain the instance from `host.getGateway()`. */
-export type { HermesGateway } from '@hermes/hermes'
+export type { HermesGateway } from "@hermes/hermes";
 /** Grab-to-pan for overflow containers (boards, timelines, wide tables) —
  *  the shared scrub primitive; don't hand-roll drag-to-scroll. */
-export { type GrabScroll, useGrabScroll } from '@hermes/hooks/use-grab-scroll'
+export { useGrabScroll, type GrabScroll } from "@hermes/hooks/use-grab-scroll";
 /** Localized copy. `useI18n` reuses the app's strings; `usePluginI18n(id)` +
  *  `ctx.i18n.register` let a plugin ship its OWN locale bundles, scoped like
  *  `ctx.storage` and resolved against the app's active locale — no core edit. */
 export {
-  type Locale,
-  type PluginI18n,
-  type PluginLocaleBundles,
-  type PluginMessages,
-  type PluginMessageValue,
-  type PluginTranslate,
-  useI18n,
-  usePluginI18n
-} from '@hermes/i18n'
+    useI18n,
+    usePluginI18n,
+    type Locale,
+    type PluginI18n,
+    type PluginLocaleBundles,
+    type PluginMessages,
+    type PluginMessageValue,
+    type PluginTranslate,
+} from "@hermes/i18n";
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
-export { compactNumber } from '@hermes/lib/format'
-export { triggerHaptic as haptic } from '@hermes/lib/haptics'
+export { compactNumber } from "@hermes/lib/format";
+export { triggerHaptic as haptic } from "@hermes/lib/haptics";
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
-export * as icons from '@hermes/lib/icons'
-export { type KeybindContribution, KEYBINDS_AREA } from '@hermes/lib/keybinds/actions'
-export { formatModifierToken } from '@hermes/lib/keybinds/combo'
+export * as icons from "@hermes/lib/icons";
+export { KEYBINDS_AREA, type KeybindContribution } from "@hermes/lib/keybinds/actions";
+export { formatModifierToken } from "@hermes/lib/keybinds/combo";
 /** The app's deterministic identity color for a name (profiles, assignees,
  *  authors) + its translucent tag fill — so plugin-rendered identities read
  *  the same hue as everywhere else. */
-export { profileColor, profileColorSoft } from '@hermes/lib/profile-color'
+export { profileColor, profileColorSoft } from "@hermes/lib/profile-color";
 /** The shared client itself, for invalidation OUTSIDE React (e.g. a
  *  `ctx.socket` frame invalidating a query). Inside components keep using
  *  `useQueryClient`. */
-export { queryClient } from '@hermes/lib/query-client'
+export { queryClient } from "@hermes/lib/query-client";
 
-export const PANES_AREA = 'panes'
+export const PANES_AREA = "panes";
 /** Hermes' reasoning levels + their compact labels, so a plugin surfacing a
  *  thinking depth uses the same scale and spelling as the rest of the app. */
 export {
-  DEFAULT_REASONING_EFFORT,
-  REASONING_EFFORT_VALUES,
-  REASONING_EFFORTS,
-  type ReasoningEffort,
-  reasoningEffortLabel
-} from '@hermes/lib/reasoning-effort'
-export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
-export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
+    DEFAULT_REASONING_EFFORT,
+    REASONING_EFFORT_VALUES,
+    REASONING_EFFORTS,
+    reasoningEffortLabel,
+    type ReasoningEffort,
+} from "@hermes/lib/reasoning-effort";
+export const STATUSBAR_AREAS = { left: "statusBar.left", right: "statusBar.right" } as const;
+export const TITLEBAR_AREAS = { center: "titleBar.center", left: "titleBar.left", right: "titleBar.right" } as const;
 
 /** The app's own gateway-readiness evaluation (setup.status +
  *  setup.runtime_check, reconciled) — pass `host.request`. Don't hand-roll
  *  readiness from raw RPC shapes. */
-export { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@hermes/lib/runtime-readiness'
-export { coarseElapsed, fmtDateTime, fmtDayTime, relativeTime } from '@hermes/lib/time'
-export { cn } from '@hermes/lib/utils'
-export { THEMES_AREA } from '@hermes/themes/user-themes'
-export type { RpcEvent, StatusResponse } from '@hermes/types/hermes'
+export { evaluateRuntimeReadiness, type RuntimeReadinessResult } from "@hermes/lib/runtime-readiness";
+export { coarseElapsed, fmtDateTime, fmtDayTime, relativeTime } from "@hermes/lib/time";
+export { cn } from "@hermes/lib/utils";
+export { THEMES_AREA } from "@hermes/themes/user-themes";
+export type { RpcEvent, StatusResponse } from "@hermes/types/hermes";
 /** Subscribe a component to a `host.state` atom. */
-export { useStore as useValue } from '@nanostores/react'
+export { useStore as useValue } from "@nanostores/react";
 /** The app's data-fetching layer. Plugins share the ONE QueryClient mounted at
  *  the app root, so their queries cache, dedupe, poll (`refetchInterval`), and
  *  invalidate exactly like core screens — no hand-rolled atoms or polls. */
-export { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+export { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 /** Plugin-local reactive state (share between a trigger and its panel, poll
  *  loops, cross-component signals) — the same primitive `host.state` uses. */
-export { atom, computed } from 'nanostores'
+export { atom, computed } from "nanostores";

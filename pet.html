@@ -72,7 +72,7 @@
 
         <div class="pet-menu-section">
           <div class="pet-menu-section-title">BEHAVIOR OPTIONS</div>
-          
+
           <div class="pet-toggle-row" id="menu-toggle-glow" data-option="glow">
             <span class="pet-toggle-label">Activity glow</span>
             <label class="pet-switch">
@@ -131,10 +131,19 @@
         </div>
       </section>
 
-      <figure id="capture-preview" class="capture-preview no-drag" hidden>
-        <figcaption id="capture-preview-caption">Computer use view</figcaption>
-        <img id="capture-preview-image" alt="Latest agent screenshot" />
-      </figure>
+      <button
+        id="capture-preview"
+        class="capture-preview no-drag"
+        type="button"
+        aria-expanded="false"
+        aria-label="Preview the KronTerm widget"
+        hidden
+      >
+        <span class="capture-preview-grip" aria-hidden="true"></span>
+        <span class="capture-preview-icon" aria-hidden="true">&#9635;</span>
+        <span id="capture-preview-caption" class="capture-preview-caption">Preview</span>
+        <img id="capture-preview-image" alt="Latest agent preview" />
+      </button>
 
       <form id="pet-chat" class="pet-chat no-drag" hidden>
         <input

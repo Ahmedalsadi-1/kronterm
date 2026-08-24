@@ -49,6 +49,9 @@ kronoscode/tmp/
 kronoscode/.tmp/
 kronoscode/*.bun-build
 .sisyphus/
+.omo/
+__pycache__/
+*.py[cod]
 
 # Embedded repositories
 kronoscoder/

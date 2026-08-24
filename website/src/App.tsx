@@ -925,12 +925,12 @@ const chapterReference: Record<string, { eyebrow: string; title: string; intro: 
     },
     "acp-agents": {
         eyebrow: "Agent roster",
-        title: "Continuous specialists, coordinated in one place.",
-        intro: "ACP agents complement on-demand KronosCode with autonomous work that remains scoped, observable, and reviewable.",
+        title: "Kronos works where your workspace lives.",
+        intro: "Kronos is built into KronTerm for persistent, scoped work across terminals, browsers, files, sandboxes, and canvas. Additional ACP specialists can join the same observable workspace.",
         items: [
             {
-                label: "Hermes",
-                value: "Personal automation that watches changes, triggers builds, and runs tests on save.",
+                label: "Kronos",
+                value: "KronTerm's built-in persistent agent for automation, research, coding, and workspace control.",
             },
             {
                 label: "OpenClaw",
@@ -1023,7 +1023,7 @@ const runtimeStack = [
 
 const roadmap = [
     ["KronTerm API", "Programmatic workspace control for CI, automation scripts, and custom tooling."],
-    ["ACP agents", "Ship Hermes, OpenClaw, and Codex as continuously available specialists."],
+    ["Expanded ACP roster", "Add more continuously available specialists beside the built-in Kronos agent."],
     ["Shared workspaces", "Multi-user layouts, remote pair debugging, and team workflows."],
     ["Extended desktop control", "Bring native application automation to Windows and Linux."],
     ["Plugin system", "Open KronTerm to third-party widgets, tools, and agent integrations."],
@@ -2671,8 +2671,8 @@ function PricingPage() {
                         its core agent system. Bring your own model keys and choose local or cloud providers.
                     </p>
                     <p>
-                        Autonomous ACP agents—including Hermes, OpenClaw, and Codex—are planned as a commercial premium
-                        capability for continuous background workflows.
+                        Kronos is included as the built-in persistent KronTerm agent. Additional externally hosted ACP
+                        specialists and team-scale background automation are candidates for a future commercial tier.
                     </p>
                 </div>
             </section>

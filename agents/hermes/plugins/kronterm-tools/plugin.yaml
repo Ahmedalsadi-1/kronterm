@@ -1,0 +1,5 @@
+name: kronterm-tools
+version: 1.0.0
+description: First-class KronTerm workspace and surface tools backed by the bundled TypeScript runtime.
+author: KronTerm
+kind: backend
