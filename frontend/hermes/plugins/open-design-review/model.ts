@@ -45,8 +45,11 @@ export function formatReviewComments(comments: DesignReviewComment[]): string {
             .filter(Boolean)
             .join(" · ");
         const rect = `${element.x},${element.y} ${element.width}×${element.height}`;
+        const sourceHint = [element.componentName ? `component ${element.componentName}` : "", element.selector]
+            .filter(Boolean)
+            .join("; ");
 
-        return `${index + 1}. ${comment.text}\n   UI target: ${identity}; rect ${rect}; page ${comment.url || comment.surfaceTitle}`;
+        return `${index + 1}. ${comment.text}\n   UI target: ${identity}; rect ${rect}; ${sourceHint ? `${sourceHint}; ` : ""}page ${comment.url || comment.surfaceTitle}`;
     });
 
     return [

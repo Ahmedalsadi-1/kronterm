@@ -10,7 +10,9 @@ import {
     focusAgentWidget,
     listAgentWidgets,
     previewAgentWidget,
+    setAgentWidgetInspectMode,
     snapshotAgentWidget,
+    subscribeAgentWidgetDesignSelection,
 } from "@/app/view/agent-widget-bridge";
 import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import type {
@@ -338,6 +340,8 @@ const shim: Window["hermesDesktop"] = {
         focus: focusKronTermSurface,
         preview: previewAgentWidget,
         snapshot: snapshotAgentWidget,
+        inspect: async (blockId, enabled) => setAgentWidgetInspectMode(blockId, enabled),
+        onSelection: subscribeAgentWidgetDesignSelection,
     },
     revalidateConnection: async () => ({ ok: true, rebuilt: false }),
     touchBackend: async () => ({ ok: true }),

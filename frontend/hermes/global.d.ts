@@ -39,6 +39,8 @@ declare global {
                 focus: (blockId: string) => Promise<{ ok: boolean; error?: string }>;
                 preview: (blockId: string) => Promise<string>;
                 snapshot: (blockId: string) => Promise<HermesKronTermInspectableSnapshot>;
+                inspect: (blockId: string, enabled: boolean) => Promise<{ ok: boolean; error?: string }>;
+                onSelection: (listener: (selection: HermesKronTermDesignSelection) => void) => () => void;
             };
             // Reconnect-after-wake recovery: liveness-probe the cached PRIMARY backend
             // and drop it if a remote one has gone unreachable, so the next
@@ -1090,6 +1092,16 @@ export interface HermesKronTermInspectableElement {
     height: number;
     focusable: boolean;
     visible: boolean;
+    selector?: string;
+    tagName?: string;
+    componentName?: string;
+}
+
+export interface HermesKronTermDesignSelection {
+    blockId: string;
+    url: string;
+    element: HermesKronTermInspectableElement;
+    comment?: string;
 }
 
 export interface HermesKronTermInspectableSnapshot {

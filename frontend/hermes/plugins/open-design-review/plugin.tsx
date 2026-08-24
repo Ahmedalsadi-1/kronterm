@@ -6,6 +6,7 @@ import {
     type ComposerMiddleware,
     type HermesPlugin,
     host,
+    type KronTermInspectableElement,
     PALETTE_AREA,
     type PaletteContribution,
     PANES_AREA,
@@ -16,7 +17,7 @@ import {
 } from "@hermes/plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 
-import { activeSurfaceUrl, type DesignReviewComment, formatReviewComments, pickInspectableElement } from "./model";
+import { activeSurfaceUrl, type DesignReviewComment, formatReviewComments } from "./model";
 
 const PaneId = "open-design-review:inspector";
 const SurfacesQueryKey = ["plugin:open-design-review", "surfaces"] as const;
@@ -81,7 +82,9 @@ function ReviewStatus() {
 function OpenDesignInspector() {
     const comments = useValue($comments);
     const [surfaceId, setSurfaceId] = useState("");
-    const [selectedRef, setSelectedRef] = useState("");
+    const [selectedElement, setSelectedElement] = useState<KronTermInspectableElement | null>(null);
+    const [selectedUrl, setSelectedUrl] = useState("");
+    const [isInspecting, setIsInspecting] = useState(false);
     const [commentText, setCommentText] = useState("");
     const [error, setError] = useState("");
     const { data: surfaces, isLoading } = useQuery({
@@ -91,21 +94,6 @@ function OpenDesignInspector() {
     });
     const browserSurfaces = useMemo(() => surfaces?.filter((surface) => surface.view === "web") ?? [], [surfaces]);
     const selectedSurface = browserSurfaces.find((surface) => surface.id === surfaceId) ?? browserSurfaces[0];
-    const { data: previewImageUrl } = useQuery({
-        enabled: Boolean(selectedSurface),
-        queryFn: () => host.krontermSurfaces.preview(selectedSurface!.id),
-        queryKey: [...SurfacesQueryKey, "preview", selectedSurface?.id ?? "none"],
-        refetchInterval: selectedSurface ? 1_500 : false,
-        retry: false,
-    });
-    const { data: snapshot } = useQuery({
-        enabled: Boolean(selectedSurface),
-        queryFn: () => host.krontermSurfaces.snapshot(selectedSurface!.id),
-        queryKey: [...SurfacesQueryKey, "snapshot", selectedSurface?.id ?? "none"],
-        refetchInterval: selectedSurface ? 1_500 : false,
-        retry: false,
-    });
-    const selectedElement = snapshot?.elements.find((element) => element.ref === selectedRef);
     const surfaceComments = comments.filter((comment) => comment.surfaceId === selectedSurface?.id);
 
     useEffect(() => {
@@ -115,9 +103,23 @@ function OpenDesignInspector() {
     }, [browserSurfaces, surfaceId]);
 
     useEffect(() => {
-        setSelectedRef("");
+        setSelectedElement(null);
+        setSelectedUrl("");
         setCommentText("");
+        setIsInspecting(false);
     }, [selectedSurface?.id]);
+
+    useEffect(() => {
+        return host.krontermSurfaces.onSelection((selection) => {
+            const surface = browserSurfaces.find((entry) => entry.id === selection.blockId);
+            if (!surface) {
+                return;
+            }
+            setSurfaceId(selection.blockId);
+            setSelectedElement(selection.element);
+            setSelectedUrl(selection.url);
+        });
+    }, [browserSurfaces]);
 
     const focusSurface = async () => {
         if (!selectedSurface) {
@@ -126,6 +128,8 @@ function OpenDesignInspector() {
         setError("");
         try {
             await host.krontermSurfaces.focus(selectedSurface.id);
+            await host.krontermSurfaces.inspect(selectedSurface.id, true);
+            setIsInspecting(true);
         } catch (failure) {
             setError(failure instanceof Error ? failure.message : "Unable to open the browser beside Hermes.");
         }
@@ -140,7 +144,7 @@ function OpenDesignInspector() {
             id: `design-comment-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
             surfaceId: selectedSurface.id,
             surfaceTitle: selectedSurface.title,
-            url: activeSurfaceUrl(selectedSurface),
+            url: selectedUrl || activeSurfaceUrl(selectedSurface),
             element: selectedElement,
             text,
             createdAt: Date.now(),
@@ -200,13 +204,16 @@ function OpenDesignInspector() {
                                 </button>
                             ))}
                             <button
-                                aria-label="Open selected browser beside Hermes"
-                                className="ml-auto grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground"
+                                aria-label="Inspect selected browser beside Hermes"
+                                className={cn(
+                                    "ml-auto grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg hover:bg-(--chrome-action-hover) hover:text-foreground",
+                                    isInspecting ? "text-(--ui-accent)" : "text-(--ui-text-tertiary)"
+                                )}
                                 onClick={() => void focusSurface()}
-                                title="Open beside Hermes"
+                                title="Inspect in KronTerm browser"
                                 type="button"
                             >
-                                <Codicon name="split-horizontal" size="0.75rem" />
+                                <Codicon name="inspect" size="0.75rem" />
                             </button>
                         </div>
 
@@ -229,46 +236,29 @@ function OpenDesignInspector() {
                             </div>
                         ) : null}
 
-                        <div className="overflow-hidden rounded-xl border border-(--ui-border) bg-black/20">
-                            {previewImageUrl && snapshot ? (
-                                <button
-                                    aria-label="Select a component from the live browser preview"
-                                    className="relative block w-full cursor-crosshair overflow-hidden"
-                                    onClick={(event) => {
-                                        const bounds = event.currentTarget.getBoundingClientRect();
-                                        const x = ((event.clientX - bounds.left) / bounds.width) * snapshot.width;
-                                        const y = ((event.clientY - bounds.top) / bounds.height) * snapshot.height;
-                                        setSelectedRef(pickInspectableElement(snapshot.elements, x, y)?.ref ?? "");
-                                    }}
-                                    style={{ aspectRatio: `${snapshot.width} / ${snapshot.height}` }}
-                                    type="button"
-                                >
-                                    <img
-                                        alt={`${selectedSurface.title} live component preview`}
-                                        className="h-full w-full object-fill"
-                                        src={previewImageUrl}
-                                    />
-                                    {selectedElement ? (
-                                        <span
-                                            className="pointer-events-none absolute border-2 border-(--ui-accent) bg-(--ui-accent)/10 shadow-[0_0_0_1px_rgba(0,0,0,0.45)]"
-                                            style={{
-                                                left: `${(selectedElement.x / snapshot.width) * 100}%`,
-                                                top: `${(selectedElement.y / snapshot.height) * 100}%`,
-                                                width: `${(selectedElement.width / snapshot.width) * 100}%`,
-                                                height: `${(selectedElement.height / snapshot.height) * 100}%`,
-                                            }}
-                                        />
-                                    ) : null}
-                                </button>
-                            ) : (
-                                <div
-                                    className="grid aspect-video place-items-center text-xs text-(--ui-text-tertiary)"
-                                    role="status"
-                                >
-                                    Preparing live inspector…
-                                </div>
+                        <button
+                            className={cn(
+                                "flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                                isInspecting
+                                    ? "border-(--ui-accent)/35 bg-(--ui-accent)/8"
+                                    : "border-(--ui-border) bg-(--ui-bg-secondary)/60 hover:bg-(--chrome-action-hover)"
                             )}
-                        </div>
+                            onClick={() => void focusSurface()}
+                            type="button"
+                        >
+                            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-(--ui-accent)/12 text-(--ui-accent)">
+                                <Codicon name="inspect" size="0.9rem" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-xs font-medium text-foreground">
+                                    {isInspecting ? "Selecting in KronTerm browser" : "Select in KronTerm browser"}
+                                </span>
+                                <span className="mt-0.5 block text-[0.6875rem] leading-4 text-(--ui-text-tertiary)">
+                                    Hover a live component, click it, then comment directly on the page.
+                                </span>
+                            </span>
+                            <Codicon name="arrow-right" className="text-(--ui-text-tertiary)" size="0.72rem" />
+                        </button>
 
                         {selectedElement ? (
                             <div className="mt-2 rounded-xl border border-(--ui-accent)/25 bg-(--ui-accent)/6 p-2.5">
@@ -276,7 +266,9 @@ function OpenDesignInspector() {
                                     <Codicon name="symbol-field" className="mt-0.5 text-(--ui-accent)" size="0.75rem" />
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-[0.6875rem] font-medium text-foreground">
-                                            {selectedElement.name || selectedElement.role}
+                                            {selectedElement.componentName ||
+                                                selectedElement.name ||
+                                                selectedElement.role}
                                         </p>
                                         <p className="mt-0.5 truncate font-mono text-[0.5625rem] text-(--ui-text-tertiary)">
                                             {selectedElement.role} · {selectedElement.ref}
@@ -301,7 +293,7 @@ function OpenDesignInspector() {
                             </div>
                         ) : (
                             <p className="px-2 py-3 text-center text-[0.6875rem] text-(--ui-text-tertiary)">
-                                Click a component in the preview to inspect it.
+                                Use the Open Design cursor in the browser toolbar, then click a live component.
                             </p>
                         )}
 
@@ -382,7 +374,26 @@ const plugin: HermesPlugin = {
     register(ctx) {
         $comments.set(ctx.storage.get("comments", [] as DesignReviewComment[]));
         persistComments = (comments) => ctx.storage.set("comments", comments);
+        const unsubscribeSelection = host.krontermSurfaces.onSelection((selection) => {
+            const text = selection.comment?.trim();
+            if (!text) {
+                return;
+            }
+            const next: DesignReviewComment = {
+                id: `design-comment-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+                surfaceId: selection.blockId,
+                surfaceTitle: "KronTerm browser",
+                url: selection.url,
+                element: selection.element,
+                text,
+                createdAt: Date.now(),
+                status: "queued",
+            };
+            updateComments((current) => [...current, next].slice(-50));
+            host.revealPane(PaneId);
+        });
         ctx.onDispose(() => {
+            unsubscribeSelection();
             persistComments = () => undefined;
         });
 

@@ -48,6 +48,22 @@ export type AgentWidgetSnapshot = {
     elements: AgentWidgetElement[];
 };
 
+export type AgentWidgetDesignSelection = {
+    blockId: string;
+    url: string;
+    element: AgentWidgetElement & {
+        selector?: string;
+        tagName?: string;
+        componentName?: string;
+    };
+    comment?: string;
+};
+
+export const AgentWidgetInspectModeEvent = "kronterm-open-design-inspect-mode";
+export const AgentWidgetDesignSelectionEvent = "kronterm-open-design-selection";
+
+const inspectedBrowserBlocks = new Set<string>();
+
 const activityByBlockId = new Map<string, LiveAgentSurfaceActivity>();
 const latestActivityBySurface = new Map<LiveAgentSurfaceActivity["surface"], LiveAgentSurfaceActivity>();
 let activitySubscriptionInstalled = false;
@@ -223,4 +239,38 @@ export function focusAgentWidget(blockId: string): { ok: boolean; error?: string
     requestTabsAgentCompanion(targetId);
     refocusNode(targetId);
     return { ok: true };
+}
+
+export function isAgentWidgetInspectModeActive(blockId: string): boolean {
+    return inspectedBrowserBlocks.has(blockId);
+}
+
+export function setAgentWidgetInspectMode(blockId: string, enabled: boolean): { ok: boolean; error?: string } {
+    const target = listAgentWidgets().find((widget) => widget.id === blockId);
+    if (!target) {
+        return { ok: false, error: "widget-not-in-current-tab" };
+    }
+    if (target.view !== "web") {
+        return { ok: false, error: "widget-is-not-an-inspectable-browser" };
+    }
+
+    if (enabled) {
+        inspectedBrowserBlocks.add(blockId);
+    } else {
+        inspectedBrowserBlocks.delete(blockId);
+    }
+    window.dispatchEvent(new CustomEvent(AgentWidgetInspectModeEvent, { detail: { blockId, enabled } }));
+    return { ok: true };
+}
+
+export function publishAgentWidgetDesignSelection(selection: AgentWidgetDesignSelection): void {
+    window.dispatchEvent(new CustomEvent(AgentWidgetDesignSelectionEvent, { detail: selection }));
+}
+
+export function subscribeAgentWidgetDesignSelection(
+    listener: (selection: AgentWidgetDesignSelection) => void
+): () => void {
+    const handler = (event: Event) => listener((event as CustomEvent<AgentWidgetDesignSelection>).detail);
+    window.addEventListener(AgentWidgetDesignSelectionEvent, handler);
+    return () => window.removeEventListener(AgentWidgetDesignSelectionEvent, handler);
 }

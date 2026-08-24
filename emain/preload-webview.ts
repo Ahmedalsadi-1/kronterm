@@ -12,6 +12,261 @@ type HumanSimWidgetPayload = HumanSimPoint & {
     elementref?: string;
 };
 
+type OpenDesignElement = {
+    ref: string;
+    role: string;
+    name: string;
+    value?: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    focusable: boolean;
+    visible: boolean;
+    selector?: string;
+    tagName?: string;
+    componentName?: string;
+};
+
+const OpenDesignRootId = "__kronterm_open_design_root";
+let openDesignEnabled = false;
+let openDesignRoot: HTMLDivElement | null = null;
+let openDesignOutline: HTMLDivElement | null = null;
+let openDesignLabel: HTMLDivElement | null = null;
+let openDesignComposer: HTMLDivElement | null = null;
+let openDesignTarget: HTMLElement | null = null;
+let openDesignPreviousCursor = "";
+
+function truncateOpenDesignText(value: unknown, length = 240): string {
+    return String(value ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, length);
+}
+
+function getOpenDesignSelector(element: HTMLElement): string {
+    if (element.id) {
+        return `#${CSS.escape(element.id)}`;
+    }
+    const testId = element.getAttribute("data-testid");
+    if (testId) {
+        return `[data-testid="${CSS.escape(testId)}"]`;
+    }
+    const parts: string[] = [];
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body && parts.length < 5) {
+        let part = current.tagName.toLowerCase();
+        const stableClass = Array.from(current.classList).find((name) => !/^(css-|sc-|jsx-|_[a-z0-9])/i.test(name));
+        if (stableClass) {
+            part += `.${CSS.escape(stableClass)}`;
+        } else if (current.parentElement) {
+            const siblings = Array.from(current.parentElement.children).filter(
+                (child) => child.tagName === current!.tagName
+            );
+            if (siblings.length > 1) {
+                part += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+            }
+        }
+        parts.unshift(part);
+        current = current.parentElement;
+    }
+    return parts.join(" > ");
+}
+
+function getOpenDesignComponentName(element: HTMLElement): string {
+    let current: HTMLElement | null = element;
+    while (current) {
+        const explicit = current.getAttribute("data-component") || current.getAttribute("data-component-name");
+        if (explicit) {
+            return truncateOpenDesignText(explicit, 120);
+        }
+        const fiberKey = Object.keys(current).find((key) => key.startsWith("__reactFiber$"));
+        let fiber = fiberKey ? (current as any)[fiberKey] : null;
+        while (fiber) {
+            const type = fiber.elementType ?? fiber.type;
+            const name = typeof type === "function" ? type.displayName || type.name : type?.displayName;
+            if (name && !/^(Fragment|Suspense|StrictMode)$/i.test(name)) {
+                return truncateOpenDesignText(name, 120);
+            }
+            fiber = fiber.return;
+        }
+        current = current.parentElement;
+    }
+    return "";
+}
+
+function describeOpenDesignElement(element: HTMLElement): OpenDesignElement {
+    const rect = element.getBoundingClientRect();
+    const selector = getOpenDesignSelector(element);
+    const role =
+        element.getAttribute("role") ||
+        ({ A: "link", BUTTON: "button", INPUT: "textbox", TEXTAREA: "textbox", SELECT: "combobox", IMG: "img" }[
+            element.tagName
+        ] ??
+            element.tagName.toLowerCase());
+    const name = truncateOpenDesignText(
+        element.getAttribute("aria-label") ||
+            element.getAttribute("alt") ||
+            element.getAttribute("title") ||
+            element.innerText ||
+            element.getAttribute("placeholder") ||
+            selector
+    );
+    const value =
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement ||
+        element instanceof HTMLSelectElement
+            ? truncateOpenDesignText(element.value)
+            : "";
+    const componentName = getOpenDesignComponentName(element);
+    return {
+        ref: selector,
+        role,
+        name,
+        ...(value ? { value } : {}),
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        focusable: element.matches("a, button, input, textarea, select, [tabindex]"),
+        visible: rect.width > 0 && rect.height > 0,
+        selector,
+        tagName: element.tagName.toLowerCase(),
+        ...(componentName ? { componentName } : {}),
+    };
+}
+
+function positionOpenDesignOutline(element: HTMLElement): void {
+    if (!openDesignOutline || !openDesignLabel) {
+        return;
+    }
+    const rect = element.getBoundingClientRect();
+    Object.assign(openDesignOutline.style, {
+        display: "block",
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+    });
+    const description = describeOpenDesignElement(element);
+    openDesignLabel.textContent =
+        description.componentName || description.name || description.tagName || description.role;
+    Object.assign(openDesignLabel.style, {
+        display: "block",
+        left: `${Math.max(6, rect.left)}px`,
+        top: `${Math.max(6, rect.top - 24)}px`,
+    });
+}
+
+function installOpenDesignUi(): void {
+    if (openDesignRoot?.isConnected) {
+        return;
+    }
+    openDesignRoot = document.createElement("div");
+    openDesignRoot.id = OpenDesignRootId;
+    openDesignRoot.style.cssText =
+        "position:fixed;inset:0;z-index:2147483647;pointer-events:none;font:12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#fff";
+    openDesignOutline = document.createElement("div");
+    openDesignOutline.style.cssText =
+        "position:fixed;display:none;box-sizing:border-box;border:2px solid #8b5cf6;background:rgba(139,92,246,.10);box-shadow:0 0 0 1px rgba(255,255,255,.75),0 8px 24px rgba(0,0,0,.18);pointer-events:none";
+    openDesignLabel = document.createElement("div");
+    openDesignLabel.style.cssText =
+        "position:fixed;display:none;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;background:#7c3aed;padding:4px 7px;font-weight:600;line-height:16px;pointer-events:none";
+    openDesignComposer = document.createElement("div");
+    openDesignComposer.style.cssText =
+        "position:fixed;display:none;width:min(320px,calc(100vw - 24px));border:1px solid rgba(255,255,255,.25);border-radius:12px;background:#17151d;padding:10px;box-shadow:0 18px 55px rgba(0,0,0,.4);pointer-events:auto";
+    openDesignComposer.innerHTML =
+        '<div data-open-design-title style="margin:0 0 7px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comment on component</div><textarea aria-label="Open Design comment" placeholder="Tell Hermes what to change…" style="display:block;box-sizing:border-box;width:100%;min-height:72px;resize:vertical;border:1px solid #494450;border-radius:8px;background:#24212a;color:#fff;padding:8px;font:12px inherit;outline:none"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button data-open-design-cancel type="button" style="cursor:pointer;border:0;border-radius:7px;background:#312d38;color:#ddd;padding:6px 10px">Cancel</button><button data-open-design-submit type="button" style="cursor:pointer;border:0;border-radius:7px;background:#8b5cf6;color:#fff;padding:6px 10px;font-weight:650">Add comment</button></div>';
+    openDesignRoot.append(openDesignOutline, openDesignLabel, openDesignComposer);
+    document.documentElement.append(openDesignRoot);
+
+    openDesignComposer.querySelector("[data-open-design-cancel]")?.addEventListener("click", () => {
+        if (openDesignComposer) openDesignComposer.style.display = "none";
+    });
+    openDesignComposer.querySelector("[data-open-design-submit]")?.addEventListener("click", () => {
+        const textarea = openDesignComposer?.querySelector("textarea") as HTMLTextAreaElement | null;
+        const comment = truncateOpenDesignText(textarea?.value, 2_000);
+        if (!openDesignTarget || !comment) {
+            textarea?.focus();
+            return;
+        }
+        ipcRenderer.sendToHost("open-design-comment", {
+            url: location.href,
+            element: describeOpenDesignElement(openDesignTarget),
+            comment,
+        });
+        if (textarea) textarea.value = "";
+        if (openDesignComposer) openDesignComposer.style.display = "none";
+    });
+}
+
+function setOpenDesignEnabled(enabled: boolean): void {
+    if (enabled === openDesignEnabled) {
+        return;
+    }
+    openDesignEnabled = enabled;
+    installOpenDesignUi();
+    if (enabled) {
+        openDesignPreviousCursor = document.documentElement.style.cursor;
+        document.documentElement.style.cursor = "crosshair";
+        return;
+    }
+    if (!enabled) {
+        openDesignTarget = null;
+        if (openDesignOutline) openDesignOutline.style.display = "none";
+        if (openDesignLabel) openDesignLabel.style.display = "none";
+        if (openDesignComposer) openDesignComposer.style.display = "none";
+    }
+    document.documentElement.style.cursor = openDesignPreviousCursor;
+}
+
+document.addEventListener(
+    "pointermove",
+    (event) => {
+        if (
+            !openDesignEnabled ||
+            openDesignComposer?.style.display === "block" ||
+            !(event.target instanceof HTMLElement) ||
+            openDesignRoot?.contains(event.target)
+        ) {
+            return;
+        }
+        positionOpenDesignOutline(event.target);
+    },
+    true
+);
+
+document.addEventListener(
+    "click",
+    (event) => {
+        if (!openDesignEnabled || !(event.target instanceof HTMLElement) || openDesignRoot?.contains(event.target)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openDesignTarget = event.target;
+        positionOpenDesignOutline(openDesignTarget);
+        const description = describeOpenDesignElement(openDesignTarget);
+        ipcRenderer.sendToHost("open-design-selection", { url: location.href, element: description });
+        if (!openDesignComposer) {
+            return;
+        }
+        const title = openDesignComposer.querySelector("[data-open-design-title]");
+        if (title)
+            title.textContent = description.componentName || description.name || description.selector || "Component";
+        const rect = openDesignTarget.getBoundingClientRect();
+        const left = Math.min(Math.max(12, rect.left), Math.max(12, innerWidth - 332));
+        const top = rect.bottom + 10 + 130 < innerHeight ? rect.bottom + 10 : Math.max(12, rect.top - 140);
+        Object.assign(openDesignComposer.style, { display: "block", left: `${left}px`, top: `${top}px` });
+        (openDesignComposer.querySelector("textarea") as HTMLTextAreaElement | null)?.focus();
+    },
+    true
+);
+
+ipcRenderer.on("open-design-set-inspect-mode", (_event, payload: { enabled?: boolean }) => {
+    setOpenDesignEnabled(payload?.enabled === true);
+});
+
 function getElementByRef(ref?: string): HTMLElement | null {
     if (!ref) {
         return null;

@@ -26,6 +26,7 @@ import type { ClientSessionState } from "@hermes/app/types";
 import { $narrowViewport, revealTreePane } from "@hermes/components/pane-shell/tree/store";
 import { onGatewayEvent } from "@hermes/contrib/events";
 import type {
+    HermesKronTermDesignSelection,
     HermesKronTermInspectableElement,
     HermesKronTermInspectableSnapshot,
     HermesKronTermSurface,
@@ -98,6 +99,7 @@ export interface ViewportRect {
 export type KronTermSurface = HermesKronTermSurface;
 export type KronTermInspectableElement = HermesKronTermInspectableElement;
 export type KronTermInspectableSnapshot = HermesKronTermInspectableSnapshot;
+export type KronTermDesignSelection = HermesKronTermDesignSelection;
 
 const readViewport = (): ViewportRect => ({
     width: typeof window === "undefined" ? 0 : window.innerWidth,
@@ -314,6 +316,26 @@ export const host = {
             }
 
             return bridge.snapshot(blockId);
+        },
+        inspect: async (blockId: string, enabled: boolean): Promise<void> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            const result = await bridge.inspect(blockId, enabled);
+            if (!result.ok) {
+                throw new Error(result.error || "KronTerm could not change browser inspection mode.");
+            }
+        },
+        onSelection: (listener: (selection: KronTermDesignSelection) => void): (() => void) => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                return () => undefined;
+            }
+            return bridge.onSelection(listener);
         },
     },
 

@@ -52,6 +52,8 @@ describe("Open Design review model", () => {
                 height: 60,
                 focusable: false,
                 visible: true,
+                selector: "main > h1.hero-title",
+                componentName: "HeroHeading",
             },
             text: "Make this headline more concise.",
             createdAt: 1,
@@ -60,6 +62,7 @@ describe("Open Design review model", () => {
 
         expect(formatReviewComments([comment])).toContain("Locate the owning source");
         expect(formatReviewComments([comment])).toContain("heading · “Build faster” · @e7");
+        expect(formatReviewComments([comment])).toContain("component HeroHeading; main > h1.hero-title");
         expect(formatReviewComments([comment])).toContain("Make this headline more concise.");
     });
 });

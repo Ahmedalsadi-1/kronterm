@@ -16,6 +16,13 @@ import {
     SuggestionControlNoResults,
 } from "@/app/suggestion/suggestion";
 import { ActionMarker } from "@/app/view/action-marker";
+import {
+    AgentWidgetInspectModeEvent,
+    isAgentWidgetInspectModeActive,
+    publishAgentWidgetDesignSelection,
+    setAgentWidgetInspectMode,
+    type AgentWidgetDesignSelection,
+} from "@/app/view/agent-widget-bridge";
 import { CURSOR_OVERLAY_SCRIPT, reportCursorToPet } from "@/app/view/cursor-overlay";
 import { useAgentOverlays } from "@/app/view/use-agent-overlays";
 import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
@@ -170,7 +177,21 @@ const WebViewBrowserChrome = memo(
         const canGoBack = useAtomValue(model.canGoBack);
         const canGoForward = useAtomValue(model.canGoForward);
         const refreshIcon = useAtomValue(model.refreshIcon);
+        const [inspectMode, setInspectMode] = useState(() => isAgentWidgetInspectModeActive(model.blockId));
         const url = currentUrl ?? block?.meta?.url ?? homepageUrl ?? "";
+
+        useEffect(() => {
+            const handleInspectMode = (event: Event) => {
+                const detail = (event as CustomEvent<{ blockId: string; enabled: boolean }>).detail;
+                if (detail.blockId !== model.blockId) {
+                    return;
+                }
+                setInspectMode(detail.enabled);
+                model.webviewRef.current?.send("open-design-set-inspect-mode", { enabled: detail.enabled });
+            };
+            window.addEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+            return () => window.removeEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+        }, [model]);
 
         return (
             <div className="webview-browser-chrome">
@@ -210,6 +231,20 @@ const WebViewBrowserChrome = memo(
                             spellCheck={false}
                         />
                     </div>
+                    <button
+                        type="button"
+                        className={clsx("webview-open-design", inspectMode && "is-active")}
+                        onClick={() => setAgentWidgetInspectMode(model.blockId, !inspectMode)}
+                        aria-label={inspectMode ? "Stop selecting design components" : "Select design components"}
+                        aria-pressed={inspectMode}
+                        title={
+                            inspectMode
+                                ? "Stop Open Design inspection"
+                                : "Open Design: select and comment on components"
+                        }
+                    >
+                        <i className="fa-solid fa-object-group" aria-hidden="true" />
+                    </button>
                     <button
                         type="button"
                         onClick={() => {
@@ -1189,6 +1224,41 @@ function getWebPreviewDisplayUrl(url?: string | null): string {
     return url?.trim() || "about:blank";
 }
 
+function normalizeOpenDesignSelection(blockId: string, payload: unknown): AgentWidgetDesignSelection | null {
+    const raw = payload as Record<string, any> | null;
+    const element = raw?.element as Record<string, any> | null;
+    const numbers = [element?.x, element?.y, element?.width, element?.height];
+    if (!element || numbers.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
+        return null;
+    }
+    const text = (value: unknown, max: number) =>
+        String(value ?? "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, max);
+    const selection: AgentWidgetDesignSelection = {
+        blockId,
+        url: text(raw?.url, 2_048),
+        element: {
+            ref: text(element.ref, 512),
+            role: text(element.role, 80) || "element",
+            name: text(element.name, 240),
+            ...(text(element.value, 240) ? { value: text(element.value, 240) } : {}),
+            x: Math.round(element.x),
+            y: Math.round(element.y),
+            width: Math.max(0, Math.round(element.width)),
+            height: Math.max(0, Math.round(element.height)),
+            focusable: element.focusable === true,
+            visible: element.visible !== false,
+            ...(text(element.selector, 512) ? { selector: text(element.selector, 512) } : {}),
+            ...(text(element.tagName, 80) ? { tagName: text(element.tagName, 80) } : {}),
+            ...(text(element.componentName, 120) ? { componentName: text(element.componentName, 120) } : {}),
+        },
+    };
+    const comment = text(raw?.comment, 2_000);
+    return comment ? { ...selection, comment } : selection;
+}
+
 function WebViewPreviewFallback({ url }: { url?: string | null }) {
     const displayUrl = getWebPreviewDisplayUrl(url);
 
@@ -1448,6 +1518,9 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         const handleDomReady = () => {
             globalStore.set(model.domReady, true);
             setBgColor();
+            webview.send("open-design-set-inspect-mode", {
+                enabled: isAgentWidgetInspectModeActive(model.blockId),
+            });
             // Inject cursor overlay (starts hidden, activated by agent activity events)
             webview.executeJavaScript(CURSOR_OVERLAY_SCRIPT).catch((err: unknown) => {
                 console.warn("cursor overlay inject failed", err);
@@ -1458,6 +1531,15 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         };
         const handleMediaPaused = () => {
             model.setMediaPlaying(false);
+        };
+        const handleIpcMessage = (event: any) => {
+            if (event.channel !== "open-design-selection" && event.channel !== "open-design-comment") {
+                return;
+            }
+            const selection = normalizeOpenDesignSelection(model.blockId, event.args?.[0]);
+            if (selection) {
+                publishAgentWidgetDesignSelection(selection);
+            }
         };
 
         webview.addEventListener("did-frame-navigate", navigateListener);
@@ -1475,6 +1557,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         webview.addEventListener("media-started-playing", handleMediaPlaying);
         webview.addEventListener("media-paused", handleMediaPaused);
         webview.addEventListener("found-in-page", onFoundInPage);
+        webview.addEventListener("ipc-message", handleIpcMessage);
 
         // Clean up event listeners on component unmount
         return () => {
@@ -1493,6 +1576,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             webview.removeEventListener("media-started-playing", handleMediaPlaying);
             webview.removeEventListener("media-paused", handleMediaPaused);
             webview.removeEventListener("found-in-page", onFoundInPage);
+            webview.removeEventListener("ipc-message", handleIpcMessage);
         };
     }, []);
 
