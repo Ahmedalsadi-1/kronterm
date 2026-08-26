@@ -4,7 +4,6 @@
 import { reportDesktopPetActivity, type AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { BlockNodeModel } from "@/app/block/blocktypes";
 import { Search, useSearch } from "@/app/element/search";
-import { getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { getSimpleControlShiftAtom } from "@/app/store/keymodel";
 import type { TabModel } from "@/app/store/tab-model";
@@ -36,232 +35,119 @@ import { Atom, PrimitiveAtom, atom, useAtomValue, useSetAtom } from "jotai";
 import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { subscribeAgentActivityStream } from "../../../types/agent-activity";
 import { makeBrowserPayload, publishCrossViewEvent } from "../../../types/cross-view-bus";
-import { getBrowserTabIdAfterClose, getNextBrowserTabIndex, type BrowserTabOrientation } from "./webview-tabs";
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
 
-type BrowserTabRecord = {
-    id: string;
-    url: string;
-    title?: string;
-    favicon?: string;
-};
-
-type WebViewTabStripProps = {
-    model: WebViewModel;
-    tabs: BrowserTabRecord[];
-    activeTabId: string;
-    left?: boolean;
-};
-
-const WebViewTabStrip = memo(({ model, tabs, activeTabId, left = false }: WebViewTabStripProps) => {
-    const tabRefs = useRef(new Map<string, HTMLButtonElement>());
-    const tabListRef = useRef<HTMLDivElement>(null);
-    const orientation: BrowserTabOrientation = left ? "vertical" : "horizontal";
-
-    const activateAndFocusTab = (index: number) => {
-        const tab = tabs[index];
-        if (!tab) {
-            return;
-        }
-        model.activateBrowserTab(tab.id);
-        window.requestAnimationFrame(() => tabRefs.current.get(tab.id)?.focus());
+function readHermesOpenDesignTheme() {
+    const resolveColor = (token: string, fallback: string) => {
+        const probe = document.createElement("span");
+        probe.style.color = `var(${token}, ${fallback})`;
+        probe.style.display = "none";
+        document.documentElement.append(probe);
+        const color = getComputedStyle(probe).color || fallback;
+        probe.remove();
+        return color;
     };
+    return {
+        background: resolveColor("--ui-bg-elevated", "#171717"),
+        surface: resolveColor("--ui-bg-secondary", "#242424"),
+        foreground: resolveColor("--foreground", "#f5f5f5"),
+        muted: resolveColor("--ui-text-secondary", "#b4b4b4"),
+        border: resolveColor("--ui-border", "#454545"),
+    };
+}
 
-    const closeAndRestoreFocus = (index: number) => {
-        const closedTab = tabs[index];
-        const nextTabId = getBrowserTabIdAfterClose(
-            tabs.map((tab) => tab.id),
-            activeTabId,
-            closedTab.id
-        );
-        model.closeBrowserTab(closedTab.id);
-        window.requestAnimationFrame(() => {
-            if (nextTabId && tabRefs.current.get(nextTabId)) {
-                tabRefs.current.get(nextTabId)?.focus();
+const WebViewBrowserChrome = memo(({ model }: { model: WebViewModel }) => {
+    const block = useAtomValue(model.blockAtom);
+    const currentUrl = useAtomValue(model.url);
+    const homepageUrl = useAtomValue(model.homepageUrl);
+    const canGoBack = useAtomValue(model.canGoBack);
+    const canGoForward = useAtomValue(model.canGoForward);
+    const refreshIcon = useAtomValue(model.refreshIcon);
+    const [inspectMode, setInspectMode] = useState(() => isAgentWidgetInspectModeActive(model.blockId));
+    const url = currentUrl ?? block?.meta?.url ?? homepageUrl ?? "";
+
+    useEffect(() => {
+        const handleInspectMode = (event: Event) => {
+            const detail = (event as CustomEvent<{ blockId: string; enabled: boolean }>).detail;
+            if (detail.blockId !== model.blockId) {
                 return;
             }
-            tabListRef.current?.querySelector<HTMLButtonElement>('[role="tab"][tabindex="0"]')?.focus();
-        });
-    };
+            setInspectMode(detail.enabled);
+            model.webviewRef.current?.send("open-design-set-inspect-mode", {
+                enabled: detail.enabled,
+                theme: readHermesOpenDesignTheme(),
+            });
+        };
+        window.addEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+        return () => window.removeEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+    }, [model]);
 
     return (
-        <div
-            ref={tabListRef}
-            className={clsx("webview-tab-strip", left && "is-left")}
-            role="tablist"
-            aria-label="Browser tabs"
-            aria-orientation={orientation}
-        >
-            <div className="webview-tab-scroll">
-                {tabs.map((tab, index) => {
-                    const isActive = tab.id === activeTabId;
-                    return (
-                        <div key={tab.id} className={clsx("webview-tab", isActive && "is-active")}>
-                            <button
-                                ref={(element) => {
-                                    if (element) {
-                                        tabRefs.current.set(tab.id, element);
-                                    } else {
-                                        tabRefs.current.delete(tab.id);
-                                    }
-                                }}
-                                type="button"
-                                role="tab"
-                                aria-selected={isActive}
-                                tabIndex={isActive ? 0 : -1}
-                                className="webview-tab-main"
-                                title={tab.url}
-                                onClick={() => model.activateBrowserTab(tab.id)}
-                                onKeyDown={(event) => {
-                                    if (event.key === "Delete") {
-                                        event.preventDefault();
-                                        closeAndRestoreFocus(index);
-                                        return;
-                                    }
-                                    const nextIndex = getNextBrowserTabIndex(
-                                        event.key,
-                                        index,
-                                        tabs.length,
-                                        orientation
-                                    );
-                                    if (nextIndex == null) {
-                                        return;
-                                    }
-                                    event.preventDefault();
-                                    activateAndFocusTab(nextIndex);
-                                }}
-                            >
-                                {tab.favicon ? (
-                                    <img className="webview-tab-favicon" src={tab.favicon} alt="" />
-                                ) : (
-                                    <i className="fa-solid fa-globe webview-tab-icon" aria-hidden="true" />
-                                )}
-                                <span className="webview-tab-title">{tab.title || tab.url || "New tab"}</span>
-                            </button>
-                            <button
-                                type="button"
-                                tabIndex={isActive ? 0 : -1}
-                                className="webview-tab-close"
-                                aria-label={`Close ${tab.title || tab.url || "new tab"}`}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    closeAndRestoreFocus(index);
-                                }}
-                            >
-                                <i className="fa-solid fa-xmark" aria-hidden="true" />
-                            </button>
-                        </div>
-                    );
-                })}
+        <div className="webview-browser-chrome">
+            <div className="webview-navigation" role="toolbar" aria-label="Browser navigation">
+                <button
+                    type="button"
+                    onClick={() => model.handleBack()}
+                    disabled={!canGoBack}
+                    aria-label="Back"
+                    title="Back"
+                >
+                    <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => model.handleForward()}
+                    disabled={!canGoForward}
+                    aria-label="Forward"
+                    title="Forward"
+                >
+                    <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => model.handleRefresh(null)} aria-label="Reload" title="Reload">
+                    <i className={`fa-solid fa-${refreshIcon}`} aria-hidden="true" />
+                </button>
+                <div className="webview-omnibox">
+                    <i className="fa-solid fa-shield-halved" aria-hidden="true" />
+                    <input
+                        ref={model.urlInputRef}
+                        value={url}
+                        onChange={(event) => model.handleUrlChange(event)}
+                        onKeyDown={(event) => model.handleKeyDown(event)}
+                        onFocus={(event) => model.handleFocus(event)}
+                        onBlur={(event) => model.handleBlur(event)}
+                        aria-label="Address and search"
+                        spellCheck={false}
+                    />
+                </div>
+                <button
+                    type="button"
+                    className={clsx("webview-open-design", inspectMode && "is-active")}
+                    onClick={() => setAgentWidgetInspectMode(model.blockId, !inspectMode)}
+                    aria-label={inspectMode ? "Stop selecting design components" : "Select design components"}
+                    aria-pressed={inspectMode}
+                    title={
+                        inspectMode ? "Stop Open Design inspection" : "Open Design: select and comment on components"
+                    }
+                >
+                    <i className="fa-solid fa-object-group" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (url) {
+                            void model.env.electron.openExternal(model.modifyExternalUrl?.(url) ?? url);
+                        }
+                    }}
+                    aria-label="Open in external browser"
+                    title="Open in external browser"
+                >
+                    <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
+                </button>
             </div>
-            <button
-                type="button"
-                className="webview-tab-add"
-                title="New tab"
-                aria-label="New browser tab"
-                onClick={() => model.addBrowserTab()}
-            >
-                <i className="fa-solid fa-plus" aria-hidden="true" />
-            </button>
         </div>
     );
 });
-WebViewTabStrip.displayName = "WebViewTabStrip";
-
-const WebViewBrowserChrome = memo(
-    ({ activeTabId, model, showTabs, tabs }: WebViewTabStripProps & { showTabs: boolean }) => {
-        const block = useAtomValue(model.blockAtom);
-        const currentUrl = useAtomValue(model.url);
-        const homepageUrl = useAtomValue(model.homepageUrl);
-        const canGoBack = useAtomValue(model.canGoBack);
-        const canGoForward = useAtomValue(model.canGoForward);
-        const refreshIcon = useAtomValue(model.refreshIcon);
-        const [inspectMode, setInspectMode] = useState(() => isAgentWidgetInspectModeActive(model.blockId));
-        const url = currentUrl ?? block?.meta?.url ?? homepageUrl ?? "";
-
-        useEffect(() => {
-            const handleInspectMode = (event: Event) => {
-                const detail = (event as CustomEvent<{ blockId: string; enabled: boolean }>).detail;
-                if (detail.blockId !== model.blockId) {
-                    return;
-                }
-                setInspectMode(detail.enabled);
-                model.webviewRef.current?.send("open-design-set-inspect-mode", { enabled: detail.enabled });
-            };
-            window.addEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
-            return () => window.removeEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
-        }, [model]);
-
-        return (
-            <div className="webview-browser-chrome">
-                {showTabs && <WebViewTabStrip model={model} tabs={tabs} activeTabId={activeTabId} />}
-                <div className="webview-navigation" role="toolbar" aria-label="Browser navigation">
-                    <button
-                        type="button"
-                        onClick={() => model.handleBack()}
-                        disabled={!canGoBack}
-                        aria-label="Back"
-                        title="Back"
-                    >
-                        <i className="fa-solid fa-chevron-left" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => model.handleForward()}
-                        disabled={!canGoForward}
-                        aria-label="Forward"
-                        title="Forward"
-                    >
-                        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
-                    </button>
-                    <button type="button" onClick={() => model.handleRefresh(null)} aria-label="Reload" title="Reload">
-                        <i className={`fa-solid fa-${refreshIcon}`} aria-hidden="true" />
-                    </button>
-                    <div className="webview-omnibox">
-                        <i className="fa-solid fa-shield-halved" aria-hidden="true" />
-                        <input
-                            ref={model.urlInputRef}
-                            value={url}
-                            onChange={(event) => model.handleUrlChange(event)}
-                            onKeyDown={(event) => model.handleKeyDown(event)}
-                            onFocus={(event) => model.handleFocus(event)}
-                            onBlur={(event) => model.handleBlur(event)}
-                            aria-label="Address and search"
-                            spellCheck={false}
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        className={clsx("webview-open-design", inspectMode && "is-active")}
-                        onClick={() => setAgentWidgetInspectMode(model.blockId, !inspectMode)}
-                        aria-label={inspectMode ? "Stop selecting design components" : "Select design components"}
-                        aria-pressed={inspectMode}
-                        title={
-                            inspectMode
-                                ? "Stop Open Design inspection"
-                                : "Open Design: select and comment on components"
-                        }
-                    >
-                        <i className="fa-solid fa-object-group" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (url) {
-                                void model.env.electron.openExternal(model.modifyExternalUrl?.(url) ?? url);
-                            }
-                        }}
-                        aria-label="Open in external browser"
-                        title="Open in external browser"
-                    >
-                        <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
-        );
-    }
-);
 WebViewBrowserChrome.displayName = "WebViewBrowserChrome";
 
 // User agent strings for mobile emulation
@@ -271,35 +157,6 @@ const USER_AGENT_ANDROID =
     "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.43 Mobile Safari/537.36";
 
 let webviewPreloadUrl = null;
-
-function makeBrowserTabId(): string {
-    return `webtab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function normalizeBrowserTabs(block: Block | null | undefined, fallbackUrl: string): BrowserTabRecord[] {
-    const meta = block?.meta as Record<string, any> | undefined;
-    const rawTabs = meta?.["web:tabs"];
-    if (Array.isArray(rawTabs)) {
-        const tabs = rawTabs
-            .map((tab) => ({
-                id: String(tab?.id ?? makeBrowserTabId()),
-                url: String(tab?.url ?? fallbackUrl ?? "about:blank"),
-                title: typeof tab?.title === "string" ? tab.title : undefined,
-                favicon: typeof tab?.favicon === "string" ? tab.favicon : undefined,
-            }))
-            .filter((tab) => tab.url);
-        if (tabs.length > 0) {
-            return tabs;
-        }
-    }
-    return [
-        {
-            id: String(meta?.["web:activetabid"] ?? makeBrowserTabId()),
-            url: fallbackUrl || "about:blank",
-            title: fallbackUrl || "New tab",
-        },
-    ];
-}
 
 function getWebviewPreloadUrl(env: WebViewEnv) {
     if (webviewPreloadUrl == null) {
@@ -454,28 +311,11 @@ export class WebViewModel implements ViewModel {
             return rtn;
         });
 
-        const tabStripPositionAtom = this.env.getSettingsKeyAtom("web:tabstripposition");
         this.headerTop = atom((get) => {
             if (get(this.hideNav)) {
                 return null;
             }
-            const tabStripPosition = get(tabStripPositionAtom) ?? "top";
-            const blockData = get(this.blockAtom);
-            const meta = blockData?.meta as Record<string, any> | undefined;
-            const fallbackUrl = meta?.url || get(this.homepageUrl) || "about:blank";
-            const tabs = normalizeBrowserTabs(blockData, fallbackUrl);
-            const requestedActiveTabId = typeof meta?.["web:activetabid"] === "string" ? meta["web:activetabid"] : "";
-            const activeTabId = tabs.some((tab) => tab.id === requestedActiveTabId)
-                ? requestedActiveTabId
-                : tabs[0]?.id;
-            return (
-                <WebViewBrowserChrome
-                    model={this}
-                    tabs={tabs}
-                    activeTabId={activeTabId}
-                    showTabs={tabStripPosition !== "left"}
-                />
-            );
+            return <WebViewBrowserChrome model={this} />;
         });
 
         this.endIconButtons = atom((get) => {
@@ -684,14 +524,10 @@ export class WebViewModel implements ViewModel {
      * @param url The URL that has been navigated to.
      */
     handleNavigate(url: string) {
-        const blockData = globalStore.get(this.blockAtom);
-        const tabs = this.getBrowserTabs(blockData);
-        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
-        const nextTabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, url } : tab));
         fireAndForget(() =>
             this.env.rpc.SetMetaCommand(TabRpcClient, {
                 oref: makeORef("block", this.blockId),
-                meta: { url, "web:tabs": nextTabs, "web:activetabid": activeTabId } as unknown as MetaType,
+                meta: { url } as unknown as MetaType,
             })
         );
         globalStore.set(this.url, url);
@@ -700,96 +536,13 @@ export class WebViewModel implements ViewModel {
         }
     }
 
-    getBrowserTabs(blockData?: Block | null): BrowserTabRecord[] {
-        const defaultUrl = globalStore.get(this.homepageUrl) || "";
-        const fallbackUrl = (blockData?.meta as Record<string, any> | undefined)?.url || defaultUrl || "about:blank";
-        return normalizeBrowserTabs(blockData, fallbackUrl);
-    }
-
-    getActiveBrowserTabId(blockData?: Block | null, tabs?: BrowserTabRecord[]): string {
-        const meta = blockData?.meta as Record<string, any> | undefined;
-        const browserTabs = tabs ?? this.getBrowserTabs(blockData);
-        const activeTabId = typeof meta?.["web:activetabid"] === "string" ? meta["web:activetabid"] : "";
-        if (browserTabs.some((tab) => tab.id === activeTabId)) {
-            return activeTabId;
-        }
-        return browserTabs[0]?.id ?? makeBrowserTabId();
-    }
-
-    persistBrowserTabs(tabs: BrowserTabRecord[], activeTabId: string, url?: string) {
+    setBrowserTitle(title: string) {
         fireAndForget(() =>
             this.env.rpc.SetMetaCommand(TabRpcClient, {
                 oref: makeORef("block", this.blockId),
-                meta: {
-                    url: url ?? tabs.find((tab) => tab.id === activeTabId)?.url ?? null,
-                    "web:tabs": tabs,
-                    "web:activetabid": activeTabId,
-                } as unknown as MetaType,
+                meta: { "web:title": title } as unknown as MetaType,
             })
         );
-    }
-
-    addBrowserTab(url?: string, title?: string) {
-        const blockData = globalStore.get(this.blockAtom);
-        const defaultUrl = globalStore.get(this.homepageUrl) || "about:blank";
-        const nextUrl = this.ensureUrlScheme(
-            url || defaultUrl,
-            globalStore.get(this.env.getSettingsKeyAtom("web:defaultsearch"))
-        );
-        const tabs = this.getBrowserTabs(blockData);
-        const tab: BrowserTabRecord = {
-            id: makeBrowserTabId(),
-            url: nextUrl,
-            title: title || nextUrl,
-        };
-        const nextTabs = [...tabs, tab];
-        this.persistBrowserTabs(nextTabs, tab.id, nextUrl);
-        this.loadUrl(nextUrl, "new-tab");
-    }
-
-    activateBrowserTab(tabId: string) {
-        const blockData = globalStore.get(this.blockAtom);
-        const tabs = this.getBrowserTabs(blockData);
-        const tab = tabs.find((candidate) => candidate.id === tabId);
-        if (!tab) {
-            return;
-        }
-        this.persistBrowserTabs(tabs, tab.id, tab.url);
-        this.loadUrl(tab.url, "activate-tab");
-    }
-
-    closeBrowserTab(tabId: string) {
-        const blockData = globalStore.get(this.blockAtom);
-        const tabs = this.getBrowserTabs(blockData);
-        if (tabs.length <= 1) {
-            const defaultUrl = globalStore.get(this.homepageUrl) || "about:blank";
-            const nextTab = { id: makeBrowserTabId(), url: defaultUrl, title: "New tab" };
-            this.persistBrowserTabs([nextTab], nextTab.id, defaultUrl);
-            this.loadUrl(defaultUrl, "close-last-tab");
-            return;
-        }
-        const closeIndex = tabs.findIndex((tab) => tab.id === tabId);
-        const nextTabs = tabs.filter((tab) => tab.id !== tabId);
-        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
-        const nextActiveTab =
-            activeTabId === tabId
-                ? (nextTabs[Math.max(0, closeIndex - 1)] ?? nextTabs[0])
-                : nextTabs.find((tab) => tab.id === activeTabId);
-        if (!nextActiveTab) {
-            return;
-        }
-        this.persistBrowserTabs(nextTabs, nextActiveTab.id, nextActiveTab.url);
-        if (activeTabId === tabId) {
-            this.loadUrl(nextActiveTab.url, "close-tab");
-        }
-    }
-
-    updateActiveBrowserTab(patch: Partial<BrowserTabRecord>) {
-        const blockData = globalStore.get(this.blockAtom);
-        const tabs = this.getBrowserTabs(blockData);
-        const activeTabId = this.getActiveBrowserTabId(blockData, tabs);
-        const nextTabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, ...patch } : tab));
-        this.persistBrowserTabs(nextTabs, activeTabId, nextTabs.find((tab) => tab.id === activeTabId)?.url);
     }
 
     ensureUrlScheme(url: string, searchTemplate: string) {
@@ -1281,10 +1034,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     const defaultUrl = useAtomValue(model.homepageUrl);
     const defaultSearchAtom = env.getSettingsKeyAtom("web:defaultsearch");
     const defaultSearch = useAtomValue(defaultSearchAtom);
-    const browserTabs = model.getBrowserTabs(blockData);
-    const activeTabId = model.getActiveBrowserTabId(blockData, browserTabs);
-    const activeTab = browserTabs.find((tab) => tab.id === activeTabId) ?? browserTabs[0];
-    let metaUrl = activeTab?.url || blockData?.meta?.url || defaultUrl || "";
+    let metaUrl = blockData?.meta?.url || defaultUrl || "";
     if (metaUrl) {
         metaUrl = model.ensureUrlScheme(metaUrl, defaultSearch);
     }
@@ -1294,9 +1044,6 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     const metaPartition = useAtomValue(env.getBlockMetaKeyAtom(model.blockId, "web:partition"));
     const webPartition = partitionOverride || metaPartition || undefined;
     const userAgentType = useAtomValue(model.userAgentType) || "default";
-    const hideNav = useAtomValue(model.hideNav);
-    const tabStripPosition =
-        (useAtomValue(getSettingsKeyAtom("web:tabstripposition" as keyof SettingsType)) as string | null) ?? "top";
 
     // Determine user agent string based on type
     let userAgent: string | undefined = undefined;
@@ -1398,7 +1145,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     }, []);
 
     useEffect(() => {
-        if (model.webviewRef.current == null || !domReady) {
+        if (model.webviewRef.current == null || !model.webviewRef.current.isConnected || !domReady) {
             return;
         }
         try {
@@ -1465,25 +1212,18 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             if (!newUrl) {
                 return;
             }
-            model.addBrowserTab(newUrl);
+            model.loadUrl(newUrl, "new-window");
         };
         const titleUpdatedHandler = (e: any) => {
             if (typeof e?.title !== "string" || e.title.length === 0) {
                 return;
             }
-            model.updateActiveBrowserTab({ title: e.title });
+            model.setBrowserTitle(e.title);
             publishCrossViewEvent(
                 "browser:title-change",
                 model.blockId,
                 makeBrowserPayload(model.blockId, undefined, e.title)
             );
-        };
-        const faviconUpdatedHandler = (e: any) => {
-            const favicons = e?.favicons;
-            if (!Array.isArray(favicons) || favicons.length === 0) {
-                return;
-            }
-            model.updateActiveBrowserTab({ favicon: favicons[0] });
         };
         const startLoadingHandler = () => {
             model.setRefreshIcon("xmark-large");
@@ -1520,6 +1260,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             setBgColor();
             webview.send("open-design-set-inspect-mode", {
                 enabled: isAgentWidgetInspectModeActive(model.blockId),
+                theme: readHermesOpenDesignTheme(),
             });
             // Inject cursor overlay (starts hidden, activated by agent activity events)
             webview.executeJavaScript(CURSOR_OVERLAY_SCRIPT).catch((err: unknown) => {
@@ -1549,7 +1290,6 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         webview.addEventListener("did-stop-loading", stopLoadingHandler);
         webview.addEventListener("new-window", newWindowHandler);
         webview.addEventListener("page-title-updated", titleUpdatedHandler);
-        webview.addEventListener("page-favicon-updated", faviconUpdatedHandler);
         webview.addEventListener("did-fail-load", failLoadHandler);
         webview.addEventListener("focus", webviewFocus);
         webview.addEventListener("blur", webviewBlur);
@@ -1566,7 +1306,6 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             webview.removeEventListener("did-navigate-in-page", navigateListener);
             webview.removeEventListener("new-window", newWindowHandler);
             webview.removeEventListener("page-title-updated", titleUpdatedHandler);
-            webview.removeEventListener("page-favicon-updated", faviconUpdatedHandler);
             webview.removeEventListener("did-fail-load", failLoadHandler);
             webview.removeEventListener("did-start-loading", startLoadingHandler);
             webview.removeEventListener("did-stop-loading", stopLoadingHandler);
@@ -1664,15 +1403,9 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
 
     const { waterflowActive, markers } = useAgentOverlays("browser", model.blockId);
 
-    const tabStrip =
-        !hideNav && tabStripPosition === "left" ? (
-            <WebViewTabStrip model={model} tabs={browserTabs} activeTabId={activeTabId} left />
-        ) : null;
-
     return (
         <Fragment>
-            <div className={clsx("webview-shell", tabStripPosition === "left" ? "is-left-tabs" : "is-top-tabs")}>
-                {tabStrip}
+            <div className="webview-shell">
                 <div className="webview-stage">
                     <MockBoundary fallback={<WebViewPreviewFallback url={metaUrl} />}>
                         <webview

@@ -18,7 +18,6 @@ import { useAtomValue } from "jotai";
 import { OverlayScrollbars } from "overlayscrollbars";
 import { createRef, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce } from "throttle-debounce";
-import { BrowserTabsBar } from "./browser-tabs-bar";
 import { FoldedWidgetsBar } from "./folded-widgets-bar";
 import { Tab } from "./tab";
 import "./tabbar.scss";
@@ -743,7 +742,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             <div ref={projectPillsRef}>
                 <KronchatProjectPills projects={kronchatProjects} />
             </div>
-            <BrowserTabsBar currentTabId={activeTabId} />
             <div
                 className="tab-bar"
                 ref={tabBarRef}

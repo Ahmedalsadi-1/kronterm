@@ -98,12 +98,11 @@ describe("webview preview fallback", () => {
         expect(topLevelIcons).not.toContain("sliders");
     });
 
-    it("provides top-positioned browser tabs to the block header", () => {
+    it("renders the browser chrome without a tab strip even for legacy multi-tab blocks", () => {
         const blockId = "webview-tabs-block";
         const env = makeMockWaveEnv({
             settings: {
                 "web:defaulturl": "https://kronterm.dev",
-                "web:tabstripposition": "top",
             },
             mockWaveObjs: {
                 [`block:${blockId}`]: {
@@ -111,6 +110,7 @@ describe("webview preview fallback", () => {
                     oid: blockId,
                     version: 1,
                     meta: {
+                        url: "https://kronterm.dev/docs",
                         "web:tabs": [
                             { id: "docs", url: "https://kronterm.dev/docs", title: "Docs" },
                             { id: "api", url: "https://kronterm.dev/api", title: "API" },
@@ -137,22 +137,11 @@ describe("webview preview fallback", () => {
         });
 
         const markup = renderToStaticMarkup(<>{globalStore.get(model.headerTop)}</>);
-        const tabStripIndex = markup.indexOf("webview-tab-strip");
-        const navigationIndex = markup.indexOf("webview-navigation");
 
-        expect(markup).toContain("webview-tab-strip");
         expect(markup).toContain("webview-navigation");
-        expect(tabStripIndex).toBeGreaterThan(-1);
-        expect(navigationIndex).toBeGreaterThan(tabStripIndex);
-        expect(markup).toContain("Docs");
-        expect(markup).toContain('role="tablist"');
-        expect(markup).toContain('role="tab"');
-        expect(markup).toContain('aria-selected="true"');
-        expect(markup).toContain('aria-selected="false"');
-        expect(markup).toContain('aria-orientation="horizontal"');
-        expect(markup).toContain('tabindex="0"');
-        expect(markup).toContain('tabindex="-1"');
-        expect(markup).toContain('aria-label="Close Docs"');
-        expect(markup).toContain('aria-label="New browser tab"');
+        expect(markup).not.toContain("webview-tab-strip");
+        expect(markup).not.toContain('role="tablist"');
+        expect(markup).not.toContain('role="tab"');
+        expect(markup).not.toContain('aria-label="New browser tab"');
     });
 });

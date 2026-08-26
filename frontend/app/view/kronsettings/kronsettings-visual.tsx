@@ -30,7 +30,7 @@ function publishLayoutMode(mode: string) {
 function getStoredLayoutMode() {
     try {
         const mode = window.localStorage.getItem(LayoutModeStorageKey);
-        return mode === "canvas" || mode === "tabs" ? mode : "widgets";
+        return mode === "canvas" || mode === "tabs" || mode === "web" ? mode : "widgets";
     } catch {
         return "widgets";
     }
@@ -62,14 +62,15 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
     const hideAIButton = settings["app:hideaibutton"] ?? false;
     const focusFollowsCursor = settings["app:focusfollowscursor"] ?? "off";
     const settingsLayoutMode =
-        settings["app:layoutmode"] === "canvas" || settings["app:layoutmode"] === "tabs"
+        settings["app:layoutmode"] === "canvas" ||
+        settings["app:layoutmode"] === "tabs" ||
+        settings["app:layoutmode"] === "web"
             ? settings["app:layoutmode"]
             : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
     const [kronarchyMode, setKronarchyMode] = useState(() => getStoredKronarchyMode());
     const quickComposer = settings["app:quickcomposer"] ?? false;
     const minimalUi = settings["app:minimalui"] ?? false;
-    const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
     const telemetryEnabled = settings["telemetry:enabled"] ?? false;
 
     useEffect(() => {
@@ -156,23 +157,14 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
                     value={layoutMode}
                     onChange={(v) => {
                         publishLayoutMode(v);
-                        setLayoutMode(v === "canvas" || v === "tabs" ? v : "widgets");
+                        setLayoutMode(v === "canvas" || v === "tabs" || v === "web" ? v : "widgets");
                         setValues({ "app:layoutmode": v });
                     }}
                     options={[
                         { value: "widgets", label: "Widgets" },
                         { value: "tabs", label: "Widget tabs" },
                         { value: "canvas", label: "Canvas" },
-                    ]}
-                />
-                <SelectSetting
-                    title="Browser Tab Placement"
-                    description="Show browser widget tabs above the page or as a left-side tab rail."
-                    value={browserTabStripPosition}
-                    onChange={(v) => setValues({ "web:tabstripposition": v })}
-                    options={[
-                        { value: "top", label: "Top" },
-                        { value: "left", label: "Left Rail" },
+                        { value: "web", label: "Web" },
                     ]}
                 />
                 <ToggleSetting

@@ -1,5 +1,4 @@
 import { execFileSync, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -20,13 +19,6 @@ type ListedBlock = {
 type RecentWebOpen = {
     blockId: string;
     timestamp: number;
-};
-
-type BrowserTab = {
-    id: string;
-    url: string;
-    title?: string;
-    [key: string]: unknown;
 };
 
 type SurfaceCapability = {
@@ -92,33 +84,6 @@ const RefusedBrowserHosts = new Set(["example.cpm"]);
 
 export function makeWshBlockRef(blockId: string): string {
     return blockId.startsWith("block:") ? blockId : `block:${blockId}`;
-}
-
-export function makeBrowserTabMeta(block: ListedBlock, url: string, newTabId: string): Record<string, string> {
-    const rawTabs = block.meta?.["web:tabs"];
-    const activeTabId = typeof block.meta?.["web:activetabid"] === "string" ? block.meta["web:activetabid"] : "";
-    const tabs = Array.isArray(rawTabs)
-        ? rawTabs.filter(
-              (tab): tab is BrowserTab =>
-                  tab != null &&
-                  typeof tab === "object" &&
-                  typeof (tab as BrowserTab).id === "string" &&
-                  typeof (tab as BrowserTab).url === "string"
-          )
-        : [];
-    const legacyUrl = typeof block.meta?.url === "string" ? block.meta.url : "";
-    const existingTabs =
-        tabs.length > 0
-            ? tabs
-            : legacyUrl
-              ? [{ id: activeTabId || `${newTabId}-previous`, url: legacyUrl, title: legacyUrl }]
-              : [];
-    const nextTabs = [...existingTabs, { id: newTabId, url, title: url }];
-    return {
-        url,
-        "web:tabs": JSON.stringify(nextTabs),
-        "web:activetabid": newTabId,
-    };
 }
 
 export function makeSandboxArgs(sessionId: string, command: string): string[] {
@@ -523,6 +488,9 @@ export class WshBridge {
         return this.setBlockMeta(blockId, { url });
     }
 
+    /** Browser widgets hold a single page; "opening a tab" navigates the
+     *  widget in place. Kept as a distinct entry point so agent flows that
+     *  ask for a second tab keep working against the current page. */
     async openWebTab(url: string, blockId?: string): Promise<string> {
         const normalizedUrl = this.normalizeBrowserUrl(url);
         const browserBlock = await this.findBrowserBlock(blockId);
@@ -536,10 +504,10 @@ export class WshBridge {
         if (!browserBlockId) {
             throw new Error("browser block is missing its block ID");
         }
-        await this.setBlockMeta(browserBlockId, makeBrowserTabMeta(browserBlock, normalizedUrl, randomUUID()));
+        await this.setBlockMeta(browserBlockId, { url: normalizedUrl });
         await this.focusBlock(browserBlockId).catch(() => undefined);
         this.recentWebOpens.set(normalizedUrl, { blockId: browserBlockId, timestamp: Date.now() });
-        return `opened browser tab in block:${browserBlockId}`;
+        return `navigated browser block:block:${browserBlockId} to ${normalizedUrl}`;
     }
 
     async browserGetHtml(blockId: string, selector: string, inner?: boolean, all?: boolean): Promise<string> {

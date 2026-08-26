@@ -1350,9 +1350,9 @@ server.tool(
 
 server.tool(
     "browser_open_tab",
-    "Open a URL as a new tab inside an existing KronTerm browser widget, preferring the focused browser. If no browser widget exists, create the first one. Use this instead of creating another browser widget when the current page must remain available.",
+    "Navigate an existing KronTerm browser widget to a URL in place — browser widgets hold exactly one page, so this replaces the current page rather than adding a tab. Kept as a compatibility alias of browser_navigate; prefers the focused browser and falls back to opening a new widget only when none exists.",
     {
-        url: z.string().url().describe("URL to open in a new browser tab"),
+        url: z.string().url().describe("URL to navigate the browser widget to"),
         blockId: z.string().optional().describe("Existing browser block ID; defaults to the focused browser widget"),
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
@@ -1360,6 +1360,34 @@ server.tool(
         try {
             const result = await wsh.openWebTab(url, blockId);
             return { content: [{ type: "text", text: result }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "browser_configure",
+    "Configure a KronTerm browser widget's behavior by setting one or more of its supported meta keys: web:zoom (number as string), web:partition (session isolation key), web:useragent (default | mobile:iphone | mobile:android), pinnedurl (homepage lock), url (navigate). Changing useragent or partition reloads the page.",
+    {
+        blockId: z.string().describe("Web block ID"),
+        zoom: z.string().optional().describe('Zoom factor, e.g. "1.25"'),
+        partition: z.string().optional().describe("Session partition key for cookie isolation"),
+        userAgentType: z.enum(["default", "mobile:iphone", "mobile:android"]).optional(),
+        pinnedUrl: z.string().optional().describe("Pinned homepage URL; empty string clears it"),
+    },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    wrapActivity("browser_configure")(async ({ blockId, zoom, partition, userAgentType, pinnedUrl }) => {
+        try {
+            const meta: Record<string, string> = {};
+            if (zoom != null) meta["web:zoom"] = zoom;
+            if (partition != null) meta["web:partition"] = partition;
+            if (userAgentType != null) meta["web:useragenttype"] = userAgentType;
+            if (pinnedUrl != null) meta.pinnedurl = pinnedUrl;
+            if (Object.keys(meta).length === 0) {
+                return { content: [{ type: "text", text: "Error: nothing to configure" }], isError: true };
+            }
+            return { content: [{ type: "text", text: await wsh.setBlockMeta(blockId, meta) }] };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }
@@ -1889,10 +1917,7 @@ server.tool(
     "get_block_content",
     'Get the structured content and live state of any KronTerm block or widget as JSON (supported views: term, web, editor, preview, sandbox, waveai). Use "this" to target the current block.',
     {
-        blockId: z
-            .string()
-            .optional()
-            .describe('Block ID to inspect; omit or "this" targets the current block'),
+        blockId: z.string().optional().describe('Block ID to inspect; omit or "this" targets the current block'),
     },
     { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     wrapActivity("get_block_content")(async ({ blockId }) => {

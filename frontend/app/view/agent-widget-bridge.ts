@@ -5,7 +5,7 @@ import { globalStore } from "@/app/store/jotaiStore";
 import * as WOS from "@/app/store/wos";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
-import { requestTabsAgentCompanion } from "@/app/tab/tabs-agent-workspace";
+import { promoteTabsAgentCompanion, requestTabsAgentCompanion } from "@/app/tab/tabs-agent-workspace";
 import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { atoms, refocusNode } from "@/store/global";
 import {
@@ -120,29 +120,16 @@ export function listAgentWidgets(excludeBlockId?: string): AgentWidgetDescriptor
         }
         const title = String(block?.meta?.["frame:title"] ?? "").trim() || view;
         const activity = activityByBlockId.get(blockId);
-        const rawTabs = block?.meta?.["web:tabs"];
-        const activeTabId = String(
-            block?.meta?.["web:activetabid"] ?? (Array.isArray(rawTabs) ? rawTabs[0]?.id : "") ?? ""
-        );
         const browserTabs =
             view === "web"
-                ? (Array.isArray(rawTabs) && rawTabs.length > 0
-                      ? rawTabs
-                      : [
-                            {
-                                id: activeTabId || `${blockId}:active`,
-                                title: block?.meta?.["frame:title"],
-                                url: block?.meta?.url,
-                            },
-                        ]
-                  )
-                      .map((tab) => ({
-                          id: String(tab?.id ?? ""),
-                          title: String(tab?.title ?? tab?.url ?? "Browser tab"),
-                          url: String(tab?.url ?? ""),
-                          active: String(tab?.id ?? "") === activeTabId,
-                      }))
-                      .filter((tab) => tab.url)
+                ? [
+                      {
+                          id: `${blockId}:page`,
+                          title: String(block?.meta?.["web:title"] ?? block?.meta?.url ?? "Browser page"),
+                          url: String(block?.meta?.url ?? ""),
+                          active: true,
+                      },
+                  ].filter((tab) => tab.url)
                 : undefined;
         return [
             {
@@ -237,6 +224,19 @@ export function focusAgentWidget(blockId: string): { ok: boolean; error?: string
         return { ok: false, error: "widget-not-in-current-tab" };
     }
     requestTabsAgentCompanion(targetId);
+    refocusNode(targetId);
+    return { ok: true };
+}
+
+export function promoteAgentWidget(blockId: string): { ok: boolean; error?: string } {
+    const targetId = blockId.trim();
+    if (!targetId || targetId.length > 128) {
+        return { ok: false, error: "invalid-block-id" };
+    }
+    if (!listAgentWidgets().some((widget) => widget.id === targetId)) {
+        return { ok: false, error: "widget-not-in-current-tab" };
+    }
+    promoteTabsAgentCompanion(targetId);
     refocusNode(targetId);
     return { ok: true };
 }

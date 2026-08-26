@@ -33,7 +33,7 @@ function publishLayoutMode(mode: string) {
 function getStoredLayoutMode() {
     try {
         const mode = window.localStorage.getItem(LayoutModeStorageKey);
-        return mode === "canvas" || mode === "tabs" ? mode : "widgets";
+        return mode === "canvas" || mode === "tabs" || mode === "web" ? mode : "widgets";
     } catch {
         return "widgets";
     }
@@ -50,11 +50,12 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
     const [autoNameChats, setAutoNameChats] = useToggleField("waveai:autoname" as keyof SettingsType);
     const quickComposer = settings["app:quickcomposer"] ?? false;
     const settingsLayoutMode =
-        settings["app:layoutmode"] === "canvas" || settings["app:layoutmode"] === "tabs"
+        settings["app:layoutmode"] === "canvas" ||
+        settings["app:layoutmode"] === "tabs" ||
+        settings["app:layoutmode"] === "web"
             ? settings["app:layoutmode"]
             : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
-    const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
 
     const setValues = useCallback((values: Record<string, any>) => {
         void RpcApi.SetConfigCommand(TabRpcClient, values).catch((error) => {
@@ -217,23 +218,14 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
                     value={layoutMode}
                     onChange={(v) => {
                         publishLayoutMode(v);
-                        setLayoutMode(v === "canvas" || v === "tabs" ? v : "widgets");
+                        setLayoutMode(v === "canvas" || v === "tabs" || v === "web" ? v : "widgets");
                         setValues({ "app:layoutmode": v });
                     }}
                     options={[
                         { value: "widgets", label: "Widgets" },
                         { value: "tabs", label: "Widget tabs" },
                         { value: "canvas", label: "Canvas" },
-                    ]}
-                />
-                <SelectSetting
-                    title="Browser Tabs"
-                    description="Choose the browser widget tab strip placement."
-                    value={browserTabStripPosition}
-                    onChange={(v) => setValues({ "web:tabstripposition": v })}
-                    options={[
-                        { value: "top", label: "Top" },
-                        { value: "left", label: "Left Rail" },
+                        { value: "web", label: "Web" },
                     ]}
                 />
             </SettingsCard>
