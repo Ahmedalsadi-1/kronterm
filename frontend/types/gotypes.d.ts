@@ -1951,6 +1951,7 @@ declare global {
         "app:tabbar"?: string;
         "app:layoutmode"?: string;
         "app:quickcomposer"?: boolean;
+        "app:minimalui"?: boolean;
         "feature:waveappbuilder"?: boolean;
         "mcp:*"?: boolean;
         "mcp:enabled"?: boolean;

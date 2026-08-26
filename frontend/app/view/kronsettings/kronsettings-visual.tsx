@@ -68,6 +68,7 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());
     const [kronarchyMode, setKronarchyMode] = useState(() => getStoredKronarchyMode());
     const quickComposer = settings["app:quickcomposer"] ?? false;
+    const minimalUi = settings["app:minimalui"] ?? false;
     const browserTabStripPosition = settings["web:tabstripposition"] ?? "top";
     const telemetryEnabled = settings["telemetry:enabled"] ?? false;
 
@@ -142,6 +143,12 @@ const KronSettingsVisualContent = memo(({ model }: KronSettingsVisualContentProp
                     description="Remove the AI button from the interface."
                     checked={hideAIButton}
                     onChange={(v) => setValues({ "app:hideaibutton": v })}
+                />
+                <ToggleSetting
+                    title="Minimal Interface"
+                    description="Quiet chrome: fewer borders, flat surfaces, and content-first styling across the workspace."
+                    checked={minimalUi}
+                    onChange={(v) => setValues({ "app:minimalui": v })}
                 />
                 <SelectSetting
                     title="Workspace Layout"

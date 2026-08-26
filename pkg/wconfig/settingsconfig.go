@@ -133,6 +133,7 @@ type SettingsType struct {
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
 	AppLayoutMode                 string `json:"app:layoutmode,omitempty" jsonschema:"enum=widgets,enum=tabs,enum=canvas"`
 	AppQuickComposer              *bool  `json:"app:quickcomposer,omitempty"`
+	AppMinimalUi                  bool   `json:"app:minimalui,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
 

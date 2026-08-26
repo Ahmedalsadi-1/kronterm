@@ -20,6 +20,7 @@ const (
 	ConfigKey_AppTabBar                      = "app:tabbar"
 	ConfigKey_AppLayoutMode                  = "app:layoutmode"
 	ConfigKey_AppQuickComposer               = "app:quickcomposer"
+	ConfigKey_AppMinimalUi                   = "app:minimalui"
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 

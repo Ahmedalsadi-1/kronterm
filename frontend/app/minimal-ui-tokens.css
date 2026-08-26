@@ -1,0 +1,30 @@
+/* Copyright 2026, Command Line Inc. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * Token flattening for Minimal UI. !important is required: theme presets write
+ * these same custom properties as inline styles on <html>, and inline styles
+ * outrank any selector — without it the preset silently wins.
+ *
+ * Borders derive from --hermes-foreground so they stay visible in light mode
+ * and whisper-quiet in dark mode; surfaces collapse toward the background via
+ * color-mix so any preset palette keeps working.
+ */
+html.minimal-ui {
+    --hermes-border: rgb(from var(--hermes-foreground) r g b / 0.07) !important;
+    --hermes-input: rgb(from var(--hermes-foreground) r g b / 0.09) !important;
+    --hermes-sidebar-border: transparent !important;
+    --hermes-user-bubble-border: rgb(from var(--hermes-foreground) r g b / 0.06) !important;
+    --hermes-card: color-mix(in srgb, var(--hermes-background) 94%, var(--hermes-foreground) 6%) !important;
+    --hermes-muted: color-mix(in srgb, var(--hermes-background) 96%, var(--hermes-foreground) 4%) !important;
+    --hermes-secondary: color-mix(in srgb, var(--hermes-background) 95%, var(--hermes-foreground) 5%) !important;
+    --hermes-popover: color-mix(in srgb, var(--hermes-background) 91%, var(--hermes-foreground) 9%) !important;
+
+    /* Softer elevation: separation survives, heaviness does not */
+    --hermes-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.14) !important;
+    --hermes-shadow-md: 0 16px 48px rgb(0 0 0 / 0.2) !important;
+    --hermes-shadow-overlay: 0 24px 80px rgb(0 0 0 / 0.34) !important;
+
+    /* Blocks merge into one continuous surface, separated by hairlines + gaps */
+    --block-bg-color: rgb(from var(--main-bg-color) r g b / 0.88) !important;
+}

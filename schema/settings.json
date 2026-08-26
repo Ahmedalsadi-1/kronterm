@@ -247,6 +247,9 @@
         "app:quickcomposer": {
           "type": "boolean"
         },
+        "app:minimalui": {
+          "type": "boolean"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },

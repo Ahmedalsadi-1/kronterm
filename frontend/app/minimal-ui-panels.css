@@ -1,0 +1,30 @@
+/* Copyright 2026, Command Line Inc. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Minimal UI — panels and controls: buttons, forms, modals, scrollbars */
+
+/* ── Buttons: grey variants lose their boxes; accent stays for primary actions ── */
+.minimal-ui .wave-button,
+.minimal-ui button.wave-button {
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.minimal-ui .kron-settings-select,
+.minimal-ui .kron-settings-input {
+    border-color: rgb(from var(--border-color) r g b / 0.7);
+}
+
+/* ── Keybinding chips: quiet monochrome hints ── */
+.minimal-ui {
+    --keybinding-bg-color: transparent;
+    --keybinding-border-color: transparent;
+    --keybinding-color: var(--text-muted-color);
+}
+
+/* ── Scrollbars: thinner presence, brighter on approach ── */
+html.minimal-ui {
+    --scrollbar-thumb-color: rgba(255, 255, 255, 0.1);
+    --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.32);
+    --scrollbar-thumb-active-color: rgba(255, 255, 255, 0.45);
+}

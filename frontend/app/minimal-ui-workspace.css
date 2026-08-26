@@ -1,0 +1,169 @@
+/* Copyright 2026, Command Line Inc. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Minimal UI — workspace chrome: tab bar, tabs, sidebar, block frames, splitters */
+
+/* ── Top tab bar: one flat surface, no gradient/backdrop/edge treatment ── */
+.minimal-ui .tab-bar-wrapper {
+    backdrop-filter: none;
+    background: var(--main-bg-color);
+    border-bottom: 0;
+    border-image: none;
+    box-shadow: none;
+}
+
+.minimal-ui .pinned-tab-spacer {
+    border-color: rgb(from var(--accent-color) r g b / 0.18);
+}
+
+/* ── Tabs: active = full-strength text + whisper accent underline; nothing else ── */
+.minimal-ui .tab .tab-inner {
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.minimal-ui .tab .name {
+    text-shadow: none;
+}
+
+.minimal-ui .tab.active .tab-inner {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: inset 0 -2px 0 rgb(from var(--accent-color) r g b / 0.7);
+
+    &::after {
+        display: none;
+    }
+}
+
+/* ── Shell toolbar buttons: ghost controls, no boxes until hover ── */
+.minimal-ui .shell-toolbar-button {
+    border-color: transparent;
+    background: transparent;
+
+    &:hover {
+        background: var(--surface-hover-color);
+    }
+
+    &:active {
+        background: var(--surface-active-color);
+    }
+}
+
+.minimal-ui .shell-ai-button.is-active {
+    border-color: transparent;
+}
+
+/* ── Pills in the tab bar (projects, folded widgets, browser tabs): tint, not boxes ── */
+.minimal-ui .kronchat-project-pill,
+.minimal-ui .folded-widget-pill,
+.minimal-ui .browser-tab-pill {
+    border-color: transparent;
+    background: var(--surface-hover-color);
+
+    &:hover {
+        border-color: transparent;
+        background: var(--surface-active-color);
+    }
+}
+
+.minimal-ui .browser-tab-pill.is-active {
+    border-color: transparent;
+    background: rgb(from var(--accent-color) r g b / 0.12);
+}
+
+/* ── Left sidebar: continuous with the window, items text-first ── */
+.minimal-ui .vtab-navigation {
+    backdrop-filter: none;
+    background: var(--main-bg-color);
+    border-right: 0;
+}
+
+.minimal-ui .vtab-navigation-header {
+    border-bottom: 0;
+}
+
+.minimal-ui .vtab-item .vtab-item-active-surface {
+    border: 0;
+    background: var(--surface-hover-color);
+    box-shadow: inset 2px 0 0 var(--accent-color);
+}
+
+.minimal-ui .vtab-section-count {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted-color);
+}
+
+/* ── Widget tree under the sidebar: quieter rail, unboxed count, caption on hover ── */
+.minimal-ui .vtab-block-tree {
+    border-left-color: rgb(from var(--border-color) r g b / 0.5);
+    background: none;
+}
+
+.minimal-ui .vtab-block-tree-count {
+    border: 0;
+    background: transparent;
+}
+
+.minimal-ui .vtab-block-item-type,
+.minimal-ui .vtab-block-item-fold-icon {
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.minimal-ui .vtab-block-tree-header:hover,
+.minimal-ui .vtab-block-item:hover,
+.minimal-ui .vtab-block-tree-header:focus-visible,
+.minimal-ui .vtab-block-item:focus-visible,
+.minimal-ui .vtab-block-item.is-active {
+    .vtab-block-item-type,
+    .vtab-block-item-fold-icon {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .minimal-ui .vtab-block-item-type,
+    .minimal-ui .vtab-block-item-fold-icon {
+        transition: none;
+    }
+}
+
+/* ── Block frames: hairline separation, focus = stronger hairline, never a glow ──
+   The agent-widget-active rainbow glow is intentionally untouched: it signals a
+   live agent and must stay legible. */
+.minimal-ui .block-frame-default {
+    padding: 1px;
+
+    .block-frame-default-inner {
+        border-color: rgb(from var(--border-color) r g b / 0.45);
+        box-shadow: none;
+    }
+
+    &:focus-within .block-frame-default-inner {
+        border-color: rgb(from var(--accent-color) r g b / 0.4);
+        box-shadow: none;
+    }
+
+    &.block-preview.block-frame-default .block-frame-default-inner .block-frame-default-header {
+        background-color: transparent;
+    }
+}
+
+/* ── Block header: transparent band, unboxed identity chip ── */
+.minimal-ui .block-frame-default-header {
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.4);
+    background: transparent;
+}
+
+.minimal-ui .block-frame-surface-identity {
+    background: transparent;
+    padding-inline: 0;
+}
+
+/* ── Splitter between blocks: present only on approach ── */
+.minimal-ui .workspace-panel-resize-handle:hover,
+.minimal-ui .workspace-panel-resize-handle[data-resize-handle-state="drag"] {
+    background: rgb(from var(--accent-color) r g b / 0.18);
+}
