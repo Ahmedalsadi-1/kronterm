@@ -5,6 +5,8 @@
     "scripts": {
         "start": "remotion preview src/index.ts",
         "build": "remotion render src/index.ts KronTermOnboarding out/video.mp4",
+        "build:intro": "remotion render src/index.ts KronTermIntro out/kronterm-intro.mp4",
+        "still:intro": "remotion still src/index.ts KronTermIntro out/intro-frame.png",
         "build:field-guide": "remotion render src/index.ts KronTermFieldGuide out/kronterm-field-guide.mp4",
         "still": "remotion still src/index.ts KronTermOnboarding out/frame.png",
         "still:field-guide": "remotion still src/index.ts KronTermFieldGuide out/kronterm-field-guide-frame.png --frame=225",

@@ -19,6 +19,7 @@ import React, {
 import { DropTargetMonitor, XYCoord, useDrag, useDragLayer, useDrop } from "react-dnd";
 import { debounce, throttle } from "throttle-debounce";
 import { useDevicePixelRatio } from "use-device-pixel-ratio";
+import { shouldIncludeDragPreviewNode } from "./drag-preview";
 import { LayoutModel } from "./layoutModel";
 import { useNodeModel, useTileLayout } from "./layoutModelHooks";
 import "./tilelayout.scss";
@@ -264,11 +265,13 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
         const offsetX = (DragPreviewWidth * devicePixelRatio - DragPreviewWidth) / 2 + 10;
         const offsetY = (DragPreviewHeight * devicePixelRatio - DragPreviewHeight) / 2 + 10;
         if (previewRef.current) {
-            toPng(previewRef.current).then((url) => {
-                const img = new Image();
-                img.src = url;
-                dragPreview(img, { offsetY, offsetX });
-            });
+            void toPng(previewRef.current, { filter: shouldIncludeDragPreviewNode, skipFonts: true })
+                .then((url) => {
+                    const img = new Image();
+                    img.src = url;
+                    dragPreview(img, { offsetY, offsetX });
+                })
+                .catch(() => undefined);
         }
     }, [dragPreview, previewRef.current, devicePixelRatio]);
 

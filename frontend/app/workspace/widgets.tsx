@@ -67,7 +67,6 @@ const DefaultWidgetGroups: Record<string, { label: string; order: number }> = {
     browser: { label: "Browser", order: 1 },
     ai: { label: "AI", order: 2 },
     sandbox: { label: "Sandbox", order: 3 },
-    design: { label: "Design", order: 4 },
     apps: { label: "Apps", order: 5 },
     tools: { label: "Tools", order: 6 },
 };
@@ -77,7 +76,6 @@ const WidgetGroupColors: Record<string, string> = {
     browser: "#60a5fa",
     ai: "#e8c47c",
     sandbox: "#f472b6",
-    design: "#38bdf8",
     apps: "#a78bfa",
     tools: "#94a3b8",
 };
@@ -104,7 +102,6 @@ function widgetGroupKey(widget: WidgetConfigType): WidgetGroupKey {
     if (view === "term" || view === "vdom") return "terminal";
     if (view === "web") return "browser";
     if (view === "sandbox") return "sandbox";
-    if (view === "design") return "design";
     if (view === "waveai" || view === "kronoschat" || view === "chathubv2" || view === "waveconfig") return "ai";
     if (view === "tsunami") return "apps";
     return "tools";
@@ -376,7 +373,7 @@ const AppsFloatingWindow = memo(
                     <img
                         src={icon}
                         alt=""
-                        className="h-8 w-8 rounded-lg object-contain"
+                        className="widget-app-launcher-image"
                         onError={(e) => {
                             e.currentTarget.style.display = "none";
                         }}
@@ -424,37 +421,39 @@ const AppsFloatingWindow = memo(
                     ref={refs.setFloating}
                     style={floatingStyles}
                     {...getFloatingProps()}
-                    className="bg-modalbg border border-border rounded-xl shadow-xl z-50 overflow-hidden min-w-[360px]"
+                    className="widget-app-launcher"
+                    role="dialog"
+                    aria-label="App launcher"
                 >
-                    <div className="border-b border-border/70 p-3">
-                        <div className="flex items-center gap-2 rounded-lg border border-border bg-black/20 px-3 py-2">
-                            <i className="fa-solid fa-magnifying-glass text-muted text-xs" />
+                    <div className="widget-app-launcher-header">
+                        <label className="widget-app-launcher-search">
+                            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder="Search apps, desktop streams, tools..."
-                                className="min-w-0 flex-1 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
+                                aria-label="Search apps"
+                                autoFocus
                             />
-                        </div>
+                        </label>
                     </div>
-                    <div className="p-4">
+                    <div className="widget-app-launcher-body">
                         {loading ? (
-                            <div className="flex items-center justify-center p-8">
-                                <i className="fa fa-solid fa-spinner fa-spin text-2xl text-muted"></i>
+                            <div className="widget-app-launcher-loading" role="status">
+                                <i className="fa fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                                <span>Loading apps</span>
                             </div>
                         ) : apps.length === 0 && desktopApps.length === 0 ? (
-                            <div className="text-muted text-sm p-4 text-center">No desktop apps found</div>
+                            <div className="widget-app-launcher-empty">No desktop apps found</div>
                         ) : filteredApps.length === 0 && filteredDesktopApps.length === 0 ? (
-                            <div className="text-muted text-sm p-4 text-center">No apps match “{query}”</div>
+                            <div className="widget-app-launcher-empty">No apps match “{query}”</div>
                         ) : (
-                            <div className="max-h-[65vh] overflow-y-auto">
+                            <div className="widget-app-launcher-scroll">
                                 {!normalizedQuery && recentLaunchables.length > 0 ? (
                                     <>
-                                        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                            Recent
-                                        </div>
+                                        <div className="widget-app-launcher-heading">Recent</div>
                                         <div
-                                            className="grid gap-3 mb-4"
+                                            className="widget-app-launcher-grid"
                                             style={{
                                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                                                 maxWidth: `${gridSize * 88}px`,
@@ -467,7 +466,7 @@ const AppsFloatingWindow = memo(
                                                     <button
                                                         type="button"
                                                         key={item.id}
-                                                        className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                        className="widget-app-launcher-item"
                                                         title={item.label}
                                                         onClick={() =>
                                                             item.kind === "desktop"
@@ -475,14 +474,14 @@ const AppsFloatingWindow = memo(
                                                                 : launchWaveApp(item.app as LauncherAppInfo)
                                                         }
                                                     >
-                                                        <div className="text-3xl mb-1 text-accent">
+                                                        <div className="widget-app-launcher-icon">
                                                             {renderIcon(
                                                                 app.icon || app.manifest?.appmeta?.icon,
                                                                 "cube",
                                                                 app.manifest?.appmeta?.iconcolor
                                                             )}
                                                         </div>
-                                                        <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                        <div className="widget-app-launcher-label">
                                                             {item.label}
                                                         </div>
                                                     </button>
@@ -493,11 +492,9 @@ const AppsFloatingWindow = memo(
                                 ) : null}
                                 {filteredDesktopApps.length > 0 ? (
                                     <>
-                                        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                            Desktop Apps
-                                        </div>
+                                        <div className="widget-app-launcher-heading">Desktop Apps</div>
                                         <div
-                                            className="grid gap-3"
+                                            className="widget-app-launcher-grid"
                                             style={{
                                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                                                 maxWidth: `${gridSize * 88}px`,
@@ -507,14 +504,14 @@ const AppsFloatingWindow = memo(
                                                 <button
                                                     type="button"
                                                     key={app.appid}
-                                                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                    className="widget-app-launcher-item"
                                                     title={`Stream ${app.name} in KronTerm`}
                                                     onClick={() => launchDesktopApp(app)}
                                                 >
-                                                    <div className="text-3xl mb-1 text-accent">
+                                                    <div className="widget-app-launcher-icon">
                                                         {renderIcon(app.icon, "cube")}
                                                     </div>
-                                                    <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                    <div className="widget-app-launcher-label">
                                                         {app.name}
                                                     </div>
                                                 </button>
@@ -524,11 +521,9 @@ const AppsFloatingWindow = memo(
                                 ) : null}
                                 {filteredApps.length > 0 ? (
                                     <>
-                                        <div className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                                            WaveApps
-                                        </div>
+                                        <div className="widget-app-launcher-heading">WaveApps</div>
                                         <div
-                                            className="grid gap-3"
+                                            className="widget-app-launcher-grid"
                                             style={{
                                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                                                 maxWidth: `${gridSize * 88}px`,
@@ -541,18 +536,19 @@ const AppsFloatingWindow = memo(
                                                 const iconColor = appMeta?.iconcolor || "white";
 
                                                 return (
-                                                    <div
+                                                    <button
+                                                        type="button"
                                                         key={app.appid}
-                                                        className="flex flex-col items-center justify-center p-2 rounded-lg border border-transparent hover:border-border hover:bg-hoverbg cursor-pointer transition-colors"
+                                                        className="widget-app-launcher-item"
                                                         onClick={() => launchWaveApp(app)}
                                                     >
-                                                        <div style={{ color: iconColor }} className="text-3xl mb-1">
+                                                        <div style={{ color: iconColor }} className="widget-app-launcher-icon">
                                                             {renderIcon(icon, "cube", iconColor)}
                                                         </div>
-                                                        <div className="text-xxs text-center text-secondary break-words w-full px-1">
+                                                        <div className="widget-app-launcher-label">
                                                             {displayName}
                                                         </div>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
@@ -563,10 +559,10 @@ const AppsFloatingWindow = memo(
                     </div>
                     <button
                         type="button"
-                        className="w-full px-4 py-2 border-t border-border text-xs text-secondary text-center hover:bg-hoverbg hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-2"
+                        className="widget-app-launcher-footer"
                         onClick={handleOpenBuilder}
                     >
-                        <i className="fa fa-solid fa-hammer"></i>
+                        <i className="fa fa-solid fa-hammer" aria-hidden="true"></i>
                         Build/Edit Apps
                     </button>
                 </div>
@@ -665,22 +661,29 @@ const SettingsFloatingWindow = memo(
                     ref={refs.setFloating}
                     style={floatingStyles}
                     {...getFloatingProps()}
-                    className="bg-modalbg border border-border rounded-lg shadow-xl p-2 z-50"
+                    className="widget-settings-menu"
+                    role="menu"
+                    aria-label="Settings and help"
                 >
                     {menuItems.map((item, idx) => (
-                        <div
+                        <button
+                            type="button"
                             key={idx}
-                            className="flex items-center gap-3 px-3 py-2 rounded hover:bg-hoverbg cursor-pointer transition-colors text-secondary hover:text-white"
+                            className="widget-settings-menu-item"
                             onClick={item.onClick}
+                            role="menuitem"
                         >
-                            <div className="text-lg w-5 flex justify-center">
+                            <span className="widget-settings-menu-icon" aria-hidden="true">
                                 <i className={makeIconClass(item.icon, false)}></i>
-                            </div>
-                            <div className="text-sm whitespace-nowrap">{item.label}</div>
+                            </span>
+                            <span>{item.label}</span>
                             {item.hasError && (
-                                <i className="fa fa-solid fa-circle-exclamation text-error text-[14px] ml-auto"></i>
+                                <i
+                                    className="fa fa-solid fa-circle-exclamation widget-settings-menu-error"
+                                    aria-label="Configuration error"
+                                ></i>
                             )}
-                        </div>
+                        </button>
                     ))}
                 </div>
             </FloatingPortal>

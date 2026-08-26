@@ -481,6 +481,40 @@ function makeThemePreset(source: ThemeSource): ThemePreset {
         label,
         mode,
         colors: {
+            "--hermes-background": darkBackground,
+            "--hermes-foreground": foreground,
+            "--hermes-card": background,
+            "--hermes-card-foreground": foreground,
+            "--hermes-muted": lighterBackground,
+            "--hermes-muted-foreground": darkForeground,
+            "--hermes-popover": lighterBackground,
+            "--hermes-popover-foreground": foreground,
+            "--hermes-primary": accent,
+            "--hermes-primary-foreground": darkBackground,
+            "--hermes-secondary": lighterBackground,
+            "--hermes-secondary-foreground": foreground,
+            "--hermes-accent": selection,
+            "--hermes-accent-foreground": foreground,
+            "--hermes-border": muted,
+            "--hermes-input": muted,
+            "--hermes-ring": accent,
+            "--hermes-midground": accent,
+            "--hermes-composer-ring": accent,
+            "--hermes-sidebar": darkBackground,
+            "--hermes-sidebar-foreground": foreground,
+            "--hermes-sidebar-border": muted,
+            "--hermes-user-bubble": lighterBackground,
+            "--hermes-user-bubble-border": selection,
+            "--hermes-destructive": red,
+            "--hermes-destructive-foreground": darkBackground,
+            "--hermes-warning": yellow,
+            "--hermes-warning-foreground": darkBackground,
+            "--hermes-success": green,
+            "--hermes-success-foreground": darkBackground,
+            "--hermes-interactive-hover": selection,
+            "--hermes-interactive-active": muted,
+            "--hermes-interactive-selection": selection,
+            "--hermes-interactive-selection-foreground": foreground,
             "--accent-color": accent,
             "accent-rgb": toRgbChannels(accent),
             "--main-text-color": foreground,
@@ -565,12 +599,22 @@ function resetThemeToDefault(): void {
 
 function applyCustomAccent(r: number, g: number, b: number): void {
     const root = document.documentElement;
-    root.style.setProperty("--accent-color", `rgb(${r}, ${g}, ${b})`);
+    const accent = `rgb(${r}, ${g}, ${b})`;
+    const accentSoft = `rgba(${r}, ${g}, ${b}, 0.16)`;
+    const accentRing = `rgba(${r}, ${g}, ${b}, 0.72)`;
+
+    root.style.setProperty("--hermes-primary", accent);
+    root.style.setProperty("--hermes-accent", accentSoft);
+    root.style.setProperty("--hermes-ring", accentRing);
+    root.style.setProperty("--hermes-midground", accent);
+    root.style.setProperty("--hermes-composer-ring", accent);
+    root.style.setProperty("--hermes-interactive-selection", accentSoft);
+    root.style.setProperty("--accent-color", accent);
     root.style.setProperty("accent-rgb", `${r}, ${g}, ${b}`);
-    root.style.setProperty("--surface-selected-color", `rgba(${r}, ${g}, ${b}, 0.16)`);
-    root.style.setProperty("--focus-ring-color", `rgba(${r}, ${g}, ${b}, 0.72)`);
-    root.style.setProperty("--tab-green", `rgb(${r}, ${g}, ${b})`);
-    root.style.setProperty("--toggle-checked-bg-color", `rgb(${r}, ${g}, ${b})`);
+    root.style.setProperty("--surface-selected-color", accentSoft);
+    root.style.setProperty("--focus-ring-color", accentRing);
+    root.style.setProperty("--tab-green", accent);
+    root.style.setProperty("--toggle-checked-bg-color", accent);
 }
 
 export {

@@ -4,6 +4,7 @@
 import { Block } from "@/app/block/block";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { WebModeView } from "@/app/workspace/web-mode";
 import { Widgets } from "@/app/workspace/widgets";
 import { CenteredDiv } from "@/element/quickelems";
 import { TileLayout } from "@/layout/lib/TileLayout";
@@ -429,6 +430,7 @@ const TabContent = React.memo(
 
         useEffect(() => {
             (window as any).__krontermLayoutMode = layoutMode;
+            window.dispatchEvent(new CustomEvent(LayoutModeChangedEvent, { detail: { mode: layoutMode } }));
             console.info("[KronTerm] layout mode", layoutMode);
         }, [layoutMode]);
 
@@ -483,6 +485,8 @@ const TabContent = React.memo(
             innerContent = <CenteredDiv>Tab Loading</CenteredDiv>;
         } else if (!tabData) {
             innerContent = <CenteredDiv>Tab Not Found</CenteredDiv>;
+        } else if (layoutMode === "web") {
+            innerContent = <WebModeView key={`web-${tabId}`} />;
         } else if (layoutMode === "canvas") {
             innerContent = <WorkspaceCanvas key={`canvas-${tabId}`} tabId={tabId} tabData={tabData} />;
         } else if (tabData?.blockids?.length == 0) {

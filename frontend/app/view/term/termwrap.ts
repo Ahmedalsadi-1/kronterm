@@ -3,6 +3,7 @@
 
 import type { BlockNodeModel } from "@/app/block/blocktypes";
 import { setBadge } from "@/app/store/badge";
+import { modalsModel } from "@/app/store/modalmodel";
 import { getFileSubject } from "@/app/store/wps";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -27,7 +28,9 @@ import * as TermTypes from "@xterm/xterm";
 import { Terminal } from "@xterm/xterm";
 import debug from "debug";
 import * as jotai from "jotai";
+import React from "react";
 import { debounce } from "throttle-debounce";
+import { isControllerInputUnavailableError } from "./controller-errors";
 import { FitAddon } from "./fitaddon";
 import { FocusReportModeGuard } from "./focusreportguard";
 import {
@@ -44,9 +47,6 @@ import {
     isDangerousCommand,
     normalizeCursorStyle,
 } from "./termutil";
-import { modalsModel } from "@/app/store/modalmodel";
-import { MessageModal } from "@/app/modals/messagemodal";
-import React from "react";
 
 const dlog = debug("wave:termwrap");
 
@@ -659,8 +659,7 @@ export class TermWrap {
             );
             void RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize }).catch(
                 (error) => {
-                    const message = error instanceof Error ? error.message : String(error);
-                    if (message.includes("no controller found for block")) {
+                    if (isControllerInputUnavailableError(error)) {
                         return;
                     }
                     console.error("[termwrap] resize controller update failed", error);
@@ -728,9 +727,21 @@ export class TermWrap {
                             children: React.createElement(
                                 "div",
                                 null,
-                                React.createElement("h2", { className: "text-red-500 font-bold mb-2" }, "⚠️ Dangerous Command Detected"),
-                                React.createElement("p", { className: "mb-4" }, "The text you are about to paste contains potentially destructive commands:"),
-                                React.createElement("pre", { className: "bg-black/20 p-2 rounded mb-4 overflow-x-auto" }, cleanedText),
+                                React.createElement(
+                                    "h2",
+                                    { className: "text-red-500 font-bold mb-2" },
+                                    "⚠️ Dangerous Command Detected"
+                                ),
+                                React.createElement(
+                                    "p",
+                                    { className: "mb-4" },
+                                    "The text you are about to paste contains potentially destructive commands:"
+                                ),
+                                React.createElement(
+                                    "pre",
+                                    { className: "bg-black/20 p-2 rounded mb-4 overflow-x-auto" },
+                                    cleanedText
+                                ),
                                 React.createElement("p", null, "Are you sure you want to proceed?")
                             ),
                         });

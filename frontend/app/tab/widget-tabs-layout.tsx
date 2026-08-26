@@ -19,11 +19,17 @@ import {
 } from "../../types/agent-activity";
 import {
     isAgentChatView,
+    TabsAgentCompanionPromoteEvent,
     TabsAgentCompanionRequestEvent,
     type TabsAgentCompanionRequest,
 } from "./tabs-agent-workspace";
 import { WidgetPickerPopover } from "./widget-picker-popover";
-import { getWidgetFocusAfterClose, getWidgetTabCloseAccessibility, moveWidgetTab } from "./widget-tabs-layout-utils";
+import {
+    getVisibleWidgetPaneIds,
+    getWidgetFocusAfterClose,
+    getWidgetTabCloseAccessibility,
+    moveWidgetTab,
+} from "./widget-tabs-layout-utils";
 import "./widget-tabs-layout.scss";
 
 interface WidgetTabsLayoutProps {
@@ -254,10 +260,21 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
     const [dropDirection, setDropDirection] = useState<DropDirection | null>(null);
     const [workbenchPair, setWorkbenchPair] = useState<AgentWorkbenchPair | null>(null);
-    const [workbenchWidth, setWorkbenchWidth] = useState(42);
+    const [workbenchWidth, setWorkbenchWidth] = useState(40);
     const [recentActivity, setRecentActivity] = useState<LiveAgentSurfaceActivity[]>([]);
+    const initializedWorkbenchRef = useRef(false);
     nodesRef.current = orderedNodes;
     activeNodeIdRef.current = activeNode?.id;
+
+    const visibleTabNodes = useMemo(
+        () => (workbenchPair ? orderedNodes.filter((node) => node.id !== workbenchPair.companionNodeId) : orderedNodes),
+        [orderedNodes, workbenchPair]
+    );
+    const selectedTabNodeId = workbenchPair?.agentNodeId ?? activeNode?.id;
+    const mountedPaneIds = useMemo(
+        () => getVisibleWidgetPaneIds(activeNode?.id, workbenchPair),
+        [activeNode?.id, workbenchPair]
+    );
 
     const nodeByBlockId = useCallback((blockId: string) => {
         return nodesRef.current.find((node) => node.data?.blockId === blockId);
@@ -287,6 +304,22 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
     useEffect(() => {
         setReady(true);
     }, [setReady]);
+
+    useEffect(() => {
+        if (initializedWorkbenchRef.current) {
+            return;
+        }
+        const agentNode = orderedNodes.find((node) => isAgentChatView(readNodeView(node)));
+        const companionNode =
+            orderedNodes.find((node) => node.id !== agentNode?.id && readNodeView(node) === "web") ??
+            orderedNodes.find((node) => node.id !== agentNode?.id && !isAgentChatView(readNodeView(node)));
+        if (!agentNode || !companionNode) {
+            return;
+        }
+        initializedWorkbenchRef.current = true;
+        setWorkbenchPair({ agentNodeId: agentNode.id, companionNodeId: companionNode.id });
+        layoutModel.focusNode(agentNode.id);
+    }, [layoutModel, orderedNodes]);
 
     useEffect(() => {
         const handleCompanionRequest = (event: Event) => {
@@ -386,6 +419,21 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
         [layoutModel, workbenchPair]
     );
 
+    useEffect(() => {
+        const handleCompanionPromote = (event: Event) => {
+            const blockId = (event as CustomEvent<TabsAgentCompanionRequest>).detail?.blockId;
+            const companionNode = blockId ? nodeByBlockId(blockId) : undefined;
+            if (!companionNode) {
+                return;
+            }
+            setWorkbenchPair(null);
+            setRecentActivity([]);
+            focusNode(companionNode);
+        };
+        window.addEventListener(TabsAgentCompanionPromoteEvent, handleCompanionPromote);
+        return () => window.removeEventListener(TabsAgentCompanionPromoteEvent, handleCompanionPromote);
+    }, [focusNode, nodeByBlockId]);
+
     const closeNode = useCallback(
         (nodeId: string) => {
             const nodes = nodesRef.current;
@@ -400,13 +448,13 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
 
     const focusByIndex = useCallback(
         (index: number) => {
-            if (orderedNodes.length === 0) {
+            if (visibleTabNodes.length === 0) {
                 return;
             }
-            const normalizedIndex = (index + orderedNodes.length) % orderedNodes.length;
-            focusNode(orderedNodes[normalizedIndex]);
+            const normalizedIndex = (index + visibleTabNodes.length) % visibleTabNodes.length;
+            focusNode(visibleTabNodes[normalizedIndex]);
         },
-        [focusNode, orderedNodes]
+        [focusNode, visibleTabNodes]
     );
 
     const splitDraggedNode = useCallback(
@@ -438,11 +486,11 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
                     aria-label="Widgets in this workspace tab"
                     aria-orientation="horizontal"
                 >
-                    {orderedNodes.map((node, index) => (
+                    {visibleTabNodes.map((node, index) => (
                         <WidgetTab
                             key={node.id}
                             node={node}
-                            active={node.id === activeNode?.id}
+                            active={node.id === selectedTabNodeId}
                             onSelect={() => focusNode(node)}
                             onClose={() => closeNode(node.id)}
                             onDragStart={(event) => {
@@ -467,7 +515,7 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
                                     focusByIndex(0);
                                 } else if (event.key === "End") {
                                     event.preventDefault();
-                                    focusByIndex(orderedNodes.length - 1);
+                                    focusByIndex(visibleTabNodes.length - 1);
                                 }
                             }}
                         />
@@ -529,36 +577,38 @@ const WidgetTabsLayout = memo(({ tabAtom, contents }: WidgetTabsLayoutProps) => 
                         ))}
                     </div>
                 )}
-                {orderedNodes.map((node) => (
-                    <WidgetTabPane
-                        key={node.id}
-                        node={node}
-                        active={node.id === activeNode?.id}
-                        layoutModel={layoutModel}
-                        onClose={closeNode}
-                        workbenchRole={
-                            node.id === workbenchPair?.agentNodeId
-                                ? "agent"
-                                : node.id === workbenchPair?.companionNodeId
-                                  ? "companion"
-                                  : undefined
-                        }
-                        recentActivity={node.id === workbenchPair?.companionNodeId ? recentActivity : []}
-                        onExpandCompanion={() => {
-                            setWorkbenchPair(null);
-                            setRecentActivity([]);
-                            focusNode(node);
-                        }}
-                        onReturnToAgent={() => {
-                            const agentNode = orderedNodes.find((entry) => entry.id === workbenchPair?.agentNodeId);
-                            setWorkbenchPair(null);
-                            setRecentActivity([]);
-                            if (agentNode) {
-                                focusNode(agentNode);
+                {orderedNodes
+                    .filter((node) => mountedPaneIds.has(node.id))
+                    .map((node) => (
+                        <WidgetTabPane
+                            key={node.id}
+                            node={node}
+                            active={node.id === activeNode?.id}
+                            layoutModel={layoutModel}
+                            onClose={closeNode}
+                            workbenchRole={
+                                node.id === workbenchPair?.agentNodeId
+                                    ? "agent"
+                                    : node.id === workbenchPair?.companionNodeId
+                                      ? "companion"
+                                      : undefined
                             }
-                        }}
-                    />
-                ))}
+                            recentActivity={node.id === workbenchPair?.companionNodeId ? recentActivity : []}
+                            onExpandCompanion={() => {
+                                setWorkbenchPair(null);
+                                setRecentActivity([]);
+                                focusNode(node);
+                            }}
+                            onReturnToAgent={() => {
+                                const agentNode = orderedNodes.find((entry) => entry.id === workbenchPair?.agentNodeId);
+                                setWorkbenchPair(null);
+                                setRecentActivity([]);
+                                if (agentNode) {
+                                    focusNode(agentNode);
+                                }
+                            }}
+                        />
+                    ))}
                 {workbenchPair && (
                     <div
                         className="widget-agent-workbench-resizer"

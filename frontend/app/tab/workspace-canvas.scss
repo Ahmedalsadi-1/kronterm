@@ -2,24 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
 .workspace-canvas {
-    --canvas-accent: #c8d155;
-    --canvas-accent-soft: rgba(200, 209, 85, 0.18);
-    --canvas-panel: rgba(16, 18, 22, 0.9);
-    --canvas-panel-strong: rgba(11, 13, 16, 0.97);
-    --canvas-border: rgba(255, 255, 255, 0.12);
+    --canvas-accent: var(--hermes-midground);
+    --canvas-accent-soft: color-mix(in srgb, var(--hermes-midground) 18%, transparent);
+    --canvas-panel: color-mix(in srgb, var(--hermes-card) 90%, transparent);
+    --canvas-panel-strong: color-mix(in srgb, var(--hermes-background) 97%, transparent);
+    --canvas-border: var(--hermes-border);
     position: relative;
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    color: rgba(244, 246, 247, 0.9);
+    color: var(--hermes-foreground);
     background:
-        radial-gradient(circle at 18% 12%, rgba(86, 94, 102, 0.18), transparent 34rem),
-        radial-gradient(circle at 82% 86%, rgba(36, 43, 48, 0.22), transparent 42rem), #17191b;
+        radial-gradient(
+            circle at 18% 12%,
+            color-mix(in srgb, var(--hermes-midground) 10%, transparent),
+            transparent 34rem
+        ),
+        radial-gradient(circle at 82% 86%, color-mix(in srgb, var(--hermes-card) 42%, transparent), transparent 42rem),
+        var(--hermes-background);
     outline: none;
     touch-action: none;
     user-select: none;
+
+    &:focus-visible {
+        box-shadow: inset 0 0 0 2px var(--canvas-accent-soft);
+    }
 
     button,
     input,
@@ -54,19 +63,29 @@
     }
 }
 
+.workspace-canvas-accessibility-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .workspace-canvas-grid {
     position: absolute;
     inset: 0;
     pointer-events: none;
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        radial-gradient(circle, rgba(255, 255, 255, 0.13) 1px, transparent 1.4px);
+        linear-gradient(color-mix(in srgb, var(--hermes-foreground) 2.5%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--hermes-foreground) 2.5%, transparent) 1px, transparent 1px),
+        radial-gradient(circle, color-mix(in srgb, var(--hermes-foreground) 11%, transparent) 1px, transparent 1.4px);
     background-size:
         96px 96px,
         96px 96px,
         24px 24px;
-    mask-image: linear-gradient(to bottom, transparent 0, black 90px, black calc(100% - 60px), transparent 100%);
+    opacity: 0.72;
 }
 
 .workspace-canvas-world {
@@ -656,33 +675,33 @@
     position: absolute;
     display: block;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 13px;
-    background: rgba(8, 10, 13, 0.94);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    border: 1px solid color-mix(in srgb, var(--hermes-border) 84%, transparent);
+    border-radius: var(--radius-lg, 12px);
+    background: color-mix(in srgb, var(--hermes-card) 96%, transparent);
+    box-shadow: var(--shadow-md, 0 20px 48px rgba(0, 0, 0, 0.34));
     transition:
         border-color 120ms ease,
         box-shadow 120ms ease;
 
     &.is-clustered:not(.is-selected) {
-        border-color: rgba(126, 159, 174, 0.5);
+        border-color: color-mix(in srgb, var(--hermes-muted-foreground) 48%, transparent);
         box-shadow:
-            0 0 0 1px rgba(126, 159, 174, 0.1),
-            0 24px 60px rgba(0, 0, 0, 0.4);
+            0 0 0 1px color-mix(in srgb, var(--hermes-muted-foreground) 10%, transparent),
+            var(--shadow-md, 0 20px 48px rgba(0, 0, 0, 0.34));
     }
 
     &.is-selected {
-        border-color: rgba(200, 209, 85, 0.7);
+        border-color: color-mix(in srgb, var(--canvas-accent) 70%, transparent);
         box-shadow:
-            0 0 0 2px rgba(200, 209, 85, 0.16),
-            0 24px 60px rgba(0, 0, 0, 0.46);
+            0 0 0 2px var(--canvas-accent-soft),
+            var(--shadow-md, 0 20px 48px rgba(0, 0, 0, 0.4));
     }
 
     &.is-context-selected {
-        border-color: rgba(200, 209, 85, 0.84);
+        border-color: color-mix(in srgb, var(--canvas-accent) 84%, transparent);
         box-shadow:
-            0 0 0 3px rgba(200, 209, 85, 0.14),
-            0 24px 60px rgba(0, 0, 0, 0.46);
+            0 0 0 3px var(--canvas-accent-soft),
+            var(--shadow-md, 0 20px 48px rgba(0, 0, 0, 0.4));
     }
 
     &.is-expanded {
@@ -710,7 +729,8 @@
     background: rgba(12, 15, 18, 0.88);
     box-shadow: 0 5px 12px rgba(0, 0, 0, 0.26);
     cursor: grab;
-    opacity: 0.58;
+    opacity: 0;
+    pointer-events: none;
     backdrop-filter: blur(12px);
     transform: translateX(-50%);
     transition:
@@ -731,6 +751,12 @@
         width: 15px;
         height: 15px;
     }
+}
+
+.workspace-canvas-node:hover .workspace-canvas-node-handle,
+.workspace-canvas-node.is-selected .workspace-canvas-node-handle {
+    opacity: 0.86;
+    pointer-events: auto;
 }
 
 .workspace-canvas-node.is-expanded .workspace-canvas-node-handle {
@@ -758,6 +784,19 @@
     border-bottom: 2px solid rgba(200, 209, 85, 0.72);
     background: transparent;
     cursor: nwse-resize;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.workspace-canvas-node:hover .workspace-canvas-node-resize,
+.workspace-canvas-node.is-selected .workspace-canvas-node-resize,
+.workspace-canvas-note.is-selected .workspace-canvas-object-resize,
+.workspace-canvas-shape.is-selected .workspace-canvas-object-resize,
+.workspace-canvas-agent-card.is-selected .workspace-canvas-object-resize,
+.workspace-canvas-agent-evidence.is-selected .workspace-canvas-object-resize {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .workspace-canvas-expanded-backdrop {
@@ -1049,9 +1088,15 @@
         animation: none;
     }
 
-    .workspace-canvas-agent-card {
+    .workspace-canvas-agent-card,
+    .workspace-canvas-node,
+    .workspace-canvas-node-handle,
+    .workspace-canvas-node-resize,
+    .workspace-canvas-object-resize {
         transition: none;
+    }
 
+    .workspace-canvas-agent-card {
         &:hover {
             transform: none;
         }
@@ -1749,26 +1794,22 @@
     gap: 8px;
     padding: 22px;
     border: 0;
-    color: rgba(44, 49, 54, 0.58);
+    color: var(--hermes-muted-foreground);
     background: transparent;
     text-align: center;
     transform: translate(-50%, -58%);
     pointer-events: none;
 
-    svg {
-        width: 22px;
-        height: 22px;
-        color: var(--canvas-accent);
-    }
-
     strong {
-        color: rgba(44, 49, 54, 0.82);
-        font-size: 13px;
+        color: var(--hermes-secondary-foreground);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
     }
 
     span {
         max-width: 300px;
-        font-size: 10px;
+        font-size: 11px;
         line-height: 1.5;
     }
 }

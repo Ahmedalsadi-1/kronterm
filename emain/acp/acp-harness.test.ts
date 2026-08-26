@@ -105,6 +105,7 @@ describe("KronTerm toolset registry", () => {
         const prompt = formatAcpCapabilityLease(lease);
         expect(prompt).toContain("Recommended toolsets");
         expect(prompt).toContain("In-app browser");
+        expect(prompt).toContain("browser_open_tab");
     });
 
     it("routes workspace-control requests to surface tool groups", () => {

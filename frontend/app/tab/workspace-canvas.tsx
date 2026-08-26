@@ -69,8 +69,10 @@ import {
 } from "./workspace-canvas-context";
 import {
     centerWorkspaceCanvasCamera,
+    decayWorkspaceCanvasVelocity,
     findDirectionalWorkspaceCanvasRect,
     findWorkspaceCanvasCluster,
+    shouldContinueWorkspaceCanvasMomentum,
     snapWorkspaceCanvasRect,
     workspaceCanvasEdgePanDelta,
     workspaceCanvasViewportRect,
@@ -97,6 +99,7 @@ const DefaultCamera: WorkspaceCanvasCamera = { x: 80, y: 70, zoom: 0.9 };
 const DefaultWidgetSize: WorkspaceCanvasSize = { width: 840, height: 540 };
 const DefaultNoteSize: WorkspaceCanvasSize = { width: 240, height: 176 };
 const CanvasSaveDelayMs = 180;
+const CanvasChromeEnabled = false;
 
 type WorkspaceCanvasTool = "select" | "hand" | "note" | "rectangle" | "ellipse" | "diamond" | "connector" | "draw";
 
@@ -135,7 +138,7 @@ function widgetMenuGroup(key: string, widget: WidgetConfigType): WidgetMenuGroup
     }
     if (
         key.startsWith("defwidget@") ||
-        ["term", "preview", "chathubv2", "waveai", "kronoschat", "design", "vdom"].includes(view)
+        ["term", "preview", "chathubv2", "waveai", "kronoschat", "vdom"].includes(view)
     ) {
         return "Work";
     }
@@ -146,7 +149,7 @@ function canvasSurfaceForView(view: string): CanvasComposerContextNode["surface"
     if (view === "web") {
         return "browser";
     }
-    if (view === "sandbox" || view === "installedapps" || view === "design") {
+    if (view === "sandbox" || view === "installedapps") {
         return "sandbox";
     }
     if (view === "term") {
@@ -257,6 +260,60 @@ function objectBounds(object: WorkspaceCanvasObject): WorkspaceCanvasRect {
         };
     }
     return normalizeObjectRect(object);
+}
+
+function translateCanvasObject(object: WorkspaceCanvasObject, delta: WorkspaceCanvasPoint): WorkspaceCanvasObject {
+    return {
+        ...object,
+        x: object.x + delta.x,
+        y: object.y + delta.y,
+        ...("points" in object && object.points
+            ? {
+                  points: object.points.map((point) => ({
+                      x: point.x + delta.x,
+                      y: point.y + delta.y,
+                  })),
+              }
+            : {}),
+    };
+}
+
+function canvasObjectLabel(object: WorkspaceCanvasObject): string {
+    if (object.kind === "agent") {
+        return `${object.agent.title}, ${object.agent.phase.replace("-", " ")}`;
+    }
+    if (object.kind === "note") {
+        return object.text?.trim() ? `Note: ${object.text.trim().slice(0, 72)}` : "Empty note";
+    }
+    if (object.kind === "draw") {
+        return "Freehand drawing";
+    }
+    if (object.kind === "connector") {
+        return "Connector";
+    }
+    return `${object.kind} ${object.text?.trim() || "shape"}`;
+}
+
+function sameComposerContextNodes(left: CanvasComposerContextNode[], right: CanvasComposerContextNode[]): boolean {
+    return (
+        left.length === right.length &&
+        left.every((node, index) => {
+            const candidate = right[index];
+            return (
+                candidate != null &&
+                node.id === candidate.id &&
+                node.action === candidate.action &&
+                node.blockid === candidate.blockid &&
+                node.detail === candidate.detail &&
+                node.phase === candidate.phase &&
+                node.previewimageurl === candidate.previewimageurl &&
+                node.surface === candidate.surface &&
+                node.title === candidate.title &&
+                node.verificationstatus === candidate.verificationstatus &&
+                (node.reasoningsteps ?? []).join("\n") === (candidate.reasoningsteps ?? []).join("\n")
+            );
+        })
+    );
 }
 
 const WorkspaceCanvasNode = memo(
@@ -996,6 +1053,7 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(tabData.blockids?.[0] ?? null);
     const selectedBlockIdRef = useRef(selectedBlockId);
     const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+    const selectedObjectIdRef = useRef(selectedObjectId);
     const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
     const [tool, setTool] = useState<WorkspaceCanvasTool>("select");
     const [widgetMenuOpen, setWidgetMenuOpen] = useState(false);
@@ -1009,18 +1067,26 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     );
     const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
     const [manualContextNodes, setManualContextNodes] = useState<CanvasComposerContextNode[]>([]);
+    const [reducedMotion, setReducedMotion] = useState(false);
     const cameraRef = useRef(camera);
     const rectsRef = useRef(rects);
     const objectsRef = useRef(objects);
     const bookmarksRef = useRef(bookmarks);
+    const selectedContextIdsRef = useRef(selectedContextIds);
+    const contextModeRef = useRef<"follow" | "quote">("follow");
+    const reducedMotionRef = useRef(reducedMotion);
     const homeReturnCameraRef = useRef<WorkspaceCanvasCamera | null>(null);
     const fittedRectRef = useRef<{ blockId: string; rect: WorkspaceCanvasRect } | null>(null);
     const mruBlockIdsRef = useRef<string[]>(tabData.blockids ?? []);
     const blockIds = tabData.blockids ?? [];
     const blockIdsKey = blockIds.join("|");
     selectedBlockIdRef.current = selectedBlockId;
+    selectedObjectIdRef.current = selectedObjectId;
+    selectedContextIdsRef.current = selectedContextIds;
+    reducedMotionRef.current = reducedMotion;
     bookmarksRef.current = bookmarks;
     const contextMode = composerContext.tabid === tabId ? composerContext.mode : "follow";
+    contextModeRef.current = contextMode;
     const totalContextCount = selectedContextIds.length + manualContextNodes.length;
 
     const latestBatchRun = useMemo(() => {
@@ -1115,6 +1181,14 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         persistCanvasState();
     }, [persistCanvasState]);
 
+    useEffect(() => {
+        const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const syncPreference = () => setReducedMotion(query.matches);
+        syncPreference();
+        query.addEventListener("change", syncPreference);
+        return () => query.removeEventListener("change", syncPreference);
+    }, []);
+
     const updateCamera = useCallback(
         (nextCamera: WorkspaceCanvasCamera, persist = true) => {
             const bounded = { ...nextCamera, zoom: clampCanvasZoom(nextCamera.zoom) };
@@ -1138,14 +1212,17 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
     const startCameraMomentum = useCallback(
         (velocity: WorkspaceCanvasPoint) => {
             cancelCameraMomentum();
+            if (!shouldContinueWorkspaceCanvasMomentum(velocity, reducedMotionRef.current)) {
+                schedulePersist();
+                return;
+            }
             let current = velocity;
             let previousTime = performance.now();
             const tick = (time: number) => {
                 const elapsed = Math.min(32, time - previousTime);
                 previousTime = time;
-                const decay = Math.pow(0.9, elapsed / 16.67);
-                current = { x: current.x * decay, y: current.y * decay };
-                if (Math.hypot(current.x, current.y) < 0.015) {
+                current = decayWorkspaceCanvasVelocity(current, elapsed);
+                if (!shouldContinueWorkspaceCanvasMomentum(current, reducedMotionRef.current)) {
                     momentumFrameRef.current = null;
                     schedulePersist();
                     return;
@@ -1206,18 +1283,26 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         const nodes = [...manualContextNodes, ...selectedCards].filter(
             (node, index, all) => all.findIndex((candidate) => candidate.id === node.id) === index
         );
-        setComposerContext((current) => ({
-            active: true,
-            mode: current.tabid === tabId ? current.mode : "follow",
-            nodes,
-            tabid: tabId,
-            viewport: viewportBounds
-                ? {
-                      left: viewportBounds.left,
-                      width: viewportBounds.width,
-                  }
-                : undefined,
-        }));
+        const viewport = viewportBounds
+            ? {
+                  left: viewportBounds.left,
+                  width: viewportBounds.width,
+              }
+            : undefined;
+        setComposerContext((current) => {
+            const mode = current.tabid === tabId ? current.mode : "follow";
+            if (
+                current.active &&
+                current.mode === mode &&
+                current.tabid === tabId &&
+                current.viewport?.left === viewport?.left &&
+                current.viewport?.width === viewport?.width &&
+                sameComposerContextNodes(current.nodes, nodes)
+            ) {
+                return current;
+            }
+            return { active: true, mode, nodes, tabid: tabId, viewport };
+        });
     }, [manualContextNodes, objects, selectedContextIds, setComposerContext, tabId, viewportSize.width]);
 
     useEffect(() => {
@@ -1430,10 +1515,20 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                 const previous = current[blockId];
                 const adjusted =
                     interaction === "move"
-                        ? snapWorkspaceCanvasRect(
-                              rect,
-                              Object.entries(current).filter(([candidateId]) => candidateId !== blockId)
-                          ).rect
+                        ? snapWorkspaceCanvasRect(rect, [
+                              ...Object.entries(current)
+                                  .filter(([candidateId]) => candidateId !== blockId)
+                                  .map(
+                                      ([candidateId, candidate]) =>
+                                          [`block:${candidateId}`, candidate] as [string, WorkspaceCanvasRect]
+                                  ),
+                              ...objectsRef.current
+                                  .filter((object) => object.kind !== "connector" && object.kind !== "draw")
+                                  .map(
+                                      (object) =>
+                                          [`object:${object.id}`, objectBounds(object)] as [string, WorkspaceCanvasRect]
+                                  ),
+                          ]).rect
                         : rect;
                 const next = { ...current, [blockId]: adjusted };
                 if (!affectCluster || !previous) {
@@ -1680,21 +1775,33 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         if (interaction.kind === "move-object") {
             const dx = (event.clientX - interaction.startClient.x) / cameraRef.current.zoom;
             const dy = (event.clientY - interaction.startClient.y) / cameraRef.current.zoom;
-            const moved = {
-                ...interaction.startObject,
-                x: interaction.startObject.x + dx,
-                y: interaction.startObject.y + dy,
-                ...("points" in interaction.startObject
-                    ? {
-                          points: interaction.startObject.points?.map((point) => ({
-                              x: point.x + dx,
-                              y: point.y + dy,
-                          })),
-                      }
-                    : {}),
-            };
+            const moved = translateCanvasObject(interaction.startObject, { x: dx, y: dy });
+            const bounds = objectBounds(moved);
+            const snapped =
+                moved.kind === "connector" || moved.kind === "draw"
+                    ? bounds
+                    : snapWorkspaceCanvasRect(bounds, [
+                          ...Object.entries(rectsRef.current).map(
+                              ([blockId, rect]) => [`block:${blockId}`, rect] as [string, WorkspaceCanvasRect]
+                          ),
+                          ...objectsRef.current
+                              .filter(
+                                  (object) =>
+                                      object.id !== interaction.objectId &&
+                                      object.kind !== "connector" &&
+                                      object.kind !== "draw"
+                              )
+                              .map(
+                                  (object) =>
+                                      [`object:${object.id}`, objectBounds(object)] as [string, WorkspaceCanvasRect]
+                              ),
+                      ]).rect;
+            const snappedObject = translateCanvasObject(moved, {
+                x: snapped.x - bounds.x,
+                y: snapped.y - bounds.y,
+            });
             objectsRef.current = objectsRef.current.map((object) =>
-                object.id === interaction.objectId ? moved : object
+                object.id === interaction.objectId ? snappedObject : object
             );
             setObjects(objectsRef.current);
             return;
@@ -1872,30 +1979,71 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         [updateCamera]
     );
 
+    const focusCanvasTarget = useCallback(
+        (targetId: string) => {
+            if (targetId.startsWith("block:")) {
+                focusCanvasBlock(targetId.slice("block:".length));
+                return;
+            }
+            if (!targetId.startsWith("object:")) {
+                return;
+            }
+            const objectId = targetId.slice("object:".length);
+            const object = objectsRef.current.find((candidate) => candidate.id === objectId);
+            if (!object) {
+                return;
+            }
+            setSelectedBlockId(null);
+            setSelectedObjectId(objectId);
+            setExpandedBlockId(null);
+            updateCamera(
+                centerWorkspaceCanvasCamera(objectBounds(object), viewportSizeRef.current, cameraRef.current.zoom)
+            );
+        },
+        [focusCanvasBlock, updateCamera]
+    );
+
     const navigateCanvas = useCallback(
         (direction: "left" | "right" | "up" | "down") => {
-            const sourceId = selectedBlockIdRef.current ?? blockIds[0];
+            const navigationRects = Object.fromEntries([
+                ...Object.entries(rectsRef.current).map(([blockId, rect]) => [`block:${blockId}`, rect] as const),
+                ...objectsRef.current
+                    .filter((object) => object.kind !== "connector" && object.kind !== "draw")
+                    .map((object) => [`object:${object.id}`, objectBounds(object)] as const),
+            ]);
+            const sourceId = selectedObjectIdRef.current
+                ? `object:${selectedObjectIdRef.current}`
+                : selectedBlockIdRef.current
+                  ? `block:${selectedBlockIdRef.current}`
+                  : Object.keys(navigationRects)[0];
             if (!sourceId) {
                 return;
             }
-            const targetId = findDirectionalWorkspaceCanvasRect(sourceId, direction, rectsRef.current);
+            const targetId = findDirectionalWorkspaceCanvasRect(sourceId, direction, navigationRects);
             if (targetId) {
-                focusCanvasBlock(targetId);
+                focusCanvasTarget(targetId);
             }
         },
-        [blockIdsKey, focusCanvasBlock]
+        [focusCanvasTarget]
     );
 
     const nudgeSelectedCluster = useCallback(
         (direction: "left" | "right" | "up" | "down") => {
-            const selectedId = selectedBlockIdRef.current;
-            if (!selectedId || !rectsRef.current[selectedId]) {
-                return;
-            }
+            const objectId = selectedObjectIdRef.current;
             const delta = {
                 x: direction === "left" ? -20 : direction === "right" ? 20 : 0,
                 y: direction === "up" ? -20 : direction === "down" ? 20 : 0,
             };
+            if (objectId) {
+                updateObjects((current) =>
+                    current.map((object) => (object.id === objectId ? translateCanvasObject(object, delta) : object))
+                );
+                return;
+            }
+            const selectedId = selectedBlockIdRef.current;
+            if (!selectedId || !rectsRef.current[selectedId]) {
+                return;
+            }
             const clusterIds = findWorkspaceCanvasCluster(selectedId, rectsRef.current);
             updateRects((current) => {
                 const next = { ...current };
@@ -1905,7 +2053,7 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                 return next;
             });
         },
-        [updateRects]
+        [updateObjects, updateRects]
     );
 
     const toggleHome = useCallback(() => {
@@ -2259,12 +2407,123 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         [focusCanvasBlock, setBlockTaskContext, toggleExpand, toggleFitFocused]
     );
 
+    const showCanvasContextMenu = useCallback(
+        (event: ReactMouseEvent<HTMLDivElement>) => {
+            if (isCanvasShortcutInteractiveTarget(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            const point = canvasPoint(event.clientX, event.clientY);
+            const selectedObject = selectedObjectIdRef.current
+                ? objectsRef.current.find((object) => object.id === selectedObjectIdRef.current)
+                : undefined;
+            const widgetGroups = WidgetMenuGroups.map((group) => ({
+                label: group,
+                submenu: groupedWidgets[group].map(([key, widget]) => ({
+                    label: widget.label || widget.blockdef?.meta?.view || key,
+                    click: () => void launchWidget(key, widget),
+                })),
+            })).filter((group) => group.submenu.length > 0);
+            ContextMenuModel.getInstance().showContextMenu(
+                [
+                    {
+                        label: "New",
+                        submenu: [
+                            { label: "Note", click: () => addNoteAtPoint(point) },
+                            { label: "Rectangle", click: () => setTool("rectangle") },
+                            { label: "Ellipse", click: () => setTool("ellipse") },
+                            { label: "Decision", click: () => setTool("diamond") },
+                            { label: "Connector", click: () => setTool("connector") },
+                            { label: "Freehand drawing", click: () => setTool("draw") },
+                        ],
+                    },
+                    ...(widgetGroups.length > 0
+                        ? [
+                              {
+                                  label: "Open widget",
+                                  submenu: widgetGroups,
+                              } as ContextMenuItem,
+                          ]
+                        : []),
+                    ...(selectedObject
+                        ? [
+                              { type: "separator" as const },
+                              {
+                                  label: `Delete ${canvasObjectLabel(selectedObject)}`,
+                                  click: () => {
+                                      updateObjects((current) =>
+                                          current.filter((object) => object.id !== selectedObject.id)
+                                      );
+                                      setSelectedContextIds((current) =>
+                                          current.filter((id) => id !== selectedObject.id)
+                                      );
+                                      setSelectedObjectId(null);
+                                  },
+                              },
+                          ]
+                        : []),
+                    { type: "separator" },
+                    { label: "Fit all", click: fitAll },
+                    { label: "Reset zoom to 100%", click: resetView },
+                    { label: "Arrange widgets", enabled: blockIds.length > 0, click: arrangeWidgets },
+                    { type: "separator" },
+                    {
+                        label: "Hermes canvas context",
+                        submenu: [
+                            {
+                                type: "checkbox",
+                                label: "Follow selection",
+                                checked: contextMode === "follow",
+                                click: () =>
+                                    setComposerContext((current) => ({ ...current, mode: "follow", tabid: tabId })),
+                            },
+                            {
+                                type: "checkbox",
+                                label: "Quote selections",
+                                checked: contextMode === "quote",
+                                click: () =>
+                                    setComposerContext((current) => ({ ...current, mode: "quote", tabid: tabId })),
+                            },
+                            {
+                                label: "Clear context",
+                                enabled: totalContextCount > 0,
+                                click: () => {
+                                    setSelectedContextIds([]);
+                                    setManualContextNodes([]);
+                                },
+                            },
+                        ],
+                    },
+                ],
+                event
+            );
+        },
+        [
+            addNoteAtPoint,
+            arrangeWidgets,
+            blockIds.length,
+            canvasPoint,
+            contextMode,
+            fitAll,
+            groupedWidgets,
+            launchWidget,
+            resetView,
+            setComposerContext,
+            tabId,
+            totalContextCount,
+            updateObjects,
+        ]
+    );
+
     useEffect(() => {
         return registerWorkspaceSurfaceModeProvider(tabId, {
             snapshot: () => ({
                 presentation: "canvas",
                 selectedblockid: selectedBlockIdRef.current ?? undefined,
+                selectedobjectid: selectedObjectIdRef.current ?? undefined,
                 expandedblockid: expandedBlockId ?? undefined,
+                contextids: selectedContextIdsRef.current,
+                contextmode: contextModeRef.current,
                 camera: cameraRef.current,
                 rects: rectsRef.current,
                 objects: objectsRef.current,
@@ -2647,6 +2906,16 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
         zoomBy,
     ]);
 
+    const canvasInstructionsId = `workspace-canvas-instructions-${tabId.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+    const selectedCanvasObject = selectedObjectId
+        ? objects.find((object) => object.id === selectedObjectId)
+        : undefined;
+    const canvasSelectionStatus = selectedCanvasObject
+        ? `${canvasObjectLabel(selectedCanvasObject)} selected`
+        : selectedBlockId
+          ? `Widget ${Math.max(1, blockIds.indexOf(selectedBlockId) + 1)} selected`
+          : "No canvas item selected";
+
     return (
         <div
             ref={viewportRef}
@@ -2658,339 +2927,367 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
             onPointerUp={onCanvasPointerUp}
             onPointerCancel={onCanvasPointerUp}
             onWheel={onWheel}
+            onContextMenu={showCanvasContextMenu}
             aria-label="Workspace canvas"
+            aria-describedby={canvasInstructionsId}
         >
+            <p id={canvasInstructionsId} className="workspace-canvas-accessibility-text">
+                Infinite workspace canvas. Scroll to pan, hold Command or Control while scrolling to zoom, and use
+                Command or Control with arrow keys to move spatial focus. Right-click for canvas commands.
+            </p>
+            <p className="workspace-canvas-accessibility-text" aria-live="polite" aria-atomic="true">
+                {canvasSelectionStatus}
+            </p>
             <div
                 className="workspace-canvas-grid"
                 style={{
-                    backgroundSize: `${24 * camera.zoom}px ${24 * camera.zoom}px`,
-                    backgroundPosition: `${camera.x}px ${camera.y}px`,
+                    backgroundSize: `${96 * camera.zoom}px ${96 * camera.zoom}px, ${96 * camera.zoom}px ${96 * camera.zoom}px, ${24 * camera.zoom}px ${24 * camera.zoom}px`,
+                    backgroundPosition: `${camera.x}px ${camera.y}px, ${camera.x}px ${camera.y}px, ${camera.x}px ${camera.y}px`,
                 }}
             />
-            <div
-                className="workspace-canvas-hud"
-                data-canvas-overlay
-                onPointerDown={(event) => event.stopPropagation()}
-            >
-                <div className="workspace-canvas-identity">
-                    <LayoutGrid />
-                    <span>KronTerm · Drift canvas</span>
-                    <span className="workspace-canvas-zoom">{Math.round(camera.zoom * 100)}%</span>
-                    <div className="workspace-canvas-bookmarks" role="group" aria-label="Canvas bookmarks">
-                        <Bookmark aria-hidden="true" />
-                        {["1", "2", "3", "4"].map((slot) => (
-                            <button
-                                type="button"
-                                key={slot}
-                                className={bookmarks[slot] ? "is-set" : ""}
-                                onClick={() => (bookmarks[slot] ? goToBookmark(slot) : saveBookmark(slot))}
-                                title={
-                                    bookmarks[slot]
-                                        ? `Go to bookmark ${slot} (Mod+${slot})`
-                                        : `Save bookmark ${slot} (Mod+Shift+${slot})`
-                                }
-                                aria-label={bookmarks[slot] ? `Go to bookmark ${slot}` : `Save bookmark ${slot}`}
-                            >
-                                {slot}
-                            </button>
-                        ))}
-                    </div>
-                    {selectedClusterIds.length > 1 ? (
-                        <span className="workspace-canvas-cluster-count">{selectedClusterIds.length} snapped</span>
-                    ) : null}
-                    {totalContextCount > 0 ? (
-                        <span className="workspace-canvas-context-count">
-                            {totalContextCount} {contextMode === "follow" ? "to follow" : "quoted"}
-                        </span>
-                    ) : null}
-                    <div className="workspace-canvas-context-mode" role="group" aria-label="Canvas chat context mode">
-                        {(["follow", "quote"] as const).map((mode) => (
-                            <button
-                                type="button"
-                                key={mode}
-                                className={contextMode === mode ? "is-active" : ""}
-                                onClick={() =>
-                                    setComposerContext((current) => ({
-                                        ...current,
-                                        mode,
-                                        tabid: tabId,
-                                    }))
-                                }
-                                aria-pressed={contextMode === mode}
-                            >
-                                {mode}
-                            </button>
-                        ))}
-                    </div>
-                    {totalContextCount > 0 ? (
-                        <button
-                            type="button"
-                            className="workspace-canvas-context-clear"
-                            onClick={() => {
-                                setSelectedContextIds([]);
-                                setManualContextNodes([]);
-                            }}
-                            title="Clear canvas chat context"
-                            aria-label="Clear canvas chat context"
-                        >
-                            <X />
-                        </button>
-                    ) : null}
-                </div>
-                <div className="workspace-canvas-view-actions">
-                    <button
-                        type="button"
-                        onClick={() => selectedBlockId && focusCanvasBlock(selectedBlockId)}
-                        disabled={!selectedBlockId}
-                        title="Center focused window (Mod+C)"
+            {CanvasChromeEnabled ? (
+                <>
+                    <div
+                        className="workspace-canvas-hud"
+                        data-canvas-overlay
+                        onPointerDown={(event) => event.stopPropagation()}
                     >
-                        <Target />
-                    </button>
-                    <button type="button" onClick={() => zoomBy(1 / 1.15)} title="Zoom out (-)">
-                        <ZoomOut />
-                    </button>
-                    <button type="button" onClick={() => zoomBy(1.15)} title="Zoom in (+)">
-                        <ZoomIn />
-                    </button>
-                    <button type="button" onClick={fitAll} title="Fit everything (0)">
-                        <Scan />
-                        Fit
-                    </button>
-                    <button type="button" onClick={resetView} title="Reset camera to 100%">
-                        <RotateCcw />
-                        100%
-                    </button>
-                    <button type="button" onClick={arrangeWidgets} disabled={blockIds.length === 0}>
-                        <LayoutGrid />
-                        Arrange
-                    </button>
-                </div>
-            </div>
-
-            <nav
-                className="workspace-canvas-tools"
-                aria-label="Canvas tools"
-                data-canvas-overlay
-                onPointerDown={(event) => event.stopPropagation()}
-            >
-                {ToolDefinitions.map((definition) => {
-                    const Icon = definition.icon;
-                    return (
-                        <button
-                            type="button"
-                            key={definition.id}
-                            className={tool === definition.id ? "is-active" : ""}
-                            onClick={() => setTool(definition.id)}
-                            title={`${definition.label} (${definition.shortcut})`}
-                            aria-label={`${definition.label}, shortcut ${definition.shortcut}`}
-                            aria-pressed={tool === definition.id}
-                        >
-                            <Icon />
-                            <span>{definition.shortcut}</span>
-                        </button>
-                    );
-                })}
-            </nav>
-
-            <div
-                className="workspace-canvas-widget-dock"
-                data-canvas-overlay
-                onPointerDown={(event) => event.stopPropagation()}
-                onWheel={(event) => event.stopPropagation()}
-                role="toolbar"
-                aria-label="KronTerm widgets"
-            >
-                <div className="workspace-canvas-widget-dock-items">
-                    {dockWidgets.map(([key, widget]) => {
-                        const view = widget.blockdef?.meta?.view;
-                        const chamber = view === "chathubv2";
-                        const label = chamber ? "Chamber V2" : widget.label || view || key;
-                        return (
-                            <button
-                                type="button"
-                                key={key}
-                                className={`workspace-canvas-widget-dock-button ${chamber ? "is-chamber" : ""}`}
-                                onClick={() => void launchWidget(key, widget)}
-                                disabled={launchingWidget != null}
-                                title={`Open ${label}`}
-                                aria-label={`Open ${label}`}
+                        <div className="workspace-canvas-identity">
+                            <LayoutGrid />
+                            <span>KronTerm · Drift canvas</span>
+                            <span className="workspace-canvas-zoom">{Math.round(camera.zoom * 100)}%</span>
+                            <div className="workspace-canvas-bookmarks" role="group" aria-label="Canvas bookmarks">
+                                <Bookmark aria-hidden="true" />
+                                {["1", "2", "3", "4"].map((slot) => (
+                                    <button
+                                        type="button"
+                                        key={slot}
+                                        className={bookmarks[slot] ? "is-set" : ""}
+                                        onClick={() => (bookmarks[slot] ? goToBookmark(slot) : saveBookmark(slot))}
+                                        title={
+                                            bookmarks[slot]
+                                                ? `Go to bookmark ${slot} (Mod+${slot})`
+                                                : `Save bookmark ${slot} (Mod+Shift+${slot})`
+                                        }
+                                        aria-label={
+                                            bookmarks[slot] ? `Go to bookmark ${slot}` : `Save bookmark ${slot}`
+                                        }
+                                    >
+                                        {slot}
+                                    </button>
+                                ))}
+                            </div>
+                            {selectedClusterIds.length > 1 ? (
+                                <span className="workspace-canvas-cluster-count">
+                                    {selectedClusterIds.length} snapped
+                                </span>
+                            ) : null}
+                            {totalContextCount > 0 ? (
+                                <span className="workspace-canvas-context-count">
+                                    {totalContextCount} {contextMode === "follow" ? "to follow" : "quoted"}
+                                </span>
+                            ) : null}
+                            <div
+                                className="workspace-canvas-context-mode"
+                                role="group"
+                                aria-label="Canvas chat context mode"
                             >
-                                <i
-                                    className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}
-                                    style={{ color: widget.color }}
-                                />
-                                {chamber && <span>Chamber V2</span>}
-                            </button>
-                        );
-                    })}
-                </div>
-                <span className="workspace-canvas-dock-divider" />
-                <div className="workspace-canvas-widget-launcher">
-                    <button
-                        type="button"
-                        className={`workspace-canvas-widget-dock-button is-system ${widgetMenuOpen ? "is-active" : ""}`}
-                        onClick={() => setWidgetMenuOpen((open) => !open)}
-                        title="Add widget or canvas item"
-                        aria-label="Add widget or canvas item"
-                        aria-expanded={widgetMenuOpen}
-                    >
-                        <i className={makeIconClass("plus", true)} />
-                    </button>
-                    {widgetMenuOpen ? (
-                        <div className="workspace-canvas-widget-menu">
-                            <div className="workspace-canvas-widget-search">
-                                <Search />
-                                <input
-                                    value={widgetQuery}
-                                    onChange={(event) => setWidgetQuery(event.target.value)}
-                                    placeholder="Search widgets and canvas items…"
-                                    aria-label="Search widgets and canvas items"
-                                    autoFocus
-                                />
+                                {(["follow", "quote"] as const).map((mode) => (
+                                    <button
+                                        type="button"
+                                        key={mode}
+                                        className={contextMode === mode ? "is-active" : ""}
+                                        onClick={() =>
+                                            setComposerContext((current) => ({
+                                                ...current,
+                                                mode,
+                                                tabid: tabId,
+                                            }))
+                                        }
+                                        aria-pressed={contextMode === mode}
+                                    >
+                                        {mode}
+                                    </button>
+                                ))}
+                            </div>
+                            {totalContextCount > 0 ? (
                                 <button
                                     type="button"
-                                    onClick={() => setWidgetMenuOpen(false)}
-                                    title="Close widget menu"
-                                    aria-label="Close widget menu"
+                                    className="workspace-canvas-context-clear"
+                                    onClick={() => {
+                                        setSelectedContextIds([]);
+                                        setManualContextNodes([]);
+                                    }}
+                                    title="Clear canvas chat context"
+                                    aria-label="Clear canvas chat context"
                                 >
                                     <X />
                                 </button>
-                            </div>
-                            <div className="workspace-canvas-widget-list">
-                                {WidgetMenuGroups.map((group) => {
-                                    const entries = groupedWidgets[group];
-                                    const includeApps = group === "System" && appsWidgetEntry == null;
-                                    const includeSettings = group === "System" && settingsWidgetEntry == null;
-                                    const includeCanvasItems = group === "Custom";
-                                    if (
-                                        entries.length === 0 &&
-                                        !includeApps &&
-                                        !includeSettings &&
-                                        !includeCanvasItems
-                                    ) {
-                                        return null;
-                                    }
-                                    return (
-                                        <section className="workspace-canvas-widget-group" key={group}>
-                                            <h3>{group}</h3>
-                                            <div className="workspace-canvas-widget-group-items">
-                                                {entries.map(([key, widget]) => {
-                                                    const label = widget.label || widget.blockdef?.meta?.view || key;
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            key={key}
-                                                            onClick={() => void launchWidget(key, widget)}
-                                                            disabled={launchingWidget != null}
-                                                            title={`Open ${label}`}
-                                                            aria-label={`Open ${label}`}
-                                                        >
-                                                            <i
-                                                                className={makeIconClass(widget.icon, true, {
-                                                                    defaultIcon: "browser",
-                                                                })}
-                                                                style={{ color: widget.color }}
-                                                            />
-                                                            <span>
-                                                                <strong>{label}</strong>
-                                                                <small>
-                                                                    {widget.description ||
-                                                                        "Open at the center of this canvas"}
-                                                                </small>
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                {includeApps ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void launchApps()}
-                                                        disabled={launchingWidget != null}
-                                                        title="Open Apps"
-                                                        aria-label="Open Apps"
-                                                    >
-                                                        <i className={makeIconClass("shapes", true)} />
-                                                        <span>
-                                                            <strong>Apps</strong>
-                                                            <small>Stream an installed app into the canvas</small>
-                                                        </span>
-                                                    </button>
-                                                ) : null}
-                                                {includeSettings ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void launchSettings()}
-                                                        disabled={launchingWidget != null}
-                                                        title="Open Settings"
-                                                        aria-label="Open Settings"
-                                                    >
-                                                        <i className={makeIconClass("gear", true)} />
-                                                        <span>
-                                                            <strong>Settings</strong>
-                                                            <small>Open KronTerm settings in the canvas</small>
-                                                        </span>
-                                                    </button>
-                                                ) : null}
-                                                {includeCanvasItems ? (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => runMenuAction(addNote)}
-                                                            title="Add note"
-                                                            aria-label="Add note"
-                                                        >
-                                                            <StickyNote />
-                                                            <span>
-                                                                <strong>Note</strong>
-                                                                <small>Add a note at the canvas center</small>
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => runMenuAction(addFlowTemplate)}
-                                                            title="Add flow"
-                                                            aria-label="Add flow"
-                                                        >
-                                                            <Network />
-                                                            <span>
-                                                                <strong>Flow</strong>
-                                                                <small>Insert a connected starter workflow</small>
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => runMenuAction(addMindMapTemplate)}
-                                                            title="Add mind map"
-                                                            aria-label="Add mind map"
-                                                        >
-                                                            <GitFork />
-                                                            <span>
-                                                                <strong>Mind map</strong>
-                                                                <small>Insert a central idea with four branches</small>
-                                                            </span>
-                                                        </button>
-                                                    </>
-                                                ) : null}
-                                            </div>
-                                        </section>
-                                    );
-                                })}
-                                {widgets.length === 0 && widgetQuery ? (
-                                    <p>No widgets match “{widgetQuery}”. Canvas items remain available under Custom.</p>
-                                ) : null}
-                            </div>
+                            ) : null}
                         </div>
-                    ) : null}
-                </div>
-            </div>
+                        <div className="workspace-canvas-view-actions">
+                            <button
+                                type="button"
+                                onClick={() => selectedBlockId && focusCanvasBlock(selectedBlockId)}
+                                disabled={!selectedBlockId}
+                                title="Center focused window (Mod+C)"
+                            >
+                                <Target />
+                            </button>
+                            <button type="button" onClick={() => zoomBy(1 / 1.15)} title="Zoom out (-)">
+                                <ZoomOut />
+                            </button>
+                            <button type="button" onClick={() => zoomBy(1.15)} title="Zoom in (+)">
+                                <ZoomIn />
+                            </button>
+                            <button type="button" onClick={fitAll} title="Fit everything (0)">
+                                <Scan />
+                                Fit
+                            </button>
+                            <button type="button" onClick={resetView} title="Reset camera to 100%">
+                                <RotateCcw />
+                                100%
+                            </button>
+                            <button type="button" onClick={arrangeWidgets} disabled={blockIds.length === 0}>
+                                <LayoutGrid />
+                                Arrange
+                            </button>
+                        </div>
+                    </div>
+
+                    <nav
+                        className="workspace-canvas-tools"
+                        aria-label="Canvas tools"
+                        data-canvas-overlay
+                        onPointerDown={(event) => event.stopPropagation()}
+                    >
+                        {ToolDefinitions.map((definition) => {
+                            const Icon = definition.icon;
+                            return (
+                                <button
+                                    type="button"
+                                    key={definition.id}
+                                    className={tool === definition.id ? "is-active" : ""}
+                                    onClick={() => setTool(definition.id)}
+                                    title={`${definition.label} (${definition.shortcut})`}
+                                    aria-label={`${definition.label}, shortcut ${definition.shortcut}`}
+                                    aria-pressed={tool === definition.id}
+                                >
+                                    <Icon />
+                                    <span>{definition.shortcut}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div
+                        className="workspace-canvas-widget-dock"
+                        data-canvas-overlay
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onWheel={(event) => event.stopPropagation()}
+                        role="toolbar"
+                        aria-label="KronTerm widgets"
+                    >
+                        <div className="workspace-canvas-widget-dock-items">
+                            {dockWidgets.map(([key, widget]) => {
+                                const view = widget.blockdef?.meta?.view;
+                                const chamber = view === "chathubv2";
+                                const label = chamber ? "Chamber V2" : widget.label || view || key;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={key}
+                                        className={`workspace-canvas-widget-dock-button ${chamber ? "is-chamber" : ""}`}
+                                        onClick={() => void launchWidget(key, widget)}
+                                        disabled={launchingWidget != null}
+                                        title={`Open ${label}`}
+                                        aria-label={`Open ${label}`}
+                                    >
+                                        <i
+                                            className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}
+                                            style={{ color: widget.color }}
+                                        />
+                                        {chamber && <span>Chamber V2</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <span className="workspace-canvas-dock-divider" />
+                        <div className="workspace-canvas-widget-launcher">
+                            <button
+                                type="button"
+                                className={`workspace-canvas-widget-dock-button is-system ${widgetMenuOpen ? "is-active" : ""}`}
+                                onClick={() => setWidgetMenuOpen((open) => !open)}
+                                title="Add widget or canvas item"
+                                aria-label="Add widget or canvas item"
+                                aria-expanded={widgetMenuOpen}
+                            >
+                                <i className={makeIconClass("plus", true)} />
+                            </button>
+                            {widgetMenuOpen ? (
+                                <div className="workspace-canvas-widget-menu">
+                                    <div className="workspace-canvas-widget-search">
+                                        <Search />
+                                        <input
+                                            value={widgetQuery}
+                                            onChange={(event) => setWidgetQuery(event.target.value)}
+                                            placeholder="Search widgets and canvas items…"
+                                            aria-label="Search widgets and canvas items"
+                                            autoFocus
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setWidgetMenuOpen(false)}
+                                            title="Close widget menu"
+                                            aria-label="Close widget menu"
+                                        >
+                                            <X />
+                                        </button>
+                                    </div>
+                                    <div className="workspace-canvas-widget-list">
+                                        {WidgetMenuGroups.map((group) => {
+                                            const entries = groupedWidgets[group];
+                                            const includeApps = group === "System" && appsWidgetEntry == null;
+                                            const includeSettings = group === "System" && settingsWidgetEntry == null;
+                                            const includeCanvasItems = group === "Custom";
+                                            if (
+                                                entries.length === 0 &&
+                                                !includeApps &&
+                                                !includeSettings &&
+                                                !includeCanvasItems
+                                            ) {
+                                                return null;
+                                            }
+                                            return (
+                                                <section className="workspace-canvas-widget-group" key={group}>
+                                                    <h3>{group}</h3>
+                                                    <div className="workspace-canvas-widget-group-items">
+                                                        {entries.map(([key, widget]) => {
+                                                            const label =
+                                                                widget.label || widget.blockdef?.meta?.view || key;
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    key={key}
+                                                                    onClick={() => void launchWidget(key, widget)}
+                                                                    disabled={launchingWidget != null}
+                                                                    title={`Open ${label}`}
+                                                                    aria-label={`Open ${label}`}
+                                                                >
+                                                                    <i
+                                                                        className={makeIconClass(widget.icon, true, {
+                                                                            defaultIcon: "browser",
+                                                                        })}
+                                                                        style={{ color: widget.color }}
+                                                                    />
+                                                                    <span>
+                                                                        <strong>{label}</strong>
+                                                                        <small>
+                                                                            {widget.description ||
+                                                                                "Open at the center of this canvas"}
+                                                                        </small>
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        {includeApps ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void launchApps()}
+                                                                disabled={launchingWidget != null}
+                                                                title="Open Apps"
+                                                                aria-label="Open Apps"
+                                                            >
+                                                                <i className={makeIconClass("shapes", true)} />
+                                                                <span>
+                                                                    <strong>Apps</strong>
+                                                                    <small>
+                                                                        Stream an installed app into the canvas
+                                                                    </small>
+                                                                </span>
+                                                            </button>
+                                                        ) : null}
+                                                        {includeSettings ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void launchSettings()}
+                                                                disabled={launchingWidget != null}
+                                                                title="Open Settings"
+                                                                aria-label="Open Settings"
+                                                            >
+                                                                <i className={makeIconClass("gear", true)} />
+                                                                <span>
+                                                                    <strong>Settings</strong>
+                                                                    <small>Open KronTerm settings in the canvas</small>
+                                                                </span>
+                                                            </button>
+                                                        ) : null}
+                                                        {includeCanvasItems ? (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => runMenuAction(addNote)}
+                                                                    title="Add note"
+                                                                    aria-label="Add note"
+                                                                >
+                                                                    <StickyNote />
+                                                                    <span>
+                                                                        <strong>Note</strong>
+                                                                        <small>Add a note at the canvas center</small>
+                                                                    </span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => runMenuAction(addFlowTemplate)}
+                                                                    title="Add flow"
+                                                                    aria-label="Add flow"
+                                                                >
+                                                                    <Network />
+                                                                    <span>
+                                                                        <strong>Flow</strong>
+                                                                        <small>
+                                                                            Insert a connected starter workflow
+                                                                        </small>
+                                                                    </span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => runMenuAction(addMindMapTemplate)}
+                                                                    title="Add mind map"
+                                                                    aria-label="Add mind map"
+                                                                >
+                                                                    <GitFork />
+                                                                    <span>
+                                                                        <strong>Mind map</strong>
+                                                                        <small>
+                                                                            Insert a central idea with four branches
+                                                                        </small>
+                                                                    </span>
+                                                                </button>
+                                                            </>
+                                                        ) : null}
+                                                    </div>
+                                                </section>
+                                            );
+                                        })}
+                                        {widgets.length === 0 && widgetQuery ? (
+                                            <p>
+                                                No widgets match “{widgetQuery}”. Canvas items remain available under
+                                                Custom.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </>
+            ) : null}
 
             {objects.length === 0 && blockIds.length === 0 ? (
                 <div className="workspace-canvas-empty-state" aria-live="polite">
-                    <Bot aria-hidden="true" />
-                    <strong>Live Kronos task map</strong>
-                    <span>
-                        Start a task below. Decisions, tools, evidence, and outputs will connect here as they happen.
-                    </span>
+                    <strong>Empty canvas</strong>
+                    <span>Drop in a widget or start a Hermes task to build spatially.</span>
                 </div>
             ) : null}
 
@@ -3038,7 +3335,7 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
                         clustered={selectedClusterIds.includes(blockId)}
                         expanded={expandedBlockId === blockId}
                         zoom={camera.zoom}
-                        camera={camera}
+                        camera={expandedBlockId === blockId ? camera : DefaultCamera}
                         viewportSize={viewportSize}
                         onSelect={(id) => {
                             focusCanvasBlock(id, false);
@@ -3072,10 +3369,12 @@ export const WorkspaceCanvas = memo(({ tabId, tabData }: { tabId: string; tabDat
 
             {expandedBlockId ? <div className="workspace-canvas-expanded-backdrop" /> : null}
 
-            <div className="workspace-canvas-help">
-                Mod+Arrow jump · Shift+drag/resize acts on a snapped cluster · Mod+W overview · Mod+A home · Mod+1–4
-                bookmarks · Scroll pans · Mod+scroll zooms
-            </div>
+            {CanvasChromeEnabled ? (
+                <div className="workspace-canvas-help">
+                    Mod+Arrow jump · Shift+drag/resize acts on a snapped cluster · Mod+W overview · Mod+A home · Mod+1–4
+                    bookmarks · Scroll pans · Mod+scroll zooms
+                </div>
+            ) : null}
         </div>
     );
 });

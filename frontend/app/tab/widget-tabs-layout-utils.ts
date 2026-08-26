@@ -19,6 +19,21 @@ interface WidgetTabCloseAccessibility {
     tabIndex: 0 | -1;
 }
 
+interface WidgetWorkbenchPair {
+    agentNodeId: string;
+    companionNodeId: string;
+}
+
+function getVisibleWidgetPaneIds(
+    activeNodeId: string | undefined,
+    workbenchPair: WidgetWorkbenchPair | null
+): Set<string> {
+    if (workbenchPair) {
+        return new Set([workbenchPair.agentNodeId, workbenchPair.companionNodeId]);
+    }
+    return new Set(activeNodeId ? [activeNodeId] : []);
+}
+
 function getWidgetTabCloseAccessibility(active: boolean): WidgetTabCloseAccessibility {
     return {
         ariaHidden: !active,
@@ -61,4 +76,4 @@ function moveWidgetTab(
     return true;
 }
 
-export { getWidgetFocusAfterClose, getWidgetTabCloseAccessibility, moveWidgetTab };
+export { getVisibleWidgetPaneIds, getWidgetFocusAfterClose, getWidgetTabCloseAccessibility, moveWidgetTab };

@@ -3,7 +3,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     buildGatewayWsUrl,
     buildProfileScopedApiUrl,
@@ -11,9 +11,23 @@ import {
     replaceHermesDesktopShim,
 } from "./hermes-desktop-shim";
 
+beforeEach(() => {
+    const values = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+            clear: () => values.clear(),
+            getItem: (key: string) => values.get(key) ?? null,
+            removeItem: (key: string) => values.delete(key),
+            setItem: (key: string, value: string) => values.set(key, value),
+        },
+    });
+});
+
 afterEach(() => {
     vi.unstubAllGlobals();
-    window.localStorage.clear();
+    Reflect.deleteProperty(window, "api");
+    Reflect.deleteProperty(window, "localStorage");
 });
 
 describe("Kronos profile routing", () => {
@@ -38,23 +52,20 @@ describe("Kronos profile routing", () => {
     });
 
     it("persists profile selection through the managed backend instead of returning a no-op success", async () => {
-        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-            const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-            return new Response(JSON.stringify({ active: body?.name ?? "default", current: "default" }), {
-                headers: { "content-type": "application/json" },
-                status: 200,
-            });
+        const hermesApi = vi.fn(async (request: HermesApiIpcRequest) => {
+            const body = request.body as { name?: string } | undefined;
+            return { active: body?.name ?? "default", current: "default" };
         });
-        vi.stubGlobal("fetch", fetchMock);
+        Object.defineProperty(window, "api", { configurable: true, value: { hermesApi } });
         configureHermesDesktopShim({ baseUrl: "http://127.0.0.1:9119", token: "session-token" });
         replaceHermesDesktopShim();
 
         await expect(window.hermesDesktop!.profile.set("research")).resolves.toEqual({ profile: "research" });
-        expect(fetchMock).toHaveBeenCalledWith(
-            "http://127.0.0.1:9119/api/profiles/active",
+        expect(hermesApi).toHaveBeenCalledWith(
             expect.objectContaining({
-                body: JSON.stringify({ name: "research" }),
+                body: { name: "research" },
                 method: "POST",
+                path: "/api/profiles/active",
             })
         );
     });

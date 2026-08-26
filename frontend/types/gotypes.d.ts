@@ -2038,6 +2038,8 @@ declare global {
         "window:blur"?: boolean;
         "window:opacity"?: number;
         "window:bgcolor"?: string;
+        "window:wallpaper"?: string;
+        "window:surfaceopacity"?: number;
         "window:reducedmotion"?: boolean;
         "window:tilegapsize"?: number;
         "window:showmenubar"?: boolean;

@@ -404,7 +404,7 @@
 }
 
 .widget-surface-content.is-agent-workbench {
-    --agent-workbench-gap: 7px;
+    --agent-workbench-gap: 1px;
 
     .widget-surface-pane.is-workbench-agent {
         right: auto;
@@ -415,9 +415,9 @@
         left: var(--agent-workbench-chat-width);
         display: flex;
         width: calc(100% - var(--agent-workbench-chat-width));
-        border-left: 1px solid rgb(from var(--border-color) r g b / 0.58);
-        background: var(--main-bg-color);
-        box-shadow: -12px 0 30px rgb(0 0 0 / 0.14);
+        border-left: 1px solid var(--hermes-border);
+        background: var(--hermes-background);
+        box-shadow: none;
     }
 }
 
@@ -426,22 +426,24 @@
     z-index: 32;
     top: 0;
     bottom: 0;
-    left: calc(var(--agent-workbench-chat-width) - 7px);
-    width: 14px;
+    left: calc(var(--agent-workbench-chat-width) - 4px);
+    width: 8px;
     cursor: col-resize;
     outline: 0;
 
     &::after {
         position: absolute;
         top: 50%;
-        left: 6px;
-        width: 2px;
-        height: 42px;
-        border-radius: 999px;
-        background: rgb(from var(--border-color) r g b / 0.72);
+        top: 0;
+        bottom: 0;
+        left: 4px;
+        width: 1px;
+        height: auto;
+        border-radius: 0;
+        background: var(--hermes-border);
         content: "";
-        transform: translateY(-50%);
-        transition: background-color 120ms ease;
+        transform: none;
+        transition: background-color var(--motion-fast) var(--ease-standard);
     }
 
     &:hover::after,
@@ -456,6 +458,21 @@
     min-height: 0;
     flex: 1;
     overflow: hidden;
+}
+
+.widget-surface-pane.is-workbench-companion {
+    .widget-agent-workbench-content {
+        position: absolute;
+        inset: 0;
+    }
+
+    .widget-agent-workbench-header {
+        display: none;
+    }
+
+    .widget-agent-workbench-timeline {
+        display: none;
+    }
 }
 
 .widget-agent-workbench-header {
@@ -712,37 +729,39 @@
 // launcher rail is owned by the workspace shell.
 .widget-tabs-layout {
     flex-direction: column;
-    padding: 0;
-    border: 1px solid rgb(from var(--border-color) r g b / 0.42);
-    border-radius: 12px;
-    background: rgb(from var(--surface-base-color) r g b / 0.72);
+    padding: var(--space-1);
+    border: 1px solid var(--hermes-border);
+    border-radius: var(--radius-lg);
+    background: var(--hermes-card);
+    box-shadow: var(--shadow-xs);
 }
 
 .widget-tabs-layout > .widget-surface-sidebar {
     width: 100%;
-    height: 44px;
-    min-height: 44px;
-    flex: 0 0 44px;
+    height: 40px;
+    min-height: 40px;
+    flex: 0 0 40px;
     flex-direction: row;
     align-items: center;
     border-right: 0;
-    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.38);
-    background: rgb(from var(--surface-base-color) r g b / 0.88);
+    border-bottom: 1px solid var(--hermes-border);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--hermes-muted);
     box-shadow: none;
 }
 
 .widget-tabs-layout .widget-surface-sidebar-header {
-    width: 43px;
+    width: 40px;
     height: 100%;
-    flex: 0 0 43px;
+    flex: 0 0 40px;
     justify-content: center;
     padding: 0;
 }
 
 .widget-tabs-layout .widget-surface-sidebar-mark {
-    width: 27px;
-    height: 27px;
-    flex-basis: 27px;
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
     border: 0;
     color: var(--text-muted-color);
     background: transparent;
@@ -758,7 +777,7 @@
     gap: 2px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 5px 2px 0;
+    padding: 4px 2px 0;
     scrollbar-width: none;
 }
 
@@ -766,17 +785,17 @@
     width: 164px;
     min-width: 96px;
     max-width: 220px;
-    min-height: 34px;
-    height: 34px;
+    min-height: 32px;
+    height: 32px;
     flex: 0 1 164px;
     margin-bottom: -1px;
-    border-radius: 9px 9px 0 0;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 
     &.is-active {
-        border-color: rgb(from var(--border-color) r g b / 0.5);
-        border-bottom-color: var(--main-bg-color);
-        background: var(--main-bg-color);
-        box-shadow: inset 0 2px rgb(from var(--accent-color) r g b / 0.72);
+        border-color: var(--hermes-border);
+        border-bottom-color: var(--hermes-background);
+        background: var(--hermes-background);
+        box-shadow: none;
     }
 }
 
@@ -816,4 +835,7 @@
 .widget-tabs-layout > .widget-surface-content {
     width: 100%;
     min-height: 0;
+    overflow: hidden;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background: var(--hermes-background);
 }

@@ -236,6 +236,8 @@ type SettingsType struct {
 	WindowBlur                          bool     `json:"window:blur,omitempty"`
 	WindowOpacity                       *float64 `json:"window:opacity,omitempty"`
 	WindowBgColor                       string   `json:"window:bgcolor,omitempty"`
+	WindowWallpaper                     string   `json:"window:wallpaper,omitempty"`
+	WindowSurfaceOpacity                *float64 `json:"window:surfaceopacity,omitempty"`
 	WindowReducedMotion                 bool     `json:"window:reducedmotion,omitempty"`
 	WindowTileGapSize                   *int64   `json:"window:tilegapsize,omitempty"`
 	WindowShowMenuBar                   bool     `json:"window:showmenubar,omitempty"`

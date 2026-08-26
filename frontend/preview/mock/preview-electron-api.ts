@@ -347,6 +347,7 @@ const previewElectronApi: ElectronApi = {
     chathubv2Stop: () => Promise.resolve({ success: true }),
     hermesGetConnection: (_context?: { tabId?: string; blockId?: string }) =>
         Promise.reject(new Error("Hermes is only available in the Electron app")),
+    hermesApi: () => Promise.reject(new Error("Hermes is only available in the Electron app")),
     onHermesConnection: () => () => {},
     kronoscodeGetConnection: () =>
         Promise.resolve({

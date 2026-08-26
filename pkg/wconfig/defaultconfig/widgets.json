@@ -86,22 +86,6 @@
             }
         }
     },
-    "defwidget@design": {
-        "display:order": 0.5,
-        "display:group": "design",
-        "icon": "palette",
-        "label": "design",
-        "description": "Open Krondesign inside KronTerm",
-        "blockdef": {
-            "meta": {
-                "view": "design",
-                "url": "http://127.0.0.1:7456",
-                "pinnedurl": "http://127.0.0.1:7456",
-                "web:hidenav": true,
-                "web:partition": "persist:krondesign"
-            }
-        }
-    },
     "defwidget@installedapps": {
         "display:order": 1,
         "icon": "shapes",

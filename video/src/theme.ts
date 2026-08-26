@@ -35,6 +35,30 @@ export const SCENE = {
 
 export const TOTAL_FRAMES = 1350;
 
+// ── Intro Film Timing (frames at 30fps, calm pacing) ───────
+export const INTRO_SCENE = {
+    TITLE: { start: 0, duration: 300 }, // 0:00-0:10
+    PROBLEM: { start: 300, duration: 390 }, // 0:10-0:23
+    SOLUTION: { start: 690, duration: 420 }, // 0:23-0:37
+    SURFACES: { start: 1110, duration: 405 }, // 0:37-0:50
+    CANVAS_AI: { start: 1515, duration: 405 }, // 0:50-1:04
+    VALUES: { start: 1920, duration: 405 }, // 1:04-1:17
+    CTA: { start: 2325, duration: 375 }, // 1:17-1:30
+} as const;
+
+export const INTRO_TOTAL_FRAMES =
+    INTRO_SCENE.TITLE.duration +
+    INTRO_SCENE.PROBLEM.duration +
+    INTRO_SCENE.SOLUTION.duration +
+    INTRO_SCENE.SURFACES.duration +
+    INTRO_SCENE.CANVAS_AI.duration +
+    INTRO_SCENE.VALUES.duration +
+    INTRO_SCENE.CTA.duration;
+
+// Vertical-format text stays inside platform UI chrome
+export const SAFE_TOP = 250;
+export const SAFE_BOTTOM = 1670;
+
 // ── Animation Helpers ──────────────────────────────────────
 export function fadeIn(frame: number, duration: number = 30, delay: number = 0): number {
     return interpolate(frame, [delay, delay + duration], [0, 1], {

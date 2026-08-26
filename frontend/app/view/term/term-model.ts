@@ -39,6 +39,7 @@ import { isMacOS, isWindows } from "@/util/platformutil";
 import { boundNumber, fireAndForget, stringToBase64 } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
+import { isControllerInputUnavailableError } from "./controller-errors";
 import { getBlockingCommand } from "./shellblocking";
 import { computeTheme, DefaultTermTheme } from "./termutil";
 import { TermWrap, WebGLSupported } from "./termwrap";
@@ -548,7 +549,14 @@ export class TermViewModel implements ViewModel {
 
     sendDataToController(data: string) {
         const b64data = stringToBase64(data);
-        RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, inputdata64: b64data });
+        void RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, inputdata64: b64data }).catch(
+            (error) => {
+                if (isControllerInputUnavailableError(error)) {
+                    return;
+                }
+                console.error("terminal input failed", error);
+            }
+        );
     }
 
     setTermMode(mode: "term" | "vdom") {

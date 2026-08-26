@@ -44,7 +44,7 @@ function ReviewComposerBanner() {
 
     return (
         <button
-            className="mb-1 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-(--ui-accent)/30 bg-(--ui-accent)/8 px-2.5 py-1.5 text-left text-[0.6875rem] text-foreground"
+            className="mb-1 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-secondary) px-2.5 py-1.5 text-left text-[0.6875rem] text-foreground transition-colors hover:bg-(--chrome-action-hover)"
             onClick={() => host.revealPane(PaneId)}
             type="button"
         >
@@ -66,7 +66,7 @@ function ReviewStatus() {
             <button
                 className={cn(
                     "inline-flex h-full cursor-pointer items-center gap-1 px-1.5 text-[0.6875rem] transition-colors",
-                    count > 0 ? "text-(--ui-accent)" : "text-(--ui-text-tertiary)",
+                    count > 0 ? "text-foreground" : "text-(--ui-text-tertiary)",
                     "hover:bg-(--chrome-action-hover) hover:text-foreground"
                 )}
                 onClick={() => host.revealPane(PaneId)}
@@ -127,7 +127,7 @@ function OpenDesignInspector() {
         }
         setError("");
         try {
-            await host.krontermSurfaces.focus(selectedSurface.id);
+            await host.krontermSurfaces.openSplit(selectedSurface.id);
             await host.krontermSurfaces.inspect(selectedSurface.id, true);
             setIsInspecting(true);
         } catch (failure) {
@@ -158,7 +158,7 @@ function OpenDesignInspector() {
         <section className="flex h-full min-h-0 flex-col bg-(--ui-bg)" aria-label="Open Design component review">
             <header className="border-b border-(--ui-border) px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                    <span className="grid size-7 place-items-center rounded-lg bg-(--ui-accent)/12 text-(--ui-accent)">
+                    <span className="grid size-7 place-items-center rounded-lg border border-(--ui-border) bg-(--ui-bg-secondary) text-(--ui-text-secondary)">
                         <Codicon name="inspect" size="0.9rem" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -207,7 +207,9 @@ function OpenDesignInspector() {
                                 aria-label="Inspect selected browser beside Hermes"
                                 className={cn(
                                     "ml-auto grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg hover:bg-(--chrome-action-hover) hover:text-foreground",
-                                    isInspecting ? "text-(--ui-accent)" : "text-(--ui-text-tertiary)"
+                                    isInspecting
+                                        ? "bg-(--chrome-action-hover) text-foreground"
+                                        : "text-(--ui-text-tertiary)"
                                 )}
                                 onClick={() => void focusSurface()}
                                 title="Inspect in KronTerm browser"
@@ -240,13 +242,13 @@ function OpenDesignInspector() {
                             className={cn(
                                 "flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                                 isInspecting
-                                    ? "border-(--ui-accent)/35 bg-(--ui-accent)/8"
+                                    ? "border-(--ui-border) bg-(--chrome-action-hover)"
                                     : "border-(--ui-border) bg-(--ui-bg-secondary)/60 hover:bg-(--chrome-action-hover)"
                             )}
                             onClick={() => void focusSurface()}
                             type="button"
                         >
-                            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-(--ui-accent)/12 text-(--ui-accent)">
+                            <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-(--ui-border) bg-(--ui-bg-secondary) text-(--ui-text-secondary)">
                                 <Codicon name="inspect" size="0.9rem" />
                             </span>
                             <span className="min-w-0 flex-1">
@@ -261,9 +263,13 @@ function OpenDesignInspector() {
                         </button>
 
                         {selectedElement ? (
-                            <div className="mt-2 rounded-xl border border-(--ui-accent)/25 bg-(--ui-accent)/6 p-2.5">
+                            <div className="mt-2 rounded-xl border border-(--ui-border) bg-(--ui-bg-secondary)/60 p-2.5">
                                 <div className="flex items-start gap-2">
-                                    <Codicon name="symbol-field" className="mt-0.5 text-(--ui-accent)" size="0.75rem" />
+                                    <Codicon
+                                        name="symbol-field"
+                                        className="mt-0.5 text-(--ui-text-secondary)"
+                                        size="0.75rem"
+                                    />
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-[0.6875rem] font-medium text-foreground">
                                             {selectedElement.componentName ||
@@ -277,13 +283,13 @@ function OpenDesignInspector() {
                                 </div>
                                 <textarea
                                     aria-label="Component comment"
-                                    className="mt-2 min-h-20 w-full resize-y rounded-lg border border-(--ui-border) bg-(--ui-bg) px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-accent)/60"
+                                    className="mt-2 min-h-20 w-full resize-y rounded-lg border border-(--ui-border) bg-(--ui-bg) px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-text-secondary)"
                                     onChange={(event) => setCommentText(event.target.value)}
                                     placeholder="Tell Hermes what to change in this component…"
                                     value={commentText}
                                 />
                                 <button
-                                    className="mt-2 w-full cursor-pointer rounded-lg bg-(--ui-accent) px-3 py-2 text-xs font-medium text-(--ui-bg) transition-opacity hover:opacity-90 disabled:opacity-40"
+                                    className="mt-2 w-full cursor-pointer rounded-lg bg-foreground px-3 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
                                     disabled={!commentText.trim()}
                                     onClick={addComment}
                                     type="button"
@@ -324,7 +330,7 @@ function OpenDesignInspector() {
                                             className={cn(
                                                 "mt-1 size-1.5 shrink-0 rounded-full",
                                                 comment.status === "queued"
-                                                    ? "bg-(--ui-accent)"
+                                                    ? "bg-foreground"
                                                     : "bg-(--ui-text-tertiary)"
                                             )}
                                         />

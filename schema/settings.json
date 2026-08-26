@@ -541,6 +541,12 @@
         "window:bgcolor": {
           "type": "string"
         },
+        "window:wallpaper": {
+          "type": "string"
+        },
+        "window:surfaceopacity": {
+          "type": "number"
+        },
         "window:reducedmotion": {
           "type": "boolean"
         },

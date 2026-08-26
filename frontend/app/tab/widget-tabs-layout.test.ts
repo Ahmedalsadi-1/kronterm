@@ -3,7 +3,12 @@
 
 import { FlexDirection, type LayoutNode } from "@/layout/lib/types";
 import { describe, expect, test } from "vitest";
-import { getWidgetFocusAfterClose, getWidgetTabCloseAccessibility, moveWidgetTab } from "./widget-tabs-layout-utils";
+import {
+    getVisibleWidgetPaneIds,
+    getWidgetFocusAfterClose,
+    getWidgetTabCloseAccessibility,
+    moveWidgetTab,
+} from "./widget-tabs-layout-utils";
 
 function node(id: string): LayoutNode {
     return { id, flexDirection: FlexDirection.Row, size: 10 };
@@ -52,5 +57,20 @@ describe("moveWidgetTab", () => {
         expect(actions).toHaveLength(1);
         expect(dropCount).toBe(1);
         expect(focused).toEqual(["first"]);
+    });
+});
+
+describe("getVisibleWidgetPaneIds", () => {
+    test("mounts only the active pane outside an agent workbench", () => {
+        expect(getVisibleWidgetPaneIds("browser", null)).toEqual(new Set(["browser"]));
+    });
+
+    test("mounts only the agent and companion panes inside an agent workbench", () => {
+        expect(
+            getVisibleWidgetPaneIds("terminal", {
+                agentNodeId: "hermes",
+                companionNodeId: "browser",
+            })
+        ).toEqual(new Set(["hermes", "browser"]));
     });
 });

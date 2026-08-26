@@ -33,10 +33,12 @@ declare global {
             getAgentRoster?: () => Promise<DesktopAgentRoster>;
             // KronTerm embeds Hermes as a workspace block. This deliberately narrow
             // bridge exposes only the current tab's display-safe block descriptors
-            // and a focus action; plugins never receive the ambient Electron API.
+            // and bounded split/promote actions; plugins never receive the ambient Electron API.
             krontermSurfaces?: {
                 list: () => Promise<HermesKronTermSurface[]>;
                 focus: (blockId: string) => Promise<{ ok: boolean; error?: string }>;
+                openSplit: (blockId: string) => Promise<{ ok: boolean; error?: string }>;
+                promote: (blockId: string) => Promise<{ ok: boolean; error?: string }>;
                 preview: (blockId: string) => Promise<string>;
                 snapshot: (blockId: string) => Promise<HermesKronTermInspectableSnapshot>;
                 inspect: (blockId: string, enabled: boolean) => Promise<{ ok: boolean; error?: string }>;

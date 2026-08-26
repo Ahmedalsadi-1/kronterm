@@ -740,7 +740,21 @@ export function ContribController() {
     const sidebarOpen = useStore($sidebarOpen);
     const statusbarVisible = useStore($statusbarVisible);
     const widgetHost = isKronTermWidgetHost();
-    const { hudMode } = useHermesShellMode();
+    const { hudMode, panelMode } = useHermesShellMode();
+
+    if (panelMode) {
+        return (
+            <ContribWiring>
+                <section
+                    aria-label="Kronos workspace conversation"
+                    className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text-primary)"
+                    data-kronterm-panel-shell=""
+                >
+                    <WiredPane part="chatRoutes" />
+                </section>
+            </ContribWiring>
+        );
+    }
 
     // HUD mode is the SAME app with its frame removed: the wiring (gateway,
     // sessions, streams, submit) mounts identically, and only the shell around

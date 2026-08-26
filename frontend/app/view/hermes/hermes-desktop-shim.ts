@@ -1,15 +1,17 @@
 // Copyright (c) 2026 KronTerm. Licensed under the Apache License, Version 2.0 (the "License").
 // This shim implements `window.hermesDesktop` inside the KronTerm renderer so the
 // vendored Hermes UI (frontend/hermes) can run as a widget without the Electron
-// main-process bridge it was built against. REST calls are forwarded to the gateway
-// (default http://127.0.0.1:9119) over fetch; the gateway CORS policy allows
-// localhost origins. WS uses the token query param. Everything else is an honest
+// main-process bridge it was built against. REST calls cross the preload IPC boundary
+// so loopback authentication never depends on renderer CORS. WS uses the token query
+// param. Everything else is an honest
 // "not supported" stub so the renderer never mistakes the shim for the real bridge.
 
+import { getApi } from "@/app/store/global";
 import {
     focusAgentWidget,
     listAgentWidgets,
     previewAgentWidget,
+    promoteAgentWidget,
     setAgentWidgetInspectMode,
     snapshotAgentWidget,
     subscribeAgentWidgetDesignSelection,
@@ -47,7 +49,6 @@ import type { PetOverlayBounds, PetOverlayControl, PetOverlayStatePayload } from
 import type { QuickEntryStatePush, QuickEntrySubmitPayload } from "@hermes/store/quick-entry";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:9119";
-const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
 const STORAGE_BASE_URL = "kronterm.hermes.shim.baseUrl";
 const LEGACY_STORAGE_TOKEN = "kronterm.hermes.shim.token";
@@ -130,91 +131,10 @@ export function buildProfileScopedApiUrl(baseUrl: string, requestPath: string, p
     return url.toString();
 }
 
-function resolveTimeoutMs(timeoutMs: number | undefined): number {
-    if (typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0) {
-        return timeoutMs;
-    }
-
-    return DEFAULT_FETCH_TIMEOUT_MS;
-}
-
 /** Mirror of the Electron main process fetchJson contract. */
 async function apiFetch<T>(request: HermesApiRequest): Promise<T> {
-    const token = requireSessionToken();
-    const url = buildProfileScopedApiUrl(shimState.baseUrl, request.path, request.profile);
-    const timeoutMs = resolveTimeoutMs(request.timeoutMs);
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), timeoutMs);
-
-    try {
-        const isUpload = Boolean(request.upload);
-        let body: BodyInit | undefined;
-        let contentType: string | undefined;
-
-        if (isUpload && request.upload) {
-            const form = new FormData();
-            const filename = String(request.upload.filename || "file").replace(/["\r\n]/g, "_");
-
-            form.append(
-                "file",
-                new Blob([request.upload.bytes], { type: request.upload.contentType || "application/octet-stream" }),
-                filename
-            );
-            body = form;
-            // Browser fetch sets the multipart boundary itself — never set
-            // Content-Type manually for FormData or the boundary breaks.
-        } else {
-            contentType = "application/json";
-            body = request.body === undefined ? undefined : JSON.stringify(request.body);
-        }
-
-        const headers: Record<string, string> = { "X-Hermes-Session-Token": token };
-
-        if (contentType) {
-            headers["Content-Type"] = contentType;
-        }
-
-        const res = await fetch(url, {
-            method: request.method || "GET",
-            headers,
-            body,
-            signal: controller.signal,
-        });
-
-        const text = await res.text();
-
-        if (res.status >= 400) {
-            throw new Error(`${res.status}: ${text || res.statusText}`);
-        }
-
-        if (!text) {
-            return null as T;
-        }
-
-        const looksHtml = /^\s*<(?:!doctype|html)/i.test(text);
-        const contentTypeHeader = String(res.headers.get("content-type") || "");
-
-        if (looksHtml || contentTypeHeader.includes("text/html")) {
-            throw new Error(
-                `Expected JSON from ${url} but got HTML (status ${res.status}). ` +
-                    "The endpoint is likely missing on the Kronos backend."
-            );
-        }
-
-        try {
-            return JSON.parse(text) as T;
-        } catch {
-            throw new Error(`Invalid JSON from ${url} (status ${res.status}): ${text.slice(0, 200)}`);
-        }
-    } catch (error) {
-        if (controller.signal.aborted) {
-            throw new Error(`Timed out connecting to Kronos after ${timeoutMs}ms`);
-        }
-
-        throw error;
-    } finally {
-        window.clearTimeout(timer);
-    }
+    requireSessionToken();
+    return getApi().hermesApi<T>(request);
 }
 
 async function getConnection(profile?: null | string): Promise<HermesConnection> {
@@ -338,6 +258,8 @@ const shim: Window["hermesDesktop"] = {
     krontermSurfaces: {
         list: listKronTermSurfaces,
         focus: focusKronTermSurface,
+        openSplit: focusKronTermSurface,
+        promote: async (blockId) => promoteAgentWidget(blockId),
         preview: previewAgentWidget,
         snapshot: snapshotAgentWidget,
         inspect: async (blockId, enabled) => setAgentWidgetInspectMode(blockId, enabled),

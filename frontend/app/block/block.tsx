@@ -15,7 +15,6 @@ import { HermesViewModel } from "@/app/view/hermes/hermes-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
 import { AppStreamViewModel } from "@/app/view/appstream/appstream-model";
 import { ChatHubV2ViewModel } from "@/app/view/chathubv2/chathubv2-model";
-import { DesignViewModel } from "@/app/view/design/design";
 import { InstalledAppsViewModel } from "@/app/view/installedapps/installedapps";
 import { KronosCanvasViewModel } from "@/app/view/kronoscanvas/kronoscanvas-model";
 import { KronosChamberViewModel } from "@/app/view/kronoschamber/kronoschamber-model";
@@ -74,7 +73,6 @@ BlockRegistry.set("hermes", HermesViewModel);
 BlockRegistry.set("sandbox", SandboxViewModel);
 BlockRegistry.set("appstream", AppStreamViewModel);
 BlockRegistry.set("installedapps", InstalledAppsViewModel);
-BlockRegistry.set("design", DesignViewModel);
 
 function makeViewModel(
     blockId: string,

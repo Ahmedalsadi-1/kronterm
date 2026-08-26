@@ -28,13 +28,30 @@ export function isKronTermHudHost(): boolean {
     return typeof window !== "undefined" && Boolean((window as KronTermHostWindow)[KronTermHudFlag]);
 }
 
-const HermesShellModeContext = createContext<{ embedded: boolean; hudMode: boolean } | null>(null);
-
-export function HermesShellModeProvider({ children, hudMode }: { children: ReactNode; hudMode: boolean }) {
-    return createElement(HermesShellModeContext.Provider, { value: { embedded: hudMode, hudMode } }, children);
+interface HermesShellMode {
+    embedded: boolean;
+    hudMode: boolean;
+    panelMode: boolean;
 }
 
-export function useHermesShellMode(): { embedded: boolean; hudMode: boolean } {
+const HermesShellModeContext = createContext<HermesShellMode | null>(null);
+
+export function HermesShellModeProvider({
+    children,
+    hudMode,
+    panelMode = false,
+}: {
+    children: ReactNode;
+    hudMode: boolean;
+    panelMode?: boolean;
+}) {
+    return createElement(HermesShellModeContext.Provider, {
+        value: { embedded: hudMode || panelMode, hudMode, panelMode },
+        children,
+    });
+}
+
+export function useHermesShellMode(): HermesShellMode {
     const mode = useContext(HermesShellModeContext);
-    return mode ?? { embedded: isKronTermHudHost(), hudMode: false };
+    return mode ?? { embedded: isKronTermHudHost(), hudMode: false, panelMode: false };
 }

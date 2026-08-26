@@ -143,8 +143,8 @@ export const KronTermToolsets: Record<KronTermToolsetId, KronTermToolset> = {
     browser: {
         id: "browser",
         label: "In-app browser",
-        description: "Open, navigate, and read the KronTerm browser surface.",
-        tools: ["browser_open", "browser_navigate", "browser_get_html"],
+        description: "Reuse, tab, navigate, and read the KronTerm browser surface.",
+        tools: ["browser_open", "browser_open_tab", "browser_navigate", "browser_get_html"],
     },
     terminal: {
         id: "terminal",

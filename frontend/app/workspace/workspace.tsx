@@ -16,19 +16,38 @@ import {
     publishWorkspaceCanvasComposerSubmit,
     workspaceCanvasComposerContextAtom,
 } from "@/app/tab/workspace-canvas-context";
+import { isWorkspacePresentation, type WorkspacePresentation } from "@/app/tab/workspace-presentation";
 import { ComputerUseStreamManager } from "@/app/view/appstream/computer-use-stream-manager";
 import { HermesHudHost, HermesPanelHost } from "@/app/view/hermes/hermes-hud-host";
 import { consumeHermesHudAutoOpen } from "@/app/view/hermes/hermes-startup";
 import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import { KronarchyShell } from "@/app/workspace/kronarchy-shell";
 import { Widgets } from "@/app/workspace/widgets";
+import { clampHermesPanelWidth, getHermesPanelWidthBounds } from "@/app/workspace/workspace-hermes-panel";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { WorkspaceShellRail } from "@/app/workspace/workspace-shell-rail";
+import { WorkspaceWallpaper } from "@/app/workspace/workspace-wallpaper";
 import { atoms, createBlock, getApi, refocusNode } from "@/store/global";
 import { isMacOS } from "@/util/platformutil";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+
+const LayoutModeChangedEvent = "kronterm:layoutmode-changed";
+const LayoutModeStorageKey = "kronterm:layoutmode";
+
+function readWorkspacePresentation(): WorkspacePresentation {
+    const live = (window as any).__krontermLayoutMode;
+    if (isWorkspacePresentation(live)) {
+        return live;
+    }
+    try {
+        const stored = window.localStorage.getItem(LayoutModeStorageKey);
+        return isWorkspacePresentation(stored) ? stored : "widgets";
+    } catch {
+        return "widgets";
+    }
+}
 
 const BottomQuickComposer = memo(({ onOpenDock }: { onOpenDock: () => void }) => {
     const model = WaveAIModel.getInstance();
@@ -368,11 +387,43 @@ const WorkspaceElem = memo(() => {
         hermesSurfaceController.getSnapshot
     );
     const [autoOpenHud] = useState(consumeHermesHudAutoOpen);
-    const [panelWidth, setPanelWidth] = useState(() =>
-        Math.max(320, Math.min(520, Number(ws?.meta?.["layout:hermespanelwidth"] ?? 390)))
+    const [presentation, setPresentation] = useState(readWorkspacePresentation);
+    const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+    const panelBounds = useMemo(
+        () => getHermesPanelWidthBounds(presentation, viewportWidth),
+        [presentation, viewportWidth]
     );
+    const [panelWidth, setPanelWidth] = useState(() => {
+        const initialPresentation = readWorkspacePresentation();
+        const initialBounds = getHermesPanelWidthBounds(initialPresentation, window.innerWidth);
+        const persisted = Number(ws?.meta?.["layout:hermespanelwidth"]);
+        return clampHermesPanelWidth(
+            Number.isFinite(persisted) ? persisted : initialBounds.defaultWidth,
+            initialBounds
+        );
+    });
     const panelWidthRef = useRef(panelWidth);
     panelWidthRef.current = panelWidth;
+
+    useEffect(() => {
+        const handleLayoutModeChanged = (event: Event) => {
+            const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode;
+            if (isWorkspacePresentation(mode)) {
+                setPresentation(mode);
+            }
+        };
+        const handleResize = () => setViewportWidth(window.innerWidth);
+        window.addEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
+        window.addEventListener("resize", handleResize);
+        return () => {
+            window.removeEventListener(LayoutModeChangedEvent, handleLayoutModeChanged);
+            window.removeEventListener("resize", handleResize);
+        };
+    }, []);
+
+    useEffect(() => {
+        setPanelWidth((width) => clampHermesPanelWidth(width, panelBounds));
+    }, [panelBounds]);
 
     const expandHermes = useCallback(async () => {
         if (!tabId) {
@@ -409,7 +460,11 @@ const WorkspaceElem = memo(() => {
         <div className="flex flex-col w-full flex-grow overflow-hidden">
             <KronarchyShell workspace={ws} activeTabId={tabId} />
             {!isMacOS() && <TabBar key={ws.oid} workspace={ws} noTabs />}
-            <div className="workspace-surface-row workspace-reference-shell flex flex-row flex-grow overflow-hidden">
+            <div
+                className="workspace-surface-row workspace-reference-shell flex flex-row flex-grow overflow-hidden"
+                data-workspace-presentation={presentation}
+            >
+                <WorkspaceWallpaper />
                 <ComputerUseStreamManager />
                 <WorkspaceShellRail activeTabId={tabId} workspace={ws} />
                 {surface.presentation === "panel" && (
@@ -420,8 +475,8 @@ const WorkspaceElem = memo(() => {
                             role="separator"
                             aria-label="Resize Kronos side panel"
                             aria-orientation="vertical"
-                            aria-valuemin={320}
-                            aria-valuemax={520}
+                            aria-valuemin={panelBounds.min}
+                            aria-valuemax={panelBounds.max}
                             aria-valuenow={panelWidth}
                             tabIndex={0}
                             onKeyDown={(event) => {
@@ -430,7 +485,7 @@ const WorkspaceElem = memo(() => {
                                 }
                                 event.preventDefault();
                                 setPanelWidth((width) =>
-                                    Math.max(320, Math.min(520, width + (event.key === "ArrowRight" ? 12 : -12)))
+                                    clampHermesPanelWidth(width + (event.key === "ArrowRight" ? 12 : -12), panelBounds)
                                 );
                             }}
                             onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
@@ -440,7 +495,7 @@ const WorkspaceElem = memo(() => {
                                 }
                                 const dock = event.currentTarget.parentElement?.getBoundingClientRect();
                                 if (dock) {
-                                    setPanelWidth(Math.max(320, Math.min(520, event.clientX - dock.left)));
+                                    setPanelWidth(clampHermesPanelWidth(event.clientX - dock.left, panelBounds));
                                 }
                             }}
                             onPointerUp={(event) => {

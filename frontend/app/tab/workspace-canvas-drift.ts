@@ -16,6 +16,12 @@ export type WorkspaceCanvasSnapResult = {
 
 type CanvasRectEntry = [string, WorkspaceCanvasRect];
 
+type CanvasSnapCandidate = {
+    delta: number;
+    id: string;
+    value: number;
+};
+
 const rangesOverlap = (aStart: number, aEnd: number, bStart: number, bEnd: number): boolean =>
     Math.min(aEnd, bEnd) - Math.max(aStart, bStart) > 0;
 
@@ -25,11 +31,8 @@ export function snapWorkspaceCanvasRect(
     gap = 12,
     distance = 24
 ): WorkspaceCanvasSnapResult {
-    let x = moving.x;
-    let y = moving.y;
-    let bestX = distance + 1;
-    let bestY = distance + 1;
-    const snappedTo = new Set<string>();
+    let bestX: CanvasSnapCandidate | null = null;
+    let bestY: CanvasSnapCandidate | null = null;
 
     for (const [id, other] of others) {
         const verticalOverlap = rangesOverlap(
@@ -58,23 +61,50 @@ export function snapWorkspaceCanvasRect(
 
         for (const target of xTargets) {
             const delta = Math.abs(moving.x - target);
-            if (delta <= distance && delta < bestX) {
-                x = target;
-                bestX = delta;
-                snappedTo.add(id);
+            if (delta <= distance && (bestX == null || delta < bestX.delta)) {
+                bestX = { delta, id, value: target };
             }
         }
         for (const target of yTargets) {
             const delta = Math.abs(moving.y - target);
-            if (delta <= distance && delta < bestY) {
-                y = target;
-                bestY = delta;
-                snappedTo.add(id);
+            if (delta <= distance && (bestY == null || delta < bestY.delta)) {
+                bestY = { delta, id, value: target };
             }
         }
     }
 
-    return { rect: { ...moving, x, y }, snappedTo: [...snappedTo] };
+    return {
+        rect: {
+            ...moving,
+            x: bestX?.value ?? moving.x,
+            y: bestY?.value ?? moving.y,
+        },
+        snappedTo: [...new Set([bestX?.id, bestY?.id].filter((id): id is string => id != null))],
+    };
+}
+
+export function translateWorkspaceCanvasRect(
+    rect: WorkspaceCanvasRect,
+    delta: WorkspaceCanvasPoint
+): WorkspaceCanvasRect {
+    return { ...rect, x: rect.x + delta.x, y: rect.y + delta.y };
+}
+
+export function decayWorkspaceCanvasVelocity(
+    velocity: WorkspaceCanvasPoint,
+    elapsedMs: number,
+    friction = 0.9
+): WorkspaceCanvasPoint {
+    const decay = Math.pow(friction, Math.max(0, elapsedMs) / 16.67);
+    return { x: velocity.x * decay, y: velocity.y * decay };
+}
+
+export function shouldContinueWorkspaceCanvasMomentum(
+    velocity: WorkspaceCanvasPoint,
+    reducedMotion: boolean,
+    minimumSpeed = 0.015
+): boolean {
+    return !reducedMotion && Math.hypot(velocity.x, velocity.y) >= minimumSpeed;
 }
 
 export function findWorkspaceCanvasCluster(

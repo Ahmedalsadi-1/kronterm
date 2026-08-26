@@ -4,9 +4,12 @@
 import { describe, expect, it } from "vitest";
 import {
     centerWorkspaceCanvasCamera,
+    decayWorkspaceCanvasVelocity,
     findDirectionalWorkspaceCanvasRect,
     findWorkspaceCanvasCluster,
+    shouldContinueWorkspaceCanvasMomentum,
     snapWorkspaceCanvasRect,
+    translateWorkspaceCanvasRect,
     workspaceCanvasEdgePanDelta,
     workspaceCanvasViewportRect,
 } from "./workspace-canvas-drift";
@@ -29,6 +32,31 @@ describe("workspace canvas drift snapping", () => {
                 detached: { x: 500, y: 0, width: 100, height: 100 },
             })
         ).toEqual(["a", "b", "c"]);
+    });
+
+    it("reports only the closest snap owners on each axis", () => {
+        const result = snapWorkspaceCanvasRect(
+            { x: 278, y: 282, width: 100, height: 100 },
+            [
+                ["stale-x", { x: 395, y: 260, width: 100, height: 100 }],
+                ["closest-x", { x: 390, y: 260, width: 100, height: 100 }],
+                ["closest-y", { x: 260, y: 394, width: 100, height: 100 }],
+            ],
+            12,
+            24
+        );
+
+        expect(result.rect).toMatchObject({ x: 278, y: 282 });
+        expect(result.snappedTo).toEqual(["closest-x", "closest-y"]);
+    });
+
+    it("translates a snapped rectangle without changing its size", () => {
+        expect(translateWorkspaceCanvasRect({ x: 10, y: 20, width: 320, height: 180 }, { x: -4, y: 12 })).toEqual({
+            x: 6,
+            y: 32,
+            width: 320,
+            height: 180,
+        });
     });
 });
 
@@ -63,5 +91,12 @@ describe("workspace canvas drift navigation", () => {
             x: -18,
             y: -18,
         });
+    });
+
+    it("decays momentum consistently and stops it for reduced motion", () => {
+        expect(decayWorkspaceCanvasVelocity({ x: 1, y: -0.5 }, 16.67)).toEqual({ x: 0.9, y: -0.45 });
+        expect(shouldContinueWorkspaceCanvasMomentum({ x: 0.4, y: 0 }, false)).toBe(true);
+        expect(shouldContinueWorkspaceCanvasMomentum({ x: 0.4, y: 0 }, true)).toBe(false);
+        expect(shouldContinueWorkspaceCanvasMomentum({ x: 0.001, y: 0.001 }, false)).toBe(false);
     });
 });

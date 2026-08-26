@@ -25,9 +25,10 @@ const HermesMinimumScale = 0.65;
 interface HermesAppProps {
     kronSettingsModel?: KronSettingsViewModel;
     hudMode?: boolean;
+    panelMode?: boolean;
 }
 
-export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps) {
+export function HermesApp({ kronSettingsModel, hudMode = false, panelMode = false }: HermesAppProps) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(HermesMaximumScale);
     const kronTermSettingsHost = useMemo(
@@ -49,7 +50,7 @@ export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps
             return;
         }
 
-        if (hudMode) {
+        if (hudMode || panelMode) {
             setScale(HermesMaximumScale);
             return;
         }
@@ -72,7 +73,7 @@ export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps
         observer.observe(viewport);
 
         return () => observer.disconnect();
-    }, [hudMode]);
+    }, [hudMode, panelMode]);
 
     useLayoutEffect(() => {
         markKronTermHudHost(hudMode);
@@ -85,7 +86,7 @@ export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps
 
     useEffect(() => {
         setTerminalTakeover(false);
-        if (hudMode) {
+        if (hudMode || panelMode) {
             return;
         }
         resetLayoutTree();
@@ -104,7 +105,7 @@ export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps
             window.cancelAnimationFrame(frame);
             window.clearTimeout(retry);
         };
-    }, [hudMode]);
+    }, [hudMode, panelMode]);
 
     return (
         <div ref={viewportRef} className="relative h-full w-full overflow-hidden">
@@ -122,7 +123,7 @@ export function HermesApp({ kronSettingsModel, hudMode = false }: HermesAppProps
                             <ThemeProvider>
                                 <RootTooltipProvider>
                                     <KronTermSettingsHostProvider value={kronTermSettingsHost}>
-                                        <HermesShellModeProvider hudMode={hudMode}>
+                                        <HermesShellModeProvider hudMode={hudMode} panelMode={panelMode}>
                                             <HashRouter useTransitions={false}>
                                                 <App />
                                             </HashRouter>

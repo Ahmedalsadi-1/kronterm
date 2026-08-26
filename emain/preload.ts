@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld("api", {
     chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
     hermesGetConnection: (context?: { tabId?: string; blockId?: string }) =>
         ipcRenderer.invoke("hermes-get-connection", context),
+    hermesApi: (input) => ipcRenderer.invoke("hermes-api", input),
     onHermesConnection: (callback) => {
         const handler = (_event: Electron.IpcRendererEvent, payload: HermesConnectionDescriptor) => callback(payload);
         ipcRenderer.on("hermes-connection", handler);

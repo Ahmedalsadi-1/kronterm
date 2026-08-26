@@ -28,6 +28,14 @@ type OpenDesignElement = {
     componentName?: string;
 };
 
+type OpenDesignTheme = {
+    background?: string;
+    surface?: string;
+    foreground?: string;
+    muted?: string;
+    border?: string;
+};
+
 const OpenDesignRootId = "__kronterm_open_design_root";
 let openDesignEnabled = false;
 let openDesignRoot: HTMLDivElement | null = null;
@@ -165,18 +173,18 @@ function installOpenDesignUi(): void {
     openDesignRoot = document.createElement("div");
     openDesignRoot.id = OpenDesignRootId;
     openDesignRoot.style.cssText =
-        "position:fixed;inset:0;z-index:2147483647;pointer-events:none;font:12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#fff";
+        "--od-bg:#171717;--od-surface:#242424;--od-fg:#f5f5f5;--od-muted:#b4b4b4;--od-border:#454545;position:fixed;inset:0;z-index:2147483647;pointer-events:none;font:12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:var(--od-fg)";
     openDesignOutline = document.createElement("div");
     openDesignOutline.style.cssText =
-        "position:fixed;display:none;box-sizing:border-box;border:2px solid #8b5cf6;background:rgba(139,92,246,.10);box-shadow:0 0 0 1px rgba(255,255,255,.75),0 8px 24px rgba(0,0,0,.18);pointer-events:none";
+        "position:fixed;display:none;box-sizing:border-box;border:2px solid var(--od-fg);background:color-mix(in srgb,var(--od-fg) 8%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--od-bg) 70%,transparent),0 8px 24px rgba(0,0,0,.18);pointer-events:none";
     openDesignLabel = document.createElement("div");
     openDesignLabel.style.cssText =
-        "position:fixed;display:none;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;background:#7c3aed;padding:4px 7px;font-weight:600;line-height:16px;pointer-events:none";
+        "position:fixed;display:none;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--od-border);border-radius:6px;background:var(--od-fg);color:var(--od-bg);padding:4px 7px;font-weight:600;line-height:16px;pointer-events:none";
     openDesignComposer = document.createElement("div");
     openDesignComposer.style.cssText =
-        "position:fixed;display:none;width:min(320px,calc(100vw - 24px));border:1px solid rgba(255,255,255,.25);border-radius:12px;background:#17151d;padding:10px;box-shadow:0 18px 55px rgba(0,0,0,.4);pointer-events:auto";
+        "position:fixed;display:none;width:min(320px,calc(100vw - 24px));border:1px solid var(--od-border);border-radius:12px;background:var(--od-bg);color:var(--od-fg);padding:10px;box-shadow:0 18px 55px rgba(0,0,0,.4);pointer-events:auto";
     openDesignComposer.innerHTML =
-        '<div data-open-design-title style="margin:0 0 7px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comment on component</div><textarea aria-label="Open Design comment" placeholder="Tell Hermes what to change…" style="display:block;box-sizing:border-box;width:100%;min-height:72px;resize:vertical;border:1px solid #494450;border-radius:8px;background:#24212a;color:#fff;padding:8px;font:12px inherit;outline:none"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button data-open-design-cancel type="button" style="cursor:pointer;border:0;border-radius:7px;background:#312d38;color:#ddd;padding:6px 10px">Cancel</button><button data-open-design-submit type="button" style="cursor:pointer;border:0;border-radius:7px;background:#8b5cf6;color:#fff;padding:6px 10px;font-weight:650">Add comment</button></div>';
+        '<div data-open-design-title style="margin:0 0 7px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comment on component</div><textarea aria-label="Open Design comment" placeholder="Tell Hermes what to change…" style="display:block;box-sizing:border-box;width:100%;min-height:72px;resize:vertical;border:1px solid var(--od-border);border-radius:8px;background:var(--od-surface);color:var(--od-fg);padding:8px;font:12px inherit;outline:none"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button data-open-design-cancel type="button" style="cursor:pointer;border:1px solid var(--od-border);border-radius:7px;background:var(--od-surface);color:var(--od-muted);padding:6px 10px">Cancel</button><button data-open-design-submit type="button" style="cursor:pointer;border:1px solid var(--od-fg);border-radius:7px;background:var(--od-fg);color:var(--od-bg);padding:6px 10px;font-weight:650">Add comment</button></div>';
     openDesignRoot.append(openDesignOutline, openDesignLabel, openDesignComposer);
     document.documentElement.append(openDesignRoot);
 
@@ -198,6 +206,24 @@ function installOpenDesignUi(): void {
         if (textarea) textarea.value = "";
         if (openDesignComposer) openDesignComposer.style.display = "none";
     });
+}
+
+function applyOpenDesignTheme(theme?: OpenDesignTheme): void {
+    if (!openDesignRoot || !theme) {
+        return;
+    }
+    const tokens = {
+        "--od-bg": theme.background,
+        "--od-surface": theme.surface,
+        "--od-fg": theme.foreground,
+        "--od-muted": theme.muted,
+        "--od-border": theme.border,
+    };
+    for (const [token, value] of Object.entries(tokens)) {
+        if (value?.trim()) {
+            openDesignRoot.style.setProperty(token, value.trim());
+        }
+    }
 }
 
 function setOpenDesignEnabled(enabled: boolean): void {
@@ -263,8 +289,9 @@ document.addEventListener(
     true
 );
 
-ipcRenderer.on("open-design-set-inspect-mode", (_event, payload: { enabled?: boolean }) => {
+ipcRenderer.on("open-design-set-inspect-mode", (_event, payload: { enabled?: boolean; theme?: OpenDesignTheme }) => {
     setOpenDesignEnabled(payload?.enabled === true);
+    applyOpenDesignTheme(payload?.theme);
 });
 
 function getElementByRef(ref?: string): HTMLElement | null {

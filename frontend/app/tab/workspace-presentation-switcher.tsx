@@ -18,6 +18,7 @@ const PresentationDetails: Record<WorkspacePresentation, { icon: string; label: 
     widgets: { icon: "fa-table-cells-large", label: "Widgets", description: "Resizable tiled splits" },
     tabs: { icon: "fa-window-restore", label: "Tabs", description: "Focused widgets with a tab strip" },
     canvas: { icon: "fa-object-group", label: "Canvas", description: "Spatial pan-and-zoom workspace" },
+    web: { icon: "fa-globe", label: "Web", description: "Full-screen web surface" },
 };
 
 const SidePanelDetails: Record<SidePanelMode, { icon: string; label: string; description: string }> = {

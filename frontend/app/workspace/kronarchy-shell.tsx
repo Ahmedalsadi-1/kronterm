@@ -100,6 +100,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
     const [systemItems, setSystemItems] = useState<SystemSearchItem[]>([]);
     const [systemSearching, setSystemSearching] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
+    const launcherReturnFocusRef = useRef<HTMLElement | null>(null);
     const tabIds = workspace?.tabids ?? [];
 
     const setKronarchyMode = useCallback((nextEnabled: boolean) => {
@@ -264,6 +265,14 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                         action: () => chooseLayout("canvas"),
                     },
                     {
+                        id: "layout-web",
+                        label: "Web Mode",
+                        description: "Full-screen web surface",
+                        icon: "fa-globe",
+                        keywords: "web browser mode krondesign full screen",
+                        action: () => chooseLayout("web"),
+                    },
+                    {
                         id: "sidebar-full",
                         label: "Full Sidebar",
                         description: "Show workspace names and widget tree",
@@ -406,6 +415,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
         [extendedSections, normalizedQuery]
     );
     const visibleItems = useMemo(() => visibleSections.flatMap((section) => section.items), [visibleSections]);
+    const activeLauncherItem = visibleItems.find((item) => item.id === activeItemId) ?? visibleItems[0];
 
     useEffect(() => {
         document.documentElement.classList.toggle("kronarchy-mode", enabled);
@@ -532,8 +542,11 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
         if (!open) {
             setQuery("");
             setActiveItemId(undefined);
+            launcherReturnFocusRef.current?.focus();
+            launcherReturnFocusRef.current = null;
             return;
         }
+        launcherReturnFocusRef.current = document.activeElement as HTMLElement;
         window.requestAnimationFrame(() => searchRef.current?.focus());
     }, [open]);
 
@@ -602,6 +615,23 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
 
     const handleLauncherKeyDown = useCallback(
         (event: React.KeyboardEvent) => {
+            if (event.key === "Tab") {
+                const focusable = Array.from(
+                    event.currentTarget.querySelectorAll<HTMLElement>(
+                        'input, button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+                    )
+                );
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first?.focus();
+                }
+                return;
+            }
             if (event.key === "Enter") {
                 const activeItem = visibleItems.find((item) => item.id === activeItemId) ?? visibleItems[0];
                 if (activeItem) {
@@ -653,12 +683,34 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                         >
                             <span aria-hidden="true">K</span>
                         </button>
+                        <nav className="kronarchy-workspaces" aria-label="Workspace tabs">
+                            {tabIds.slice(0, 10).map((tabId, index) => {
+                                const active = tabId === activeTabId;
+                                return (
+                                    <button
+                                        key={tabId}
+                                        type="button"
+                                        className={cn(active && "is-active")}
+                                        onClick={() => setActiveTab(tabId)}
+                                        aria-label={`Open workspace tab ${index + 1}`}
+                                        aria-current={active ? "page" : undefined}
+                                        title={`Workspace tab ${index + 1}`}
+                                    >
+                                        {active ? <i className="fa-solid fa-circle-dot" aria-hidden="true" /> : index + 1}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                    <div className="kronarchy-bar-section kronarchy-bar-center">
+                        <time title={new Date().toLocaleDateString()}>{clock}</time>
                     </div>
                     <div className="kronarchy-bar-section kronarchy-bar-right">
                         <button
                             type="button"
                             className="kronarchy-layout-status"
                             onClick={() => setOpen(true)}
+                            aria-label={`Change workspace layout. Current layout: ${layoutMode}`}
                             title="Change workspace layout"
                         >
                             {layoutMode}
@@ -667,6 +719,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                             type="button"
                             className={cn("kronarchy-connected", !online && "is-offline")}
                             onClick={() => void launchWidget({ meta: { view: "waveconfig" } })}
+                            aria-label={`${online ? "Online" : "Offline"}. Open connections`}
                             title="Open connections"
                         >
                             <span aria-hidden="true" /> {online ? "online" : "offline"}
@@ -716,7 +769,6 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                 </div>
                             )}
                         </div>
-                        <time title={new Date().toLocaleDateString()}>{clock}</time>
                     </div>
                 </header>
             )}
@@ -746,8 +798,9 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                 onChange={(event) => setQuery(event.target.value)}
                                 placeholder="Search apps, widgets, files, wallpapers…"
                                 aria-label="Search apps, widgets, files, wallpapers, settings, and layouts"
+                                aria-describedby="kronarchy-launcher-status"
                             />
-                            <kbd>Shift + Super + Space</kbd>
+                            <kbd aria-hidden="true">esc</kbd>
                         </header>
                         <div className="kronarchy-launcher-results">
                             {visibleSections.length > 0 ? (
@@ -763,6 +816,7 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                                     key={item.id}
                                                     type="button"
                                                     className={cn(
+                                                        normalizedQuery && "has-detail",
                                                         selectedLayout && "is-selected",
                                                         activeItemId === item.id && "is-active"
                                                     )}
@@ -770,9 +824,9 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                                     onMouseEnter={() => setActiveItemId(item.id)}
                                                 >
                                                     <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
-                                                    <span>
+                                                    <span className="kronarchy-item-copy">
                                                         <strong>{item.label}</strong>
-                                                        <small>{item.description}</small>
+                                                        {normalizedQuery && <small>{item.description}</small>}
                                                     </span>
                                                     {selectedLayout && (
                                                         <i
@@ -794,18 +848,9 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                                 </p>
                             )}
                         </div>
-                        <footer className="kronarchy-launcher-footer">
-                            <button
-                                type="button"
-                                className={enabled ? "is-enabled" : ""}
-                                onClick={() => setKronarchyMode(!enabled)}
-                                aria-pressed={enabled}
-                            >
-                                <i className="fa-solid fa-border-all" aria-hidden="true" />
-                                Kronarchy mode {enabled ? "on" : "off"}
-                            </button>
-                            <span>{systemSearching ? "Searching…" : "↑↓ move · Enter open · Esc close"}</span>
-                        </footer>
+                        <p id="kronarchy-launcher-status" className="kronarchy-launcher-status" aria-live="polite">
+                            {activeLauncherItem?.label ?? "No matching item"}
+                        </p>
                     </section>
                 </div>
             )}

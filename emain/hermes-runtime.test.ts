@@ -6,12 +6,30 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+    makeHermesApiUrl,
     makeHermesManagedConfig,
     makeHermesRuntimeEnvironment,
     makeKronTermToolEnvironment,
     parseHermesReadyPort,
     resolveKronTermSharedSkillDirs,
 } from "./hermes-runtime";
+
+describe("Hermes API routing", () => {
+    test("keeps renderer requests on the managed backend and adds profile scope", () => {
+        expect(makeHermesApiUrl("http://127.0.0.1:62554", "/api/config?explicit=1", "research").toString()).toBe(
+            "http://127.0.0.1:62554/api/config?explicit=1&profile=research"
+        );
+    });
+
+    test.each(["https://example.com/api/config", "//example.com/api/config", "api/config"])(
+        "rejects a request that could escape the managed backend: %s",
+        (requestPath) => {
+            expect(() => makeHermesApiUrl("http://127.0.0.1:62554", requestPath)).toThrow(
+                "Hermes API paths must be absolute backend paths."
+            );
+        }
+    );
+});
 
 describe("parseHermesReadyPort", () => {
     test.each([
@@ -49,6 +67,8 @@ describe("Hermes KronTerm runtime environment", () => {
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("widget_snapshot");
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("canvas_snapshot");
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("workspace_canvas_add_note");
+        expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("browser_open_tab");
+        expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("create a new browser widget only as the final fallback");
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("never intentionally overlap canvas items");
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain("kron_computer_get_app_state");
         expect(env.HERMES_EPHEMERAL_SYSTEM_PROMPT).toContain(

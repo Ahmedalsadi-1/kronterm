@@ -43,15 +43,13 @@
     --color-saturn: rgb(232, 196, 124);
     --color-saturn-light: rgb(250, 230, 180);
 
-    --font-sans: "Inter", sans-serif;
-    --font-mono: "Hack", monospace;
-    --font-markdown:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji",
-        "Segoe UI Emoji";
+    --font-sans: var(--hermes-font-sans);
+    --font-mono: var(--hermes-font-mono);
+    --font-markdown: var(--hermes-font-sans);
 
-    --text-xxs: 10px;
-    --text-title: 18px;
-    --text-default: 14px;
+    --text-xxs: var(--hermes-text-micro);
+    --text-title: var(--hermes-text-title);
+    --text-default: var(--hermes-text-body);
 
     --radius: 8px;
 
@@ -83,22 +81,22 @@
     --z-window-drag: 100;
 
     /* KronosChamber-ported tokens (settings/chat UI) — additive, mapped to KronTerm theme vars */
-    --color-primary-foreground: var(--main-bg-color);
-    --color-secondary-foreground: var(--text-primary-color);
-    --color-accent-foreground: var(--main-bg-color);
-    --color-card: var(--panel-bg-color);
-    --color-card-foreground: var(--text-primary-color);
-    --color-popover: var(--modal-bg-color);
-    --color-popover-foreground: var(--text-primary-color);
-    --color-destructive: var(--error-color);
-    --color-input: var(--form-element-bg-color);
-    --color-ring: var(--accent-color);
-    --color-sidebar: var(--panel-bg-color);
-    --color-sidebar-foreground: var(--text-primary-color);
-    --color-interactive-hover: var(--surface-hover-color);
-    --color-interactive-active: var(--surface-active-color);
-    --color-interactive-selection: var(--surface-selected-color);
-    --color-interactive-selection-foreground: var(--text-primary-color);
+    --color-primary-foreground: var(--hermes-primary-foreground);
+    --color-secondary-foreground: var(--hermes-secondary-foreground);
+    --color-accent-foreground: var(--hermes-accent-foreground);
+    --color-card: var(--hermes-card);
+    --color-card-foreground: var(--hermes-card-foreground);
+    --color-popover: var(--hermes-popover);
+    --color-popover-foreground: var(--hermes-popover-foreground);
+    --color-destructive: var(--hermes-destructive);
+    --color-input: var(--hermes-input);
+    --color-ring: var(--hermes-ring);
+    --color-sidebar: var(--hermes-sidebar);
+    --color-sidebar-foreground: var(--hermes-sidebar-foreground);
+    --color-interactive-hover: var(--hermes-interactive-hover);
+    --color-interactive-active: var(--hermes-interactive-active);
+    --color-interactive-selection: var(--hermes-interactive-selection);
+    --color-interactive-selection-foreground: var(--hermes-interactive-selection-foreground);
 }
 
 /* Applied when body.nohover is set — used to suppress hover effects during tab remount to prevent ghost-hover flicker */
@@ -112,24 +110,24 @@
     --zoomfactor: 1;
     --zoomfactor-inv: 1;
 
-    --interactive-border: var(--border-color);
-    --interactive-border-hover: var(--accent-color);
-    --interactive-border-focus: var(--accent-color);
-    --interactive-focus-ring: var(--accent-color);
-    --surface-elevated: var(--modal-bg-color);
-    --surface-elevated-foreground: var(--text-primary-color);
+    --interactive-border: var(--hermes-border);
+    --interactive-border-hover: var(--hermes-midground);
+    --interactive-border-focus: var(--hermes-ring);
+    --interactive-focus-ring: var(--hermes-ring);
+    --surface-elevated: var(--hermes-popover);
+    --surface-elevated-foreground: var(--hermes-popover-foreground);
     --sidebar-overlay-strong: color-mix(in srgb, var(--panel-bg-color) 92%, transparent);
     --sidebar-overlay-soft: color-mix(in srgb, var(--panel-bg-color) 75%, transparent);
     --status-warning: var(--warning-color);
     --status-warning-background: color-mix(in srgb, var(--warning-color) 12%, transparent);
     --status-warning-border: color-mix(in srgb, var(--warning-color) 35%, transparent);
 
-    --text-markdown: 0.96875rem;
-    --text-code: 0.8125rem;
-    --text-ui-header: 1rem;
-    --text-ui-label: 0.875rem;
-    --text-meta: 0.8125rem;
-    --text-micro: 0.75rem;
+    --text-markdown: var(--hermes-text-body);
+    --text-code: var(--hermes-text-meta);
+    --text-ui-header: var(--hermes-text-heading);
+    --text-ui-label: var(--hermes-text-ui);
+    --text-meta: var(--hermes-text-meta);
+    --text-micro: var(--hermes-text-micro);
 }
 
 @layer components {
@@ -143,7 +141,7 @@
 
     .typography-ui-header {
         font-size: var(--text-ui-header);
-        letter-spacing: -0.015em;
+        letter-spacing: var(--hermes-tracking-tight);
     }
 
     .typography-ui,
@@ -153,7 +151,7 @@
 
     .typography-meta {
         font-size: var(--text-meta);
-        letter-spacing: 0.01em;
+        letter-spacing: var(--hermes-tracking-meta);
     }
 
     .typography-micro {

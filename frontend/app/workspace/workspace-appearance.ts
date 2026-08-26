@@ -20,10 +20,19 @@ const DefaultWorkspaceAppearance: WorkspaceAppearance = {
     icons: "soft",
 };
 
-const FontFamilies: Record<WorkspaceFontStyle, string> = {
-    hermes: '"IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace',
-    mono: '"JetBrains Mono", "SFMono-Regular", Menlo, monospace',
-    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+const FontFamilies: Record<WorkspaceFontStyle, { sans: string; mono: string }> = {
+    hermes: {
+        sans: '"Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+        mono: '"JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace',
+    },
+    mono: {
+        sans: '"JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace',
+        mono: '"JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace',
+    },
+    system: {
+        sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+        mono: 'ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace',
+    },
 };
 
 function readWorkspaceAppearance(): WorkspaceAppearance {
@@ -43,8 +52,13 @@ function readWorkspaceAppearance(): WorkspaceAppearance {
 
 function applyWorkspaceAppearance(appearance: WorkspaceAppearance): void {
     const root = document.documentElement;
-    root.style.setProperty("--font-default", FontFamilies[appearance.font]);
-    root.style.setProperty("--markdown-font-family", FontFamilies[appearance.font]);
+    const fonts = FontFamilies[appearance.font];
+
+    root.style.setProperty("--hermes-font-sans", fonts.sans);
+    root.style.setProperty("--hermes-font-mono", fonts.mono);
+    root.style.removeProperty("--font-default");
+    root.style.removeProperty("--font-mono-family");
+    root.style.removeProperty("--markdown-font-family");
     root.dataset.krontermDensity = appearance.density;
     root.dataset.krontermIcons = appearance.icons;
 }

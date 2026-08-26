@@ -15,7 +15,8 @@ cmd/
 ├── generatets/       # TypeScript binding generator
 ├── generatego/       # Go client generator
 ├── generateschema/   # JSON schema generator
-└── test*/            # Test utilities
+├── packfiles/        # Packaged asset packing utility
+└── test*/            # Test utilities (incl. test-streammanager, test-conn)
 ```
 
 ## BUILD

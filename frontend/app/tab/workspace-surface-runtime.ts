@@ -34,7 +34,10 @@ type WorkspaceSurfaceControlInput = {
 type WorkspaceSurfaceModeState = {
     presentation: WorkspacePresentation;
     selectedblockid?: string;
+    selectedobjectid?: string;
     expandedblockid?: string;
+    contextids?: string[];
+    contextmode?: "follow" | "quote";
     camera?: { x: number; y: number; zoom: number };
     rects?: Record<string, WorkspaceCanvasRect>;
     objects?: unknown[];

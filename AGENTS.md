@@ -17,8 +17,9 @@ The desktop has three workspace presentations that share the same blocks:
 - `canvas`: a pan-and-zoom spatial workspace with live widgets, notes, shapes, connectors, and agent task cards.
 
 The current development line also includes live agent activity overlays, task/evidence graphs, selection-to-agent context,
-a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, and an optional voice engine. The
-`mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally
+a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, an optional voice engine, the Hermes
+agent UI mounted as native widgets (`frontend/hermes/`), the Kronarchy workspace shell, and desktop pet / overlay windows.
+The `mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally
 available.
 
 Legacy `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and Go module names remain in compatibility-sensitive code and config.
@@ -34,8 +35,11 @@ change.
 | Frontend state              | `frontend/app/store/` (Jotai)                                                  |
 | Workspace presentations     | `frontend/app/tab/` (`widget-tabs-layout.tsx`, `workspace-canvas.tsx`)         |
 | Workspace layout model      | `frontend/app/workspace/workspace-layout-model.ts`                             |
-| KronosChamber view          | `frontend/app/view/chathubv2/`                                                 |
-| KronosChamber runtime       | `emain/chathubv2-*.ts`, `emain/kronoscode-runtime.ts`                          |
+| KronosChamber view          | `frontend/app/view/chathubv2/` (has its own AGENTS.md)                         |
+| KronosChamber runtime       | `emain/chathubv2-*.ts`, `emain/acp/`, `emain/kronoscode-runtime.ts`            |
+| Kronarchy workspace shell   | `frontend/app/workspace/kronarchy-shell.tsx`                                   |
+| Hermes agent UI             | `frontend/hermes/`, `agents/hermes/`, `emain/hermes-runtime.ts`                |
+| Desktop pet and overlay     | `desktop-pet/`, `emain/emain-pet.ts`, `emain/emain-overlay.ts`, `frontend/pet/`|
 | Agent activity and overlays | `frontend/types/agent-activity.ts`, `frontend/app/view/use-agent-overlays.ts`  |
 | KronosCode package boundary | `agents/kronoscode/`                                                           |
 | AI backends                 | `pkg/waveai/`, `pkg/aiusechat/`                                                |
@@ -92,24 +96,32 @@ go vet ./pkg/...                     # Static analysis
 
 ```
 kronterm/
-├── emain/              # Electron main process, native bridges, managed agent runtime
+├── emain/              # Electron main process, native bridges, managed agent runtimes
 ├── frontend/           # React renderer (TypeScript/TSX)
 │   ├── app/            # Components: block/, tab/, view/, store/, aipanel/, element/
 │   ├── builder/        # Builder app
-│   ├── layout/         # Layout system (tests in layout/tests/)
+│   ├── hermes/         # Hermes agent app embedded as a native widget (+ hermes-shared/)
+│   ├── layout/         # Layout engine (AGENTS.md inside; tests in layout/tests/)
+│   ├── overlay/        # Overlay window renderer
+│   ├── pet/            # Desktop pet renderer
 │   ├── preview/        # Standalone preview server (no Electron)
 │   ├── util/           # Utilities (base64, color, endpoints, etc.)
 │   └── types/          # TypeScript types (gotypes.d.ts is GENERATED)
 ├── cmd/                # Go CLI apps (wsh daemon, server, generators)
 ├── pkg/                # Go packages (wshrpc, waveai, wps, wconfig, etc.)
-├── agents/             # Packaged ACP agent boundaries
+├── agents/             # Packaged agent boundaries (kronoscode, hermes)
 ├── mcp-kron-term/      # KronTerm workspace and computer-use MCP server
 ├── audio-engine/       # Optional Python speech capture, STT, and TTS process
+├── desktop-pet/        # Standalone desktop pet window content
 ├── mobile/             # KronTerm for iPhone Labs client and connector
 ├── tsunami/            # Embedded VDOM rendering engine (Go + frontend)
 ├── db/                 # SQLite migrations
 ├── website/            # Vite product website
 └── docs/               # Docusaurus documentation site
+
+Embedded sibling git repos (separate projects with their own docs — not part of core changes):
+`krondesign/` (design-system daemon started by `emain/emain-krondesign.ts`, built by `task dev`),
+`kronoscoder/`, `third_party/`, `UI-TARS-desktop/`, `vendor/`.
 ```
 
 ## Key Generated Files (DO NOT EDIT)
@@ -199,3 +211,4 @@ Read the matching `.kilocode/skills/<name>/SKILL.md` before these tasks:
 - **`cursor-help` or `cursor-not-allowed`** — looks terrible, never use
 - **Running `go build`** — breaks compilation detection; rely on IDE diagnostics
 - **Adding comments that describe what code does** — the code should speak for itself
+- **Treating `krondesign/`, `kronoscoder/`, or other embedded sibling repos as core code** — separate git repos with their own conventions

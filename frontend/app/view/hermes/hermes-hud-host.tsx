@@ -236,42 +236,36 @@ export function HermesPanelHost({ tabId }: { tabId: string }) {
 
     return (
         <section className="hermes-workspace-panel" aria-label="Kronos side panel">
-            <header className="hermes-workspace-panel-header">
-                <div>
-                    <span className="hermes-workspace-panel-status" aria-hidden="true" />
-                    <strong>Kronos</strong>
-                </div>
-                <div className="hermes-workspace-panel-actions">
-                    <button
-                        type="button"
-                        onClick={() => hermesSurfaceController.requestOpenHud()}
-                        aria-label="Move Kronos to HUD"
-                        title="Move to HUD"
-                    >
-                        <i className="fa-solid fa-window-restore" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => void hermesSurfaceController.expandToWidget()}
-                        aria-label="Open Kronos as a widget"
-                        title="Open as widget"
-                    >
-                        <i className="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => hermesSurfaceController.dismiss()}
-                        aria-label="Close Kronos side panel"
-                        title="Close panel"
-                    >
-                        <i className="fa-solid fa-xmark" aria-hidden="true" />
-                    </button>
-                </div>
-            </header>
+            <div className="hermes-workspace-panel-actions">
+                <button
+                    type="button"
+                    onClick={() => hermesSurfaceController.requestOpenHud()}
+                    aria-label="Move Kronos to HUD"
+                    title="Move to HUD"
+                >
+                    <i className="fa-solid fa-window-restore" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void hermesSurfaceController.expandToWidget()}
+                    aria-label="Open Kronos as a widget"
+                    title="Open as widget"
+                >
+                    <i className="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => hermesSurfaceController.dismiss()}
+                    aria-label="Close Kronos side panel"
+                    title="Close panel"
+                >
+                    <i className="fa-solid fa-xmark" aria-hidden="true" />
+                </button>
+            </div>
             <div className="hermes-workspace-panel-content">
                 {connectionReady ? (
                     <Suspense fallback={<div className="hermes-workspace-panel-state">Loading Kronos…</div>}>
-                        <LazyHermesApp />
+                        <LazyHermesApp panelMode />
                     </Suspense>
                 ) : (
                     <div className="hermes-workspace-panel-state">Starting Kronos…</div>

@@ -5,8 +5,8 @@
     width: 56px;
     background: linear-gradient(
         180deg,
-        rgb(from var(--surface-base-color) r g b / 0.48),
-        rgb(from var(--main-bg-color) r g b / 0.24)
+        color-mix(in srgb, var(--hermes-card) 88%, transparent),
+        color-mix(in srgb, var(--hermes-background) 72%, transparent)
     );
 }
 
@@ -21,11 +21,11 @@
 }
 
 .widget-rail-left {
-    border-right: 1px solid rgb(from var(--border-color) r g b / 0.56);
+    border-right: 1px solid var(--hermes-sidebar-border);
 }
 
 .widget-rail-right {
-    border-left: 1px solid rgb(from var(--border-color) r g b / 0.56);
+    border-left: 1px solid var(--hermes-sidebar-border);
 }
 
 .widget-rail-compact {
@@ -42,7 +42,7 @@
     display: flex;
     max-width: 100%;
     align-items: center;
-    gap: 5px;
+    gap: var(--space-1);
     padding: 0;
     overflow-x: auto;
     border: 0;
@@ -62,13 +62,13 @@
     padding: 0;
     cursor: pointer;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-secondary-color);
     font: inherit;
     transition:
-        background-color 160ms ease,
-        color 160ms ease;
+        background-color var(--motion-standard) var(--ease-standard),
+        color var(--motion-standard) var(--ease-standard);
 
     &:hover {
         background: var(--surface-hover-color);
@@ -118,9 +118,262 @@
     width: min(260px, calc(100vw - 24px));
     overflow: hidden;
     border: 1px solid rgb(from var(--border-color) r g b / 0.7);
-    border-radius: 12px;
-    background: rgb(from var(--surface-raised-color) r g b / 0.98);
-    box-shadow: 0 18px 54px rgb(0 0 0 / 0.42);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--hermes-popover) 98%, transparent);
+    box-shadow: var(--shadow-overlay);
+    animation: widget-popup-in 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.widget-app-launcher {
+    z-index: 300;
+    width: min(520px, calc(100vw - 24px));
+    max-height: min(720px, calc(100dvh - 24px));
+    overflow: hidden;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.72);
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary-color);
+    background: color-mix(in srgb, var(--hermes-popover) 98%, transparent);
+    box-shadow: var(--shadow-overlay);
+    animation: widget-popup-in 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.widget-app-launcher-header {
+    padding: 12px;
+    border-bottom: 1px solid rgb(from var(--border-color) r g b / 0.48);
+}
+
+.widget-app-launcher-search {
+    display: flex;
+    height: 36px;
+    align-items: center;
+    gap: 9px;
+    padding: 0 11px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.62);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted-color);
+    background: rgb(from var(--surface-base-color) r g b / 0.72);
+
+    &:focus-within {
+        border-color: var(--focus-ring-color);
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.16);
+    }
+
+    i {
+        font-size: 11px;
+    }
+
+    input {
+        min-width: 0;
+        height: 100%;
+        flex: 1;
+        border: 0;
+        color: var(--text-primary-color);
+        background: transparent;
+        font: inherit;
+        font-size: 12px;
+        outline: none;
+
+        &::placeholder {
+            color: var(--text-muted-color);
+        }
+    }
+}
+
+.widget-app-launcher-body {
+    min-height: 0;
+    padding: 14px;
+}
+
+.widget-app-launcher-scroll {
+    max-height: min(60vh, 560px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.widget-app-launcher-heading {
+    margin: 12px 0 6px;
+    color: var(--text-muted-color);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+
+    &:first-child {
+        margin-top: 0;
+    }
+}
+
+.widget-app-launcher-grid {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.widget-app-launcher-item {
+    display: flex;
+    min-width: 0;
+    min-height: 72px;
+    cursor: pointer;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary-color);
+    background: transparent;
+    font: inherit;
+    transition:
+        border-color 120ms ease-out,
+        color 120ms ease-out,
+        background-color 120ms ease-out;
+
+    &:hover,
+    &:focus-visible {
+        border-color: rgb(from var(--text-primary-color) r g b / 0.25);
+        color: var(--text-primary-color);
+        background: rgb(from var(--text-primary-color) r g b / 0.08);
+        outline: none;
+    }
+
+    &:focus-visible {
+        border-color: var(--focus-ring-color);
+        box-shadow: inset 3px 0 0 var(--focus-ring-color);
+    }
+}
+
+.widget-app-launcher-icon {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    color: var(--accent-color);
+    font-size: 26px;
+}
+
+.widget-app-launcher-image {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.widget-app-launcher-label {
+    width: 100%;
+    overflow: hidden;
+    padding: 0 2px;
+    font-size: 10px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.widget-app-launcher-empty,
+.widget-app-launcher-loading {
+    display: flex;
+    min-height: 120px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    color: var(--text-muted-color);
+    font-size: 11px;
+    text-align: center;
+}
+
+.widget-app-launcher-loading i {
+    color: var(--accent-color);
+    font-size: 16px;
+}
+
+.widget-app-launcher-footer {
+    display: flex;
+    width: 100%;
+    min-height: 36px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 12px;
+    border: 0;
+    border-top: 1px solid rgb(from var(--border-color) r g b / 0.48);
+    color: var(--text-secondary-color);
+    background: transparent;
+    font: inherit;
+    font-size: 10px;
+
+    &:hover,
+    &:focus-visible {
+        color: var(--text-primary-color);
+        background: rgb(from var(--text-primary-color) r g b / 0.08);
+        outline: none;
+    }
+
+    &:focus-visible {
+        box-shadow: inset 0 0 0 1px var(--focus-ring-color);
+    }
+}
+
+.widget-settings-menu {
+    z-index: 300;
+    display: grid;
+    width: 240px;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.72);
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary-color);
+    background: color-mix(in srgb, var(--hermes-popover) 98%, transparent);
+    box-shadow: var(--shadow-overlay);
+    animation: widget-popup-in 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.widget-settings-menu-item {
+    display: grid;
+    width: 100%;
+    min-height: 40px;
+    cursor: pointer;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary-color);
+    background: transparent;
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    transition:
+        border-color 120ms ease-out,
+        color 120ms ease-out,
+        background-color 120ms ease-out;
+
+    &:hover,
+    &:focus-visible {
+        border-color: rgb(from var(--text-primary-color) r g b / 0.25);
+        color: var(--text-primary-color);
+        background: rgb(from var(--text-primary-color) r g b / 0.08);
+        outline: none;
+    }
+
+    &:focus-visible {
+        border-color: var(--focus-ring-color);
+        box-shadow: inset 3px 0 0 var(--focus-ring-color);
+    }
+}
+
+.widget-settings-menu-icon {
+    display: grid;
+    width: 22px;
+    place-items: center;
+    font-size: 14px;
+}
+
+.widget-settings-menu-error {
+    color: var(--error-color);
+    font-size: 12px;
 }
 
 .widget-rail-compact-menu-heading {
@@ -202,9 +455,9 @@
     flex-direction: column;
     overflow: hidden;
     border: 1px solid rgb(from var(--border-color) r g b / 0.72);
-    border-radius: 12px;
-    background: rgb(from var(--surface-raised-color) r g b / 0.98);
-    box-shadow: 0 24px 70px rgb(0 0 0 / 0.48);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--hermes-popover) 98%, transparent);
+    box-shadow: var(--shadow-overlay);
 }
 
 .widget-catalog-tools {

@@ -17,7 +17,6 @@ const ViewIconMap: Record<string, string> = {
     appstream: "desktop",
     chathubv2: "sparkles",
     cpuplot: "chart-line",
-    design: "palette",
     help: "circle-question",
     installedapps: "desktop",
     kronoscanvas: "diagram-project",
@@ -79,9 +78,6 @@ export function blockViewToName(view: string): string {
     }
     if (view == "kronoscanvas") {
         return "Canvas";
-    }
-    if (view == "design") {
-        return "Design";
     }
     return view;
 }

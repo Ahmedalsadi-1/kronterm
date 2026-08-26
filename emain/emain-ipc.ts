@@ -63,7 +63,7 @@ import { handleCtrlShiftState } from "./emain-util";
 import { getWaveVersion } from "./emain-wavesrv";
 import { createNewWaveWindow, getWaveWindowByWebContentsId } from "./emain-window";
 import { ElectronWshClient } from "./emain-wsh";
-import { HermesRuntime } from "./hermes-runtime";
+import { HermesRuntime, type HermesApiRequest } from "./hermes-runtime";
 import {
     isKronosCodeLoopbackUrl,
     KronosCodeRuntime,
@@ -1136,6 +1136,10 @@ export function initIpcHandlers() {
 
     electron.ipcMain.handle("hermes-get-connection", async (_event, context?: { tabId?: string; blockId?: string }) => {
         return HermesRuntime.ensureSurface(context);
+    });
+
+    electron.ipcMain.handle("hermes-api", async (_event, input: HermesApiRequest) => {
+        return HermesRuntime.api(input);
     });
 
     electron.ipcMain.handle("kronoscode-revalidate-connection", async () => {

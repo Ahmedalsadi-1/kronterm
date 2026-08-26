@@ -32,10 +32,18 @@ describe("ChatHub V2 host bridge", () => {
 
     it("maps KronTerm semantic tokens into the Chamber theme message", () => {
         const values: Record<string, string> = {
-            "--main-bg-color": "#151313",
-            "--text-primary-color": "#ded8ca",
-            "--accent-color": "#edb449",
-            "--font-default": '"JetBrains Mono", monospace',
+            "--hermes-background": "#09090b",
+            "--hermes-foreground": "#f4f4f5",
+            "--hermes-card": "#111113",
+            "--hermes-card-foreground": "#fafafa",
+            "--hermes-popover": "#151518",
+            "--hermes-primary": "#f4f4f5",
+            "--hermes-primary-foreground": "#09090b",
+            "--hermes-midground": "#7c9cff",
+            "--hermes-ring": "#9db2ff",
+            "--hermes-sidebar": "#080809",
+            "--hermes-font-sans": '"Inter", system-ui, sans-serif',
+            "--hermes-font-mono": '"JetBrains Mono", monospace',
         };
         const theme = readKronTermThemeSnapshot({
             getPropertyValue: (name) => values[name] ?? "",
@@ -44,11 +52,40 @@ describe("ChatHub V2 host bridge", () => {
         expect(makeKronTermThemeMessage(theme)).toMatchObject({
             type: "kronterm:theme-sync",
             theme: {
-                background: "#151313",
-                foreground: "#ded8ca",
-                primary: "#edb449",
-                fontSans: '"JetBrains Mono", monospace',
+                background: "#09090b",
+                foreground: "#f4f4f5",
+                card: "#111113",
+                cardForeground: "#fafafa",
+                popover: "#151518",
+                primary: "#f4f4f5",
+                primaryForeground: "#09090b",
+                midground: "#7c9cff",
+                ring: "#9db2ff",
+                sidebarBackground: "#080809",
+                fontSans: '"Inter", system-ui, sans-serif',
+                fontMono: '"JetBrains Mono", monospace',
             },
+        });
+    });
+
+    it("keeps legacy KronTerm variables as compatibility fallbacks", () => {
+        const values: Record<string, string> = {
+            "--main-bg-color": "#151313",
+            "--text-primary-color": "#ded8ca",
+            "--accent-color": "#edb449",
+            "--font-default": '"JetBrains Mono", monospace',
+        };
+
+        const theme = readKronTermThemeSnapshot({
+            getPropertyValue: (name) => values[name] ?? "",
+        } as Pick<CSSStyleDeclaration, "getPropertyValue">);
+
+        expect(theme).toMatchObject({
+            background: "#151313",
+            foreground: "#ded8ca",
+            primary: "#edb449",
+            midground: "#edb449",
+            fontSans: '"JetBrains Mono", monospace',
         });
     });
 

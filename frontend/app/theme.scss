@@ -18,40 +18,150 @@
 }
 
 :root {
-    --main-text-color: #f2f2f2;
-    --title-font-size: 18px;
+    // Hermes semantic contract. Presentation-specific styles consume these
+    // names while compatibility aliases below keep older KronTerm views stable.
+    --hermes-background: #050505;
+    --hermes-foreground: #f2f2f2;
+    --hermes-card: #0d0d0d;
+    --hermes-card-foreground: #f2f2f2;
+    --hermes-muted: #151515;
+    --hermes-muted-foreground: #8b8b8b;
+    --hermes-popover: #121212;
+    --hermes-popover-foreground: #f2f2f2;
+    --hermes-primary: #19aad8;
+    --hermes-primary-foreground: #020202;
+    --hermes-secondary: #181818;
+    --hermes-secondary-foreground: #d0d0d0;
+    --hermes-accent: rgb(25 170 216 / 0.15);
+    --hermes-accent-foreground: #f2f2f2;
+    --hermes-border: rgb(255 255 255 / 0.12);
+    --hermes-input: rgb(255 255 255 / 0.14);
+    --hermes-ring: rgb(25 170 216 / 0.68);
+    --hermes-midground: #19aad8;
+    --hermes-composer-ring: #19aad8;
+    --hermes-sidebar: #090909;
+    --hermes-sidebar-foreground: #f2f2f2;
+    --hermes-sidebar-border: rgb(255 255 255 / 0.1);
+    --hermes-user-bubble: #181818;
+    --hermes-user-bubble-border: rgb(255 255 255 / 0.12);
+    --hermes-destructive: #e5484d;
+    --hermes-destructive-foreground: #fff7f7;
+    --hermes-warning: #d6a443;
+    --hermes-warning-foreground: #140f05;
+    --hermes-success: #45a36d;
+    --hermes-success-foreground: #05120a;
+    --hermes-interactive-hover: rgb(255 255 255 / 0.06);
+    --hermes-interactive-active: rgb(255 255 255 / 0.09);
+    --hermes-interactive-selection: rgb(25 170 216 / 0.15);
+    --hermes-interactive-selection-foreground: #f2f2f2;
+
+    --hermes-font-sans:
+        "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji";
+    --hermes-font-mono:
+        "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace, "Apple Color Emoji",
+        "Segoe UI Emoji";
+    --hermes-text-micro: 11px;
+    --hermes-text-meta: 12px;
+    --hermes-text-ui: 13px;
+    --hermes-text-body: 14px;
+    --hermes-text-heading: 16px;
+    --hermes-text-title: 18px;
+    --hermes-leading-tight: 1.25;
+    --hermes-leading-ui: 1.4;
+    --hermes-leading-body: 1.55;
+    --hermes-tracking-tight: -0.015em;
+    --hermes-tracking-meta: 0.01em;
+
+    --hermes-space-0: 0;
+    --hermes-space-1: 4px;
+    --hermes-space-2: 8px;
+    --hermes-space-3: 12px;
+    --hermes-space-4: 16px;
+    --hermes-space-5: 20px;
+    --hermes-space-6: 24px;
+    --hermes-space-8: 32px;
+    --hermes-space-10: 40px;
+    --hermes-radius-xs: 4px;
+    --hermes-radius-sm: 7px;
+    --hermes-radius-md: 10px;
+    --hermes-radius-lg: 14px;
+    --hermes-radius-xl: 18px;
+    --hermes-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
+    --hermes-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
+    --hermes-shadow-md: 0 16px 48px rgb(0 0 0 / 0.28);
+    --hermes-shadow-overlay: 0 24px 80px rgb(0 0 0 / 0.46);
+    --hermes-motion-fast: 110ms;
+    --hermes-motion-standard: 170ms;
+    --hermes-motion-slow: 260ms;
+    --hermes-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --hermes-control-sm: 28px;
+    --hermes-control-md: 34px;
+    --hermes-control-lg: 40px;
+    --hermes-workspace-gap: 6px;
+
+    // Compatibility aliases let existing surfaces migrate incrementally.
+    --space-0: var(--hermes-space-0);
+    --space-1: var(--hermes-space-1);
+    --space-2: var(--hermes-space-2);
+    --space-3: var(--hermes-space-3);
+    --space-4: var(--hermes-space-4);
+    --space-5: var(--hermes-space-5);
+    --space-6: var(--hermes-space-6);
+    --space-8: var(--hermes-space-8);
+    --space-10: var(--hermes-space-10);
+    --radius-xs: var(--hermes-radius-xs);
+    --radius-sm: var(--hermes-radius-sm);
+    --radius-md: var(--hermes-radius-md);
+    --radius-lg: var(--hermes-radius-lg);
+    --radius-xl: var(--hermes-radius-xl);
+    --shadow-xs: var(--hermes-shadow-xs);
+    --shadow-sm: var(--hermes-shadow-sm);
+    --shadow-md: var(--hermes-shadow-md);
+    --shadow-overlay: var(--hermes-shadow-overlay);
+    --motion-fast: var(--hermes-motion-fast);
+    --motion-standard: var(--hermes-motion-standard);
+    --motion-slow: var(--hermes-motion-slow);
+    --ease-standard: var(--hermes-ease-standard);
+    --control-height-sm: var(--hermes-control-sm);
+    --control-height-md: var(--hermes-control-md);
+    --control-height-lg: var(--hermes-control-lg);
+    --workspace-gap: var(--hermes-workspace-gap);
+
+    --main-text-color: var(--hermes-foreground);
+    --title-font-size: var(--hermes-text-title);
     --window-opacity: 1;
-    --secondary-text-color: #a3a3a3;
-    --grey-text-color: #6b6b6b;
-    --main-bg-color: #050505;
-    --border-color: rgba(255, 255, 255, 0.12);
-    --surface-base-color: rgba(5, 5, 5, 0.96);
-    --surface-raised-color: rgba(13, 13, 13, 0.96);
-    --surface-overlay-color: rgba(18, 18, 18, 0.98);
-    --surface-hover-color: rgba(255, 255, 255, 0.06);
-    --surface-active-color: rgba(25, 170, 216, 0.13);
-    --surface-selected-color: rgba(25, 170, 216, 0.15);
-    --focus-ring-color: rgba(25, 170, 216, 0.68);
-    --text-primary-color: #f2f2f2;
-    --text-secondary-color: #a3a3a3;
-    --text-muted-color: #6f6f6f;
-    --font-default: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-    --font-mono-family: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-    --base-font: normal 13px / 1.45 var(--font-default);
-    --fixed-font: normal 12px / 1.45 var(--font-mono-family);
-    --accent-color: rgb(25, 170, 216);
+    --secondary-text-color: var(--hermes-secondary-foreground);
+    --grey-text-color: var(--hermes-muted-foreground);
+    --main-bg-color: var(--hermes-background);
+    --border-color: var(--hermes-border);
+    --surface-base-color: var(--hermes-background);
+    --surface-raised-color: var(--hermes-card);
+    --surface-overlay-color: var(--hermes-popover);
+    --surface-hover-color: var(--hermes-interactive-hover);
+    --surface-active-color: var(--hermes-interactive-active);
+    --surface-selected-color: var(--hermes-interactive-selection);
+    --focus-ring-color: var(--hermes-ring);
+    --text-primary-color: var(--hermes-foreground);
+    --text-secondary-color: var(--hermes-secondary-foreground);
+    --text-muted-color: var(--hermes-muted-foreground);
+    --font-default: var(--hermes-font-sans);
+    --font-mono-family: var(--hermes-font-mono);
+    --base-font: normal var(--hermes-text-ui) / var(--hermes-leading-ui) var(--font-default);
+    --fixed-font: normal var(--hermes-text-meta) / var(--hermes-leading-ui) var(--font-mono-family);
+    --accent-color: var(--hermes-midground);
     --panel-bg-color: var(--surface-raised-color);
     --highlight-bg-color: var(--surface-active-color);
-    --markdown-font-family: var(--font-default);
-    --markdown-font-size: 14px;
-    --markdown-fixed-font-size: 12px;
-    --error-color: rgb(229, 77, 46);
-    --warning-color: rgb(224, 185, 86);
-    --success-color: rgb(78, 154, 6);
+    --markdown-font-family: var(--hermes-font-sans);
+    --markdown-font-size: var(--hermes-text-body);
+    --markdown-fixed-font-size: var(--hermes-text-meta);
+    --error-color: var(--hermes-destructive);
+    --warning-color: var(--hermes-warning);
+    --success-color: var(--hermes-success);
     --hover-bg-color: var(--surface-hover-color);
     --block-bg-color: rgba(0, 0, 0, 0.5);
     --block-bg-solid-color: rgb(0, 0, 0);
-    --block-border-radius: 8px;
+    --block-border-radius: var(--radius-md);
 
     --keybinding-color: #e0e0e0;
     --keybinding-bg-color: #333;
@@ -63,7 +173,7 @@
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.5);
     --scrollbar-thumb-active-color: rgba(255, 255, 255, 0.6);
 
-    --header-font: 700 11px / normal var(--font-default);
+    --header-font: 600 var(--hermes-text-micro) / var(--hermes-leading-tight) var(--font-default);
     --header-icon-size: 14px;
     --header-icon-width: 16px;
     --header-height: 30px;
@@ -108,10 +218,10 @@
     --modal-bg-color: var(--surface-overlay-color);
     --modal-header-bottom-border-color: var(--border-color);
     --modal-border-color: var(--border-color); /* toggle colors */
-    --modal-border-radius: 12px;
+    --modal-border-radius: var(--radius-lg);
     --toggle-bg-color: var(--border-color);
     --modal-shadow-color: rgba(0, 0, 0, 0.8);
-    --modal-box-shadow: 0px 8px 24px 0px var(--modal-shadow-color);
+    --modal-box-shadow: var(--shadow-overlay);
 
     --toggle-thumb-color: var(--main-text-color);
     --toggle-checked-bg-color: var(--accent-color);

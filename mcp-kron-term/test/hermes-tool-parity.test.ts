@@ -28,6 +28,7 @@ const RequiredFamilies = {
     terminal: ["block_run_command", "terminal_open", "terminal_scrollback"],
     browser: [
         "browser_open",
+        "browser_open_tab",
         "browser_navigate",
         "browser_get_html",
         "widget_snapshot",

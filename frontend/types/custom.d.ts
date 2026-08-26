@@ -110,6 +110,15 @@ declare global {
         pid: number;
     };
 
+    type HermesApiIpcRequest = {
+        path: string;
+        method?: string;
+        body?: unknown;
+        upload?: { filename: string; contentType?: string; bytes: ArrayBuffer };
+        timeoutMs?: number;
+        profile?: string | null;
+    };
+
     type KronosCodeConnectionDescriptor = {
         mode: "managed" | "external";
         baseUrl: string;
@@ -484,6 +493,7 @@ declare global {
         }>;
         chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
         hermesGetConnection: (context?: { tabId?: string; blockId?: string }) => Promise<HermesConnectionDescriptor>; // hermes-get-connection
+        hermesApi: <T = unknown>(input: HermesApiIpcRequest) => Promise<T>; // hermes-api
         onHermesConnection: (callback: (connection: HermesConnectionDescriptor) => void) => () => void; // hermes-connection
         kronoscodeGetConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-get-connection
         kronoscodeRevalidateConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-revalidate-connection

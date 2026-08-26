@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const TabsAgentCompanionRequestEvent = "kronterm:tabs-agent-companion";
+const TabsAgentCompanionPromoteEvent = "kronterm:tabs-agent-companion-promote";
 
 const AgentChatViews = new Set(["chathubv2", "hermes"]);
 
@@ -24,4 +25,22 @@ function requestTabsAgentCompanion(blockId: string): void {
     );
 }
 
-export { TabsAgentCompanionRequestEvent, isAgentChatView, requestTabsAgentCompanion, type TabsAgentCompanionRequest };
+function promoteTabsAgentCompanion(blockId: string): void {
+    if (typeof window === "undefined" || !blockId.trim()) {
+        return;
+    }
+    window.dispatchEvent(
+        new CustomEvent<TabsAgentCompanionRequest>(TabsAgentCompanionPromoteEvent, {
+            detail: { blockId: blockId.trim() },
+        })
+    );
+}
+
+export {
+    TabsAgentCompanionPromoteEvent,
+    TabsAgentCompanionRequestEvent,
+    isAgentChatView,
+    promoteTabsAgentCompanion,
+    requestTabsAgentCompanion,
+    type TabsAgentCompanionRequest,
+};

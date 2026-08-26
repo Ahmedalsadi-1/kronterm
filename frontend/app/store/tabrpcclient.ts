@@ -884,6 +884,9 @@ export class TabClient extends WshClient {
                       : undefined,
             camera: modeState?.camera,
             canvasobjects: modeState?.objects ?? [],
+            selectedcanvasobjectid: modeState?.selectedobjectid,
+            canvascontextids: modeState?.contextids ?? [],
+            canvascontextmode: modeState?.contextmode,
             layouttree: presentation === "widgets" ? layoutModel?.treeState.rootNode : undefined,
             blocks,
             capabilities: {
@@ -906,7 +909,7 @@ export class TabClient extends WshClient {
             },
             guidance:
                 presentation === "canvas"
-                    ? "Use worldbounds for widget geometry, canvasobjects for whiteboard object IDs and geometry, and bounds for on-screen interactions. Requested placements are moved to open space to prevent overlap."
+                    ? "Use worldbounds for widget geometry, canvasobjects for whiteboard object IDs and geometry, selectedcanvasobjectid and canvascontextids for the user's active spatial context, and bounds for on-screen interactions. Requested placements are moved to open space to prevent overlap."
                     : presentation === "tabs"
                       ? "Only the focused widget is visible; use focus or navigate before widget interaction."
                       : "Use layouttree and bounds for split-aware move, resize, magnify, and directional navigation.",

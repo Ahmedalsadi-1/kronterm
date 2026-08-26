@@ -48,6 +48,13 @@
 /* JetBrains Mono — bundled terminal font (Apache-2.0) so bold/italic share the
    regular face's metrics instead of squeezing against a system fallback. */
 @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/inter-variable.woff2") format("woff2");
+}
+@font-face {
     font-family: "JetBrains Mono";
     font-style: normal;
     font-weight: 400;
@@ -400,20 +407,70 @@
         --dt-user-bubble-border: var(--ui-stroke-tertiary);
 
         --dt-font-sans:
-            "Segoe WPC", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif,
+            "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif,
             "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", emoji;
         /* Key caps always use the native UI face — never theme typography overrides. */
         --dt-font-kbd: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-        /* Menlo/Monaco first — Apple's native monospace faces — so code/diff read
-       in the system mono on macOS, with SF Mono and bundled Courier Prime as
-       fallbacks. */
+        /* Code and terminal surfaces share the bundled JetBrains Mono metrics;
+       native monospace faces remain fallbacks when the asset is unavailable. */
         --dt-font-mono:
-            Menlo, Monaco, "SF Mono", "Courier Prime", monospace, "Apple Color Emoji", "Segoe UI Emoji",
+            "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace, "Apple Color Emoji", "Segoe UI Emoji",
             "Segoe UI Symbol", "Noto Color Emoji", emoji;
         --dt-base-size: 1rem;
         --dt-line-height: 1.5;
         --dt-letter-spacing: 0;
         --dt-spacing-mul: 1;
+
+        /* The host shell and embedded Hermes runtime share this semantic
+           vocabulary; aliases keep plugins portable without coupling them to
+           either renderer's private --dt-* or --ui-* implementation tokens. */
+        --hermes-background: var(--dt-background);
+        --hermes-foreground: var(--dt-foreground);
+        --hermes-card: var(--dt-card);
+        --hermes-card-foreground: var(--dt-card-foreground);
+        --hermes-muted: var(--dt-muted);
+        --hermes-muted-foreground: var(--dt-muted-foreground);
+        --hermes-popover: var(--dt-popover);
+        --hermes-popover-foreground: var(--dt-popover-foreground);
+        --hermes-primary: var(--dt-primary);
+        --hermes-primary-foreground: var(--dt-primary-foreground);
+        --hermes-secondary: var(--dt-secondary);
+        --hermes-secondary-foreground: var(--dt-secondary-foreground);
+        --hermes-accent: var(--dt-accent);
+        --hermes-accent-foreground: var(--dt-accent-foreground);
+        --hermes-border: var(--dt-border);
+        --hermes-input: var(--dt-input);
+        --hermes-ring: var(--dt-ring);
+        --hermes-midground: var(--dt-midground);
+        --hermes-composer-ring: var(--dt-composer-ring);
+        --hermes-sidebar: var(--dt-sidebar-bg);
+        --hermes-sidebar-foreground: var(--dt-foreground);
+        --hermes-sidebar-border: var(--dt-sidebar-border);
+        --hermes-user-bubble: var(--dt-user-bubble);
+        --hermes-user-bubble-border: var(--dt-user-bubble-border);
+        --hermes-destructive: var(--dt-destructive);
+        --hermes-destructive-foreground: var(--dt-destructive-foreground);
+        --hermes-warning: var(--ui-yellow);
+        --hermes-warning-foreground: var(--dt-background);
+        --hermes-success: var(--ui-green);
+        --hermes-success-foreground: var(--dt-background);
+        --hermes-interactive-hover: var(--ui-control-hover-background);
+        --hermes-interactive-active: var(--ui-control-active-background);
+        --hermes-interactive-selection: var(--ui-row-active-background);
+        --hermes-interactive-selection-foreground: var(--dt-foreground);
+        --hermes-font-sans: var(--dt-font-sans);
+        --hermes-font-mono: var(--dt-font-mono);
+        --hermes-text-micro: 0.6875rem;
+        --hermes-text-meta: 0.75rem;
+        --hermes-text-ui: 0.8125rem;
+        --hermes-text-body: 0.875rem;
+        --hermes-text-heading: 1rem;
+        --hermes-text-title: 1.125rem;
+        --hermes-leading-tight: 1.25;
+        --hermes-leading-ui: 1.4;
+        --hermes-leading-body: 1.55;
+        --hermes-tracking-tight: -0.015em;
+        --hermes-tracking-meta: 0.01em;
 
         --radius: 0.75rem;
         /* Effective value everywhere: the chat backdrop used to force 0.2 onto the

@@ -42,7 +42,6 @@ const KronTermWidgetBlocks: Record<string, BlockDef> = {
     "browser-tabs": { meta: { view: "web" } },
     "browser-widget": { meta: { view: "web" } },
     sandbox: { meta: { view: "sandbox" } },
-    design: { meta: { view: "design" } },
     apps: { meta: { view: "installedapps" } },
     diff: { meta: { view: "aifilediff" } },
 };

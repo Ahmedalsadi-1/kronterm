@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-const WorkspacePresentations = ["widgets", "tabs", "canvas"] as const;
+const WorkspacePresentations = ["widgets", "tabs", "canvas", "web"] as const;
 
 type WorkspacePresentation = (typeof WorkspacePresentations)[number];
 

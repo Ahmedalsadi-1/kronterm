@@ -274,8 +274,8 @@ export const host = {
     },
 
     /** Current KronTerm-tab surfaces through the embedding host's scoped door.
-     *  Only display-safe descriptors and focus are exposed; no raw block meta,
-     *  Electron bridge, or arbitrary workspace RPC leaks into plugin code. */
+     *  Only display-safe descriptors and split/promote actions are exposed; no
+     *  raw block meta, Electron bridge, or arbitrary workspace RPC leaks into plugin code. */
     krontermSurfaces: {
         list: async (): Promise<KronTermSurface[]> => {
             const bridge = window.hermesDesktop?.krontermSurfaces;
@@ -297,6 +297,32 @@ export const host = {
 
             if (!result.ok) {
                 throw new Error(result.error || "KronTerm could not focus that surface.");
+            }
+        },
+        openSplit: async (blockId: string): Promise<void> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            const result = await bridge.openSplit(blockId);
+
+            if (!result.ok) {
+                throw new Error(result.error || "KronTerm could not open that surface beside Hermes.");
+            }
+        },
+        promote: async (blockId: string): Promise<void> => {
+            const bridge = window.hermesDesktop?.krontermSurfaces;
+
+            if (!bridge) {
+                throw new Error("KronTerm surface controls are unavailable in this host.");
+            }
+
+            const result = await bridge.promote(blockId);
+
+            if (!result.ok) {
+                throw new Error(result.error || "KronTerm could not expand that surface.");
             }
         },
         preview: async (blockId: string): Promise<string> => {

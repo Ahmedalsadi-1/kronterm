@@ -205,7 +205,7 @@ export const WorkspaceShellRail = memo(({ activeTabId, workspace }: { activeTabI
                     title={`Workspace presentation: ${presentation}`}
                 >
                     <i
-                        className={`fa-solid fa-${presentation === "tabs" ? "window-restore" : presentation === "canvas" ? "object-group" : "table-cells-large"}`}
+                        className={`fa-solid fa-${presentation === "tabs" ? "window-restore" : presentation === "canvas" ? "object-group" : presentation === "web" ? "globe" : "table-cells-large"}`}
                         aria-hidden="true"
                     />
                 </button>

@@ -1,5 +1,31 @@
 # KronTerm Video Production
 
+## Intro Film
+
+- Composition: `KronTermIntro`
+- Duration: 90 seconds
+- Format: 1080×1920, 9:16 vertical, 30 FPS, H.264 MP4
+- Tone: calm; long fades, staggered reveals
+- Audio: silent track (add BGM/narration as a follow-up if needed)
+
+| Scene          | Time        | Visual                                                                                  |
+| -------------- | ----------- | --------------------------------------------------------------------------------------- |
+| Title          | 00:00–00:10 | Icon + KronTerm wordmark fade in with tagline "The developer workspace, unified."       |
+| Problem        | 00:10–00:23 | Terminal / Browser / AI Chat window cards drift apart                                   |
+| Solution       | 00:23–00:37 | Four cards glide into a tiled 2×2 workspace grid                                        |
+| Surfaces       | 00:37–00:50 | Mock terminal types on while a browser block loads kronterm.dev                         |
+| Canvas + AI    | 00:50–01:04 | Sticky notes and connectors pan across the canvas beside a KronosCode chat panel        |
+| Values         | 01:04–01:17 | Keyboard-first · Local-first & private · Built for deep work                            |
+| CTA            | 01:17–01:30 | Wordmark returns with "One workspace. Every surface." and fades to black                |
+
+Render with:
+
+```bash
+npm run build:intro
+```
+
+Output lands at `video/out/kronterm-intro.mp4`. QA stills for each scene are in `video/out/stills/`.
+
 ## Field Guide Film
 
 - Composition: `KronTermFieldGuide`

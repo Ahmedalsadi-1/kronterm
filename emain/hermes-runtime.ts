@@ -12,6 +12,7 @@ import { KronTermSurfaceSystemPrompt } from "./kronterm-surface-prompt";
 
 const StartupTimeoutMs = 90_000;
 const HealthTimeoutMs = 10_000;
+const ApiTimeoutMs = 15_000;
 const SurfaceRefreshLeadMs = 10 * 60 * 1000;
 
 type KronTermSkillRootOptions = {
@@ -32,6 +33,33 @@ export type HermesConnectionDescriptor = {
     token: string;
     pid: number;
 };
+
+export type HermesApiRequest = {
+    path: string;
+    method?: string;
+    body?: unknown;
+    upload?: { filename: string; contentType?: string; bytes: ArrayBuffer };
+    timeoutMs?: number;
+    profile?: string | null;
+};
+
+export function makeHermesApiUrl(baseUrl: string, requestPath: string, profile?: string | null): URL {
+    if (!requestPath.startsWith("/") || requestPath.startsWith("//")) {
+        throw new Error("Hermes API paths must be absolute backend paths.");
+    }
+    const url = new URL(requestPath, `${baseUrl}/`);
+    if (profile?.trim()) {
+        url.searchParams.set("profile", profile.trim());
+    }
+    return url;
+}
+
+function resolveApiTimeoutMs(timeoutMs: number | undefined): number {
+    if (typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+        return timeoutMs;
+    }
+    return ApiTimeoutMs;
+}
 
 function existingExecutable(candidate: string | undefined): string | undefined {
     if (!candidate) {
@@ -356,6 +384,69 @@ class ManagedHermesRuntime extends EventEmitter {
             this.restartTimer = null;
             void this.ensure().catch((error) => console.log("Hermes automatic restart failed", error));
         }, 1_000);
+    }
+
+    async api<T = unknown>(request: HermesApiRequest): Promise<T> {
+        if (request.body != null && request.upload != null) {
+            throw new Error("Hermes API requests cannot contain both JSON and an upload.");
+        }
+        const connection = await this.ensure();
+        const url = makeHermesApiUrl(connection.baseUrl, request.path, request.profile);
+        const timeoutMs = resolveApiTimeoutMs(request.timeoutMs);
+        let body: BodyInit | undefined;
+        const headers: Record<string, string> = { "X-Hermes-Session-Token": connection.token };
+
+        if (request.upload) {
+            const form = new FormData();
+            const filename = String(request.upload.filename || "file").replace(/["\r\n]/g, "_");
+            form.append(
+                "file",
+                new Blob([request.upload.bytes], {
+                    type: request.upload.contentType || "application/octet-stream",
+                }),
+                filename
+            );
+            body = form;
+        } else if (request.body !== undefined) {
+            headers["Content-Type"] = "application/json";
+            body = JSON.stringify(request.body);
+        }
+
+        let response: Response;
+        try {
+            response = await fetch(url, {
+                method: request.method || "GET",
+                headers,
+                body,
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "TimeoutError") {
+                throw new Error(`Timed out connecting to Kronos after ${timeoutMs}ms`);
+            }
+            throw error;
+        }
+
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`${response.status}: ${text || response.statusText}`);
+        }
+        if (!text) {
+            return null as T;
+        }
+
+        const contentType = response.headers.get("content-type") ?? "";
+        if (/^\s*<(?:!doctype|html)/i.test(text) || contentType.includes("text/html")) {
+            throw new Error(
+                `Expected JSON from ${url.toString()} but got HTML (status ${response.status}). ` +
+                    "The endpoint is likely missing on the Kronos backend."
+            );
+        }
+        try {
+            return JSON.parse(text) as T;
+        } catch {
+            throw new Error(`Invalid JSON from ${url.toString()} (status ${response.status}): ${text.slice(0, 200)}`);
+        }
     }
 
     private async start(): Promise<HermesConnectionDescriptor> {
