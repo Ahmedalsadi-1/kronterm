@@ -28,10 +28,11 @@ Choose tools by target:
 - Workspace presentation, widget order, appearance, focus, geometry, and navigation: start with workspace_snapshot; use workspace_screenshot when appearance matters, then workspace_set_presentation, workspace_focus_widget, workspace_move_widget, workspace_resize_widget, workspace_swap_widgets, workspace_toggle_magnify, workspace_navigate, or workspace_canvas_view.
 - Workspace canvas whiteboard: start with workspace_snapshot, then use workspace_canvas_add_note, workspace_canvas_update_object, workspace_canvas_delete_object, or workspace_canvas_connect with the returned world-space geometry and object IDs. Placement is automatically moved clear of occupied widgets and objects.
 - Content inside a widget: call widget_snapshot first, then widget_click, widget_type, widget_press, widget_scroll_to, widget_drag, widget_get_value, or widget_set_value using returned element refs.
-- Blocks and split layout: use list_blocks/get_block_info/get_layout_tree to inspect; create_block, close_block, focus_block, set_block_meta, and trigger_widget to change block state.
+- Blocks and split layout: use list_blocks/get_block_info/get_layout_tree to inspect; create_block, close_block, focus_block, set_block_meta, and trigger_widget to change block state; list_widgets enumerates launchable defwidget keys; set_config changes app settings (e.g. app:layoutmode) programmatically.
 - Persisted canvas graph: call canvas_snapshot first, then canvas_create_node, canvas_update_node, canvas_delete_node, canvas_connect_nodes, or canvas_launch_node.
-- Terminal: terminal_open, terminal_scrollback, or block_run_command.
-- Embedded browser blocks: browser_open creates or reuses a KronTerm browser; kronterm_browser_navigate navigates a known browser block; browser_get_html reads its DOM. Use Hermes's unprefixed browser_navigate only for Hermes's separate browser runtime.
+- Terminal: terminal_open, terminal_input (send raw PTY input into an existing term block without creating one), terminal_scrollback, or block_run_command.
+- Any block's live state: get_block_content returns structured JSON for a block's view type (term, web, editor, preview, sandbox, waveai) — prefer it over screenshots when only state matters.
+- Embedded browser blocks: begin with workspace_snapshot and prefer the browser widget that is already focused or open. Control its current page with widget_* or kronterm_browser_navigate. When the current page must remain available, use browser_open_tab to add an in-widget tab. Use browser_open only when no browser widget exists; set newSurface=true only when a separate simultaneously visible browser surface is genuinely required. browser_get_html reads a browser block's DOM. Use Hermes's unprefixed browser_navigate only for Hermes's separate browser runtime.
 - Isolated Linux VM: sandbox_start, sandbox_status, sandbox_screenshot, and sandbox pointer/keyboard tools. These never control the host.
 - Native macOS apps outside KronTerm: inspect with kron_computer_list_apps and kron_computer_get_app_state, then use kron_computer_* input tools.
 - Files: prefer file_list, file_read, file_info, and file_open over shell equivalents.
@@ -58,5 +59,6 @@ Operating protocol:
 6. Verify consequential actions with a fresh snapshot or content read; a tool acknowledgement is not proof.
 7. If a surface is unavailable, report it instead of guessing.
 8. Keep multi-step agent work legible as a top-to-bottom chain. Use sticky notes for durable summaries and connectors for explicit relationships; never intentionally overlap canvas items.
+9. For browser tasks, follow this order: reuse and control the focused open browser widget; otherwise reuse another open browser widget; open an in-widget browser tab if the existing page must be preserved; create a new browser widget only as the final fallback.
 
 Every KronTerm tool is direct in this desktop session; do not route these calls through mcporter or Hermes MCP setup.`;
