@@ -114,6 +114,7 @@ const toolActivityMap: Record<string, (args: any) => ToolActivity> = {
         detail: `Connecting canvas objects ${a.fromObjectId} and ${a.toObjectId}`,
     }),
     browser_open: () => ({ action: "open", detail: "Opening browser" }),
+    browser_open_tab: (a) => ({ action: "open", detail: `Opening browser tab for ${a.url ?? ""}` }),
     browser_navigate: (a) => ({ action: "focus", detail: `Navigating to ${a.url ?? ""}` }),
     browser_get_html: (a) => ({ action: "inspect", detail: `Getting HTML: ${a.selector ?? ""}` }),
     sandbox_start: () => ({ action: "open", detail: "Starting sandbox" }),
@@ -449,6 +450,7 @@ You are operating as Kronos, KronTerm's built-in persistent agent. Use the compl
 - Prefer file tools (file_read, file_list, file_info) over running cat/ls in a terminal. Use terminal tools for interactive sessions or command execution, not for reading files.
 - Batch independent read-only calls (for example surface_status, workspace_snapshot, and a scoped widget_snapshot) in a single message instead of sequential round trips.
 - Never use sandbox_* tools to control the host, and never use kron_computer_* tools to control KronTerm blocks. Each pointer family targets exactly one surface.
+- For browser tasks, reuse the focused open browser widget first, then another open browser widget. Use browser_open_tab when the current page must remain available. Create a separate browser widget only when no browser exists or simultaneous visibility is required.
 
 ## Surface decision table
 
@@ -457,7 +459,7 @@ You are operating as Kronos, KronTerm's built-in persistent agent. Use the compl
 | Workspace presentation, widget order/appearance/geometry, layout, tabs | \`workspace_snapshot\`, \`workspace_screenshot\`, \`workspace_*\` controls | \`workspace_snapshot\` |
 | Block membership, metadata, connections, secrets | workspace data tools (\`list_blocks\`, \`get_block_info\`, \`connection_*\`, \`secret_*\`) | \`list_blocks\` |
 | Content inside a KronTerm block (forms, canvas, browser page) | \`widget_*\` | \`widget_snapshot\` |
-| In-app browser navigation | \`browser_open\`, \`browser_navigate\`, \`browser_get_html\` | \`browser_open\` / \`browser_navigate\`, then \`widget_snapshot\` |
+| In-app browser navigation | \`browser_open\`, \`browser_open_tab\`, \`browser_navigate\`, \`browser_get_html\` | \`workspace_snapshot\`, then reuse, tab, or create in that order |
 | Terminal session or one-shot shell command | \`terminal_open\`, \`terminal_scrollback\`, \`block_run_command\` | \`terminal_open\` (interactive) or \`block_run_command\` (one-shot) |
 | Isolated Linux sandbox desktop | \`sandbox_*\` | \`sandbox_status\`, then \`sandbox_screenshot\` |
 | Native macOS app outside KronTerm | \`kron_computer_*\` | \`kron_computer_list_apps\`, then \`kron_computer_get_app_state\` |
@@ -482,7 +484,7 @@ You are operating as Kronos, KronTerm's built-in persistent agent. Use the compl
 - Canvas whiteboard: \`workspace_canvas_add_note\`, \`workspace_canvas_update_object\`, \`workspace_canvas_delete_object\`, and \`workspace_canvas_connect\`. Read \`workspace_snapshot\` first and use its world-space object IDs and geometry; placements are automatically moved clear of occupied widgets and objects.
 - Blocks: \`list_blocks\`, \`create_block\`, \`close_block\`, \`focus_block\`, \`get_block_info\`, and \`set_block_meta\`.
 - Widgets: \`widget_*\` operations inspect or interact with content in an existing block, including clipboard control.
-- Browser blocks: \`browser_open\`, \`browser_navigate\`, and \`browser_get_html\`, followed by \`widget_snapshot\`, \`widget_click\`, and related widget actions.
+- Browser blocks: reuse an existing widget with \`browser_navigate\` or widget interactions; use \`browser_open_tab\` to preserve its current page; use \`browser_open\` only when a browser widget does not exist, followed by \`widget_snapshot\`, \`widget_click\`, and related widget actions.
 - Widget pointer control: \`widget_mouse_move\`, \`widget_click\`, \`widget_drag\`, \`widget_long_press\`, \`widget_scroll_to\`, \`widget_type\`, and \`widget_press\`.
 - Sandbox VM: \`sandbox_start\`, \`sandbox_status\`, \`sandbox_screenshot\`, \`sandbox_mouse_move\`, \`sandbox_click\`, \`sandbox_type\`, \`sandbox_paste\`, \`sandbox_press\`, \`sandbox_scroll\`, \`sandbox_drag\`, and \`sandbox_stop\`.
 - Terminals: \`terminal_open\`, \`terminal_scrollback\`. Use \`block_run_command\` to execute commands in new blocks.
@@ -1347,6 +1349,24 @@ server.tool(
 );
 
 server.tool(
+    "browser_open_tab",
+    "Open a URL as a new tab inside an existing KronTerm browser widget, preferring the focused browser. If no browser widget exists, create the first one. Use this instead of creating another browser widget when the current page must remain available.",
+    {
+        url: z.string().url().describe("URL to open in a new browser tab"),
+        blockId: z.string().optional().describe("Existing browser block ID; defaults to the focused browser widget"),
+    },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    wrapActivity("browser_open_tab")(async ({ url, blockId }) => {
+        try {
+            const result = await wsh.openWebTab(url, blockId);
+            return { content: [{ type: "text", text: result }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
     "browser_navigate",
     "Navigate an existing KronTerm browser block to a URL, then use widget_snapshot again because document refs change.",
     {
@@ -1865,6 +1885,55 @@ server.tool(
     })
 );
 
+server.tool(
+    "get_block_content",
+    'Get the structured content and live state of any KronTerm block or widget as JSON (supported views: term, web, editor, preview, sandbox, waveai). Use "this" to target the current block.',
+    {
+        blockId: z
+            .string()
+            .optional()
+            .describe('Block ID to inspect; omit or "this" targets the current block'),
+    },
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    wrapActivity("get_block_content")(async ({ blockId }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.getBlockContent(blockId) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "list_widgets",
+    "List configured launchable widgets (defwidget entries). Launch one by its key with trigger_widget.",
+    {},
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    wrapActivity("list_widgets")(async () => {
+        try {
+            return { content: [{ type: "text", text: await wsh.listWidgets() }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "set_config",
+    'Set KronTerm app configuration settings, e.g. {"app:layoutmode": "canvas"} or {"term:fontsize": "14"}. Same effect as editing the setting through KronSettings.',
+    {
+        settings: z.record(z.string()).describe('Config key/value pairs to set, e.g. {"app:layoutmode": "tabs"}'),
+    },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    wrapActivity("set_config")(async ({ settings }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.setConfig(settings) }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
 // ══════════════════════════════════════════════════════════════════════════
 // TERMINAL TOOLS
 // ══════════════════════════════════════════════════════════════════════════
@@ -1901,6 +1970,24 @@ server.tool(
         try {
             const result = await wsh.terminalScrollback(blockId, start, end, lastCommand);
             return { content: [{ type: "text", text: result }] };
+        } catch (err: any) {
+            return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
+        }
+    })
+);
+
+server.tool(
+    "terminal_input",
+    "Send raw input to an existing terminal block's PTY without creating a new block — drive interactive prompts, answer confirmations, or run commands while preserving session state. With submit=true an Enter is appended. This executes in the target shell; read scrollback afterwards to verify the result.",
+    {
+        blockId: z.string().describe("Terminal block ID"),
+        text: z.string().describe("Raw keystrokes/text to send"),
+        submit: z.boolean().optional().describe("Append Enter after sending (default false)"),
+    },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    wrapActivity("terminal_input")(async ({ blockId, text, submit }) => {
+        try {
+            return { content: [{ type: "text", text: await wsh.terminalInput(blockId, text, submit) }] };
         } catch (err: any) {
             return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
         }

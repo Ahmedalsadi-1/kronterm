@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -19,6 +20,13 @@ type ListedBlock = {
 type RecentWebOpen = {
     blockId: string;
     timestamp: number;
+};
+
+type BrowserTab = {
+    id: string;
+    url: string;
+    title?: string;
+    [key: string]: unknown;
 };
 
 type SurfaceCapability = {
@@ -84,6 +92,33 @@ const RefusedBrowserHosts = new Set(["example.cpm"]);
 
 export function makeWshBlockRef(blockId: string): string {
     return blockId.startsWith("block:") ? blockId : `block:${blockId}`;
+}
+
+export function makeBrowserTabMeta(block: ListedBlock, url: string, newTabId: string): Record<string, string> {
+    const rawTabs = block.meta?.["web:tabs"];
+    const activeTabId = typeof block.meta?.["web:activetabid"] === "string" ? block.meta["web:activetabid"] : "";
+    const tabs = Array.isArray(rawTabs)
+        ? rawTabs.filter(
+              (tab): tab is BrowserTab =>
+                  tab != null &&
+                  typeof tab === "object" &&
+                  typeof (tab as BrowserTab).id === "string" &&
+                  typeof (tab as BrowserTab).url === "string"
+          )
+        : [];
+    const legacyUrl = typeof block.meta?.url === "string" ? block.meta.url : "";
+    const existingTabs =
+        tabs.length > 0
+            ? tabs
+            : legacyUrl
+              ? [{ id: activeTabId || `${newTabId}-previous`, url: legacyUrl, title: legacyUrl }]
+              : [];
+    const nextTabs = [...existingTabs, { id: newTabId, url, title: url }];
+    return {
+        url,
+        "web:tabs": JSON.stringify(nextTabs),
+        "web:activetabid": newTabId,
+    };
 }
 
 export function makeSandboxArgs(sessionId: string, command: string): string[] {
@@ -347,6 +382,21 @@ export class WshBridge {
         return blockId;
     }
 
+    private async findBrowserBlock(blockId?: string): Promise<ListedBlock | null> {
+        let blocks: ListedBlock[] = [];
+        try {
+            blocks = JSON.parse(await this.listBlocks(undefined, true)) as ListedBlock[];
+        } catch {
+            return null;
+        }
+        const webBlocks = blocks.filter((block) => block.view === "web" || block.meta?.view === "web");
+        if (blockId) {
+            const normalizedBlockId = this.blockId(blockId);
+            return webBlocks.find((block) => (block.blockid ?? block.blockId) === normalizedBlockId) ?? null;
+        }
+        return webBlocks.find((block) => block.focused || block.meta?.focused === true) ?? webBlocks[0] ?? null;
+    }
+
     // ── Workspace ──────────────────────────────────────────────────────
 
     async getWorkspaceInfo(): Promise<string> {
@@ -374,6 +424,13 @@ export class WshBridge {
 
     async getBlockInfo(blockId: string): Promise<string> {
         return this.run(["-b", this.blockRef(blockId), "getmeta"]);
+    }
+
+    async getBlockContent(blockId?: string): Promise<string> {
+        const args = ["content"];
+        if (blockId && blockId !== "this") args.push(this.blockRef(blockId));
+        args.push("--json");
+        return this.run(args);
     }
 
     async closeBlock(blockId: string): Promise<string> {
@@ -423,6 +480,12 @@ export class WshBridge {
         return this.run(args);
     }
 
+    async terminalInput(blockId: string, text: string, submit?: boolean): Promise<string> {
+        const args = ["-b", this.blockRef(blockId), "terminput", text];
+        if (submit) args.push("--submit");
+        return this.run(args);
+    }
+
     // ── Web ────────────────────────────────────────────────────────────
 
     async openWeb(url: string, magnified?: boolean, newSurface = false): Promise<string> {
@@ -458,6 +521,25 @@ export class WshBridge {
 
     async navigateWeb(blockId: string, url: string): Promise<string> {
         return this.setBlockMeta(blockId, { url });
+    }
+
+    async openWebTab(url: string, blockId?: string): Promise<string> {
+        const normalizedUrl = this.normalizeBrowserUrl(url);
+        const browserBlock = await this.findBrowserBlock(blockId);
+        if (!browserBlock) {
+            if (blockId) {
+                throw new Error(`browser block not found: ${blockId}`);
+            }
+            return this.openWeb(normalizedUrl);
+        }
+        const browserBlockId = browserBlock.blockid ?? browserBlock.blockId;
+        if (!browserBlockId) {
+            throw new Error("browser block is missing its block ID");
+        }
+        await this.setBlockMeta(browserBlockId, makeBrowserTabMeta(browserBlock, normalizedUrl, randomUUID()));
+        await this.focusBlock(browserBlockId).catch(() => undefined);
+        this.recentWebOpens.set(normalizedUrl, { blockId: browserBlockId, timestamp: Date.now() });
+        return `opened browser tab in block:${browserBlockId}`;
     }
 
     async browserGetHtml(blockId: string, selector: string, inner?: boolean, all?: boolean): Promise<string> {
@@ -816,6 +898,12 @@ export class WshBridge {
         return this.run(makeSandboxDragArgs(sessionId, startX, startY, endX, endY, button));
     }
 
+    // ── New: Widget Registry ────────────────────────────────────────────
+
+    async listWidgets(): Promise<string> {
+        return this.run(["widgets", "--json"]);
+    }
+
     // ── New: Launch Widget ──────────────────────────────────────────────
 
     async launchWidget(widgetKey: string, magnified?: boolean): Promise<string> {
@@ -935,6 +1023,16 @@ export class WshBridge {
         const args = ["-b", this.blockRef(blockId), "setvar", "-r"];
         if (varFileName) args.push("--varfile", varFileName);
         args.push(...keys);
+        return this.run(args);
+    }
+
+    // ── New: App Config ────────────────────────────────────────────────
+
+    async setConfig(pairs: Record<string, string>): Promise<string> {
+        const args = ["setconfig"];
+        for (const [k, v] of Object.entries(pairs)) {
+            if (v != null) args.push(`${k}=${v}`);
+        }
         return this.run(args);
     }
 
