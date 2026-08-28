@@ -47,14 +47,17 @@ export type DesktopActionId =
     | "branch"
     | "browser"
     | "compress"
+    | "files"
     | "handoff"
     | "hatch"
     | "help"
     | "journey"
     | "new"
     | "pet"
+    | "preview"
     | "profile"
     | "skin"
+    | "terminal"
     | "title"
     | "wake"
     | "yolo";
@@ -202,6 +205,9 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
         aliases: ["/learning", "/memory-graph"],
         surface: action("journey"),
     },
+    { name: "/files", description: "Toggle the files panel", surface: action("files") },
+    { name: "/terminal", description: "Toggle the terminal panel", surface: action("terminal") },
+    { name: "/preview", description: "Open the browser preview panel", surface: action("preview") },
 
     // Overlay pickers
     { name: "/model", description: "Switch the model for this session", surface: picker("model"), hidden: true },

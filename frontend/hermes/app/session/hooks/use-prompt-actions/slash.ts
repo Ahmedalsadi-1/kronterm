@@ -37,6 +37,9 @@ import {
   setYoloActive
 } from '@hermes/store/session'
 import { $sessionStates } from '@hermes/store/session-states'
+import { toggleFileBrowserOpen } from '@hermes/store/layout'
+import { $previewTabs, openPreview, type PreviewTarget } from '@hermes/store/preview'
+import { $terminalTakeover, setTerminalTakeover } from '@hermes/app/right-sidebar/store'
 import {
   applyWakeStartResult,
   applyWakeStatus,
@@ -989,7 +992,24 @@ export function useSlashCommand(deps: SlashCommandDeps) {
           } catch (err) {
             renderSlashOutput(`error: ${err instanceof Error ? err.message : String(err)}`)
           }
-        }
+        },
+        files: async () => {
+          toggleFileBrowserOpen()
+        },
+        terminal: async () => {
+          setTerminalTakeover(!$terminalTakeover.get())
+        },
+        preview: async () => {
+          if ($previewTabs.get().length === 0) {
+            const target: PreviewTarget = {
+              kind: 'url',
+              url: 'https://example.com',
+              label: 'Browser',
+              source: 'manual'
+            }
+            openPreview(target, 'manual')
+          }
+        },
       }
 
       // Picker commands open a desktop overlay; a typed arg is resolved by that

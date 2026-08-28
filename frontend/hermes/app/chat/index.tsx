@@ -150,9 +150,9 @@ function ChatHeader({
   }
 
   return (
-    <header className={cn(titlebarHeaderBaseClass, isRoutedSessionView && titlebarHeaderShadowClass)}>
+    <header className={cn(titlebarHeaderBaseClass, 'overflow-visible', isRoutedSessionView && titlebarHeaderShadowClass)}>
       <div
-        className={cn(titlebarHeaderTitleClass, showProfileTag && 'flex items-center')}
+        className={cn(titlebarHeaderTitleClass, 'overflow-visible', showProfileTag && 'flex items-center')}
         style={{
           maxWidth:
             'calc(100vw - var(--titlebar-content-inset,0px) - var(--titlebar-tools-right) - var(--titlebar-tools-width) - 1.5rem)'
