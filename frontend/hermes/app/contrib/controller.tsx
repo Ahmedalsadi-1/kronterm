@@ -477,13 +477,6 @@ if (isKronTermWidgetHost()) {
                 onSelect: () => krontermCreateWidget("waveai"),
                 title: "New AI chat",
             },
-            {
-                id: "kronterm-settings",
-                label: "Settings",
-                icon: <TitlebarIcon name="gear" />,
-                onSelect: () => krontermCreateWidget("waveconfig"),
-                title: "KronSettings",
-            },
         ],
         "right"
     );
@@ -886,7 +879,7 @@ export function ContribController() {
                                 <div
                                     className="pointer-events-auto absolute z-10 flex items-center [-webkit-app-region:no-drag]"
                                     style={{
-                                        right: "max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 6 * var(--titlebar-control-size, 24px) + 0.75rem))",
+                                        right: "max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 10 * var(--titlebar-control-size, 24px) + 0.75rem))",
                                     }}
                                 >
                                     <WidgetPickerDropdown />

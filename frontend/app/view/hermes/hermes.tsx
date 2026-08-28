@@ -1,5 +1,5 @@
 import { uxCloseBlock } from "@/app/store/keymodel";
-import { getApi, refocusNode } from "@/store/global";
+import { createBlock, getApi, refocusNode } from "@/store/global";
 import { markKronTermWidgetHost } from "@hermes/lib/kronterm-host";
 import { useAtomValue } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -54,6 +54,17 @@ export function HermesView({ blockId, contentRef, model }: HermesViewProps) {
             }),
         [blockId, model]
     );
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const view = (e as CustomEvent).detail?.view;
+            if (typeof view === "string" && view) {
+                createBlock({ meta: { view } }, false);
+            }
+        };
+        window.addEventListener("kronterm:create-widget", handler);
+        return () => window.removeEventListener("kronterm:create-widget", handler);
+    }, []);
 
     useEffect(() => {
         if (surface.presentation === "widget" && surface.widgetBlockId && surface.widgetBlockId !== blockId) {
