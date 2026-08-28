@@ -25,7 +25,7 @@ import { KronarchyShell } from "@/app/workspace/kronarchy-shell";
 import { Widgets } from "@/app/workspace/widgets";
 import { clampHermesPanelWidth, getHermesPanelWidthBounds } from "@/app/workspace/workspace-hermes-panel";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { WorkspaceShellRail } from "@/app/workspace/workspace-shell-rail";
+
 import { WorkspaceWallpaper } from "@/app/workspace/workspace-wallpaper";
 import { atoms, createBlock, getApi, refocusNode } from "@/store/global";
 import { isMacOS } from "@/util/platformutil";
@@ -466,7 +466,6 @@ const WorkspaceElem = memo(() => {
             >
                 <WorkspaceWallpaper />
                 <ComputerUseStreamManager />
-                <WorkspaceShellRail activeTabId={tabId} workspace={ws} />
                 {surface.presentation === "panel" && (
                     <div className="workspace-hermes-dock" style={{ width: panelWidth }}>
                         <HermesPanelHost tabId={tabId} />
