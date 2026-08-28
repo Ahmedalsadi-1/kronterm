@@ -2,6 +2,8 @@ import { useStore } from '@nanostores/react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { Button } from '@hermes/components/ui/button'
+import { Codicon } from '@hermes/components/ui/codicon'
 import { Tip } from '@hermes/components/ui/tooltip'
 import { type Translations, useI18n } from '@hermes/i18n'
 import { isDesktopFsRemoteMode } from '@hermes/lib/desktop-fs'
@@ -30,6 +32,8 @@ type PreviewWebview = HTMLElement & {
   executeJavaScript?: (code: string) => Promise<unknown>
   getTitle?: () => string
   getURL?: () => string
+  goBack?: () => void
+  goForward?: () => void
   isDevToolsOpened?: () => boolean
   openDevTools?: () => void
   reload?: () => void
@@ -657,6 +661,41 @@ export function PreviewPane({ embedded = false, onRestartServer, reloadRequest =
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {!embedded && (
           <div className="pointer-events-none flex min-h-(--titlebar-height) items-center gap-1.5 border-b border-border/60 bg-background px-2 py-1">
+            <div className="pointer-events-auto flex items-center gap-1">
+              <Tip label="Back">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-5 w-5"
+                  onClick={() => webviewRef.current?.goBack?.()}
+                  disabled={!isWebPreview}
+                >
+                  <Codicon name="chevron-left" size="0.8rem" />
+                </Button>
+              </Tip>
+              <Tip label="Forward">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-5 w-5"
+                  onClick={() => webviewRef.current?.goForward?.()}
+                  disabled={!isWebPreview}
+                >
+                  <Codicon name="chevron-right" size="0.8rem" />
+                </Button>
+              </Tip>
+              <Tip label="Reload">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-5 w-5"
+                  onClick={reloadPreview}
+                  disabled={!isWebPreview}
+                >
+                  <Codicon name="refresh" size="0.8rem" />
+                </Button>
+              </Tip>
+            </div>
             <div className="min-w-0 flex-1">
               <Tip label={copy.openTarget(currentUrl)}>
                 <a

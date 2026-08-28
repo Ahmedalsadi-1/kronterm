@@ -66,6 +66,7 @@ import { useRuntimeMessageRepository } from './runtime-repository'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { useSessionView } from './session-view'
 import { SessionActionsMenu } from './sidebar/session-actions-menu'
+import { SessionHeaderPlusButton } from './session-header-plus'
 import { threadLoadingState } from './thread-loading'
 import {
   backfillOlderTranscriptPage,
@@ -169,6 +170,7 @@ function ChatHeader({
         >
           <TitleMenuTrigger>{title}</TitleMenuTrigger>
         </SessionActionsMenu>
+        <SessionHeaderPlusButton />
       </div>
     </header>
   )
