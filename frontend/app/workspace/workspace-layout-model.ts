@@ -111,11 +111,11 @@ class WorkspaceLayoutModel {
         this.vtabWidth = VTabBar_DefaultWidth;
         this.vtabVisible = false;
         this.widgetsPanelVisible = false;
-        this.sidePanelMode = "full";
+        this.sidePanelMode = "hidden";
         this.panelVisibleAtom = jotai.atom(false);
         this.vtabVisibleAtom = jotai.atom(false);
         this.widgetsPanelVisibleAtom = jotai.atom(false);
-        this.sidePanelModeAtom = jotai.atom<SidePanelMode>("full");
+        this.sidePanelModeAtom = jotai.atom<SidePanelMode>("hidden");
 
         this.handleWindowResize = this.handleWindowResize.bind(this);
         this.handleOuterPanelLayout = this.handleOuterPanelLayout.bind(this);

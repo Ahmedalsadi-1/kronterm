@@ -266,45 +266,13 @@ const KronarchyShell = ({ workspace, activeTabId }: { workspace: Workspace; acti
                     },
                     {
                         id: "layout-web",
-                        label: "Web Mode",
-                        description: "Full-screen web surface",
-                        icon: "fa-globe",
-                        keywords: "web browser mode krondesign full screen",
+                        label: "Kronos",
+                        description: "Full-screen Kronos surface",
+                        icon: "fa-robot",
+                        keywords: "kronos hermes full screen",
                         action: () => chooseLayout("web"),
                     },
-                    {
-                        id: "sidebar-full",
-                        label: "Full Sidebar",
-                        description: "Show workspace names and widget tree",
-                        icon: "fa-table-columns",
-                        keywords: "sidebar panel full expand names",
-                        action: () => {
-                            workspaceLayoutModel.setSidePanelMode("full");
-                            setOpen(false);
-                        },
-                    },
-                    {
-                        id: "sidebar-compact",
-                        label: "Sidebar Icon Rail",
-                        description: "Collapse workspace tabs to a skinny icon line",
-                        icon: "fa-sidebar",
-                        keywords: "sidebar compact icons skinny collapse",
-                        action: () => {
-                            workspaceLayoutModel.setSidePanelMode("compact");
-                            setOpen(false);
-                        },
-                    },
-                    {
-                        id: "sidebar-hidden",
-                        label: "Hide Sidebar",
-                        description: "Use the bottom-left button to restore it",
-                        icon: "fa-sidebar-flip",
-                        keywords: "sidebar hidden disappear fullscreen",
-                        action: () => {
-                            workspaceLayoutModel.setSidePanelMode("hidden");
-                            setOpen(false);
-                        },
-                    },
+
                 ],
             },
             {

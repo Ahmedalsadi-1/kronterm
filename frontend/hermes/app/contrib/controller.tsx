@@ -84,8 +84,11 @@ import { $terminalTakeover, setTerminalTakeover } from "../right-sidebar/store";
 import { $workspaceIsPage } from "../routes";
 import { ShellContextMenu } from "../shell/shell-context-menu";
 
-import { FilesPane, LogsPane, ReviewPaneContent } from "./panes";
+import { FilesPane, LogsPane, ReviewPaneContent, setTitlebarToolGroup } from "./panes";
 import { ContribWiring, WiredPane } from "./wiring";
+import { TitlebarIcon } from "../shell/titlebar-icon";
+import type { TitlebarTool } from "../shell/titlebar-controls";
+import { WidgetPickerDropdown } from "./widget-picker-dropdown";
 
 /**
  * Stripped-down app root (bb/contrib-areas) on the layout TREE model, mounting
@@ -435,6 +438,56 @@ declareDefaultTree(DEFAULT_TREE);
 // deliberately overrides the core default (last writer wins). Third-party
 // runtime plugins will flow through the same discovery seam.
 discoverBundledPlugins();
+
+if (isKronTermWidgetHost()) {
+    const krontermCreateWidget = (view: string) => {
+        window.dispatchEvent(
+            new CustomEvent("kronterm:create-widget", { detail: { view } })
+        );
+    };
+
+    setTitlebarToolGroup(
+        "kronterm-widgets",
+        [
+            {
+                id: "kronterm-terminal",
+                label: "Terminal",
+                icon: <TitlebarIcon name="terminal" />,
+                onSelect: () => krontermCreateWidget("term"),
+                title: "New terminal",
+            },
+            {
+                id: "kronterm-browser",
+                label: "Browser",
+                icon: <TitlebarIcon name="globe" />,
+                onSelect: () => krontermCreateWidget("web"),
+                title: "New browser",
+            },
+            {
+                id: "kronterm-files",
+                label: "Files",
+                icon: <TitlebarIcon name="folder" />,
+                onSelect: () => krontermCreateWidget("preview"),
+                title: "New file explorer",
+            },
+            {
+                id: "kronterm-chat",
+                label: "AI",
+                icon: <TitlebarIcon name="sparkle" />,
+                onSelect: () => krontermCreateWidget("waveai"),
+                title: "New AI chat",
+            },
+            {
+                id: "kronterm-settings",
+                label: "Settings",
+                icon: <TitlebarIcon name="gear" />,
+                onSelect: () => krontermCreateWidget("waveconfig"),
+                title: "KronSettings",
+            },
+        ],
+        "right"
+    );
+}
 
 // Plugin panes join the tree by their `placement` hint the moment they
 // register — incl. runtime plugins arriving seconds after boot.
@@ -829,6 +882,16 @@ export function ContribController() {
                                         "max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 5 * var(--titlebar-control-size, 24px) + 0.5rem))",
                                 }}
                             />
+                            {isKronTermWidgetHost() && (
+                                <div
+                                    className="pointer-events-auto absolute z-10 flex items-center [-webkit-app-region:no-drag]"
+                                    style={{
+                                        right: "max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 6 * var(--titlebar-control-size, 24px) + 0.75rem))",
+                                    }}
+                                >
+                                    <WidgetPickerDropdown />
+                                </div>
+                            )}
                         </div>
 
                         <LayoutTreeRoot />
