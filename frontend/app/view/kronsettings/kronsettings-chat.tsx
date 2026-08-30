@@ -33,7 +33,7 @@ function publishLayoutMode(mode: string) {
 function getStoredLayoutMode() {
     try {
         const mode = window.localStorage.getItem(LayoutModeStorageKey);
-        return mode === "canvas" || mode === "tabs" || mode === "web" ? mode : "widgets";
+        return mode === "canvas" || mode === "tabs" || mode === "web" || mode === "os" ? mode : "widgets";
     } catch {
         return "widgets";
     }
@@ -52,7 +52,8 @@ const KronSettingsChatContent = memo(({ model }: KronSettingsChatContentProps) =
     const settingsLayoutMode =
         settings["app:layoutmode"] === "canvas" ||
         settings["app:layoutmode"] === "tabs" ||
-        settings["app:layoutmode"] === "web"
+        settings["app:layoutmode"] === "web" ||
+        settings["app:layoutmode"] === "os"
             ? settings["app:layoutmode"]
             : "widgets";
     const [layoutMode, setLayoutMode] = useState(() => getStoredLayoutMode());

@@ -15,6 +15,7 @@ import * as WOS from "@/store/wos";
 import { atom, useAtomValue } from "jotai";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { OSModeView } from "./os-workspace";
 import { WidgetTabsLayout } from "./widget-tabs-layout";
 import { WorkspaceCanvas } from "./workspace-canvas";
 import { isWorkspacePresentation, type WorkspacePresentation } from "./workspace-presentation";
@@ -421,6 +422,7 @@ const TabContent = React.memo(
         const [layoutModeOverride, setLayoutModeOverride] = useState<WorkspacePresentation | null>(() => {
             try {
                 const storedMode = window.localStorage.getItem(LayoutModeStorageKey);
+                console.info("[KronTabContent] init: storedMode =", storedMode, "isValid =", isWorkspacePresentation(storedMode), "settingsLayoutMode =", settingsLayoutMode);
                 return isWorkspacePresentation(storedMode) ? storedMode : null;
             } catch {
                 return null;
@@ -430,13 +432,12 @@ const TabContent = React.memo(
 
         useEffect(() => {
             (window as any).__krontermLayoutMode = layoutMode;
-            window.dispatchEvent(new CustomEvent(LayoutModeChangedEvent, { detail: { mode: layoutMode } }));
-            console.info("[KronTerm] layout mode", layoutMode);
         }, [layoutMode]);
 
         useEffect(() => {
             const handleLayoutModeChanged = (event: Event) => {
                 const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode;
+                console.info("[KronTabContent] RECEIVED LayoutModeChangedEvent →", mode, "isValid=", isWorkspacePresentation(mode));
                 if (isWorkspacePresentation(mode)) {
                     setLayoutModeOverride(mode);
                 }
@@ -445,6 +446,7 @@ const TabContent = React.memo(
                 if (event.key !== LayoutModeStorageKey) {
                     return;
                 }
+                console.info("[KronTabContent] RECEIVED storage event →", event.newValue);
                 if (isWorkspacePresentation(event.newValue)) {
                     setLayoutModeOverride(event.newValue);
                 }
@@ -481,14 +483,20 @@ const TabContent = React.memo(
 
         let innerContent;
 
+        console.info("[KronTabContent] rendering: layoutMode =", layoutMode, "blockCount =", tabData?.blockids?.length);
+
         if (tabLoading) {
             innerContent = <CenteredDiv>Tab Loading</CenteredDiv>;
         } else if (!tabData) {
             innerContent = <CenteredDiv>Tab Not Found</CenteredDiv>;
         } else if (layoutMode === "web") {
             innerContent = <WebModeView key={`web-${tabId}`} />;
+        } else if (layoutMode === "browsermode") {
+            innerContent = <WebModeView key={`browser-${tabId}`} />;
         } else if (layoutMode === "canvas") {
             innerContent = <WorkspaceCanvas key={`canvas-${tabId}`} tabId={tabId} tabData={tabData} />;
+        } else if (layoutMode === "os") {
+            innerContent = <OSModeView key={`os-${tabId}`} tabId={tabId} tabData={tabData} />;
         } else if (tabData?.blockids?.length == 0) {
             innerContent = null;
         } else if (layoutMode === "tabs") {
