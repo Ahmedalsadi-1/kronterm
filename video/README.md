@@ -49,3 +49,32 @@ npm run build:field-guide
 ```
 
 The final website copy is `website/public/assets/video/kronterm-field-guide.mp4`. The Remotion render remains in `video/out/kronterm-field-guide.mp4`.
+
+## Promo Film
+
+- Composition: `KronTermPromo`
+- Duration: 62 seconds
+- Format: 1920×1080, 16:9, 30 FPS, H.264 MP4
+- Tone: cinematic product demo built from real screen recordings
+- Audio: silent (designed to work muted; add BGM/narration as a follow-up)
+
+| Scene     | Time        | Visual                                                                          |
+| --------- | ----------- | ------------------------------------------------------------------------------- |
+| Hook      | 00:00–00:07 | Icon + KronTerm wordmark over live canvas footage                               |
+| Canvas    | 00:07–00:22 | Ken Burns pan across the agent-aware canvas with notes, connectors, and widgets |
+| Agent     | 00:22–00:36 | KronosCode chat beside the YouTube evidence it gathered                         |
+| Surfaces  | 00:36–00:47 | Browser focus zoom across tiled widget surfaces                                 |
+| Hermes    | 00:47–00:54 | Hermes messaging, profiles, and cron stills                                     |
+| Terminal  | 00:54–01:00 | Terminal + file browser split, "Keyboard-first. Local-first."                   |
+| CTA       | 01:00–01:02 | "One workspace. Every surface." with kronterm.dev private beta                  |
+
+Source assets: screen recordings in `assets/assets-for-editing/` (trimmed to segments without error toasts) and Hermes
+stills in `assets/new-images-of-ui/`, copied into `video/public/promo/`.
+
+Render with:
+
+```bash
+npm run build:promo
+```
+
+Output lands at `video/out/kronterm-promo.mp4`.

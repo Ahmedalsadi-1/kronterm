@@ -10,7 +10,9 @@
         "build:field-guide": "remotion render src/index.ts KronTermFieldGuide out/kronterm-field-guide.mp4",
         "still": "remotion still src/index.ts KronTermOnboarding out/frame.png",
         "still:field-guide": "remotion still src/index.ts KronTermFieldGuide out/kronterm-field-guide-frame.png --frame=225",
-        "upgrade": "remotion upgrade"
+        "upgrade": "remotion upgrade",
+        "build:promo": "remotion render src/index.ts KronTermPromo out/kronterm-promo.mp4",
+        "still:promo": "remotion still src/index.ts KronTermPromo out/promo-frame.png"
     },
     "dependencies": {
         "react": "^18.2.0",

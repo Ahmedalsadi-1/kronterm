@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { KronTermFieldGuide } from "./FieldGuideVideo";
 import { KronTermIntro } from "./IntroVideo";
 import { KronTermOnboarding } from "./Video";
+import { KronTermPromo, PROMO_TOTAL_FRAMES } from "./PromoVideo";
 import { HEIGHT, INTRO_TOTAL_FRAMES, TOTAL_FRAMES, WIDTH } from "./theme";
 
 export const RemotionRoot: React.FC = () => {
@@ -23,6 +24,14 @@ export const RemotionRoot: React.FC = () => {
                 fps={30}
                 width={WIDTH}
                 height={HEIGHT}
+            />
+            <Composition
+                id="KronTermPromo"
+                component={KronTermPromo}
+                durationInFrames={PROMO_TOTAL_FRAMES}
+                fps={30}
+                width={1920}
+                height={1080}
             />
             <Composition
                 id="KronTermFieldGuide"
