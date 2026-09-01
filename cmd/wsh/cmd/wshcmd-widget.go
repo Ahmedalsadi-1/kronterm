@@ -27,6 +27,12 @@ func getTabRouteOpts() *wshrpc.RpcOpts {
 	}
 }
 
+// snapshot returns refs like "wave-ref-5"; callers often pass the "@"-prefixed
+// display form. The frontend ref registry only knows the bare form.
+func normalizeElementRef(ref string) string {
+	return strings.TrimPrefix(ref, "@")
+}
+
 // ── Parent Command ────────────────────────────────────────────────────
 
 var widgetCmd = &cobra.Command{
@@ -218,7 +224,7 @@ func widgetInspectRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetInspectCommand(RpcClient, wshrpc.CommandWidgetInspectData{
 		BlockId:    blockId,
-		ElementRef: args[0],
+		ElementRef: normalizeElementRef(args[0]),
 	}, getTabRouteOpts())
 	if err != nil {
 		return fmt.Errorf("widget inspect: %w", err)
@@ -426,7 +432,7 @@ func widgetClickRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetClickCommand(RpcClient, wshrpc.CommandWidgetClickData{
 		BlockId:    blockId,
-		ElementRef: widgetClickRef,
+		ElementRef: normalizeElementRef(widgetClickRef),
 		X:          widgetClickX,
 		Y:          widgetClickY,
 		Button:     widgetClickButton,
@@ -472,7 +478,7 @@ func widgetHoverRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetHoverCommand(RpcClient, wshrpc.CommandWidgetHoverData{
 		BlockId:    blockId,
-		ElementRef: widgetHoverRef,
+		ElementRef: normalizeElementRef(widgetHoverRef),
 		X:          widgetHoverX,
 		Y:          widgetHoverY,
 	}, getTabRouteOpts())
@@ -629,7 +635,7 @@ func widgetScrollToRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetScrollToCommand(RpcClient, wshrpc.CommandWidgetScrollToData{
 		BlockId:    blockId,
-		ElementRef: widgetScrollToRef,
+		ElementRef: normalizeElementRef(widgetScrollToRef),
 		X:          widgetScrollToX,
 		Y:          widgetScrollToY,
 	}, getTabRouteOpts())
@@ -721,7 +727,7 @@ func widgetLongPressRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetLongPressCommand(RpcClient, wshrpc.CommandWidgetLongPressData{
 		BlockId:    blockId,
-		ElementRef: widgetLongPressRef,
+		ElementRef: normalizeElementRef(widgetLongPressRef),
 		X:          widgetLongPressX,
 		Y:          widgetLongPressY,
 		Duration:   widgetLongPressDuration,
@@ -759,7 +765,7 @@ func widgetGetValueRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetGetValueCommand(RpcClient, wshrpc.CommandWidgetGetValueData{
 		BlockId:    blockId,
-		ElementRef: widgetGetValueRef,
+		ElementRef: normalizeElementRef(widgetGetValueRef),
 	}, getTabRouteOpts())
 	if err != nil {
 		return fmt.Errorf("widget get-value: %w", err)
@@ -802,7 +808,7 @@ func widgetSetValueRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetSetValueCommand(RpcClient, wshrpc.CommandWidgetSetValueData{
 		BlockId:    blockId,
-		ElementRef: widgetSetValueRef,
+		ElementRef: normalizeElementRef(widgetSetValueRef),
 		Value:      widgetSetValueVal,
 	}, getTabRouteOpts())
 	if err := requireWidgetAction("widget set-value", result, err); err != nil {
@@ -838,7 +844,7 @@ func widgetClearRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetClearCommand(RpcClient, wshrpc.CommandWidgetClearData{
 		BlockId:    blockId,
-		ElementRef: widgetClearRef,
+		ElementRef: normalizeElementRef(widgetClearRef),
 	}, getTabRouteOpts())
 	if err := requireWidgetAction("widget clear", result, err); err != nil {
 		return err
@@ -876,7 +882,7 @@ func widgetSelectRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetSelectCommand(RpcClient, wshrpc.CommandWidgetSelectData{
 		BlockId:    blockId,
-		ElementRef: widgetSelectRef,
+		ElementRef: normalizeElementRef(widgetSelectRef),
 		Option:     widgetSelectOption,
 	}, getTabRouteOpts())
 	if err := requireWidgetAction("widget select", result, err); err != nil {
@@ -912,7 +918,7 @@ func widgetToggleRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetToggleCommand(RpcClient, wshrpc.CommandWidgetToggleData{
 		BlockId:    blockId,
-		ElementRef: widgetToggleRef,
+		ElementRef: normalizeElementRef(widgetToggleRef),
 	}, getTabRouteOpts())
 	if err := requireWidgetAction("widget toggle", result, err); err != nil {
 		return err
@@ -950,7 +956,7 @@ func widgetWaitRun(cmd *cobra.Command, args []string) (rtnErr error) {
 	}
 	result, err := wshclient.WidgetWaitForElementCommand(RpcClient, wshrpc.CommandWidgetWaitForElementData{
 		BlockId:    blockId,
-		ElementRef: widgetWaitRef,
+		ElementRef: normalizeElementRef(widgetWaitRef),
 		Condition:  widgetWaitCondition,
 		TimeoutMs:  widgetWaitTimeout,
 	}, getTabRouteOpts())

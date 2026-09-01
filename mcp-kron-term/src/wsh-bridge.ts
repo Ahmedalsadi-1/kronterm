@@ -21,10 +21,20 @@ type RecentWebOpen = {
     timestamp: number;
 };
 
-type SurfaceCapability = {
+export type SurfaceCapability = {
     token: string;
     tabId: string;
     blockId?: string;
+    workspaceId?: string;
+    hostMode?: "kronterm" | "web-fullscreen";
+    capabilities?: {
+        browser: boolean;
+        terminal: boolean;
+        files: boolean;
+        sandbox: boolean;
+        computerControl: boolean;
+        customTools?: Record<string, boolean>;
+    };
 };
 
 export function readSurfaceCapability(filePath: string): SurfaceCapability {
@@ -36,6 +46,13 @@ export function readSurfaceCapability(filePath: string): SurfaceCapability {
         token: parsed.token,
         tabId: parsed.tabId,
         ...(typeof parsed.blockId === "string" && parsed.blockId ? { blockId: parsed.blockId } : {}),
+        ...(typeof parsed.workspaceId === "string" && parsed.workspaceId ? { workspaceId: parsed.workspaceId } : {}),
+        ...(parsed.hostMode === "web-fullscreen" || parsed.hostMode === "kronterm"
+            ? { hostMode: parsed.hostMode }
+            : {}),
+        ...(parsed.capabilities && typeof parsed.capabilities === "object"
+            ? { capabilities: parsed.capabilities }
+            : {}),
     };
 }
 
@@ -56,6 +73,9 @@ export type WorkspaceSurfaceControl = {
     toObjectId?: string;
     text?: string;
     color?: string;
+    side?: string;
+    view?: string;
+    workspaceId?: string;
 };
 
 export function makeWorkspaceSurfaceControlArgs(input: WorkspaceSurfaceControl): string[] {
@@ -76,6 +96,9 @@ export function makeWorkspaceSurfaceControlArgs(input: WorkspaceSurfaceControl):
     if (input.toObjectId) args.push("--to-object", input.toObjectId);
     if (input.text != null) args.push("--text", input.text);
     if (input.color) args.push("--color", input.color);
+    if (input.side) args.push("--side", input.side);
+    if (input.view) args.push("--view", input.view);
+    if (input.workspaceId) args.push("--workspace", input.workspaceId);
     return args;
 }
 
@@ -631,8 +654,14 @@ export class WshBridge {
         return this.run(args);
     }
 
+    // snapshot refs come back as "wave-ref-N" but callers pass "@wave-ref-N";
+    // the wsh CLI treats the @-prefixed form as an unknown ref
+    normalizeElementRef(elementRef: string): string {
+        return elementRef.startsWith("@") ? elementRef.slice(1) : elementRef;
+    }
+
     async widgetInspect(blockId: string, elementRef: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "inspect", elementRef, "--json"]);
+        return this.run(["-b", this.blockRef(blockId), "widget", "inspect", this.normalizeElementRef(elementRef), "--json"]);
     }
 
     async widgetElementAt(blockId: string, x: number, y: number): Promise<string> {
@@ -667,11 +696,11 @@ export class WshBridge {
         button?: string,
         clickType?: string
     ): Promise<string> {
-        return this.run(makeWidgetClickArgs(blockId, elementRef, x, y, button, clickType));
+        return this.run(makeWidgetClickArgs(blockId, elementRef == null ? undefined : this.normalizeElementRef(elementRef), x, y, button, clickType));
     }
 
     async widgetHover(blockId: string, elementRef?: string, x?: number, y?: number): Promise<string> {
-        return this.run(makeWidgetHoverArgs(blockId, elementRef, x, y));
+        return this.run(makeWidgetHoverArgs(blockId, elementRef == null ? undefined : this.normalizeElementRef(elementRef), x, y));
     }
 
     async widgetMouseMove(blockId: string, elementRef?: string, x?: number, y?: number): Promise<string> {
@@ -690,7 +719,7 @@ export class WshBridge {
 
     async widgetScrollTo(blockId: string, elementRef?: string, x?: number, y?: number): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "widget", "scroll-to"];
-        if (elementRef) args.push("--element-ref", elementRef);
+        if (elementRef) args.push("--element-ref", this.normalizeElementRef(elementRef));
         if (x != null) args.push("--x", String(x));
         if (y != null) args.push("--y", String(y));
         return this.run(args);
@@ -730,7 +759,7 @@ export class WshBridge {
         duration?: number
     ): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "widget", "long-press"];
-        if (elementRef) args.push("--element-ref", elementRef);
+        if (elementRef) args.push("--element-ref", this.normalizeElementRef(elementRef));
         if (x != null) args.push("--x", String(x));
         if (y != null) args.push("--y", String(y));
         if (duration != null) args.push("--duration", String(duration));
@@ -738,7 +767,15 @@ export class WshBridge {
     }
 
     async widgetGetValue(blockId: string, elementRef: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "get-value", "--element-ref", elementRef, "--json"]);
+        return this.run([
+            "-b",
+            this.blockRef(blockId),
+            "widget",
+            "get-value",
+            "--element-ref",
+            this.normalizeElementRef(elementRef),
+            "--json",
+        ]);
     }
 
     async widgetSetValue(blockId: string, elementRef: string, value: string): Promise<string> {
@@ -748,14 +785,14 @@ export class WshBridge {
             "widget",
             "set-value",
             "--element-ref",
-            elementRef,
+            this.normalizeElementRef(elementRef),
             "--value",
             value,
         ]);
     }
 
     async widgetClear(blockId: string, elementRef: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "clear", "--element-ref", elementRef]);
+        return this.run(["-b", this.blockRef(blockId), "widget", "clear", "--element-ref", this.normalizeElementRef(elementRef)]);
     }
 
     async widgetSelect(blockId: string, elementRef: string, option: string): Promise<string> {
@@ -765,19 +802,19 @@ export class WshBridge {
             "widget",
             "select",
             "--element-ref",
-            elementRef,
+            this.normalizeElementRef(elementRef),
             "--option",
             option,
         ]);
     }
 
     async widgetToggle(blockId: string, elementRef: string): Promise<string> {
-        return this.run(["-b", this.blockRef(blockId), "widget", "toggle", "--element-ref", elementRef]);
+        return this.run(["-b", this.blockRef(blockId), "widget", "toggle", "--element-ref", this.normalizeElementRef(elementRef)]);
     }
 
     async widgetWaitFor(blockId: string, condition: string, elementRef?: string, timeoutMs?: number): Promise<string> {
         const args = ["-b", this.blockRef(blockId), "widget", "wait-for", "--condition", condition, "--json"];
-        if (elementRef) args.push("--element-ref", elementRef);
+        if (elementRef) args.push("--element-ref", this.normalizeElementRef(elementRef));
         if (timeoutMs != null) args.push("--timeout", String(timeoutMs));
         return this.run(args);
     }
