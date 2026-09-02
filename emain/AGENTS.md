@@ -25,7 +25,6 @@ emain/
 ├── emain-audio.ts         # Voice/audio-engine process bridge
 ├── emain-pet.ts           # Desktop pet window logic
 ├── emain-overlay.ts       # Overlay window logic
-├── emain-krondesign.ts    # Starts the krondesign design-system daemon
 ├── emain-wavesrv.ts       # Wavesrv process management
 ├── emain-wsh.ts           # WSH binary management
 └── sandbox/               # Sandbox VM manager + MCP server bridge

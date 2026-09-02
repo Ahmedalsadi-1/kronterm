@@ -1,57 +1,33 @@
-# frontend/app/tab — Tab System
+# frontend/app/tab — Workspace Presentations
 
 **Parent:** `../AGENTS.md`
 
 ## OVERVIEW
 
-Tab management and layout. Tabs contain blocks in a resizable grid.
+Implements the three workspace presentations that share one block set: tiled `widgets`, browser-style `tabs`, and the spatial `canvas`. Selected via `app:layoutmode`.
 
-## STRUCTURE
+## KEY FILES
 
-```
-tab/
-├── tab.tsx           # Tab component
-├── tab-layout.tsx    # Resizable grid layout
-├── tab-model.ts      # Tab state/model
-├── tab-content.tsx   # Block rendering
-└── tab-shared.tsx    # Shared utilities
-```
+| File | Purpose |
+| ---- | ------- |
+| `widget-tabs-layout.tsx` | Tiled splits presentation (widgets mode) |
+| `workspace-canvas.tsx` | Spatial canvas presentation |
+| `tabbar.tsx`, `tabbar-model.ts` | Tab strip state and rendering |
+| `tabcontent.tsx` | Renders the focused block in tabs mode |
+| `tabgroup.tsx` | Tab group / split pane rendering |
+| `os-workspace.tsx`, `os-workspace-model.ts` | Kronarchy OS-style workspace shell |
+| `tabs-agent-workspace.ts` | Agent workspace integration in tabs mode |
+| `folded-widgets-bar.tsx` | Bar for folded widgets |
+| `tabcontextmenu.ts` | Tab right-click menus (see context-menu skill) |
+| `tabbarenv.ts` | WaveEnv narrowing for tabbar components |
 
-## LAYOUT
+## CONVENTIONS
 
-Tabs use `react-resizable-panels`:
+- All three presentations mount the same blocks — never fork block state per presentation.
+- Tab/tabbar state models live here and in `../store/tab-model.ts`; components stay thin.
+- Tests colocated next to sources (`os-workspace-model.test.ts`, `tabs-agent-workspace.test.ts`).
 
-- Vertical/horizontal splits
-- Nested panel groups
-- Persisted layout state
+## ANTI-PATTERNS
 
-## TAB MODEL
-
-```typescript
-const tabModel = useTabModel(tabId);
-const blocks = jotai.useAtomValue(tabModel.blockIds);
-```
-
-## ADDING BLOCKS
-
-```typescript
-// Create and add
-RpcApi.createBlockCommand(tabId, {
-  view: "term",
-  meta: { connection: "local" },
-});
-```
-
-## LAYOUT PERSISTENCE
-
-Layout saved in tab metadata:
-
-- Panel sizes
-- Block positions
-- Split orientations
-
-## FOCUS
-
-- One block focused per tab
-- Focus drives keyboard events
-- Visual focus indicator
+- No block creation logic here — blocks are created via `RpcApi.createBlockCommand` (see `../block/AGENTS.md`).
+- Do not read layout geometry from the DOM — go through the layout model (`frontend/app/workspace/workspace-layout-model.ts`).

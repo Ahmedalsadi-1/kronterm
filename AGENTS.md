@@ -70,6 +70,9 @@ task generate           # Regenerate TS bindings from Go types
 task init               # Full project init (npm install + go mod tidy)
 npm --prefix website run build  # Validate the product website
 npm --prefix docs run build     # Validate the Docusaurus site
+npm --prefix mcp-kron-term run test  # Build + test the MCP server
+npm --prefix mobile test            # Mobile client Vitest suite
+npm --prefix mobile run test:host   # Phone bridge host tests (node --test)
 
 # Lint & format
 npx eslint .            # Lint TS/TSX (config: eslint.config.js)
@@ -117,12 +120,16 @@ kronterm/
 ├── tsunami/            # Embedded VDOM rendering engine (Go + frontend)
 ├── db/                 # SQLite migrations
 ├── website/            # Vite product website
+├── video/              # Remotion promo/intro video production (see video/AGENTS.md)
 └── docs/               # Docusaurus documentation site
 
 Embedded sibling git repos (separate projects with their own docs — not part of core changes):
-`krondesign/` (design-system daemon started by `emain/emain-krondesign.ts`, built by `task dev`),
 `kronoscoder/`, `third_party/`, `UI-TARS-desktop/`, `vendor/`.
+
+`krondesign/` is a large self-documented design-systems work area (own AGENTS.md tree) — treat as separate from core changes.
 ```
+
+Nested `AGENTS.md` files exist in most working directories (`emain/`, `cmd/`, `pkg/*`, `frontend/app/{block,store,tab,view,element,onboarding}`, `frontend/app/view/chathubv2/`, `frontend/layout/`, `frontend/preview/`, `frontend/hermes/`, `mcp-kron-term/`, `mobile/`, `video/`, `tsunami/engine/`, `krondesign/**`). Read the nearest one before working there.
 
 ## Key Generated Files (DO NOT EDIT)
 
@@ -211,4 +218,4 @@ Read the matching `.kilocode/skills/<name>/SKILL.md` before these tasks:
 - **`cursor-help` or `cursor-not-allowed`** — looks terrible, never use
 - **Running `go build`** — breaks compilation detection; rely on IDE diagnostics
 - **Adding comments that describe what code does** — the code should speak for itself
-- **Treating `krondesign/`, `kronoscoder/`, or other embedded sibling repos as core code** — separate git repos with their own conventions
+- **Treating `kronoscoder/`, or other embedded sibling repos as core code** — separate git repos with their own conventions

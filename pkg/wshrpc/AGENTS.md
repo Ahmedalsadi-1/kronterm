@@ -10,9 +10,11 @@ WebSocket RPC backbone. All frontend ↔ backend communication flows through her
 
 ```
 wshrpc/
-├── wshrpctypes.go          # RPC definitions (SOURCE OF TRUTH)
+├── wshrpctypes.go          # Core RPC definitions (SOURCE OF TRUTH)
+├── wshrpctypes_*.go        # Domain splits: canvas, const, file, installedapps, waveapp
+├── wshrpcmeta.go           # Meta source (metaconsts.go is generated)
 ├── wshserver/              # Server-side implementation
-├── wshclient/              # Go client (generated)
+├── wshclient/              # Go client (GENERATED — see NEVER EDIT below)
 └── wshremote/              # Remote connection handling
 ```
 
