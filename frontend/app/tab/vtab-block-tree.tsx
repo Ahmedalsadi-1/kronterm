@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { blockViewToName, resolveBlockIcon } from "@/app/block/blockutil";
+import { AppIcon } from "@/app/components/app-icon";
 import { FoldChangedEvent, getFoldedBlockIds } from "@/app/block/folded-store";
 import { makeORef } from "@/app/store/wos";
 import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { refocusNode } from "@/store/global";
 import * as WOS from "@/store/wos";
-import { makeIconClass } from "@/util/util";
 import { atom, useAtomValue } from "jotai";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -114,10 +114,7 @@ const VTabBlockTree = React.memo(({ tabId, active }: { tabId: string; active: bo
                             title={block.folded ? `Unfold ${block.title}` : `Focus ${block.title}`}
                         >
                             <span className="vtab-block-branch" aria-hidden="true" />
-                            <i
-                                className={`${makeIconClass(block.viewIcon, true, { defaultIcon: "square" })} vtab-block-item-icon`}
-                                aria-hidden="true"
-                            />
+                            <AppIcon icon={block.viewIcon} className="vtab-block-item-icon" />
                             <span className="vtab-block-item-name">{block.title}</span>
                             <span className="vtab-block-item-type">{block.viewName}</span>
                             {block.folded && (

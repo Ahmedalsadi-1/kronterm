@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Block as BlockView } from "@/app/block/block";
-import { blockViewToIcon, blockViewToName } from "@/app/block/blockutil";
+import { blockViewToIcon, blockViewToName, resolveBlockIcon } from "@/app/block/blockutil";
+import { AppIcon } from "@/app/components/app-icon";
 import { ComputerUseControlEvent } from "@/app/components/computer-use-status-card";
 import {
     fitSpatialViewportToBounds,
@@ -24,7 +25,7 @@ import type { NodeModel } from "@/layout/lib/types";
 import { atoms, getApi, getSettingsKeyAtom } from "@/store/global";
 import * as services from "@/store/services";
 import * as WOS from "@/store/wos";
-import { cn, makeIconClass } from "@/util/util";
+import { cn } from "@/util/util";
 import { atom, useAtomValue } from "jotai";
 import {
     Bot,
@@ -95,6 +96,7 @@ type BlockDescriptor = {
     blockId: string;
     view: string;
     title: string;
+    icon?: string;
 };
 
 type DragBounds = { x: number; y: number; width: number; height: number };
@@ -256,15 +258,8 @@ function readBlockDescriptor(blockId: string): BlockDescriptor {
         blockId,
         view,
         title: String(block?.meta?.["frame:title"] ?? "").trim() || blockViewToName(view),
+        icon: resolveBlockIcon(view, block?.meta),
     };
-}
-
-function AppGlyph({ icon }: { icon?: string }) {
-    if (icon == null) return null;
-    if (icon.startsWith("data:")) {
-        return <img src={icon} alt="" draggable={false} />;
-    }
-    return <i className={makeIconClass(icon, true)} aria-hidden="true" />;
 }
 
 const OSDockWingSvg = memo(function OSDockWingSvg({ mirrored }: { mirrored?: boolean }) {
@@ -373,7 +368,7 @@ const OSBlockWindow = memo(
                     onDoubleClick={() => onToggleFocus(descriptor.blockId)}
                 >
                     <div className="os-window-title">
-                        <i className={makeIconClass(blockViewToIcon(descriptor.view), true)} aria-hidden="true" />
+                        <AppIcon icon={descriptor.icon} />
                         <span>{descriptor.title}</span>
                     </div>
                     <div className="os-window-controls">
@@ -685,7 +680,7 @@ function OSModeShell({
                                 aria-label={`Open ${descriptor.name}`}
                                 title={descriptor.name}
                             >
-                                <AppGlyph icon={descriptor.icon} />
+                                <AppIcon icon={descriptor.icon} />
                             </button>
                         );
                     })}
@@ -869,10 +864,7 @@ function OSModeShell({
                                 onClick={() => onRestore(blockId)}
                                 aria-label={`Restore ${block?.title ?? "application"}`}
                             >
-                                <i
-                                    className={makeIconClass(blockViewToIcon(block?.view ?? "term"), true)}
-                                    aria-hidden="true"
-                                />
+                                <AppIcon icon={block?.icon} />
                                 <span>{block?.title ?? "App"}</span>
                             </button>
                         );
@@ -907,7 +899,7 @@ function OSModeShell({
                                         setLauncherOpen(false);
                                     }}
                                 >
-                                    <i className={makeIconClass(blockViewToIcon(view), true)} aria-hidden="true" />
+                                    <AppIcon icon={blockViewToIcon(view)} />
                                     <span>{blockViewToName(view)}</span>
                                 </button>
                             ))}
