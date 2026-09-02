@@ -14,11 +14,26 @@ type WorkspaceSurfaceControlAction =
     | "add_note"
     | "update_object"
     | "delete_object"
-    | "connect_objects";
+    | "connect_objects"
+    | "spatial.open"
+    | "spatial.focus"
+    | "spatial.move"
+    | "spatial.resize"
+    | "spatial.dock"
+    | "spatial.detach"
+    | "spatial.collapse"
+    | "spatial.restore"
+    | "spatial.showOverview"
+    | "spatial.switchWorkspace"
+    | "spatial.openApp"
+    | "spatial.setWidgetPresentation"
+    | "spatial.openFile"
+    | "spatial.openCommandCenter";
 
 type WorkspaceSurfaceControlInput = {
     action: WorkspaceSurfaceControlAction;
     blockid?: string;
+    targetblockid?: string;
     direction?: "up" | "right" | "down" | "left";
     x?: number;
     y?: number;
@@ -29,6 +44,13 @@ type WorkspaceSurfaceControlInput = {
     toobjectid?: string;
     text?: string;
     color?: string;
+    side?: "left" | "right";
+    view?: string;
+    workspaceid?: string;
+    appid?: string;
+    appname?: string;
+    presentation?: string;
+    file?: string;
 };
 
 type WorkspaceSurfaceModeState = {
@@ -41,6 +63,9 @@ type WorkspaceSurfaceModeState = {
     camera?: { x: number; y: number; zoom: number };
     rects?: Record<string, WorkspaceCanvasRect>;
     objects?: unknown[];
+    scene?: unknown;
+    groups?: unknown;
+    presentations?: Record<string, string>;
 };
 
 type WorkspaceSurfaceModeProvider = {

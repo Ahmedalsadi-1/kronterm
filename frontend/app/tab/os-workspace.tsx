@@ -18,6 +18,7 @@ import {
     type AppDescriptor,
 } from "@/app/store/app-registry";
 import { globalStore } from "@/app/store/jotaiStore";
+import { modalsModel } from "@/app/store/modalmodel";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
@@ -370,7 +371,7 @@ const OSBlockWindow = memo(
                     opacity: layout.opacity,
                 }}
                 transition={
-                    reducedMotion ? { duration: 0.08 } : { type: "spring", stiffness: 300, damping: 30, mass: 0.82 }
+                    reducedMotion ? { duration: 0.08 } : { type: "spring", stiffness: 260, damping: 32, mass: 0.9 }
                 }
                 style={{
                     zIndex: layout.zIndex,
@@ -1588,6 +1589,30 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                         getApi().switchWorkspace(input.workspaceid);
                         return { success: true, message: "Switching workspace." };
                     }
+                    if (input.action === "spatial.openApp") {
+                        if (!input.appid) return { success: false, message: "App id is required." };
+                        handleCreateAppStream(input.appid, input.appname ?? input.appid);
+                        return { success: true, message: `Opening ${input.appname ?? input.appid}.` };
+                    }
+                    if (input.action === "spatial.setWidgetPresentation") {
+                        if (input.presentation !== "canvas" && input.presentation !== "file") {
+                            return { success: false, message: "Presentation must be canvas or file." };
+                        }
+                        dispatch({ type: "spatial.setWidgetPresentation", presentation: input.presentation });
+                        return { success: true, message: `Widgets shown as ${input.presentation}.` };
+                    }
+                    if (input.action === "spatial.openFile") {
+                        if (!input.file) return { success: false, message: "File path is required." };
+                        void RpcApi.CreateBlockCommand(TabRpcClient, {
+                            tabid: tabId,
+                            blockdef: { meta: { view: "preview", file: input.file } },
+                        });
+                        return { success: true, message: `Opening ${input.file}.` };
+                    }
+                    if (input.action === "spatial.openCommandCenter") {
+                        modalsModel.pushModal("CommandPaletteModal");
+                        return { success: true, message: "Opened command center." };
+                    }
                     if (input.action === "focus" || input.action === "spatial.focus") {
                         if (!input.blockid || !stateRef.current.windows[input.blockid])
                             return { success: false, message: "OS window not found." };
@@ -1666,7 +1691,7 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                     return { success: false, message: `Unsupported OS action: ${input.action}` };
                 },
             }),
-        [addObject, deleteObject, descriptors, dispatch, fitAll, handleCreateBlock, tabId, updateObject, viewport]
+        [addObject, deleteObject, descriptors, dispatch, fitAll, handleCreateAppStream, handleCreateBlock, tabId, updateObject, viewport]
     );
 
     const activeGroup = state.scene.kind === "grouped" ? state.groups[state.scene.groupId] : undefined;
