@@ -753,6 +753,27 @@
     &.is-collapsed {
         pointer-events: none;
     }
+
+    &.is-agent-working {
+        border-color: color-mix(in srgb, var(--accent-color) 45%, rgba(15, 15, 15, 0.1));
+    }
+}
+
+.os-window-agent-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+    color: color-mix(in srgb, var(--accent-color) 80%, var(--main-text-color));
+    font-size: 10px;
+    font-weight: 650;
+
+    svg {
+        width: 11px;
+        height: 11px;
+    }
 }
 
 .os-window-titlebar {

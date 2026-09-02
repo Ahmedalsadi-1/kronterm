@@ -20,6 +20,7 @@ import {
 import { globalStore } from "@/app/store/jotaiStore";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import { WorkspaceWallpaper } from "@/app/workspace/workspace-wallpaper";
 import type { NodeModel } from "@/layout/lib/types";
 import { atoms, getApi, getSettingsKeyAtom } from "@/store/global";
@@ -131,6 +132,17 @@ const OSActivityIcons: Record<LiveAgentSurfaceActivity["surface"], string> = {
     panel: "sparkles",
     sandbox: "box",
     terminal: "terminal",
+};
+
+const osAgentActivitiesAtom = atom<LiveAgentSurfaceActivity[]>([]);
+
+const AgentSurfaceToView: Record<LiveAgentSurfaceActivity["surface"], string> = {
+    browser: "web",
+    desktop: "appstream",
+    file: "preview",
+    panel: "chathubv2",
+    sandbox: "sandbox",
+    terminal: "term",
 };
 
 function emitOSComputerUseControl(action: "focus" | "takeover" | "inspect", activity: LiveAgentSurfaceActivity) {
@@ -289,6 +301,7 @@ const OSBlockWindow = memo(
         layout,
         selected,
         docked,
+        agentWorking,
         reducedMotion,
         onFocus,
         onTitlePointerDown,
@@ -303,6 +316,7 @@ const OSBlockWindow = memo(
         layout: OSWindowLayout;
         selected: boolean;
         docked: boolean;
+        agentWorking: boolean;
         reducedMotion: boolean;
         onFocus: (blockId: string) => void;
         onTitlePointerDown: (event: ReactPointerEvent, blockId: string, layout: OSWindowLayout) => void;
@@ -340,7 +354,8 @@ const OSBlockWindow = memo(
                     "os-window",
                     `is-${layout.presentation}`,
                     selected && "is-selected",
-                    docked && "is-docked"
+                    docked && "is-docked",
+                    agentWorking && "is-agent-working"
                 )}
                 data-block-id={descriptor.blockId}
                 data-presentation={layout.presentation}
@@ -375,6 +390,12 @@ const OSBlockWindow = memo(
                         <AppIcon icon={descriptor.icon} />
                         <span>{descriptor.title}</span>
                     </div>
+                    {agentWorking && (
+                        <span className="os-window-agent-badge">
+                            <Bot />
+                            Hermes
+                        </span>
+                    )}
                     <div className="os-window-controls">
                         {docked ? (
                             <button
@@ -616,11 +637,6 @@ function OSModeShell({
         return [...pinned, ...runningExtras].slice(0, 8);
     }, [blocks, installedApps]);
 
-    const hermesDescriptor = useMemo(
-        () => appDescriptors.find((descriptor) => descriptor.view === "chathubv2") ?? null,
-        [appDescriptors]
-    );
-
     const launchApp = useCallback(
         (descriptor: AppDescriptor) => {
             const decision = focusOrCreateDecision(descriptor);
@@ -704,17 +720,15 @@ function OSModeShell({
                 <OSDockWingSvg mirrored />
             </div>
             <div className="os-shell-right">
-                {hermesDescriptor != null && (
-                    <button
-                        type="button"
-                        className="os-hermes-button"
-                        onClick={() => launchApp(hermesDescriptor)}
-                        aria-label="Open Hermes"
-                    >
-                        <Bot />
-                        <span>Hermes</span>
-                    </button>
-                )}
+                <button
+                    type="button"
+                    className="os-hermes-button"
+                    onClick={() => hermesSurfaceController.requestOpenPanel()}
+                    aria-label="Open Hermes panel"
+                >
+                    <Bot />
+                    <span>Hermes</span>
+                </button>
                 <div className="os-view-selector">
                     <button
                         type="button"
@@ -1071,10 +1085,17 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
         return () => observer.disconnect();
     }, []);
 
+    useEffect(
+        () =>
+            subscribeAgentActivityStream((activity) => {
+                globalStore.set(osAgentActivitiesAtom, (current) => [...current, activity].slice(-OSActivityHistoryLimit));
+            }),
+        []
+    );
+
     useEffect(() => {
         let cancelled = false;
-        void RpcApi.WorkspaceListCommand(TabRpcClient, {})
-            .then((items) => {
+        void RpcApi.WorkspaceListCommand(TabRpcClient, {}).then((items) => {
                 if (cancelled) return;
                 setWorkspaces(
                     (items ?? []).map((item, index) => ({
@@ -1649,6 +1670,17 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
     );
 
     const activeGroup = state.scene.kind === "grouped" ? state.groups[state.scene.groupId] : undefined;
+    const liveAgentActivities = useAtomValue(osAgentActivitiesAtom);
+    const agentWorkingViews = useMemo(() => {
+        const views = new Set<string>();
+        for (const activity of liveAgentActivities) {
+            if (isAgentActivityActive(activity.phase)) {
+                const view = AgentSurfaceToView[activity.surface];
+                if (view != null) views.add(view);
+            }
+        }
+        return views;
+    }, [liveAgentActivities]);
     const worldTransform =
         state.scene.kind === "freeform"
             ? `translate3d(${state.camera.x}px, ${state.camera.y}px, 0) scale(${state.camera.zoom})`
@@ -1818,6 +1850,7 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                                         state.scene.selectedBlockId === descriptor.blockId)
                                 }
                                 docked={docked}
+                                agentWorking={agentWorkingViews.has(descriptor.view)}
                                 reducedMotion={reducedMotion}
                                 onFocus={focusBlock}
                                 onTitlePointerDown={(event, blockId, nextLayout) =>
