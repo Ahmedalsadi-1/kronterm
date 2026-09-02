@@ -7,9 +7,16 @@ import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { getWSServerEndpoint } from "@/util/endpoints";
 import { fireAndForget } from "@/util/util";
 import RFB from "@novnc/novnc";
-import { useAtomValue } from "jotai";
-import { useEffect, useRef, useState } from "react";
-import { SandboxViewModel } from "./sandbox-model";
+import { type Atom, atom, useAtomValue } from "jotai";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+// structural subset, not ViewComponentProps: web-mode embeds this view without a backing block
+type SandboxViewFields = {
+    blockId: string;
+    modeAtom: Atom<MetaType["sandbox:mode"]>;
+    browserUrlAtom: Atom<MetaType["sandbox:browserurl"]>;
+    ensureBrowserBlock: (browserUrl?: string) => Promise<string>;
+};
 
 type SandboxDesktopStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -68,7 +75,7 @@ function makeEmptyStatus(sessionId: string, mode: string): SandboxStatusResponse
     };
 }
 
-export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
+export function SandboxView({ model }: { model: SandboxViewFields }) {
     const mode = useAtomValue(model.modeAtom) ?? "desktop";
     const browserUrl = useAtomValue(model.browserUrlAtom) ?? "about:blank";
     const [sandboxStatus, setSandboxStatus] = useState<SandboxStatusResponse>(() =>
@@ -270,4 +277,17 @@ export function SandboxView({ model }: ViewComponentProps<SandboxViewModel>) {
             ))}
         </div>
     );
+}
+
+export function SandboxDesktopPane({ sessionId }: { sessionId: string }) {
+    const model = useMemo<SandboxViewFields>(
+        () => ({
+            blockId: sessionId,
+            modeAtom: atom<MetaType["sandbox:mode"]>("desktop"),
+            browserUrlAtom: atom<MetaType["sandbox:browserurl"]>("about:blank"),
+            ensureBrowserBlock: async () => "",
+        }),
+        [sessionId]
+    );
+    return <SandboxView model={model} />;
 }
