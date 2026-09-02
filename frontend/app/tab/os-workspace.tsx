@@ -68,6 +68,7 @@ import {
     type LiveAgentSurfaceActivity,
 } from "../../types/agent-activity";
 import { OSAppDragMimeType, OSAppIconRail, OSAppStreamRail, readOSAppDragPayload, type OSAppDragPayload } from "./os-app-stream";
+import { OSWidgetsFileView } from "./os-widgets-file";
 import {
     computeOSWindowLayout,
     findOSDockHitTarget,
@@ -1693,6 +1694,16 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                 onFocusBlock={(blockId) => dispatch({ type: "spatial.focus", blockId })}
             />
             <OSAppIconRail installedApps={installedDescriptorsWithRunning} onLaunchApp={launchAppDescriptor} />
+            {state.widgetPresentation === "file" && (
+                <OSWidgetsFileView
+                    blocks={descriptors.map((descriptor) => ({
+                        ...descriptor,
+                        collapsed: state.windows[descriptor.blockId]?.collapsed,
+                    }))}
+                    onFocusBlock={(blockId) => dispatch({ type: "spatial.focus", blockId })}
+                    onCollapseBlock={(blockId) => dispatch({ type: "spatial.collapse", blockId })}
+                />
+            )}
             <div
                 className="os-mode-viewport"
                 onDragOver={(event) => {
