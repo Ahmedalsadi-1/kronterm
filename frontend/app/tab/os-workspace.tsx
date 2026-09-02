@@ -9,6 +9,13 @@ import {
     spatialBoundsForRects,
     zoomSpatialViewportAtPoint,
 } from "@/app/spatial/spatial-engine";
+import {
+    focusOrCreateDecision,
+    getBuiltinViewDescriptors,
+    mergeAppDescriptors,
+    useInstalledAppDescriptors,
+    type AppDescriptor,
+} from "@/app/store/app-registry";
 import { globalStore } from "@/app/store/jotaiStore";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -30,6 +37,7 @@ import {
     Hand,
     Image,
     LayoutGrid,
+    List,
     Maximize2,
     Minimize2,
     PanelLeft,
@@ -71,6 +79,7 @@ import {
     type OSSpatialAction,
     type OSWindowGroup,
     type OSWindowLayout,
+    type WidgetPresentation,
 } from "./os-workspace-model";
 import "./os-workspace.scss";
 import type { WorkspacePresentation } from "./workspace-presentation";
@@ -78,7 +87,6 @@ import { registerWorkspaceSurfaceModeProvider } from "./workspace-surface-runtim
 
 const OSSaveDelayMs = 180;
 const OSActivityHistoryLimit = 8;
-const OSBlockViews = ["term", "web", "chathubv2", "preview"];
 const OSCanvasColors: OSCanvasColor[] = ["amber", "blue", "green", "rose", "slate"];
 
 type OSCanvasTool = "select" | "hand" | "note" | "rectangle" | "ellipse" | "diamond" | "connector";
@@ -250,6 +258,31 @@ function readBlockDescriptor(blockId: string): BlockDescriptor {
         title: String(block?.meta?.["frame:title"] ?? "").trim() || blockViewToName(view),
     };
 }
+
+function AppGlyph({ icon }: { icon?: string }) {
+    if (icon == null) return null;
+    if (icon.startsWith("data:")) {
+        return <img src={icon} alt="" draggable={false} />;
+    }
+    return <i className={makeIconClass(icon, true)} aria-hidden="true" />;
+}
+
+const OSDockWingSvg = memo(function OSDockWingSvg({ mirrored }: { mirrored?: boolean }) {
+    return (
+        <svg
+            className={cn("os-dock-wing", mirrored && "is-mirrored")}
+            width="28"
+            height="28"
+            viewBox="0 0 28 28"
+            aria-hidden="true"
+            focusable="false"
+        >
+            <path d="M0 0 A28 28 0 0 1 28 28 L28 0 Z" fill="var(--os-shell-bg)" />
+            <path d="M0 0 A28 28 0 0 1 28 28" fill="none" stroke="var(--os-shell-border)" strokeWidth="1" />
+        </svg>
+    );
+});
+OSDockWingSvg.displayName = "OSDockWingSvg";
 
 const OSBlockWindow = memo(
     ({
@@ -518,6 +551,10 @@ function OSModeShell({
     blocks,
     collapsedIds,
     sceneKind,
+    activeBlockId,
+    widgetPresentation,
+    onSetWidgetPresentation,
+    onFocusApp,
     onWorkspace,
     onCreateWorkspace,
     onCreateBlock,
@@ -531,6 +568,10 @@ function OSModeShell({
     blocks: BlockDescriptor[];
     collapsedIds: string[];
     sceneKind: OSModeState["scene"]["kind"];
+    activeBlockId: string | undefined;
+    widgetPresentation: WidgetPresentation;
+    onSetWidgetPresentation: (presentation: WidgetPresentation) => void;
+    onFocusApp: (blockId: string) => void;
     onWorkspace: (id: string) => void;
     onCreateWorkspace: () => void;
     onCreateBlock: (view: string) => void;
@@ -541,7 +582,9 @@ function OSModeShell({
 }) {
     const [launcherOpen, setLauncherOpen] = useState(false);
     const [systemMenuOpen, setSystemMenuOpen] = useState(false);
+    const [viewMenuOpen, setViewMenuOpen] = useState(false);
     const [query, setQuery] = useState("");
+    const installedApps = useInstalledAppDescriptors();
     const [clock, setClock] = useState(() => new Date());
     const wallpaper = useAtomValue(getSettingsKeyAtom("window:wallpaper" as never));
     const surfaceOpacity = useAtomValue(getSettingsKeyAtom("window:surfaceopacity" as never));
@@ -562,6 +605,33 @@ function OSModeShell({
         setWallpaperDraft(selected);
         saveWallpaper(selected);
     }, [saveWallpaper]);
+    const appDescriptors = useMemo(() => {
+        const builtins = getBuiltinViewDescriptors(blocks);
+        const merged = mergeAppDescriptors(builtins, installedApps, blocks);
+        const pinned = merged.filter((descriptor) => descriptor.pinned);
+        const runningExtras = merged.filter(
+            (descriptor) => !descriptor.pinned && descriptor.kind === "view" && descriptor.runningBlockIds.length > 0
+        );
+        return [...pinned, ...runningExtras].slice(0, 8);
+    }, [blocks, installedApps]);
+
+    const hermesDescriptor = useMemo(
+        () => appDescriptors.find((descriptor) => descriptor.view === "chathubv2") ?? null,
+        [appDescriptors]
+    );
+
+    const launchApp = useCallback(
+        (descriptor: AppDescriptor) => {
+            const decision = focusOrCreateDecision(descriptor);
+            if (decision.action === "focus") {
+                onFocusApp(decision.blockId);
+            } else if (decision.action === "create") {
+                onCreateBlock(decision.view);
+            }
+        },
+        [onFocusApp, onCreateBlock]
+    );
+
     const launcherViews = ["term", "web", "chathubv2", "preview", "sandbox", "sysinfo", "kronsettings", "help"].filter(
         (view) => `${view} ${blockViewToName(view)}`.toLowerCase().includes(query.toLowerCase())
     );
@@ -595,31 +665,94 @@ function OSModeShell({
                     </button>
                 </nav>
             </div>
-            <div className="os-app-dock" role="toolbar" aria-label="Applications">
-                {OSBlockViews.map((view) => {
-                    const running = blocks.some((block) => block.view === view);
-                    return (
-                        <button
-                            type="button"
-                            key={view}
-                            className={cn("os-dock-app", `view-${view}`, running && "is-running")}
-                            onClick={() => onCreateBlock(view)}
-                            aria-label={`Open ${blockViewToName(view)}`}
-                        >
-                            <i className={makeIconClass(blockViewToIcon(view), true)} aria-hidden="true" />
-                        </button>
-                    );
-                })}
-                <button
-                    type="button"
-                    className="os-dock-app is-add"
-                    onClick={() => setLauncherOpen(true)}
-                    aria-label="More applications"
-                >
-                    <Plus />
-                </button>
+            <div className="os-dock-bay">
+                <OSDockWingSvg />
+                <div className="os-app-dock" role="toolbar" aria-label="Applications">
+                    {appDescriptors.map((descriptor) => {
+                        const running = descriptor.runningBlockIds.length > 0;
+                        const active = running && descriptor.runningBlockIds.includes(activeBlockId ?? "");
+                        return (
+                            <button
+                                type="button"
+                                key={descriptor.id}
+                                className={cn(
+                                    "os-dock-app",
+                                    descriptor.view != null && `view-${descriptor.view}`,
+                                    running && "is-running",
+                                    active && "is-active"
+                                )}
+                                onClick={() => launchApp(descriptor)}
+                                aria-label={`Open ${descriptor.name}`}
+                                title={descriptor.name}
+                            >
+                                <AppGlyph icon={descriptor.icon} />
+                            </button>
+                        );
+                    })}
+                    <button
+                        type="button"
+                        className="os-dock-app is-add"
+                        onClick={() => setLauncherOpen(true)}
+                        aria-label="More applications"
+                    >
+                        <Plus />
+                    </button>
+                </div>
+                <OSDockWingSvg mirrored />
             </div>
             <div className="os-shell-right">
+                {hermesDescriptor != null && (
+                    <button
+                        type="button"
+                        className="os-hermes-button"
+                        onClick={() => launchApp(hermesDescriptor)}
+                        aria-label="Open Hermes"
+                    >
+                        <Bot />
+                        <span>Hermes</span>
+                    </button>
+                )}
+                <div className="os-view-selector">
+                    <button
+                        type="button"
+                        onClick={() => setViewMenuOpen((open) => !open)}
+                        aria-expanded={viewMenuOpen}
+                        aria-haspopup="menu"
+                        aria-label={`Widget presentation: ${widgetPresentation}`}
+                    >
+                        {widgetPresentation === "file" ? <List /> : <Grid2X2 />}
+                        <span className="os-view-selector-label">{widgetPresentation === "file" ? "File" : "Canvas"}</span>
+                        <ChevronDown />
+                    </button>
+                    {viewMenuOpen && (
+                        <div className="os-view-menu" role="menu">
+                            <button
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={widgetPresentation === "canvas"}
+                                onClick={() => {
+                                    onSetWidgetPresentation("canvas");
+                                    setViewMenuOpen(false);
+                                }}
+                            >
+                                <Grid2X2 />
+                                <span>Canvas</span>
+                            </button>
+                            <button
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={widgetPresentation === "file"}
+                                onClick={() => {
+                                    onSetWidgetPresentation("file");
+                                    setViewMenuOpen(false);
+                                }}
+                            >
+                                <List />
+                                <span>File</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
                 <time>{clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
                 <button
                     type="button"
@@ -1465,7 +1598,6 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
         >
             <WorkspaceWallpaper />
             <div className="os-wallpaper-fallback" aria-hidden="true" />
-            <div className="os-workspace-stage" aria-hidden="true" />
             <OSModeShell
                 workspaces={workspaces}
                 currentWorkspaceId={currentWorkspace?.oid ?? ""}
@@ -1479,6 +1611,12 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                 onOverview={() => dispatch({ type: "spatial.showOverview" })}
                 onFreeform={() => dispatch({ type: "spatial.freeform" })}
                 onPresentation={handlePresentation}
+                activeBlockId={state.scene.kind === "focused" ? state.scene.blockId : state.selectedEntityId}
+                widgetPresentation={state.widgetPresentation}
+                onSetWidgetPresentation={(presentation) =>
+                    dispatch({ type: "spatial.setWidgetPresentation", presentation })
+                }
+                onFocusApp={(blockId) => dispatch({ type: "spatial.focus", blockId })}
             />
             <div
                 className="os-mode-viewport"

@@ -3,7 +3,10 @@
 
 .os-mode-root {
     --os-shell-safe: 24px;
-    --os-shell-height: 82px;
+    --os-shell-height: 48px;
+    --os-shell-bg: rgba(248, 248, 246, 0.82);
+    --os-shell-border: rgba(15, 15, 15, 0.08);
+    --os-radius-md: 14px;
     --os-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     position: absolute;
     inset: 0;
@@ -65,43 +68,6 @@
         linear-gradient(155deg, #e6e8ea 0%, #cfd8dd 46%, #7f8d83 100%);
 }
 
-.os-workspace-stage {
-    position: absolute;
-    inset: 76px 16px 18px;
-    z-index: -2;
-    border: 1px solid rgba(255, 255, 255, 0.54);
-    border-radius: 42px;
-    background: rgba(247, 248, 249, 0.1);
-    box-shadow:
-        inset 0 1px rgba(255, 255, 255, 0.6),
-        0 28px 90px rgba(33, 39, 47, 0.08);
-    opacity: 0.68;
-    pointer-events: none;
-    backdrop-filter: blur(7px) saturate(108%);
-    transition: opacity 320ms ease;
-
-    &::before {
-        content: "";
-        position: absolute;
-        top: -67px;
-        left: 50%;
-        width: min(350px, 34vw);
-        height: 92px;
-        border: 1px solid rgba(255, 255, 255, 0.58);
-        border-bottom: 0;
-        border-radius: 42px 42px 0 0;
-        background: rgba(247, 248, 249, 0.16);
-        box-shadow: inset 0 1px rgba(255, 255, 255, 0.64);
-        transform: translateX(-50%);
-        backdrop-filter: blur(16px) saturate(112%);
-    }
-}
-
-.scene-focused .os-workspace-stage,
-.scene-grouped .os-workspace-stage {
-    opacity: 1;
-}
-
 .os-shell {
     position: absolute;
     inset: 0 0 auto;
@@ -109,9 +75,21 @@
     height: var(--os-shell-height);
     display: grid;
     grid-template-columns: minmax(280px, 1fr) auto minmax(280px, 1fr);
-    align-items: center;
+    align-items: start;
     padding: 0 var(--os-shell-safe);
     pointer-events: none;
+
+    // one continuous glass band behind all shell controls
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: calc(0px - var(--os-shell-safe));
+        right: calc(0px - var(--os-shell-safe));
+        height: var(--os-shell-height);
+        background: var(--os-shell-bg);
+        backdrop-filter: blur(24px) saturate(118%);
+    }
 
     button {
         border: 0;
@@ -122,16 +100,38 @@
 
 .os-shell-left,
 .os-shell-right,
-.os-app-dock,
+.os-dock-bay,
 .os-collapsed-dock {
     pointer-events: auto;
 }
 
 .os-shell-left,
 .os-shell-right {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 16px;
+    height: 100%;
+}
+
+// band bottom hairline; stops where the dock bay wings take over
+.os-shell-left::after,
+.os-shell-right::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    height: 1px;
+    background: var(--os-shell-border);
+}
+
+.os-shell-left::after {
+    left: calc(0px - var(--os-shell-safe));
+    right: 0;
+}
+
+.os-shell-right::after {
+    right: calc(0px - var(--os-shell-safe));
+    left: 0;
 }
 
 .os-shell-right {
@@ -144,7 +144,7 @@
         color: color-mix(in srgb, var(--main-text-color) 78%, transparent);
     }
 
-    > button {
+    > button:not(.os-hermes-button) {
         display: grid;
         width: 36px;
         height: 36px;
@@ -167,6 +167,97 @@
         svg {
             width: 17px;
             height: 17px;
+        }
+    }
+}
+
+.os-hermes-button {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.55);
+    color: color-mix(in srgb, var(--main-text-color) 82%, transparent);
+    font-size: 12.5px;
+    font-weight: 600;
+    transition: background 140ms ease;
+
+    svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.72);
+    }
+}
+
+.os-view-selector {
+    position: relative;
+
+    > button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: transparent;
+        color: color-mix(in srgb, var(--main-text-color) 72%, transparent);
+        font-size: 12.5px;
+        font-weight: 600;
+        transition: background 140ms ease;
+
+        svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.55);
+        }
+    }
+}
+
+.os-view-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    padding: 5px;
+    border: 1px solid var(--os-shell-border);
+    border-radius: 12px;
+    background: rgba(252, 252, 250, 0.96);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(24px);
+
+    button {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: transparent;
+        font-size: 12.5px;
+        text-align: left;
+
+        svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        &:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        &[aria-checked="true"] {
+            font-weight: 650;
+            color: var(--accent-color);
         }
     }
 }
@@ -226,82 +317,86 @@
     }
 }
 
-.os-app-dock {
+// the dock bay hangs below the shell band, flanked by concave wing fillets
+.os-dock-bay {
     position: relative;
-    isolation: isolate;
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 15px;
-    border: 1px solid rgba(255, 255, 255, 0.78);
-    border-radius: 30px;
-    background: rgba(244, 245, 247, 0.62);
-    box-shadow:
-        0 14px 40px rgba(38, 44, 52, 0.16),
-        inset 0 1px rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(32px) saturate(120%);
+    align-items: flex-start;
+    margin-top: var(--os-shell-height);
+}
 
-    &::after {
-        content: "";
-        position: absolute;
-        top: calc(100% - 2px);
-        left: 50%;
-        z-index: -1;
-        width: calc(100% + 64px);
-        height: 18px;
-        background: rgba(244, 245, 247, 0.42);
-        clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
-        transform: translateX(-50%);
-        backdrop-filter: blur(24px) saturate(116%);
+.os-dock-wing {
+    display: block;
+    flex: 0 0 auto;
+
+    &.is-mirrored {
+        transform: scaleX(-1);
     }
 }
 
-.scene-focused .os-app-dock,
-.scene-grouped .os-app-dock {
-    box-shadow:
-        0 10px 34px rgba(38, 44, 52, 0.14),
-        inset 0 1px rgba(255, 255, 255, 0.88),
-        0 18px 0 -14px rgba(247, 248, 249, 0.34);
+.os-app-dock {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 12px 10px;
+    background: var(--os-shell-bg);
+    backdrop-filter: blur(24px) saturate(118%);
+    border-bottom: 1px solid var(--os-shell-border);
+    border-radius: 0 0 var(--os-radius-md) var(--os-radius-md);
 }
 
 .os-dock-app {
     position: relative;
     display: grid;
-    width: 52px;
-    height: 52px;
+    width: 46px;
+    height: 46px;
     place-items: center;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: 0 3px 12px rgba(28, 33, 40, 0.13);
-    font-size: 22px;
+    border-radius: 12px;
+    background: transparent;
+    font-size: 21px;
     transition:
-        transform 240ms var(--os-spring, ease),
-        box-shadow 200ms ease;
+        background 140ms ease,
+        transform 200ms var(--os-spring, ease);
+
+    img {
+        width: 29px;
+        height: 29px;
+        border-radius: 7px;
+        object-fit: contain;
+    }
 
     &:hover {
-        transform: translateY(-5px) scale(1.1);
-        box-shadow:
-            0 12px 26px rgba(28, 33, 40, 0.2),
-            0 0 0 4px rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.55);
     }
     &:active {
-        transform: translateY(-1px) scale(0.94);
+        transform: scale(0.96);
         transition-duration: 90ms;
     }
-    // Reference: running apps show a glowing underline beneath the icon, not a dot.
-    &.is-running::after {
+
+    &.is-running::after,
+    &.is-active::after {
         content: "";
         position: absolute;
-        bottom: -9px;
-        width: 18px;
+        bottom: 3px;
+        left: 50%;
+        width: 4px;
         height: 4px;
-        border-radius: 3px;
-        background: var(--accent-color);
-        box-shadow: 0 0 9px color-mix(in srgb, var(--accent-color) 70%, transparent);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--main-text-color) 42%, transparent);
+        transform: translateX(-50%);
     }
+
+    &.is-active {
+        background: rgba(255, 255, 255, 0.66);
+
+        &::after {
+            background: var(--accent-color);
+        }
+    }
+
     &.view-term {
-        background: #111317;
-        color: white;
+        color: #17191e;
     }
     &.view-web {
         color: #4185ef;
@@ -1128,6 +1223,10 @@
 }
 
 @media (prefers-color-scheme: dark) {
+    .os-mode-root {
+        --os-shell-bg: rgba(40, 42, 46, 0.82);
+        --os-shell-border: rgba(255, 255, 255, 0.14);
+    }
     .os-mode-root .workspace-wallpaper-dim {
         background: rgba(236, 239, 242, 0.18);
     }
@@ -1136,7 +1235,6 @@
         border-color: rgba(255, 255, 255, 0.7);
         color: #17191e;
     }
-    .os-app-dock,
     .os-canvas-toolbar,
     .os-agent-activity,
     .os-worker-pill {
