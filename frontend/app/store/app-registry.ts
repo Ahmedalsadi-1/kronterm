@@ -22,6 +22,7 @@ export type AppDescriptor = {
     view?: string;
     runningBlockIds: string[];
     pinned: boolean;
+    installedAppId?: string;
 };
 
 export type AppBlockRef = {
@@ -79,6 +80,7 @@ export function makeInstalledAppDescriptor(app: InstalledAppInfo): AppDescriptor
         aliases: [app.name.toLowerCase(), app.bundleid ?? "", app.description ?? ""].filter(Boolean),
         runningBlockIds: [],
         pinned: false,
+        installedAppId: app.bundleid || app.appid,
     };
 }
 
@@ -109,7 +111,7 @@ export function searchApps(descriptors: AppDescriptor[], query: string): AppDesc
 export type AppLaunchDecision =
     | { action: "focus"; blockId: string }
     | { action: "create"; view: string }
-    | { action: "unsupported"; reason: string };
+    | { action: "create-appstream"; appid: string; appname: string };
 
 export function focusOrCreateDecision(descriptor: AppDescriptor): AppLaunchDecision {
     if (descriptor.runningBlockIds.length > 0) {
@@ -118,8 +120,7 @@ export function focusOrCreateDecision(descriptor: AppDescriptor): AppLaunchDecis
     if (descriptor.kind === "view" && descriptor.view != null) {
         return { action: "create", view: descriptor.view };
     }
-    // installed native apps launch via appstream wiring in a later phase
-    return { action: "unsupported", reason: "native app launch not wired yet" };
+    return { action: "create-appstream", appid: descriptor.installedAppId ?? descriptor.id, appname: descriptor.name };
 }
 
 let installedAppsCache: Promise<InstalledAppInfo[]> | null = null;

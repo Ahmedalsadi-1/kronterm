@@ -88,7 +88,10 @@ describe("app-registry", () => {
             path: "/Applications/Figma.app",
             source: "macos",
         });
-        const decision = focusOrCreateDecision(native);
-        expect(decision.action).toBe("unsupported");
+        expect(focusOrCreateDecision(native)).toEqual({
+            action: "create-appstream",
+            appid: "com.figma.Desktop",
+            appname: "Figma",
+        });
     });
 });

@@ -67,6 +67,7 @@ import {
     subscribeAgentActivityStream,
     type LiveAgentSurfaceActivity,
 } from "../../types/agent-activity";
+import { OSAppDragMimeType, OSAppIconRail, OSAppStreamRail, readOSAppDragPayload, type OSAppDragPayload } from "./os-app-stream";
 import {
     computeOSWindowLayout,
     findOSDockHitTarget,
@@ -97,6 +98,7 @@ type BlockDescriptor = {
     view: string;
     title: string;
     icon?: string;
+    appStreamAppId?: string;
 };
 
 type DragBounds = { x: number; y: number; width: number; height: number };
@@ -259,6 +261,7 @@ function readBlockDescriptor(blockId: string): BlockDescriptor {
         view,
         title: String(block?.meta?.["frame:title"] ?? "").trim() || blockViewToName(view),
         icon: resolveBlockIcon(view, block?.meta),
+        appStreamAppId: block?.meta?.["appstream:appid"] != null ? String(block.meta["appstream:appid"]) : undefined,
     };
 }
 
@@ -550,6 +553,7 @@ function OSModeShell({
     widgetPresentation,
     onSetWidgetPresentation,
     onFocusApp,
+    onCreateAppStream,
     onWorkspace,
     onCreateWorkspace,
     onCreateBlock,
@@ -567,6 +571,7 @@ function OSModeShell({
     widgetPresentation: WidgetPresentation;
     onSetWidgetPresentation: (presentation: WidgetPresentation) => void;
     onFocusApp: (blockId: string) => void;
+    onCreateAppStream: (appid: string, appname: string) => void;
     onWorkspace: (id: string) => void;
     onCreateWorkspace: () => void;
     onCreateBlock: (view: string) => void;
@@ -622,9 +627,11 @@ function OSModeShell({
                 onFocusApp(decision.blockId);
             } else if (decision.action === "create") {
                 onCreateBlock(decision.view);
+            } else if (decision.action === "create-appstream") {
+                onCreateAppStream(decision.appid, decision.appname);
             }
         },
-        [onFocusApp, onCreateBlock]
+        [onFocusApp, onCreateBlock, onCreateAppStream]
     );
 
     const launcherViews = ["term", "web", "chathubv2", "preview", "sandbox", "sysinfo", "kronsettings", "help"].filter(
@@ -1037,6 +1044,18 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
 
     const descriptors = useMemo(() => blockIds.map(readBlockDescriptor), [blockIdsKey]);
 
+    const installedAppDescriptors = useInstalledAppDescriptors();
+    const installedDescriptorsWithRunning = useMemo(
+        () =>
+            installedAppDescriptors.map((descriptor) => ({
+                ...descriptor,
+                runningBlockIds: descriptors
+                    .filter((block) => block.appStreamAppId != null && block.appStreamAppId === descriptor.installedAppId)
+                    .map((block) => block.blockId),
+            })),
+        [installedAppDescriptors, descriptors]
+    );
+
     useEffect(() => {
         setState((current) => reconcileOSModeState(current, blockIds));
     }, [blockIdsKey]);
@@ -1226,6 +1245,63 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
         window.dispatchEvent(new CustomEvent("kronterm:layoutmode-changed", { detail: { mode: presentation } }));
         void RpcApi.SetConfigCommand(TabRpcClient, { "app:layoutmode": presentation });
     }, []);
+
+    const handleCreateAppStream = useCallback(
+        (appid: string, appname: string) => {
+            void RpcApi.CreateBlockCommand(TabRpcClient, {
+                tabid: tabId,
+                blockdef: {
+                    meta: {
+                        view: "appstream",
+                        "appstream:appid": appid,
+                        "appstream:appname": appname,
+                    } as unknown as MetaType,
+                },
+            });
+        },
+        [tabId]
+    );
+
+    const launchAppDescriptor = useCallback(
+        (descriptor: AppDescriptor) => {
+            const decision = focusOrCreateDecision(descriptor);
+            if (decision.action === "focus") {
+                dispatch({ type: "spatial.focus", blockId: decision.blockId });
+            } else if (decision.action === "create") {
+                handleCreateBlock(decision.view);
+            } else if (decision.action === "create-appstream") {
+                handleCreateAppStream(decision.appid, decision.appname);
+            }
+        },
+        [dispatch, handleCreateBlock, handleCreateAppStream]
+    );
+
+    const handleDropApp = useCallback(
+        (payload: OSAppDragPayload, worldX: number, worldY: number) => {
+            if (payload.blockId != null) {
+                dispatch({ type: "spatial.focus", blockId: payload.blockId });
+                dispatch({ type: "spatial.move", blockId: payload.blockId, x: worldX, y: worldY });
+                return;
+            }
+            const meta: Record<string, string> =
+                payload.appid != null
+                    ? {
+                          view: "appstream",
+                          "appstream:appid": payload.appid,
+                          "appstream:appname": payload.appname ?? payload.appid,
+                      }
+                    : { view: payload.view ?? "term" };
+            void RpcApi.CreateBlockCommand(TabRpcClient, {
+                tabid: tabId,
+                blockdef: { meta: meta as unknown as MetaType },
+            }).then((oref) => {
+                const blockId = WOS.splitORef(oref)[1];
+                dispatch({ type: "spatial.focus", blockId });
+                dispatch({ type: "spatial.move", blockId, x: worldX, y: worldY });
+            });
+        },
+        [dispatch, tabId]
+    );
 
     const windowLayouts = useMemo(
         () =>
@@ -1609,9 +1685,31 @@ function OSModeView({ tabId, tabData }: { tabId: string; tabData: Tab }) {
                     dispatch({ type: "spatial.setWidgetPresentation", presentation })
                 }
                 onFocusApp={(blockId) => dispatch({ type: "spatial.focus", blockId })}
+                onCreateAppStream={handleCreateAppStream}
             />
+            <OSAppStreamRail
+                blocks={descriptors.filter((descriptor) => !state.windows[descriptor.blockId]?.collapsed)}
+                activeBlockId={state.scene.kind === "focused" ? state.scene.blockId : state.selectedEntityId}
+                onFocusBlock={(blockId) => dispatch({ type: "spatial.focus", blockId })}
+            />
+            <OSAppIconRail installedApps={installedDescriptorsWithRunning} onLaunchApp={launchAppDescriptor} />
             <div
                 className="os-mode-viewport"
+                onDragOver={(event) => {
+                    if (event.dataTransfer.types.includes(OSAppDragMimeType)) {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "copy";
+                    }
+                }}
+                onDrop={(event) => {
+                    const payload = readOSAppDragPayload(event.dataTransfer);
+                    if (payload == null) return;
+                    event.preventDefault();
+                    const camera = stateRef.current.camera;
+                    const worldX = Math.max(16, (event.clientX - camera.x) / camera.zoom - 260);
+                    const worldY = Math.max(96, (event.clientY - camera.y) / camera.zoom - 30);
+                    handleDropApp(payload, worldX, worldY);
+                }}
                 onPointerDown={(event) => {
                     if (
                         state.scene.kind !== "freeform" ||

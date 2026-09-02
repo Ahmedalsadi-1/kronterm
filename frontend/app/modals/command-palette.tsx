@@ -3,7 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { AppIcon } from "@/app/components/app-icon";
-import { getBuiltinViewDescriptors } from "@/app/store/app-registry";
+import { getBuiltinViewDescriptors, useInstalledAppDescriptors } from "@/app/store/app-registry";
 import { modalsModel } from "@/app/store/modalmodel";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -90,11 +90,37 @@ function CommandPaletteModal() {
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [workspaceItems, setWorkspaceItems] = useState<CommandPaletteAction[]>([]);
+    const installedApps = useInstalledAppDescriptors();
     const inputRef = useRef<HTMLInputElement>(null);
     const listId = useId();
+    const installedResults = useMemo<CommandPaletteAction[]>(
+        () =>
+            installedApps.map((descriptor) => ({
+                id: descriptor.id,
+                label: descriptor.name,
+                detail: descriptor.category ?? "Native app",
+                keywords: descriptor.aliases,
+                group: "applications" as const,
+                iconUrl: descriptor.icon,
+                run: () => {
+                    void createBlock({
+                        meta: {
+                            view: "appstream",
+                            "appstream:appid": descriptor.installedAppId ?? descriptor.id,
+                            "appstream:appname": descriptor.name,
+                        } as unknown as MetaType,
+                    });
+                },
+            })),
+        [installedApps]
+    );
     const actions = useMemo(
-        () => filterCommandPaletteActions([...ApplicationResults, ...CommandActions, ...workspaceItems], query),
-        [workspaceItems, query]
+        () =>
+            filterCommandPaletteActions(
+                [...ApplicationResults, ...installedResults, ...CommandActions, ...workspaceItems],
+                query
+            ),
+        [installedResults, workspaceItems, query]
     );
     const close = useCallback(() => modalsModel.popModal(), []);
     const runAction = useCallback(
