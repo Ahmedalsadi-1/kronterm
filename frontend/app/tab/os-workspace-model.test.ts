@@ -117,18 +117,23 @@ describe("OS workspace state", () => {
         expect(state.windows.files.bounds).not.toEqual(state.windows.term.bounds);
     });
 
-    it("derives perspective rails and Cover Flow from scene state", () => {
+    it("lays out a calm focused desktop and flat overview grid from scene state", () => {
         let state = makeInitialOSModeState(tab(), ["browser", "hermes", "term"]);
         state = reduceOSModeState(state, { type: "spatial.focus", blockId: "browser" });
-        expect(computeOSWindowLayout(state, "term", "term", { width: 1440, height: 900 }).presentation).toMatch(
-            /^edge-/
-        );
+        const peripheral = computeOSWindowLayout(state, "term", "term", { width: 1440, height: 900 });
+        expect(peripheral.presentation).toBe("collapsed");
+        expect(peripheral.opacity).toBe(0);
+        const focused = computeOSWindowLayout(state, "browser", "web", { width: 1440, height: 900 });
+        expect(focused.presentation).toBe("focused");
+        expect(focused.rotateY).toBe(0);
         state = reduceOSModeState(state, { type: "spatial.showOverview", selectedBlockId: "hermes" });
         const selected = computeOSWindowLayout(state, "hermes", "chathubv2", { width: 1440, height: 900 });
         const neighbor = computeOSWindowLayout(state, "browser", "web", { width: 1440, height: 900 });
         expect(selected.presentation).toBe("overview");
         expect(selected.rotateY).toBe(0);
-        expect(neighbor.scale).toBeLessThan(selected.scale);
+        expect(neighbor.rotateY).toBe(0);
+        expect(neighbor.opacity).toBe(1);
+        expect(selected.bounds).not.toEqual(neighbor.bounds);
     });
 
     it("finds the topmost live window beneath a dragged floating window", () => {

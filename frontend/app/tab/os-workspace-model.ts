@@ -372,7 +372,7 @@ export function reduceOSModeState(state: OSModeState, action: OSSpatialAction): 
 }
 
 function preferredFocusBounds(view: string, viewport: { width: number; height: number }): SpatialRect {
-    const shellHeight = 84;
+    const shellHeight = 116;
     const width = view === "term" ? Math.min(920, viewport.width * 0.64) : Math.min(1280, viewport.width * 0.82);
     const height = view === "term" ? Math.min(760, viewport.height * 0.76) : Math.min(820, viewport.height * 0.78);
     return {
@@ -401,23 +401,31 @@ export function computeOSWindowLayout(
     if (window.collapsed || state.scene.kind === "freeform") return base;
     if (state.scene.kind === "overview") {
         const visible = state.zOrder.filter((id) => !state.windows[id]?.collapsed);
-        const selectedIndex = Math.max(0, visible.indexOf(state.scene.selectedBlockId ?? visible.at(-1)));
-        const offset = visible.indexOf(blockId) - selectedIndex;
-        const distance = Math.abs(offset);
-        const width = Math.min(760, viewport.width * 0.5);
-        const height = Math.min(600, viewport.height * 0.66);
+        const index = Math.max(0, visible.indexOf(blockId));
+        const count = Math.max(1, visible.length);
+        const cols = Math.ceil(Math.sqrt(count));
+        const rows = Math.ceil(count / cols);
+        const gapX = 36;
+        const gapY = 32;
+        const topInset = 116;
+        const cellWidth = Math.min(560, (viewport.width - 160 - gapX * (cols - 1)) / cols);
+        const cellHeight = Math.min(420, (viewport.height - topInset - 60 - gapY * (rows - 1)) / rows);
+        const gridWidth = cols * cellWidth + (cols - 1) * gapX;
+        const gridHeight = rows * cellHeight + (rows - 1) * gapY;
+        const startX = (viewport.width - gridWidth) / 2;
+        const startY = topInset + (viewport.height - topInset - 60 - gridHeight) / 2;
         return {
             bounds: {
-                x: Math.round(viewport.width / 2 - width / 2 + offset * Math.min(300, viewport.width * 0.19)),
-                y: Math.round(viewport.height / 2 - height / 2 + distance * 18),
-                width,
-                height,
+                x: Math.round(startX + (index % cols) * (cellWidth + gapX)),
+                y: Math.round(startY + Math.floor(index / cols) * (cellHeight + gapY)),
+                width: Math.round(cellWidth),
+                height: Math.round(cellHeight),
             },
             presentation: "overview",
-            rotateY: offset === 0 ? 0 : offset < 0 ? 28 : -28,
-            scale: Math.max(0.66, 1 - distance * 0.08),
-            opacity: Math.max(0.42, 1 - distance * 0.14),
-            zIndex: 500 - distance,
+            rotateY: 0,
+            scale: 1,
+            opacity: 1,
+            zIndex: 500 + index,
         };
     }
     let primaryBlockId: string;
@@ -455,25 +463,8 @@ export function computeOSWindowLayout(
     if (blockId === primaryBlockId) {
         return { ...base, bounds: preferredFocusBounds(view, viewport), presentation: "focused", zIndex: 600 };
     }
-    const peripherals = state.zOrder.filter((id) => id !== primaryBlockId && !state.windows[id]?.collapsed);
-    const index = peripherals.indexOf(blockId);
-    const side = viewport.width <= 1280 || index % 2 === 0 ? "left" : "right";
-    const slot = viewport.width <= 1280 ? index : Math.floor(index / 2);
-    const width = Math.min(250, viewport.width * 0.17);
-    const height = Math.min(190, viewport.height * 0.22);
-    return {
-        bounds: {
-            x: side === "left" ? -width * 0.48 : viewport.width - width * 0.52,
-            y: 132 + slot * Math.min(152, viewport.height * 0.17),
-            width,
-            height,
-        },
-        presentation: side === "left" ? "edge-left" : "edge-right",
-        rotateY: side === "left" ? 24 : -24,
-        scale: Math.max(0.72, 0.92 - slot * 0.04),
-        opacity: Math.max(0.5, 0.84 - slot * 0.08),
-        zIndex: 300 - slot,
-    };
+    // calm focused desktop: peripheral windows step aside entirely (dock, app stream, and overview reach them)
+    return { ...base, opacity: 0, presentation: "collapsed" };
 }
 
 export { OSLayoutVersion };

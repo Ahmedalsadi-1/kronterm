@@ -18,7 +18,6 @@
     color: var(--main-text-color);
     font-family: var(--hermes-font-sans, var(--font-family-ui));
     isolation: isolate;
-    perspective: 1400px;
 
     .workspace-wallpaper {
         position: absolute;
@@ -30,8 +29,8 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        filter: blur(6px) saturate(0.85) brightness(1.05);
-        transform: scale(1.04);
+        filter: blur(3px) saturate(0.95) brightness(1.04);
+        transform: scale(1.03);
     }
 
     .workspace-wallpaper-dim {
@@ -41,7 +40,7 @@
         transition: background 420ms ease;
     }
 
-    // Atmospheric fog band: bright wash at the top fading into the wallpaper, subtle floor fog below.
+    // Light wash so shell text stays readable without hiding the wallpaper
     &::before {
         content: "";
         position: absolute;
@@ -49,8 +48,8 @@
         z-index: -3;
         pointer-events: none;
         background:
-            linear-gradient(180deg, rgba(248, 249, 251, 0.85) 0%, rgba(248, 249, 251, 0.4) 130px, transparent 280px),
-            linear-gradient(0deg, rgba(248, 249, 251, 0.3) 0%, transparent 160px);
+            linear-gradient(180deg, rgba(248, 249, 251, 0.55) 0%, rgba(248, 249, 251, 0.22) 130px, transparent 280px),
+            linear-gradient(0deg, rgba(248, 249, 251, 0.16) 0%, transparent 160px);
     }
 }
 
@@ -619,15 +618,12 @@
     inset: 0;
     z-index: 1;
     overflow: hidden;
-    perspective: 1400px;
-    transform-style: preserve-3d;
 }
 
 .os-mode-world {
     position: absolute;
     inset: 0;
     transform-origin: 0 0;
-    transform-style: preserve-3d;
     will-change: transform;
 }
 
@@ -638,33 +634,25 @@
     min-width: 160px;
     min-height: 110px;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    border-radius: 21px;
+    border: 1px solid rgba(15, 15, 15, 0.1);
+    border-radius: var(--os-radius-md);
     background: rgb(248 248 249 / var(--kron-surface-alpha, 0.78));
     box-shadow:
-        0 20px 52px rgba(41, 45, 52, 0.14),
+        0 10px 35px rgba(0, 0, 0, 0.1),
         inset 0 1px rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(30px) saturate(115%);
-    transform-style: preserve-3d;
-    will-change: transform, left, top, width, height;
+    will-change: transform;
 
     &.is-selected {
-        border-color: rgba(255, 255, 255, 0.92);
+        border-color: rgba(15, 15, 15, 0.16);
         box-shadow:
-            0 30px 80px rgba(32, 37, 44, 0.22),
-            inset 0 1px white;
+            0 14px 44px rgba(0, 0, 0, 0.14),
+            inset 0 1px rgba(255, 255, 255, 0.92);
     }
     &.is-focused,
     &.is-docked-left,
     &.is-docked-right {
-        border-radius: 29px;
-    }
-    &.is-edge-left,
-    &.is-edge-right {
-        box-shadow: 0 17px 36px rgba(24, 29, 36, 0.18);
-    }
-    &.is-overview {
-        box-shadow: 0 28px 74px rgba(30, 34, 41, 0.22);
+        border-radius: 16px;
     }
     &.is-collapsed {
         pointer-events: none;
