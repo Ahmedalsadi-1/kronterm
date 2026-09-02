@@ -739,14 +739,16 @@ function registerGlobalKeys() {
         }
         return true;
     });
-    globalKeyMap.set("Cmd:Shift:p", () => {
+    const toggleCommandPalette = () => {
         if (modalsModel.isModalOpen("CommandPaletteModal")) {
             modalsModel.popModal();
         } else {
             modalsModel.pushModal("CommandPaletteModal");
         }
         return true;
-    });
+    };
+    globalKeyMap.set("Cmd:Shift:p", toggleCommandPalette);
+    globalKeyMap.set("Cmd:Shift:Space", toggleCommandPalette);
     globalKeyMap.set("Ctrl:Shift:t", () => {
         const blockId = getFocusedBlockInStaticTab();
         if (!blockId) return false;

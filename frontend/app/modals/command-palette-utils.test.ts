@@ -28,4 +28,11 @@ describe("command palette search", () => {
             "New terminal",
         ]);
     });
+
+    it("keeps source order for empty queries so applications lead the grouped list", () => {
+        const applications = [{ label: "Terminal", detail: "Application", keywords: ["shell"] }];
+        expect(
+            filterCommandPaletteActions([...applications, ...Commands], "").map((command) => command.label)
+        ).toEqual(["Terminal", "Ask Kronos", "New terminal", "Open browser"]);
+    });
 });

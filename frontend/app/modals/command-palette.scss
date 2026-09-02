@@ -80,6 +80,15 @@
     padding: 8px;
 }
 
+.command-palette-group {
+    padding: 10px 14px 4px;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--main-text-color) 42%, transparent);
+}
+
 .command-palette-item {
     display: grid;
     grid-template-columns: 36px minmax(0, 1fr) auto;
