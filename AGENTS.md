@@ -10,17 +10,14 @@ KronTerm is the user-facing product name. It combines terminal, browser, file, p
 AI surfaces in one persistent workspace. KronosCode is the agent execution engine; KronosChamber is its primary chat and
 control surface.
 
-The desktop has three workspace presentations that share the same blocks:
+The desktop has four workspace presentations that share the same blocks (`app:layoutmode` — `widgets` | `tabs` | `canvas` | `os`):
 
 - `widgets`: resizable tiled splits.
 - `tabs`: focused widgets in a browser-style tab strip with pane splitting.
 - `canvas`: a pan-and-zoom spatial workspace with live widgets, notes, shapes, connectors, and agent task cards.
+- `os`: KronTerm OS spatial desktop — calm window composition, flat grid overview, Cover Flow app switcher, connected shell dock, and typed `os.*` surface actions for agent control (current development line, see `frontend/app/workspace/kronarchy-shell.tsx` and `.kilocode/skills/kronterm-os/SKILL.md`).
 
-The current development line also includes live agent activity overlays, task/evidence graphs, selection-to-agent context,
-a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, an optional voice engine, the Hermes
-agent UI mounted as native widgets (`frontend/hermes/`), the Kronarchy workspace shell, and desktop pet / overlay windows.
-The `mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally
-available.
+The current development line also includes the KronTerm OS shell (dock, overview, app-stream rails, native app launches via shared `AppIcon`, no-overshoot springs, quiet menu entrances), Hermes agent panel with slash commands and working badges (`/files`, `/terminal`, `/preview`), grouped file browser with drag-to-canvas, command center palette at `Cmd+Shift+Space`, live agent activity overlays, task/evidence graphs, selection-to-agent context, a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, an optional voice engine, and desktop pet / overlay windows. The `mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally available.
 
 Legacy `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and Go module names remain in compatibility-sensitive code and config.
 Use KronTerm and KronosCode in new user-facing copy, but never rename compatibility identifiers as part of an unrelated
@@ -33,12 +30,12 @@ change.
 | Add RPC call                | `pkg/wshrpc/wshrpctypes.go` → `task generate`                                  |
 | Add config setting          | `pkg/wconfig/` → `.kilocode/skills/add-config/SKILL.md`                        |
 | Frontend state              | `frontend/app/store/` (Jotai)                                                  |
-| Workspace presentations     | `frontend/app/tab/` (`widget-tabs-layout.tsx`, `workspace-canvas.tsx`)         |
+| Workspace presentations     | `frontend/app/tab/` (`widget-tabs-layout.tsx`, `workspace-canvas.tsx`) + `frontend/app/workspace/kronarchy-shell.tsx` (`os` mode) |
 | Workspace layout model      | `frontend/app/workspace/workspace-layout-model.ts`                             |
 | KronosChamber view          | `frontend/app/view/chathubv2/` (has its own AGENTS.md)                         |
 | KronosChamber runtime       | `emain/chathubv2-*.ts`, `emain/acp/`, `emain/kronoscode-runtime.ts`            |
-| Kronarchy workspace shell   | `frontend/app/workspace/kronarchy-shell.tsx`                                   |
-| Hermes agent UI             | `frontend/hermes/`, `agents/hermes/`, `emain/hermes-runtime.ts`                |
+| Kronarchy / KronTerm OS shell | `frontend/app/workspace/kronarchy-shell.tsx` + `.kilocode/skills/kronterm-os/SKILL.md` (`os.*` typed actions, Overview, Cover Flow, AppStream rails) |
+| Hermes agent UI             | `frontend/hermes/`, `agents/hermes/`, `emain/hermes-runtime.ts` + `frontend/app/workspace/workspace-hermes-panel.ts` (`/files`, `/terminal`, `/preview` slash commands) |
 | Desktop pet and overlay     | `desktop-pet/`, `emain/emain-pet.ts`, `emain/emain-overlay.ts`, `frontend/pet/`|
 | Agent activity and overlays | `frontend/types/agent-activity.ts`, `frontend/app/view/use-agent-overlays.ts`  |
 | KronosCode package boundary | `agents/kronoscode/`                                                           |
