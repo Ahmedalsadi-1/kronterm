@@ -15,6 +15,7 @@ import { ComposerAttachmentUserRemovedEvent, mainComposerScope, type ComposerAtt
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { makeCanvasAttachments, mergeCanvasAttachments } from "./hermes-canvas-context";
 import { configureHermesDesktopShim, installHermesDesktopShim } from "./hermes-desktop-shim";
+import { HermesHudStreamCard } from "./hermes-hud-stream-card";
 import { hermesSurfaceController } from "./hermes-surface-controller";
 
 const LazyHermesApp = lazy(async () => ({ default: (await import("./hermes-app")).HermesApp }));
@@ -179,28 +180,31 @@ export function HermesHudHost({
     const { x, y, width, height } = surface.geometry;
 
     return (
-        <div
-            aria-label="Kronos HUD"
-            className="pointer-events-none fixed z-[115] overflow-visible"
-            data-kronterm-hermes-hud=""
-            style={{ left: x, top: y, width, height }}
-        >
-            {connectionReady ? (
-                <Suspense
-                    fallback={
-                        <div className="grid h-full place-items-center rounded-xl border border-white/10 bg-[#080a0df2] text-xs text-white/55 shadow-2xl backdrop-blur-xl">
-                            Loading Kronos…
-                        </div>
-                    }
-                >
-                    <LazyHermesApp hudMode />
-                </Suspense>
-            ) : (
-                <div className="grid h-full place-items-center rounded-xl border border-white/10 bg-[#080a0df2] text-xs text-white/55 shadow-2xl backdrop-blur-xl">
-                    Starting Kronos…
-                </div>
-            )}
-        </div>
+        <>
+            <HermesHudStreamCard hudGeometry={{ x, y, width }} />
+            <div
+                aria-label="Kronos HUD"
+                className="pointer-events-none fixed z-[115] overflow-visible"
+                data-kronterm-hermes-hud=""
+                style={{ left: x, top: y, width, height }}
+            >
+                {connectionReady ? (
+                    <Suspense
+                        fallback={
+                            <div className="grid h-full place-items-center rounded-xl border border-white/10 bg-[#080a0df2] text-xs text-white/55 shadow-2xl backdrop-blur-xl">
+                                Loading Kronos…
+                            </div>
+                        }
+                    >
+                        <LazyHermesApp hudMode />
+                    </Suspense>
+                ) : (
+                    <div className="grid h-full place-items-center rounded-xl border border-white/10 bg-[#080a0df2] text-xs text-white/55 shadow-2xl backdrop-blur-xl">
+                        Starting Kronos…
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 
