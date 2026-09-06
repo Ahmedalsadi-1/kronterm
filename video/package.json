@@ -12,7 +12,9 @@
         "still:field-guide": "remotion still src/index.ts KronTermFieldGuide out/kronterm-field-guide-frame.png --frame=225",
         "upgrade": "remotion upgrade",
         "build:promo": "remotion render src/index.ts KronTermPromo out/kronterm-promo.mp4",
-        "still:promo": "remotion still src/index.ts KronTermPromo out/promo-frame.png"
+        "still:promo": "remotion still src/index.ts KronTermPromo out/promo-frame.png",
+        "build:os-demo": "remotion render src/index.ts KronTermOSDemo out/kronterm-os-demo.mp4",
+        "still:os-demo": "remotion still src/index.ts KronTermOSDemo out/os-demo-frame.png --frame=450"
     },
     "dependencies": {
         "react": "^18.2.0",
