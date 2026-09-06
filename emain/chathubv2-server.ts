@@ -26,13 +26,9 @@ import {
     getWaveConfigDir,
     getWaveDataDir,
 } from "./emain-platform";
-import {
-    getElectronExecPath,
-    WaveAppElectronExecPath,
-    WaveAppPathVarName,
-    WaveAppResourcesPathVarName,
-} from "./emain-util";
+import { getElectronExecPath, WaveAppElectronExecPath, WaveAppPathVarName, WaveAppResourcesPathVarName } from "./emain-util";
 import { ElectronWshClient } from "./emain-wsh";
+import { startKronTermToolServer } from "./kronterm-tool-server";
 import { KronosCodeRuntime } from "./kronoscode-runtime";
 
 type ChatHubV2ServerState = {
@@ -344,6 +340,9 @@ function getWshBinDir(): string {
 function resolveSurfaceServerPath(): string | undefined {
     const candidates = [
         process.env.KRONTERM_SURFACE_MCP,
+        path.join(repoRoot(), "mcp-kron-term", "dist", "native-proxy.js"),
+        path.join(process.resourcesPath ?? "", "mcp-kron-term", "dist", "native-proxy.js"),
+        path.resolve(import.meta.dirname, "..", "mcp-kron-term", "dist", "native-proxy.js"),
         path.join(repoRoot(), "mcp-kron-term", "dist", "index.js"),
         path.join(process.resourcesPath ?? "", "mcp-kron-term", "dist", "index.js"),
         path.resolve(import.meta.dirname, "..", "mcp-kron-term", "dist", "index.js"),
@@ -463,14 +462,16 @@ export async function startChatHubV2Server(context: ChatHubV2SurfaceContext = {}
         const surfaceServerPath = resolveSurfaceServerPath();
         if (surfaceServerPath) {
             env.KRONTERM_SURFACE_MCP = surfaceServerPath;
+            if (surfaceServerPath.endsWith("native-proxy.js")) {
+                const toolServer = await startKronTermToolServer(() =>
+                    scopedContext.tabId ? { tabId: scopedContext.tabId, blockId: scopedContext.blockId } : null
+                );
+                env.KRONTERM_NATIVE_TOOL_URL = toolServer.nativeUrl;
+                env.KRONTERM_NATIVE_TOOL_TOKEN = toolServer.token;
+            }
         }
         if (kronosCodeBinary) {
             env.KRONOSCODE_BINARY = kronosCodeBinary;
-        }
-        const krondesignCliPath = path.join(repoRoot(), "krondesign", "apps", "daemon", "dist", "cli.js");
-        if (fs.existsSync(krondesignCliPath)) {
-            env.KRONDESIGN_CLI_PATH = krondesignCliPath;
-            env.KRONDESIGN_DAEMON_URL = "http://127.0.0.1:7456";
         }
 
         const spawnedChild = spawn(process.execPath, [serverPath, "--port", String(port)], {

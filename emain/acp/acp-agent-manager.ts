@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { RpcApi } from "../../frontend/app/store/wshclientapi";
 import { ElectronWshClient } from "../emain-wsh";
 import { withKronosCodeAttachArgs } from "../kronoscode-runtime";
+import { startKronTermToolServer } from "../kronterm-tool-server";
 import { KronTermSurfaceSystemPrompt } from "../kronterm-surface-prompt";
 import { detectInstalledAgents, spawnAcpAgent } from "./acp-connector";
 import {
@@ -427,6 +428,27 @@ export class AcpAgentManager extends EventEmitter {
         return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
     }
 
+    // Prefer the native-proxy entry when present: same stdio contract, but every
+    // call lands on the in-process TypeScript tool runtime instead of the
+    // wsh-CLI bridge (stale-wsh and bridge-token failures live there).
+    private resolveSurfaceSpawnTarget(): { path: string; native: boolean } | null {
+        const resourcesPath = (process as typeof process & { resourcesPath?: string }).resourcesPath;
+        if (process.env.KRONTERM_SURFACE_MCP) {
+            return { path: process.env.KRONTERM_SURFACE_MCP, native: false };
+        }
+        const nativeCandidates = [
+            path.join(process.cwd(), "mcp-kron-term", "dist", "native-proxy.js"),
+            path.resolve(import.meta.dirname, "..", "..", "mcp-kron-term", "dist", "native-proxy.js"),
+            resourcesPath ? path.join(resourcesPath, "mcp-kron-term", "dist", "native-proxy.js") : null,
+        ].filter((candidate): candidate is string => Boolean(candidate));
+        const nativeProxy = nativeCandidates.find((candidate) => fs.existsSync(candidate));
+        if (nativeProxy) {
+            return { path: nativeProxy, native: true };
+        }
+        const legacy = this.resolveSurfaceServerPath();
+        return legacy ? { path: legacy, native: false } : null;
+    }
+
     private normalizeMcpServers(servers: AcpSessionMcpServer[]): AcpSessionMcpServer[] {
         const normalized: AcpSessionMcpServer[] = [];
         for (const server of servers) {
@@ -470,12 +492,19 @@ export class AcpAgentManager extends EventEmitter {
 
     private async buildSessionMcpServers(): Promise<AcpSessionMcpServer[]> {
         const mcpServers: AcpSessionMcpServer[] = [];
-        const surfaceServerPath = this.resolveSurfaceServerPath();
-        if (this.supportsMcpType("stdio") && surfaceServerPath) {
+        const spawnTarget = this.resolveSurfaceSpawnTarget();
+        if (this.supportsMcpType("stdio") && spawnTarget) {
             const surfaceEnv: AcpSessionMcpNameValue[] = [
                 { name: "ELECTRON_RUN_AS_NODE", value: "1" },
                 { name: "KRONTERM_WORKSPACE", value: this.workspace },
             ];
+            if (spawnTarget.native) {
+                const toolServer = await startKronTermToolServer(() =>
+                    this.surfaceContext ? { tabId: this.surfaceContext.tabId, blockId: this.surfaceContext.blockId } : null
+                );
+                surfaceEnv.push({ name: "KRONTERM_NATIVE_TOOL_URL", value: toolServer.nativeUrl });
+                surfaceEnv.push({ name: "KRONTERM_NATIVE_TOOL_TOKEN", value: toolServer.token });
+            }
             const sharedSkillDirs = SharedSkillDirectories.map((directory) =>
                 path.join(this.workspace, directory)
             ).filter((directory) => fs.existsSync(directory));
@@ -510,7 +539,7 @@ export class AcpAgentManager extends EventEmitter {
                 type: "stdio",
                 name: "kron-term",
                 command: process.execPath,
-                args: [surfaceServerPath],
+                args: [spawnTarget.path],
                 env: surfaceEnv,
             });
             this.surfaceMcpAvailable = true;

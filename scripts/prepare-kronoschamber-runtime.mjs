@@ -65,6 +65,17 @@ await build({
   logLevel: "warning",
 });
 
+await build({
+  entryPoints: [path.join(McpSourceRoot, "dist/native-proxy.js")],
+  outfile: path.join(McpOutputRoot, "dist/native-proxy.js"),
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+  sourcemap: false,
+  logLevel: "warning",
+});
+
 const sourcePackage = JSON.parse(await readFile(path.join(SourceRoot, "package.json"), "utf8"));
 await writeFile(
   path.join(OutputRoot, "package.json"),
