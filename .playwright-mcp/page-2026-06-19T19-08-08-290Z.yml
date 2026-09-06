@@ -1,0 +1,276 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "Private beta now routing workspace-native AI teams Explore ACP agents" [ref=e5] [cursor=pointer]:
+      - /url: /capabilities/acp-agents
+      - generic [ref=e6]: Private beta now routing workspace-native AI teams
+      - strong [ref=e7]: Explore ACP agents
+      - img [ref=e8]
+    - navigation "Main navigation" [ref=e10]:
+      - link "KronTerm" [ref=e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e12]: KronTerm
+      - generic [ref=e13]:
+        - button "Products" [ref=e14] [cursor=pointer]
+        - button "Capabilities" [ref=e15] [cursor=pointer]
+        - button "Use Cases" [ref=e16] [cursor=pointer]
+        - button "Resources" [ref=e17] [cursor=pointer]
+        - link "Pricing" [ref=e18] [cursor=pointer]:
+          - /url: /pricing
+      - generic [ref=e19]:
+        - link "Contact sales" [ref=e20] [cursor=pointer]:
+          - /url: /contact-sales
+        - link "Request beta" [ref=e21] [cursor=pointer]:
+          - /url: /download
+  - main [ref=e22]:
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - paragraph [ref=e26]: KronTerm for technical teams
+        - heading "From terminal to desktop, with every agent in context." [level=1] [ref=e27]
+        - paragraph [ref=e28]: "KronTerm is a premium command center for B2B engineering teams: terminal, browser, editor, sandboxes, native desktop control, and KronosCode AI fused into one inspectable workspace."
+        - generic [ref=e29]:
+          - link "Request private beta" [ref=e30] [cursor=pointer]:
+            - /url: /download
+            - text: Request private beta
+            - img [ref=e31]
+          - link "Explore KronosCode" [ref=e33] [cursor=pointer]:
+            - /url: /capabilities/kronoscode
+            - text: Explore KronosCode
+            - img [ref=e34]
+        - generic [ref=e36]:
+          - generic [ref=e37]: Built for
+          - strong [ref=e38]: Developers
+          - strong [ref=e39]: Founders
+          - strong [ref=e40]: Platform teams
+          - strong [ref=e41]: Agent builders
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - strong [ref=e48]: KronTerm
+          - img "KronTerm full workspace with terminal, browser, files, sandbox, and AI panels" [ref=e49]
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - generic [ref=e54]:
+            - strong [ref=e55]: KronosCode
+            - generic [ref=e56]: Read terminal output, inspect files, validate in browser.
+        - generic [ref=e57]:
+          - img [ref=e58]
+          - generic [ref=e61]:
+            - strong [ref=e62]: Human-approved
+            - generic [ref=e63]: Commands and edits stay visible before execution.
+    - region "KronTerm capability stack" [ref=e64]:
+      - generic [ref=e65]: OpenAI
+      - generic [ref=e66]: Claude
+      - generic [ref=e67]: Gemini
+      - generic [ref=e68]: Ollama
+      - generic [ref=e69]: Terminal
+      - generic [ref=e70]: Chromium
+      - generic [ref=e71]: SSH
+      - generic [ref=e72]: E2B
+      - generic [ref=e73]: MCP
+      - generic [ref=e74]: Screenpipe
+      - generic [ref=e75]: GitHub
+      - generic [ref=e76]: Localhost
+    - region "Product metrics" [ref=e77]:
+      - generic [ref=e78]:
+        - strong [ref=e79]: "6"
+        - generic [ref=e80]: workspace surfaces unified
+      - generic [ref=e81]:
+        - strong [ref=e82]: 69+
+        - generic [ref=e83]: agent tools in the engine
+      - generic [ref=e84]:
+        - strong [ref=e85]: "1"
+        - generic [ref=e86]: desktop command center
+    - generic [ref=e87]:
+      - generic [ref=e88]:
+        - paragraph [ref=e89]: Why KronTerm
+        - heading "Stop giving AI a transcript. Give it the workspace." [level=2] [ref=e90]
+      - paragraph [ref=e91]: AI coding gets dramatically more useful when it can reason across shell output, product previews, project files, sandboxes, native app state, and prior sessions. KronTerm makes that context visible, structured, and supervised.
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - paragraph [ref=e94]: Products and capabilities
+        - heading "One surface for the full builder loop." [level=2] [ref=e95]
+      - generic [ref=e96]:
+        - tablist "KronTerm capabilities" [ref=e97]:
+          - tab "Workspace" [selected] [ref=e98] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e104]: Workspace
+          - tab "KronosCode" [ref=e105] [cursor=pointer]:
+            - img [ref=e106]
+            - generic [ref=e118]: KronosCode
+          - tab "Terminal" [ref=e119] [cursor=pointer]:
+            - img [ref=e120]
+            - generic [ref=e122]: Terminal
+          - tab "Browser" [ref=e123] [cursor=pointer]:
+            - img [ref=e124]
+            - generic [ref=e129]: Browser
+          - tab "Sandboxes" [ref=e130] [cursor=pointer]:
+            - img [ref=e131]
+            - generic [ref=e134]: Sandboxes
+          - tab "Desktop Control" [ref=e135] [cursor=pointer]:
+            - img [ref=e136]
+            - generic [ref=e138]: Desktop Control
+          - tab "Remote Sessions" [ref=e139] [cursor=pointer]:
+            - img [ref=e140]
+            - generic [ref=e145]: Remote Sessions
+          - tab "ACP Agents" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+            - generic [ref=e150]: ACP Agents
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - paragraph [ref=e153]: Desktop command center
+            - heading "Terminal, browser, editor, files, and AI on one programmable canvas." [level=3] [ref=e154]
+            - paragraph [ref=e155]: A block-based workspace where every surface stays visible, inspectable, and useful to AI agents.
+            - link "Learn more" [ref=e156] [cursor=pointer]:
+              - /url: /capabilities/workspace-canvas
+              - text: Learn more
+              - img [ref=e157]
+          - generic [ref=e159]:
+            - strong [ref=e164]: KronTerm
+            - img "KronTerm workspace with terminal, browser, files, and side panels" [ref=e165]
+    - generic [ref=e166]:
+      - generic [ref=e167]:
+        - paragraph [ref=e168]: Workspace evidence
+        - heading "Every section uses the real product surface." [level=2] [ref=e169]
+        - paragraph [ref=e170]: "KronTerm’s website should feel like the tool: dense, premium, direct, and grounded in real screenshots."
+      - generic [ref=e171]:
+        - generic [ref=e172]:
+          - strong [ref=e177]: KronTerm
+          - img "KronTerm side panel and workspace navigation" [ref=e178]
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - strong [ref=e185]: KronTerm
+            - img "KronosCode file diff display" [ref=e186]
+          - generic [ref=e187]:
+            - strong [ref=e192]: KronTerm
+            - img "KronTerm sandbox desktop" [ref=e193]
+    - generic [ref=e194]:
+      - generic [ref=e195]:
+        - paragraph [ref=e196]: Use cases
+        - heading "Built for work that crosses tools." [level=2] [ref=e197]
+      - generic [ref=e198]:
+        - link "Code Review First-pass review grounded in diffs, files, tests, terminal output, and browser-visible behavior. View workflow" [ref=e199] [cursor=pointer]:
+          - /url: /use-cases/code-review
+          - img [ref=e200]
+          - heading "Code Review" [level=3] [ref=e204]
+          - paragraph [ref=e205]: First-pass review grounded in diffs, files, tests, terminal output, and browser-visible behavior.
+          - generic [ref=e206]:
+            - text: View workflow
+            - img [ref=e207]
+        - link "Bug Investigation Reproduce issues with browser state, logs, source files, and sandbox validation in one workspace. View workflow" [ref=e209] [cursor=pointer]:
+          - /url: /use-cases/bug-investigation
+          - img [ref=e210]
+          - heading "Bug Investigation" [level=3] [ref=e213]
+          - paragraph [ref=e214]: Reproduce issues with browser state, logs, source files, and sandbox validation in one workspace.
+          - generic [ref=e215]:
+            - text: View workflow
+            - img [ref=e216]
+        - link "Refactors & Migration Plan, edit, validate, and summarize larger changes with clear approval points. View workflow" [ref=e218] [cursor=pointer]:
+          - /url: /use-cases/refactors
+          - img [ref=e219]
+          - heading "Refactors & Migration" [level=3] [ref=e223]
+          - paragraph [ref=e224]: Plan, edit, validate, and summarize larger changes with clear approval points.
+          - generic [ref=e225]:
+            - text: View workflow
+            - img [ref=e226]
+        - link "Incident Response Gather logs, dashboards, commands, and notes into a focused investigation surface. View workflow" [ref=e228] [cursor=pointer]:
+          - /url: /use-cases/incident-response
+          - img [ref=e229]
+          - heading "Incident Response" [level=3] [ref=e231]
+          - paragraph [ref=e232]: Gather logs, dashboards, commands, and notes into a focused investigation surface.
+          - generic [ref=e233]:
+            - text: View workflow
+            - img [ref=e234]
+    - generic [ref=e236]:
+      - generic [ref=e237]:
+        - paragraph [ref=e238]: "\"KronTerm is designed around the real bottleneck in AI-assisted development: the model needs the whole workspace, and the builder needs to stay in control.\""
+        - generic [ref=e239]:
+          - strong [ref=e240]: Private beta design note
+          - generic [ref=e241]: Workspace-native AI, not another chat sidebar
+      - generic [ref=e242]:
+        - paragraph [ref=e243]: Terminal output, browser state, files, sandboxes, and desktop apps are no longer separate contexts. They are one inspectable execution surface.
+        - generic [ref=e244]:
+          - strong [ref=e245]: Product principle
+          - generic [ref=e246]: Visible context, visible action, visible results
+    - generic [ref=e247]:
+      - generic [ref=e248]:
+        - paragraph [ref=e249]: Start shipping with context
+        - heading "Bring the terminal, browser, sandboxes, desktop, and AI into one command center." [level=2] [ref=e250]
+      - generic [ref=e251]:
+        - link "Request private beta" [ref=e252] [cursor=pointer]:
+          - /url: /download
+          - text: Request private beta
+          - img [ref=e253]
+        - link "Contact sales" [ref=e255] [cursor=pointer]:
+          - /url: /contact-sales
+  - contentinfo [ref=e256]:
+    - generic [ref=e258]:
+      - paragraph [ref=e259]: All downloads
+      - heading "Get KronTerm today" [level=2] [ref=e260]
+      - paragraph [ref=e261]: Request private beta access for macOS now. Windows and Linux evaluation paths are included for planning.
+      - generic [ref=e262]:
+        - article [ref=e263]:
+          - img [ref=e264]
+          - heading "macOS" [level=3] [ref=e266]
+          - paragraph [ref=e267]: Private beta access
+          - generic [ref=e268]:
+            - code [ref=e269]: kronterm beta request --platform macos
+            - img [ref=e270]
+        - article [ref=e273]:
+          - img [ref=e274]
+          - heading "Linux" [level=3] [ref=e276]
+          - paragraph [ref=e277]: Evaluation path planned
+          - generic [ref=e278]:
+            - code [ref=e279]: kronterm beta request --platform linux
+            - img [ref=e280]
+        - article [ref=e283]:
+          - img [ref=e284]
+          - heading "Windows" [level=3] [ref=e287]
+          - paragraph [ref=e288]: Evaluation path planned
+          - generic [ref=e289]:
+            - code [ref=e290]: kronterm beta request --platform windows
+            - img [ref=e291]
+    - generic [ref=e294]:
+      - generic [ref=e295]:
+        - strong [ref=e296]: KronTerm
+        - paragraph [ref=e297]: Premium AI-native command center for builders and technical teams.
+      - generic [ref=e298]:
+        - heading "Products" [level=3] [ref=e299]
+        - link "KronTerm Workspace" [ref=e300] [cursor=pointer]:
+          - /url: /capabilities/workspace-canvas
+        - link "KronosCode" [ref=e301] [cursor=pointer]:
+          - /url: /capabilities/kronoscode
+        - link "ACP Agents" [ref=e302] [cursor=pointer]:
+          - /url: /capabilities/acp-agents
+      - generic [ref=e303]:
+        - heading "Capabilities" [level=3] [ref=e304]
+        - link "Terminal" [ref=e305] [cursor=pointer]:
+          - /url: /capabilities/terminal
+        - link "Browser" [ref=e306] [cursor=pointer]:
+          - /url: /capabilities/browser-automation
+        - link "Sandboxes" [ref=e307] [cursor=pointer]:
+          - /url: /capabilities/sandbox-vms
+        - link "Desktop Control" [ref=e308] [cursor=pointer]:
+          - /url: /capabilities/native-desktop-control
+        - link "Remote Sessions" [ref=e309] [cursor=pointer]:
+          - /url: /capabilities/durable-remote-sessions
+      - generic [ref=e310]:
+        - heading "Use Cases" [level=3] [ref=e311]
+        - link "Code Review" [ref=e312] [cursor=pointer]:
+          - /url: /use-cases/code-review
+        - link "Bug Investigation" [ref=e313] [cursor=pointer]:
+          - /url: /use-cases/bug-investigation
+        - link "Refactors & Migration" [ref=e314] [cursor=pointer]:
+          - /url: /use-cases/refactors
+        - link "Incident Response" [ref=e315] [cursor=pointer]:
+          - /url: /use-cases/incident-response
+      - generic [ref=e316]:
+        - heading "Resources" [level=3] [ref=e317]
+        - link "Security" [ref=e318] [cursor=pointer]:
+          - /url: /security
+        - link "Pricing" [ref=e319] [cursor=pointer]:
+          - /url: /pricing
+        - link "Download" [ref=e320] [cursor=pointer]:
+          - /url: /download
+    - generic [ref=e321]:
+      - generic [ref=e322]: All Rights Reserved © 2026 KronTerm
+      - generic [ref=e323]: Commercial private beta
+      - generic [ref=e324]: SOC 2-ready control model

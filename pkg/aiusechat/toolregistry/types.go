@@ -31,11 +31,34 @@ const (
 	ToolPackCode    ToolPack = "code"
 )
 
+type ToolAvailability string
+
+const (
+	ToolAvailabilityUnknown    ToolAvailability = "unknown"
+	ToolAvailabilityReady      ToolAvailability = "ready"
+	ToolAvailabilityNeedsSetup ToolAvailability = "needs-setup"
+	ToolAvailabilityDegraded   ToolAvailability = "degraded"
+	ToolAvailabilityDisabled   ToolAvailability = "disabled"
+	ToolAvailabilityOffline    ToolAvailability = "offline"
+)
+
+type ToolVerification string
+
+const (
+	ToolVerificationResult  ToolVerification = "result"
+	ToolVerificationSurface ToolVerification = "surface"
+	ToolVerificationNone    ToolVerification = "none"
+)
+
 type Capability struct {
-	ID          string
-	Name        string
-	Description string
-	Source      ToolSource
-	Risk        ToolRisk
-	Packs       []ToolPack
+	ID           string
+	Name         string
+	Description  string
+	Source       ToolSource
+	Risk         ToolRisk
+	Packs        []ToolPack
+	Availability ToolAvailability
+	Verification ToolVerification
+	ConnectorID  string
+	FallbackIDs  []string
 }

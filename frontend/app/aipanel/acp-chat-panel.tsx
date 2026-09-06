@@ -1,37 +1,170 @@
+import { WOS, atoms, globalStore } from "@/app/store/global";
+import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { AppStreamCreatedEvent } from "@/app/view/appstream/computer-use-stream-manager";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { cn } from "@/util/util";
+import { getLayoutModelForStaticTab } from "@/layout/index";
+import { getWebServerEndpoint } from "@/util/endpoints";
+import { cn, makeIconClass } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import ReactDOM from "react-dom";
+import {
+    subscribeAgentActivityStream,
+    type LiveAgentSurfaceActivity,
+    type TimedAgentActivityEvent,
+} from "../../types/agent-activity";
 import { AcpAgentMark } from "./acp-agent-mark";
 import {
-    AgentPicker,
-    ComposerAutocomplete,
-    ModelPicker,
+    CompactSessionRail,
     SessionSidebar,
     SettingsPanel,
     WorkspaceFilesPanel,
     getComposerSuggestions,
-    type AcpModeOption,
     type AcpComposerMenuMode,
     type AcpComposerSuggestion,
     type AcpMentionTab,
+    type AcpModeOption,
+    type AcpOpenWidgetMention,
 } from "./acp-chat-controls";
 import { AcpToolApproval } from "./acp-tool-approval";
+import { ChatMessageListV2 } from "./ChatMessageListV2";
 import {
-    useAcpSession,
-    type AcpAgentMessage,
-    type AcpAgentProfile,
-    type AcpBackendInfo,
-    type AcpRuntimeRecord,
-} from "./use-acp-session";
+    ImprovedChatInput,
+    type CommandDeckSuggestion,
+    type FileWithPreview,
+    type KronAgentOption,
+    type ModelOption,
+    type PastedContent,
+} from "./improved-chat-input";
+import {
+    KronchatOpenProjectEvent,
+    formatKronchatProjectName,
+    writeKronchatProjects,
+    type KronchatProject,
+} from "./kronchat-projects";
+import { ChatEmptyState, TypingIndicator } from "./kronos-chat-components";
+import { useAcpSession, type AcpAgentMessage, type AcpAgentProfile, type AcpBackendInfo } from "./use-acp-session";
 import { WaveAIModel } from "./waveai-model";
 
 type AcpChatPanelProps = {
     className?: string;
 };
 
+type ChatWaveAppInfo = {
+    appid: string;
+    manifest?: {
+        appmeta?: {
+            displayname?: string;
+            icon?: string;
+            iconcolor?: string;
+        };
+    };
+};
+
+type ChatLaunchableApp =
+    | {
+          kind: "desktop";
+          id: string;
+          label: string;
+          icon?: string;
+          description?: string;
+          app: InstalledAppInfo;
+      }
+    | {
+          kind: "wave";
+          id: string;
+          label: string;
+          icon?: string;
+          iconColor?: string;
+          description?: string;
+          app: ChatWaveAppInfo;
+      };
+
+type AcpMcpNameValue = {
+    name: string;
+    value: string;
+};
+
+type AcpMcpSessionServer =
+    | {
+          type?: "stdio";
+          name: string;
+          command: string;
+          args: string[];
+          env: AcpMcpNameValue[];
+      }
+    | {
+          type: "http" | "sse";
+          name: string;
+          url: string;
+          headers?: AcpMcpNameValue[];
+      };
+
+function toAcpNameValueEntries(source?: Record<string, string>): AcpMcpNameValue[] | undefined {
+    if (!source) {
+        return undefined;
+    }
+    const entries = Object.entries(source)
+        .filter(([name, value]) => typeof name === "string" && typeof value === "string")
+        .map(([name, value]) => ({ name, value }));
+    return entries.length ? entries : undefined;
+}
+
+function extractUrlFromAgentActivity(activity: TimedAgentActivityEvent | null): string {
+    const detail = activity?.detail ?? "";
+    return detail.match(/https?:\/\/[^\s"'<>]+/i)?.[0] ?? "";
+}
+
+function buildAcpMcpSessionServer(serverId: string, server: MCPConfig | undefined): AcpMcpSessionServer | null {
+    if (!server || server.enabled === false) {
+        return null;
+    }
+    if (server.type === "http" || server.type === "streamable_http") {
+        if (!server.url) {
+            return null;
+        }
+        return {
+            type: "http",
+            name: serverId,
+            url: server.url,
+            headers: toAcpNameValueEntries(server.headers),
+        };
+    }
+    if (server.type === "sse") {
+        if (!server.url) {
+            return null;
+        }
+        return {
+            type: "sse",
+            name: serverId,
+            url: server.url,
+            headers: toAcpNameValueEntries(server.headers),
+        };
+    }
+    if (!server.command?.length) {
+        return null;
+    }
+    return {
+        type: "stdio",
+        name: serverId,
+        command: server.command[0],
+        args: server.command.slice(1),
+        env: toAcpNameValueEntries(server.env) ?? [],
+    };
+}
+
 const fallbackAgents: AcpBackendInfo[] = [
+    {
+        backend: "hermes",
+        name: "Kronos",
+        cliPath: "hermes",
+        available: false,
+        avatar: "◎",
+        description: "Built-in KronTerm agent",
+        acpArgs: ["acp"],
+        skillsDirs: [".agents/skills", ".kronoscode/skills", ".hermes/skills"],
+    },
     {
         backend: "kronoscode",
         name: "KronosCode",
@@ -62,260 +195,800 @@ const fallbackAgents: AcpBackendInfo[] = [
     },
 ];
 
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const DefaultEnabledAgentBackends = ["hermes"];
+const EnabledAgentBackendsSettingsKey = "acp:enabledagentbackends" as keyof SettingsType;
+const KronosDirectEndpoint = "http://127.0.0.1:4096";
+const DefaultKronosCodeAgents: KronAgentOption[] = [
+    {
+        id: "kronoscode",
+        label: "KronosCode",
+        description: "Default KronosCode agent",
+        icon: "⬡",
+        available: true,
+        kind: "kronoscode",
+    },
+];
+const DefaultKronosCodeCommands: Record<string, ACPCommandDefinition> = {
+    explain: {
+        name: "explain",
+        scope: "project",
+        agent: "kronoscode",
+        description: "Map the project and explain how the relevant code works.",
+        template:
+            "Explain this codebase or the requested area. Focus on structure, data flow, and entry points.\n\n$ARGUMENTS",
+    },
+    fix: {
+        name: "fix",
+        scope: "project",
+        agent: "kronoscode",
+        description: "Diagnose and fix a bug or failing workflow.",
+        template: "Diagnose and fix this issue. Make focused changes and validate them where possible.\n\n$ARGUMENTS",
+    },
+    review: {
+        name: "review",
+        scope: "project",
+        agent: "kronoscode",
+        description: "Review code for regressions, risks, and missing tests.",
+        template:
+            "Review this code or change. Prioritize bugs, regressions, risks, and missing validation.\n\n$ARGUMENTS",
+    },
+    implement: {
+        name: "implement",
+        scope: "project",
+        agent: "kronoscode",
+        description: "Plan and implement a feature in the active workspace.",
+        template:
+            "Implement this feature in the active workspace. Keep changes scoped and verify the result.\n\n$ARGUMENTS",
+    },
+    sandbox: {
+        name: "sandbox",
+        scope: "project",
+        agent: "kronoscode",
+        description: "Use sandbox, browser, terminal, or computer-use runtime surfaces.",
+        template:
+            "Use the available sandbox, browser, terminal, or computer-use runtime surfaces for this task. Show relevant runtime activity and hand off takeover when useful.\n\n$ARGUMENTS",
+    },
+};
 
-function getEventText(message: AcpAgentMessage): string {
-    const data = message.data as any;
-    if (typeof data === "string") return data;
-    return data?.text ?? data?.content?.text ?? "";
-}
-
-const ToolCallCard = memo(({ message }: { message: AcpAgentMessage }) => {
-    const data = message.data as any;
-    const content = Array.isArray(data?.content) ? data.content : [];
-    const state = data?.status ?? "pending";
-
-    return (
-        <div className="relative ml-3 border-l border-[#292827] py-2 pl-5 text-xs">
-            <div className="absolute -left-[7px] top-4 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[#101010]">
-                <i className="fa fa-wrench text-[9px] text-[#87847f]" />
-            </div>
-            <div className="flex items-center gap-2 text-[#87847f]">
-                <span className="min-w-0 flex-1 truncate font-medium text-[#d8d4ce]">
-                    {data?.title ?? data?.kind ?? "Tool call"}
-                </span>
-                <span
-                    className={cn(
-                        "h-2 w-2 rounded-full",
-                        state === "completed" ? "bg-[#9fa952]" : state === "failed" ? "bg-[#dc6554]" : "bg-[#b39355]"
-                    )}
+const AgentPickerPopup = memo(
+    ({
+        agents,
+        selectedBackend,
+        onClose,
+        onSelect,
+        onConfigure,
+    }: {
+        agents: AcpBackendInfo[];
+        selectedBackend: string | null;
+        onClose: () => void;
+        onSelect: (agent: AcpBackendInfo) => void | Promise<void>;
+        onConfigure: () => void;
+    }) => {
+        return (
+            <>
+                <div
+                    className="fixed inset-0 z-40 bg-black/40"
+                    onClick={onClose}
+                    onKeyDown={(e) => e.key === "Escape" && onClose()}
                 />
-                <span>{state}</span>
-            </div>
-            {data?.rawInput ? (
-                <pre className="mt-2 max-h-28 overflow-auto rounded-md border border-[#292827] bg-[#161616] p-2 font-mono text-[10px] text-[#98938c]">
-                    {JSON.stringify(data.rawInput, null, 2)}
-                </pre>
-            ) : null}
-            {content.length > 0 ? (
-                <div className="mt-2 space-y-2">
-                    {content.map((item: any, index: number) => {
-                        const text = item?.type === "diff" ? (item.newText ?? item.oldText) : item?.content?.text;
-                        if (!text) return null;
-                        return (
-                            <pre
-                                key={index}
-                                className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-[#292827] bg-[#161616] p-2 font-mono text-[10px] text-[#b8b3ac]"
-                            >
-                                {text}
-                            </pre>
-                        );
-                    })}
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="flex max-h-[75vh] w-[min(480px,calc(100vw-48px))] flex-col overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#171717] p-3 shadow-2xl shadow-black/70">
+                        <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                            <div>
+                                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a8580]">
+                                    CLI agent
+                                </div>
+                                <div className="mt-1 max-w-[300px] truncate text-xs text-[#d4d4d4]">
+                                    {agents.find((a) => a.backend === selectedBackend)?.name ??
+                                        "Select an agent runtime"}
+                                </div>
+                            </div>
+                            <div className="shrink-0 rounded border border-[#2a2a2a] px-2 py-1 text-[10px] text-[#8a8580]">
+                                {agents.filter((agent) => agent.available).length}/{agents.length} installed
+                            </div>
+                        </div>
+                        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                            {agents.map((agent) => {
+                                const active = agent.backend === selectedBackend;
+                                return (
+                                    <button
+                                        key={agent.backend}
+                                        type="button"
+                                        disabled={!agent.available}
+                                        onClick={() => {
+                                            void onSelect(agent);
+                                            onClose();
+                                        }}
+                                        className={cn(
+                                            "mb-1 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors last:mb-0 disabled:opacity-45",
+                                            active
+                                                ? "bg-[#1e2a3a] text-[#eeeeee]"
+                                                : "text-[#c6c1ba] hover:bg-[#1f1f1d] hover:text-[#eeeeee]"
+                                        )}
+                                    >
+                                        <AcpAgentMark backend={agent.backend} className="h-9 w-9" />
+                                        <span className="min-w-0 flex-1">
+                                            <span className="flex items-center gap-2 text-sm font-semibold">
+                                                <span className="truncate">{agent.name}</span>
+                                                {!agent.available ? (
+                                                    <span className="shrink-0 rounded border border-[#3a2b1e] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[#d7a85d]">
+                                                        not installed
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                            {agent.description ? (
+                                                <span className="mt-1 block truncate text-xs text-[#8a8580]">
+                                                    {agent.description}
+                                                </span>
+                                            ) : null}
+                                            <span className="mt-1 block truncate font-mono text-[10px] text-[#6b6863]">
+                                                {agent.cliPath}
+                                            </span>
+                                        </span>
+                                        {active ? <i className="fa fa-check text-sm text-[#5b9ef5]" /> : null}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onClose();
+                                onConfigure();
+                            }}
+                            className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-xs text-[#d4d4d4] transition-colors hover:bg-[#22211f]"
+                        >
+                            <i className="fa fa-sliders text-[10px]" />
+                            Configure agents
+                        </button>
+                    </div>
                 </div>
-            ) : null}
-        </div>
-    );
-});
-ToolCallCard.displayName = "ToolCallCard";
+            </>
+        );
+    }
+);
+AgentPickerPopup.displayName = "AgentPickerPopup";
 
-const MessageStream = memo(
-    ({ messages, assistantLabel, mode }: { messages: AcpAgentMessage[]; assistantLabel: string; mode: string }) => {
-        const visibleMessages = useMemo(() => {
-            const visible = messages.filter(
-                (message) =>
-                    !["status", "session_id", "config_option", "usage", "agent_info", "finish"].includes(message.type)
-            );
-            return visible.reduce<AcpAgentMessage[]>((combined, message) => {
-                const prior = combined[combined.length - 1];
-                const streamsText = message.type === "agent_message_chunk" || message.type === "agent_thought_chunk";
-                if (prior?.type === message.type && streamsText) {
-                    const text = `${getEventText(prior)}${getEventText(message)}`;
-                    combined[combined.length - 1] = { ...prior, data: { text } };
-                    return combined;
-                }
-                combined.push(message);
-                return combined;
-            }, []);
-        }, [messages]);
-
-        if (visibleMessages.length === 0) {
-            return null;
-        }
+const RuntimeAgentPicker = memo(
+    ({
+        agents,
+        selectedAgent,
+        onSelect,
+        onConfigure,
+    }: {
+        agents: AcpBackendInfo[];
+        selectedAgent: AcpBackendInfo | null;
+        onSelect: (agent: AcpBackendInfo) => void | Promise<void>;
+        onConfigure: () => void;
+    }) => {
+        const [open, setOpen] = useState(false);
+        const selected = selectedAgent ?? agents.find((agent) => agent.backend === "hermes") ?? agents[0] ?? null;
 
         return (
-            <div className="mx-auto w-full max-w-3xl space-y-5">
-                {visibleMessages.map((message) => {
-                    if (message.type === "tool_call" || message.type === "tool_call_update") {
-                        return <ToolCallCard key={message.msgId} message={message} />;
-                    }
-                    const isUser = message.type === "user_message";
-                    const isThought = message.type === "agent_thought_chunk";
-                    const text = getEventText(message);
-                    if (!text) return null;
-                    if (isThought) {
-                        return (
-                            <div
-                                key={message.msgId}
-                                className="ml-3 border-l border-[#292827] py-1 pl-5 text-sm text-[#7f7b75]"
-                            >
-                                <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[#908d87]">
-                                    <i className="fa fa-layer-group" />
-                                    Activity
-                                </div>
-                                <div className="whitespace-pre-wrap italic">{text}</div>
-                            </div>
-                        );
-                    }
-                    return (
-                        <div key={message.msgId} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-                            {isUser ? (
-                                <div className="max-w-[92%] rounded-xl border border-[#362b20] bg-[#231d19] px-4 py-3 text-sm leading-relaxed text-[#ddd7d0]">
-                                    <div className="whitespace-pre-wrap">{text}</div>
-                                </div>
-                            ) : (
-                                <div className="w-full text-sm leading-relaxed text-[#dedad4]">
-                                    <div className="mb-3 flex items-center gap-2 font-semibold">
-                                        <i className="fa fa-cube text-[#b9b5ae]" />
-                                        <span>{assistantLabel}</span>
-                                        <span className="rounded-md border border-[#3c3b22] bg-[#232419] px-2 py-0.5 text-xs font-medium lowercase text-[#b1b955]">
-                                            {mode}
-                                        </span>
-                                    </div>
-                                    <div className="whitespace-pre-wrap text-[#d4d0c9]">{text}</div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+            <div className="relative">
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    className="flex h-8 max-w-44 cursor-pointer items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-2.5 text-xs font-semibold text-[#eeeeee] transition-colors hover:bg-[#22211f]"
+                    aria-label="Agent selector"
+                    aria-expanded={open}
+                    title="Agent selector"
+                >
+                    {selected ? <AcpAgentMark backend={selected.backend} className="h-5 w-5" /> : null}
+                    <span className="truncate">{selected?.name ?? "Select agent"}</span>
+                    <i className="fa fa-chevron-down text-[9px] text-[#8a8580]" />
+                </button>
+                {open
+                    ? ReactDOM.createPortal(
+                          <AgentPickerPopup
+                              agents={agents}
+                              selectedBackend={selected?.backend ?? null}
+                              onClose={() => setOpen(false)}
+                              onSelect={onSelect}
+                              onConfigure={onConfigure}
+                          />,
+                          document.body
+                      )
+                    : null}
             </div>
         );
     }
 );
-MessageStream.displayName = "MessageStream";
+RuntimeAgentPicker.displayName = "RuntimeAgentPicker";
 
-const AgentStatus = memo(({ agent, status }: { agent: AcpBackendInfo | null; status: string }) => {
+type KronosCatalogAgent = {
+    id: string;
+    name?: string;
+    kind?: string;
+    status?: string;
+    available?: boolean;
+    icon?: string;
+    description?: string;
+    reason?: string;
+};
+
+function unwrapData<T>(payload: any): T {
+    return (payload?.data ?? payload) as T;
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.error) {
+        throw new Error(payload?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return unwrapData<T>(payload);
+}
+
+function normalizeKronosCatalogAgents(agents: KronosCatalogAgent[]): KronAgentOption[] {
+    return agents
+        .filter((agent) => agent.id)
+        .map((agent) => ({
+            id: agent.id,
+            label: agent.name || agent.id,
+            description: agent.description || agent.reason,
+            icon: agent.icon,
+            available: agent.available ?? agent.status === "ready",
+            status: agent.status,
+            kind: agent.kind,
+        }))
+        .sort((left, right) => {
+            if (left.id === "kronoscode") {
+                return -1;
+            }
+            if (right.id === "kronoscode") {
+                return 1;
+            }
+            if (left.available !== right.available) {
+                return left.available === false ? 1 : -1;
+            }
+            return left.label.localeCompare(right.label);
+        });
+}
+
+function getPreferredKronosCodeAgent(agents: KronAgentOption[]): string {
     return (
-        <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-[#b8b3ac]">
-            <span className="truncate">{agent?.name ?? "ACP Agent"}</span>
-            <span
-                className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    status === "running"
-                        ? "bg-[#b1b955]"
-                        : status === "error"
-                          ? "bg-[#dc7668]"
-                          : "bg-[#6d6963]"
+        agents.find((agent) => agent.id === "kronoscode" && agent.available !== false)?.id ??
+        agents.find((agent) => agent.id === "kronoscode")?.id ??
+        agents.find((agent) => agent.available !== false)?.id ??
+        agents[0]?.id ??
+        DefaultKronosCodeAgents[0].id
+    );
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const LiveSurfaceStrip = memo(
+    ({ activity, onTakeOver }: { activity: LiveAgentSurfaceActivity | null; onTakeOver?: () => void }) => {
+        if (activity == null) {
+            return null;
+        }
+        const isActive = activity.phase === "queued" || activity.phase === "running" || activity.phase === "verifying";
+        const needsApproval = activity.phase === "awaiting-approval";
+        const hasFailed = activity.phase === "failed" || activity.phase === "degraded";
+        const isDesktop = activity.surface === "sandbox" || activity.surface === "desktop";
+        const surfaceIcon: Record<LiveAgentSurfaceActivity["surface"], string> = {
+            browser: "fa-globe",
+            sandbox: "fa-cube",
+            desktop: "fa-display",
+            terminal: "fa-terminal",
+            file: "fa-file-lines",
+            panel: "fa-layer-group",
+        };
+        const showPreview = isDesktop && isActive && activity.previewimageurl;
+        if (showPreview) {
+            return (
+                <div className="flex shrink-0 flex-col border-b border-[#2a2a2a] bg-[#111111] px-3 pb-3 pt-2">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] text-[#9e9a93]">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5b9ef5]" />
+                        <i className={cn("fa", surfaceIcon[activity.surface], "text-[#5b9ef5]")} />
+                        <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">
+                            {activity.surface}
+                        </span>
+                        <span className="flex-1 truncate text-[#8a8580]">{activity.detail ?? activity.action}</span>
+                        <button
+                            type="button"
+                            onClick={onTakeOver}
+                            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#2a2a2a] bg-[#1a1a1a] px-2.5 py-1 text-[11px] text-[#eeeeee] transition-colors hover:bg-[#2a2a2a]"
+                        >
+                            <i className="fa fa-expand text-[10px]" />
+                            Take Over
+                        </button>
+                    </div>
+                    <div className="overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#000000]">
+                        <img
+                            src={activity.previewimageurl}
+                            alt={`${activity.surface} preview`}
+                            className="w-full"
+                            style={{ maxHeight: 200, objectFit: "contain", objectPosition: "top" }}
+                        />
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div className="flex shrink-0 items-center gap-2 border-b border-[#2a2a2a] bg-[#161616] px-4 py-2 text-[11px] text-[#9e9a93]">
+                <span
+                    className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        isActive && "animate-pulse bg-[#5b9ef5]",
+                        needsApproval && "animate-pulse bg-[#d7a85d]",
+                        hasFailed && "bg-[#dc7668]",
+                        !isActive && !needsApproval && !hasFailed && "bg-[#6b6863]"
+                    )}
+                />
+                <i className={cn("fa", surfaceIcon[activity.surface], "text-[#5b9ef5]")} />
+                <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">{activity.surface}</span>
+                <span className="truncate text-[#8a8580]">{activity.detail ?? activity.action}</span>
+                {isDesktop && isActive && (
+                    <button
+                        type="button"
+                        onClick={onTakeOver}
+                        className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-[#2a2a2a] bg-[#1a1a1a] px-2.5 py-1 text-[11px] text-[#eeeeee] transition-colors hover:bg-[#2a2a2a]"
+                    >
+                        <i className="fa fa-expand text-[10px]" />
+                        Take Over
+                    </button>
                 )}
+                <span className="ml-auto rounded-md border border-[#1e2a3a] bg-[#161c28] px-1.5 py-0.5 font-medium text-[#8ab4f5]">
+                    {needsApproval ? "review" : activity.phase}
+                </span>
+            </div>
+        );
+    }
+);
+LiveSurfaceStrip.displayName = "LiveSurfaceStrip";
+
+const AgentSurfaceViewer = memo(
+    ({
+        activity,
+        timeline,
+        onExpandSurface,
+        onTakeOver,
+    }: {
+        activity: LiveAgentSurfaceActivity | null;
+        timeline: TimedAgentActivityEvent[];
+        onExpandSurface: (activity: TimedAgentActivityEvent | null) => void;
+        onTakeOver: () => void;
+    }) => {
+        const surfaceActivity =
+            activity != null && (activity.surface === "browser" || activity.surface === "sandbox")
+                ? activity
+                : (timeline.find((item) => item.surface === "browser" || item.surface === "sandbox") ?? null);
+        if (!surfaceActivity) {
+            return null;
+        }
+
+        const surfaceTimeline = timeline.filter((item) => item.surface === surfaceActivity.surface).slice(0, 4);
+        const isBrowser = surfaceActivity.surface === "browser";
+        const title = isBrowser ? "Browser" : "Sandbox";
+        const icon = isBrowser ? "fa-globe" : "fa-cube";
+
+        return (
+            <div className="shrink-0 border-b border-[#2a2a2a] bg-[#101010] px-4 py-3">
+                <div className="mx-auto grid max-w-5xl gap-3 @2xl:grid-cols-[minmax(0,1.35fr)_minmax(220px,0.75fr)]">
+                    <section className="overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#050505]">
+                        <div className="flex h-9 items-center gap-2 border-b border-[#242424] px-3 text-[11px] text-[#9e9a93]">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5b9ef5]" />
+                            <i className={cn("fa text-[#5b9ef5]", icon)} />
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">
+                                Agent {title}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                                {surfaceActivity.detail ?? surfaceActivity.action}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => onExpandSurface(surfaceActivity)}
+                                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#1e2a3a] bg-[#161c28] px-2 py-1 text-[#8ab4f5] hover:bg-[#1e2a3a]"
+                            >
+                                <i className="fa fa-up-right-and-down-left-from-center text-[10px]" />
+                                Expand
+                            </button>
+                            {!isBrowser ? (
+                                <button
+                                    type="button"
+                                    onClick={onTakeOver}
+                                    className="flex cursor-pointer items-center gap-1.5 rounded-md border border-[#2a2a2a] bg-[#171717] px-2 py-1 text-[#d4d4d4] hover:bg-[#242424]"
+                                >
+                                    <i className="fa fa-hand text-[10px]" />
+                                    Take over
+                                </button>
+                            ) : null}
+                        </div>
+                        <div className="flex aspect-video items-center justify-center bg-black">
+                            {surfaceActivity.previewimageurl ? (
+                                <img
+                                    src={surfaceActivity.previewimageurl}
+                                    alt={`${title} preview`}
+                                    className="h-full w-full object-contain"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 text-center text-xs text-[#6b6863]">
+                                    <i className={cn("fa text-lg text-[#3a3834]", icon)} />
+                                    <span>Waiting for {title.toLowerCase()} preview</span>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                    <section className="min-h-0 rounded-lg border border-[#2a2a2a] bg-[#151515] p-3">
+                        <div className="mb-2 flex items-center justify-between text-[11px]">
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[#8ab4f5]">Thoughts</span>
+                            <span className="text-[#6b6863]">{surfaceTimeline.length} events</span>
+                        </div>
+                        <div className="space-y-2">
+                            {surfaceTimeline.map((item) => (
+                                <div
+                                    key={`${item.timestamp}-${item.action}-${item.detail ?? ""}`}
+                                    className="rounded-md border border-[#242424] bg-[#101010] px-3 py-2 text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-[#d4d4d4]">
+                                        <span className="uppercase text-[10px] tracking-[0.1em] text-[#8a8580]">
+                                            {item.phase}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate">{item.detail ?? item.action}</span>
+                                    </div>
+                                    {item.thought ? (
+                                        <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#77736d]">
+                                            {item.thought}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            </div>
+        );
+    }
+);
+AgentSurfaceViewer.displayName = "AgentSurfaceViewer";
+
+const AgentLibraryPopup = memo(
+    ({
+        agents,
+        enabledBackends,
+        onToggleAgent,
+        onClose,
+    }: {
+        agents: AcpBackendInfo[];
+        enabledBackends: string[];
+        onToggleAgent: (backend: string) => void;
+        onClose: () => void;
+    }) => (
+        <>
+            <button
+                type="button"
+                className="fixed inset-0 z-30 cursor-default"
+                onClick={onClose}
+                aria-label="Close agents"
             />
+            <div className="absolute right-3 top-12 z-40 flex max-h-[420px] w-[min(380px,calc(100vw-24px))] flex-col overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#151515] shadow-2xl shadow-black/60">
+                <div className="flex h-12 items-center justify-between border-b border-[#2a2a2a] px-4">
+                    <div>
+                        <div className="text-sm font-semibold text-[#eeeeee]">Agents</div>
+                        <div className="text-[11px] text-[#77736d]">KronosCode is always available by default.</div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#8a8580] hover:bg-[#1a1a1a] hover:text-[#eeeeee]"
+                        aria-label="Close agents"
+                    >
+                        <i className="fa fa-xmark" />
+                    </button>
+                </div>
+                <div className="min-h-0 overflow-y-auto p-2">
+                    {agents.map((agent) => {
+                        const enabled = enabledBackends.includes(agent.backend);
+                        const locked = agent.backend === "hermes";
+                        return (
+                            <button
+                                type="button"
+                                key={agent.backend}
+                                disabled={locked}
+                                onClick={() => onToggleAgent(agent.backend)}
+                                className={cn(
+                                    "mb-1 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors last:mb-0",
+                                    enabled ? "bg-[#1e2a3a] text-[#eeeeee]" : "text-[#b8b2aa] hover:bg-[#1a1a1a]",
+                                    locked && "cursor-default"
+                                )}
+                            >
+                                <AcpAgentMark backend={agent.backend} className="h-7 w-7" />
+                                <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2 text-sm font-semibold">
+                                        <span className="truncate">{agent.name}</span>
+                                        {!agent.available ? (
+                                            <span className="rounded border border-[#2a2a2a] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[#77736d]">
+                                                missing
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                    {agent.description ? (
+                                        <span className="mt-0.5 block truncate text-[11px] text-[#77736d]">
+                                            {agent.description}
+                                        </span>
+                                    ) : null}
+                                </span>
+                                <span
+                                    className={cn(
+                                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[10px]",
+                                        enabled
+                                            ? "border-[#5b9ef5] bg-[#162638] text-[#8ab4f5]"
+                                            : "border-[#3a3834] text-[#6b6863]"
+                                    )}
+                                >
+                                    {enabled ? <i className="fa fa-check" /> : <i className="fa fa-plus" />}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </>
+    )
+);
+AgentLibraryPopup.displayName = "AgentLibraryPopup";
+
+const ChatWidgetAppsStrip = memo(({ compact = false }: { compact?: boolean }) => {
+    const { rpc, createBlock } = useWaveEnv();
+    const [apps, setApps] = useState<ChatLaunchableApp[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadApps = async () => {
+            setLoading(true);
+            try {
+                const rpcWithApps = rpc as typeof rpc & {
+                    ListAllAppsCommand?: (client: typeof TabRpcClient) => Promise<ChatWaveAppInfo[]>;
+                };
+                const [desktopResult, waveResult] = await Promise.allSettled([
+                    rpc.ListInstalledAppsCommand(TabRpcClient),
+                    typeof rpcWithApps.ListAllAppsCommand === "function"
+                        ? rpcWithApps.ListAllAppsCommand(TabRpcClient)
+                        : Promise.resolve([]),
+                ]);
+                if (cancelled) {
+                    return;
+                }
+                const desktopApps =
+                    desktopResult.status === "fulfilled"
+                        ? desktopResult.value
+                              .sort((left, right) => left.name.localeCompare(right.name))
+                              .slice(0, 10)
+                              .map((app): ChatLaunchableApp => ({
+                                  kind: "desktop",
+                                  id: `desktop:${app.bundleid || app.appid}`,
+                                  label: app.name,
+                                  icon: app.icon,
+                                  description: app.description || app.category,
+                                  app,
+                              }))
+                        : [];
+                const waveApps =
+                    waveResult.status === "fulfilled"
+                        ? waveResult.value
+                              .filter((app) => !app.appid.startsWith("draft/"))
+                              .sort((left, right) => left.appid.localeCompare(right.appid))
+                              .slice(0, 8)
+                              .map((app): ChatLaunchableApp => {
+                                  const meta = app.manifest?.appmeta;
+                                  return {
+                                      kind: "wave",
+                                      id: `wave:${app.appid}`,
+                                      label: meta?.displayname || app.appid.replace(/^local\//, ""),
+                                      icon: meta?.icon,
+                                      iconColor: meta?.iconcolor,
+                                      description: "WaveApp widget",
+                                      app,
+                                  };
+                              })
+                        : [];
+                setApps([...desktopApps, ...waveApps]);
+            } catch (err) {
+                console.error("Failed to load chat widget apps:", err);
+                if (!cancelled) {
+                    setApps([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+        void loadApps();
+        return () => {
+            cancelled = true;
+        };
+    }, [rpc]);
+
+    const launchApp = (item: ChatLaunchableApp) => {
+        if (item.kind === "desktop") {
+            const blockDef: BlockDef = {
+                meta: {
+                    view: "appstream",
+                    "appstream:appid": item.app.bundleid || item.app.appid,
+                    "appstream:appname": item.app.name,
+                } as unknown as MetaType,
+            };
+            Promise.resolve(createBlock(blockDef)).then((blockId) => {
+                if (blockId) {
+                    window.dispatchEvent(
+                        new CustomEvent(AppStreamCreatedEvent, {
+                            detail: { appName: item.app.name, blockId },
+                        })
+                    );
+                }
+            });
+            return;
+        }
+        createBlock({
+            meta: {
+                view: "tsunami",
+                controller: "tsunami",
+                "tsunami:appid": item.app.appid,
+            },
+        });
+    };
+
+    const visibleApps = expanded ? apps : apps.slice(0, 8);
+    if (!loading && !apps.length) {
+        return null;
+    }
+
+    const renderIcon = (item: ChatLaunchableApp) => {
+        if (item.icon?.startsWith("data:") || item.icon?.startsWith("file:") || item.icon?.startsWith("http")) {
+            return <img src={item.icon} alt="" className="h-4 w-4 rounded object-contain" />;
+        }
+        return (
+            <i
+                className={makeIconClass(item.icon || (item.kind === "desktop" ? "desktop" : "cube"), false)}
+                style={{ color: item.kind === "wave" ? item.iconColor : undefined }}
+            />
+        );
+    };
+
+    if (compact) {
+        return (
+            <div className="hidden min-w-0 items-center gap-1 @lg:flex">
+                {loading ? (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg text-[#8a8580]">
+                        <i className="fa fa-spinner fa-spin text-xs" />
+                    </span>
+                ) : (
+                    visibleApps.slice(0, 5).map((item) => (
+                        <button
+                            type="button"
+                            key={item.id}
+                            onClick={() => launchApp(item)}
+                            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9e9a93] transition-colors hover:bg-[#1a1a1a] hover:text-[#eeeeee]"
+                            title={item.description ? `${item.label} - ${item.description}` : item.label}
+                        >
+                            {renderIcon(item)}
+                        </button>
+                    ))
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#171717] px-2 py-1.5">
+            <div className="flex shrink-0 items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#77736d]">
+                <i className="fa fa-layer-group text-[#8ab4f5]" />
+                Apps
+            </div>
+            <div className="min-w-0 flex flex-1 items-center gap-1 overflow-x-auto">
+                {loading ? (
+                    <div className="flex h-8 items-center gap-2 px-2 text-xs text-[#77736d]">
+                        <i className="fa fa-spinner fa-spin" />
+                        Loading apps
+                    </div>
+                ) : (
+                    visibleApps.map((item) => (
+                        <button
+                            type="button"
+                            key={item.id}
+                            onClick={() => launchApp(item)}
+                            className="flex h-8 max-w-[140px] shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs text-[#bdb7af] transition-colors hover:bg-[#242424] hover:text-[#eeeeee]"
+                            title={item.description ? `${item.label} - ${item.description}` : item.label}
+                        >
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-sm text-[#8ab4f5]">
+                                {renderIcon(item)}
+                            </span>
+                            <span className="truncate">{item.label}</span>
+                        </button>
+                    ))
+                )}
+            </div>
+            {apps.length > 8 ? (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((current) => !current)}
+                    className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 text-xs text-[#8a8580] hover:bg-[#242424] hover:text-[#eeeeee]"
+                    aria-label={expanded ? "Show fewer apps" : "Show more apps"}
+                >
+                    {expanded ? "Less" : `+${apps.length - 8}`}
+                </button>
+            ) : null}
         </div>
     );
 });
-AgentStatus.displayName = "AgentStatus";
+ChatWidgetAppsStrip.displayName = "ChatWidgetAppsStrip";
 
-const RuntimeStrip = memo(
+const WidgetTypeToolbar = memo(
     ({
-        sessions,
-        activeConversationId,
-        onSelect,
-        onClose,
+        onOpenWorkspace,
+        onOpenGitTree,
+        onOpenSettings,
     }: {
-        sessions: AcpRuntimeRecord[];
-        activeConversationId: string;
-        onSelect: (conversationId: string) => void;
-        onClose: (conversationId: string) => void | Promise<void>;
+        onOpenWorkspace: () => void;
+        onOpenGitTree: () => void | Promise<void>;
+        onOpenSettings: () => void;
     }) => {
-        const openSessions = sessions.filter((session) => session.resumeState !== "archived");
-        if (!openSessions.length) {
-            return null;
-        }
+        const { createBlock } = useWaveEnv();
+        const widgets = [
+            {
+                id: "terminal",
+                label: "Terminal",
+                icon: "fa-terminal",
+                open: () => createBlock({ meta: { view: "term" } }),
+            },
+            {
+                id: "browser",
+                label: "Browser",
+                icon: "fa-globe",
+                open: () => createBlock({ meta: { view: "web" } }),
+            },
+            {
+                id: "sandbox",
+                label: "Sandbox",
+                icon: "fa-cube",
+                open: () => createBlock({ meta: { view: "sandbox", "sandbox:mode": "desktop" } }),
+            },
+            {
+                id: "git",
+                label: "Git tree",
+                icon: "fa-code-branch",
+                open: onOpenGitTree,
+            },
+            {
+                id: "files",
+                label: "Workspace files",
+                icon: "fa-folder-open",
+                open: onOpenWorkspace,
+            },
+            {
+                id: "settings",
+                label: "Widget settings",
+                icon: "fa-sliders",
+                open: onOpenSettings,
+            },
+        ];
         return (
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-[#292827] bg-[#121212] px-3 py-2">
-                {openSessions.map((session) => (
-                    <div
-                        key={session.conversationId}
-                        className={cn(
-                            "group flex h-10 shrink-0 items-center gap-2 rounded-lg border pl-2 pr-1",
-                            session.conversationId === activeConversationId
-                                ? "border-[#444527] bg-[#222419]"
-                                : "border-[#292827] bg-[#161616]"
-                        )}
+            <div className="flex items-center gap-1">
+                {widgets.map((widget) => (
+                    <button
+                        type="button"
+                        key={widget.id}
+                        onClick={() => void widget.open()}
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#9e9a93] transition-colors hover:bg-[#1a1a1a] hover:text-[#eeeeee]"
+                        title={widget.label}
+                        aria-label={widget.label}
                     >
-                        <button
-                            type="button"
-                            onClick={() => onSelect(session.conversationId)}
-                            className="flex min-w-0 cursor-pointer items-center gap-2"
-                        >
-                            <AcpAgentMark backend={session.backend ?? "custom"} className="h-6 w-6" />
-                            <span className="max-w-32 truncate text-xs text-[#d4d0c9]">{session.title}</span>
-                            <span
-                                className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    session.status === "running"
-                                        ? "bg-[#b1b955]"
-                                        : session.status === "error"
-                                          ? "bg-[#dc7668]"
-                                          : "bg-[#706b64]"
-                                )}
-                            />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => void onClose(session.conversationId)}
-                            className="cursor-pointer rounded p-1 text-[#706b64] hover:bg-[#30201d] hover:text-[#dc7668]"
-                            aria-label={`Close ${session.title}`}
-                        >
-                            <i className="fa fa-xmark text-[10px]" />
-                        </button>
-                    </div>
+                        <i className={cn("fa", widget.icon, "text-xs")} />
+                    </button>
                 ))}
             </div>
         );
     }
 );
-RuntimeStrip.displayName = "RuntimeStrip";
 
-type AssistantEmptyStateProps = {
-    agent: AcpBackendInfo | null;
-    agents: AcpBackendInfo[];
-    onSelectAgent: (agent: AcpBackendInfo) => void | Promise<void>;
-    onConfigureAgents: () => void;
-    onPrompt: (prompt: string) => void;
-};
-
-const AssistantEmptyState = memo(
-    ({ agent, agents, onSelectAgent, onConfigureAgents, onPrompt }: AssistantEmptyStateProps) => (
-        <div className="flex h-full flex-col items-center justify-center px-5 pb-8 text-center">
-            <AcpAgentMark backend={agent?.backend ?? "kronoscode"} className="mb-5 h-12 w-12" />
-            <h2 className="text-xl font-semibold tracking-tight text-[#ebe7e0]">How can I help?</h2>
-            <p className="mt-2 max-w-[310px] text-sm leading-relaxed text-[#827f79]">
-                Pick an ACP agent, then start a task in your workspace.
-            </p>
-            <AgentPicker
-                agents={agents}
-                selectedAgent={agent}
-                onSelect={onSelectAgent}
-                onConfigure={onConfigureAgents}
-            />
-            <div className="mt-7 grid w-full max-w-md grid-cols-1 gap-2 @lg:grid-cols-2">
-                {["Explain this codebase", "Fix a failing workflow", "Review these changes", "Implement a feature"].map(
-                    (prompt) => (
-                        <button
-                            type="button"
-                            onClick={() => onPrompt(prompt)}
-                            key={prompt}
-                            className="cursor-pointer rounded-lg border border-[#292827] bg-[#151515] px-3 py-2.5 text-left text-xs text-[#aaa59d] transition-colors hover:bg-[#1e1d1b] hover:text-[#dedad4]"
-                        >
-                            {prompt}
-                        </button>
-                    )
-                )}
-            </div>
-        </div>
-    )
-);
-AssistantEmptyState.displayName = "AssistantEmptyState";
+WidgetTypeToolbar.displayName = "WidgetTypeToolbar";
 
 export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const { electron, getSettingsKeyAtom, rpc, createBlock } = useWaveEnv();
@@ -342,7 +1015,9 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const storedCommands = useAtomValue(getSettingsKeyAtom("acp:commands")) ?? {};
     const storedSkills = useAtomValue(getSettingsKeyAtom("acp:skills")) ?? {};
     const storedGitIdentities = useAtomValue(getSettingsKeyAtom("acp:gitidentities")) ?? {};
-    const defaultBackend = useAtomValue(getSettingsKeyAtom("acp:defaultbackend")) ?? "kronoscode";
+    const storedEnabledAgentBackends =
+        useAtomValue(getSettingsKeyAtom(EnabledAgentBackendsSettingsKey)) ?? DefaultEnabledAgentBackends;
+    const defaultBackend = useAtomValue(getSettingsKeyAtom("acp:defaultbackend")) ?? "hermes";
     const mcpEnabled = useAtomValue(getSettingsKeyAtom("mcp:enabled")) ?? false;
     const mcpServers = useAtomValue(getSettingsKeyAtom("mcp:servers")) ?? {};
     const [profileOverrides, setProfileOverrides] = useState<Record<string, AcpAgentProfile>>({});
@@ -360,6 +1035,19 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     }, [profileOverrides, storedProfiles]);
     const configuredAgentDefinitions = agentDefinitions ?? storedAgentDefinitions;
     const configuredCommands = commands ?? storedCommands;
+    const availableCommands = useMemo(() => {
+        const runtimeCommands = Object.fromEntries(
+            Object.entries(activeRuntime?.slashCommands ?? {}).map(([id, command]) => [
+                id,
+                {
+                    name: command.name ?? id,
+                    description: command.description,
+                    template: command.template,
+                },
+            ])
+        ) as Record<string, ACPCommandDefinition>;
+        return { ...DefaultKronosCodeCommands, ...configuredCommands, ...runtimeCommands };
+    }, [activeRuntime?.slashCommands, configuredCommands]);
     const configuredSkills = skills ?? storedSkills;
     const configuredGitIdentities = gitIdentities ?? storedGitIdentities;
     const [agents, setAgents] = useState<AcpBackendInfo[]>(fallbackAgents);
@@ -368,40 +1056,178 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const [input, setInput] = useState("");
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsBackend, setSettingsBackend] = useState<string | null>(null);
+    const [agentLibraryOpen, setAgentLibraryOpen] = useState(false);
     const [resourcesOpen, setResourcesOpen] = useState(false);
-    const [sessionSidebarOpen, setSessionSidebarOpen] = useState(true);
+    const [sessionSidebarMode, setSessionSidebarMode] = useState<"open" | "compact" | "hidden">("open");
     const [restartRequiredBackends, setRestartRequiredBackends] = useState<Set<string>>(new Set());
     const [workspaceDraft, setWorkspaceDraft] = useState("");
+    const [liveSurfaceActivity, setLiveSurfaceActivity] = useState<LiveAgentSurfaceActivity | null>(null);
+    const [surfaceTimeline, setSurfaceTimeline] = useState<TimedAgentActivityEvent[]>([]);
+    const [takeoverActive, setTakeoverActive] = useState(false);
+    const handleTakeOver = useCallback(() => {
+        stop();
+        setTakeoverActive(true);
+    }, [stop]);
+    const handleExpandSurface = useCallback(
+        (activity: TimedAgentActivityEvent | null) => {
+            if (activity?.surface === "sandbox") {
+                void createBlock({ meta: { view: "sandbox", "sandbox:mode": "desktop" } });
+                return;
+            }
+            const url = extractUrlFromAgentActivity(activity);
+            void createBlock({ meta: url ? { view: "web", url } : { view: "web" } });
+        },
+        [createBlock]
+    );
     const [composerMenu, setComposerMenu] = useState<{
         mode: AcpComposerMenuMode;
         query: string;
         mentionTab: AcpMentionTab;
     } | null>(null);
     const [composerSuggestionIndex, setComposerSuggestionIndex] = useState(0);
+    const [kronosCodeAgents, setKronosCodeAgents] = useState<KronAgentOption[]>(DefaultKronosCodeAgents);
+    const [selectedKronosCodeAgent, setSelectedKronosCodeAgent] = useState(DefaultKronosCodeAgents[0].id);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const didCreateInitialRuntime = useRef(false);
+    const workspaceId = useAtomValue(atoms.workspaceId);
     const activeWorkspace = activeRuntime?.workspace ?? "";
     const referencedFiles = activeRuntime?.referencedFiles ?? [];
+    const openWidgetMentions = useMemo<AcpOpenWidgetMention[]>(() => {
+        const layoutModel = getLayoutModelForStaticTab();
+        if (!layoutModel) {
+            return [];
+        }
+        const leafOrder = globalStore.get(layoutModel.leafOrder) ?? [];
+        return leafOrder.flatMap((leaf): AcpOpenWidgetMention[] => {
+            const blockId = leaf.blockid;
+            if (!blockId) {
+                return [];
+            }
+            const block = globalStore.get(WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId)));
+            const viewType = String(block?.meta?.view ?? "widget");
+            const title = String(block?.meta?.["frame:title"] ?? "");
+            const shortId = blockId.slice(0, 8);
+            return [
+                {
+                    id: blockId,
+                    label: `${viewType}:${shortId}`,
+                    viewType,
+                    title,
+                    description: title ? `${title} - ${blockId}` : blockId,
+                },
+            ];
+        });
+    }, [activeRuntime?.conversationId, composerMenu?.mode, composerMenu?.query, composerMenu?.mentionTab]);
+    const enabledAgentBackends = useMemo(() => {
+        const configured = Array.isArray(storedEnabledAgentBackends)
+            ? (storedEnabledAgentBackends as string[]).filter(Boolean)
+            : DefaultEnabledAgentBackends;
+        return Array.from(new Set(["hermes", ...configured]));
+    }, [storedEnabledAgentBackends]);
+    const pickerAgents = useMemo(() => {
+        const enabled = agents.filter((agent) => enabledAgentBackends.includes(agent.backend));
+        return enabled.length ? enabled : agents.filter((agent) => agent.backend === "hermes");
+    }, [agents, enabledAgentBackends]);
     const composerSuggestions = useMemo(
         () =>
             composerMenu
                 ? getComposerSuggestions(
                       composerMenu.mode,
                       composerMenu.query,
-                      configuredCommands,
+                      availableCommands,
                       configuredSkills,
                       agents,
                       referencedFiles,
-                      composerMenu.mentionTab
+                      composerMenu.mentionTab,
+                      openWidgetMentions
                   )
                 : [],
-        [agents, composerMenu, configuredCommands, configuredSkills, referencedFiles]
+        [agents, composerMenu, availableCommands, configuredSkills, referencedFiles, openWidgetMentions]
+    );
+    const commandDeckCommands = useMemo<CommandDeckSuggestion[]>(
+        () =>
+            Object.values(availableCommands)
+                .filter((command) => command.name?.trim())
+                .map((command) => ({
+                    id: command.name?.trim() ?? "",
+                    label: command.name?.trim() ?? "",
+                    description: command.description ?? command.template,
+                    badge: command.agent ?? "ACP",
+                    available: true,
+                })),
+        [availableCommands]
+    );
+    const withCanvasContext = useCallback(
+        async (prompt: string): Promise<string> => {
+            if (!/@canvas\b/i.test(prompt)) {
+                return prompt;
+            }
+            const canvasBlock = openWidgetMentions.find((widget) => widget.viewType === "kronoscanvas");
+            if (!canvasBlock) {
+                return `${prompt}\n\nCanvas context:\nNo open Kronos canvas block was found.`;
+            }
+            try {
+                const snapshot = await RpcApi.CanvasSnapshotCommand(TabRpcClient, {
+                    workspaceid: workspaceId,
+                    blockid: canvasBlock.id,
+                    includecontent: true,
+                });
+                return `${prompt}\n\nCanvas context (${canvasBlock.description || canvasBlock.id}):\n${snapshot.summary}`;
+            } catch (e) {
+                return `${prompt}\n\nCanvas context:\nUnable to read canvas ${canvasBlock.id}: ${String(e)}`;
+            }
+        },
+        [openWidgetMentions, workspaceId]
     );
 
     useEffect(() => {
         setComposerSuggestionIndex(0);
     }, [composerMenu?.mode, composerMenu?.query, composerMenu?.mentionTab]);
+
+    useEffect(() => {
+        return subscribeAgentActivityStream((activity) => {
+            setLiveSurfaceActivity(activity);
+            setSurfaceTimeline((current) => [activity, ...current].slice(0, 20));
+        });
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadKronosCodeAgents = async () => {
+            try {
+                const endpoint = getWebServerEndpoint();
+                const snapshot = await fetchJson<{ catalog?: { agents?: KronosCatalogAgent[] } }>(
+                    `${endpoint}/api/kronoscode/catalog?mode=agent`
+                );
+                const nextAgents = normalizeKronosCatalogAgents(snapshot.catalog?.agents ?? []);
+                if (!cancelled && nextAgents.length) {
+                    setKronosCodeAgents(nextAgents);
+                    setSelectedKronosCodeAgent(getPreferredKronosCodeAgent(nextAgents));
+                }
+            } catch {
+                try {
+                    const catalog = await fetchJson<{ agents?: KronosCatalogAgent[] }>(
+                        `${KronosDirectEndpoint}/agent/catalog`
+                    );
+                    const nextAgents = normalizeKronosCatalogAgents(catalog.agents ?? []);
+                    if (!cancelled && nextAgents.length) {
+                        setKronosCodeAgents(nextAgents);
+                        setSelectedKronosCodeAgent(getPreferredKronosCodeAgent(nextAgents));
+                    }
+                } catch {
+                    if (!cancelled) {
+                        setKronosCodeAgents(DefaultKronosCodeAgents);
+                        setSelectedKronosCodeAgent(DefaultKronosCodeAgents[0].id);
+                    }
+                }
+            }
+        };
+        void loadKronosCodeAgents();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -411,11 +1237,13 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 if (cancelled) return;
                 const nextAgents = detected.length ? detected : fallbackAgents;
                 setAgents(nextAgents);
+                const visibleNextAgents = nextAgents.filter((agent) => enabledAgentBackends.includes(agent.backend));
                 const preferred =
-                    nextAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-                    nextAgents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
-                    nextAgents.find((agent) => agent.available) ??
-                    nextAgents[0] ??
+                    visibleNextAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
+                    visibleNextAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
+                    visibleNextAgents.find((agent) => agent.available) ??
+                    visibleNextAgents[0] ??
+                    nextAgents.find((agent) => agent.backend === "hermes") ??
                     null;
                 setSelectedAgent(preferred);
                 setAgentsLoaded(true);
@@ -430,7 +1258,31 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         return () => {
             cancelled = true;
         };
-    }, [defaultBackend, detectAgents]);
+    }, [defaultBackend, detectAgents, enabledAgentBackends]);
+
+    useEffect(() => {
+        const projectsByWorkspace = new Map<string, KronchatProject>();
+        sessions
+            .filter((session) => session.resumeState !== "archived")
+            .forEach((session) => {
+                const workspace = session.workspace || "";
+                const existing = projectsByWorkspace.get(workspace);
+                projectsByWorkspace.set(workspace, {
+                    workspace,
+                    name: formatKronchatProjectName(workspace),
+                    sessionCount: (existing?.sessionCount ?? 0) + 1,
+                    liveCount: (existing?.liveCount ?? 0) + (session.isLive ? 1 : 0),
+                    activeConversationId:
+                        session.conversationId === state.conversationId
+                            ? session.conversationId
+                            : existing?.activeConversationId,
+                    updatedTs: Math.max(existing?.updatedTs ?? 0, session.updatedTs),
+                });
+            });
+        writeKronchatProjects(
+            Array.from(projectsByWorkspace.values()).sort((left, right) => right.updatedTs - left.updatedTs)
+        );
+    }, [sessions, state.conversationId]);
 
     useEffect(() => {
         if (state.backend) {
@@ -446,13 +1298,16 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     }, [activeWorkspace, state.conversationId]);
 
     useEffect(() => {
-        if (!hydrated || !agentsLoaded || activeRuntime || didCreateInitialRuntime.current) {
+        if (!hydrated || !agentsLoaded || didCreateInitialRuntime.current) {
+            return;
+        }
+        if (activeRuntime || sessions.length > 0) {
             return;
         }
         const preferred =
-            agents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-            agents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
-            agents.find((agent) => agent.available);
+            pickerAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
+            pickerAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
+            pickerAgents.find((agent) => agent.available);
         if (!preferred) {
             return;
         }
@@ -464,7 +1319,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
             cliPath: preferred.cliPath,
             profile: profiles[preferred.backend],
         }).catch((err) => console.error("ACP initialize failed:", err));
-    }, [activeRuntime, agents, agentsLoaded, defaultBackend, hydrated, initialize, profiles]);
+    }, [activeRuntime, agentsLoaded, defaultBackend, hydrated, initialize, pickerAgents, profiles, sessions.length]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ block: "end" });
@@ -486,7 +1341,6 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     const hasMessages = state.messages.some(
         (message) => !["status", "session_id", "config_option", "usage", "agent_info", "finish"].includes(message.type)
     );
-    const pickerAgents = agents;
     const settingsAgent =
         agents.find((agent) => agent.backend === settingsBackend) ??
         selectedAgent ??
@@ -562,32 +1416,97 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         }
     };
 
+    const buildPrompt = useCallback(
+        (rawMessage: string, files: FileWithPreview[] = [], pastedContent: PastedContent[] = []) => {
+            const enteredText = rawMessage.trim();
+            const commandMatch = enteredText.match(/^\/([^\s]+)(?:\s+([\s\S]*))?$/);
+            const command = commandMatch
+                ? Object.values(availableCommands).find(
+                      (definition) => (definition.name || "").toLowerCase() === commandMatch[1].toLowerCase()
+                  )
+                : undefined;
+            const text = command?.template
+                ? command.template.replace("$ARGUMENTS", commandMatch?.[2] ?? "").trim()
+                : enteredText;
+            const appliedSkills = Object.values(configuredSkills).filter((skill) => {
+                const name = skill.name?.trim();
+                return Boolean(name && new RegExp(`(?:^|\\s)/${escapeRegExp(name)}(?=\\s|$)`, "i").test(text));
+            });
+            const skillInstructions = appliedSkills
+                .filter((skill) => skill.instructions?.trim())
+                .map((skill) => `${skill.name}:\n${skill.instructions?.trim()}`)
+                .join("\n\n");
+            const agentInstructions = selectedAgent
+                ? configuredAgentDefinitions[selectedAgent.backend]?.systemprompt?.trim()
+                : "";
+            const kronosCodeAgent = kronosCodeAgents.find((agent) => agent.id === selectedKronosCodeAgent);
+            const kronosCodeAgentInstructions = kronosCodeAgent
+                ? `Use the KronosCode catalog agent "${kronosCodeAgent.label}" (id: ${kronosCodeAgent.id}) for this request.`
+                : "";
+            const instructionSections = [
+                kronosCodeAgentInstructions ? `KronosCode agent:\n${kronosCodeAgentInstructions}` : "",
+                agentInstructions ? `Agent instructions:\n${agentInstructions}` : "",
+                skillInstructions ? `Loaded skills:\n${skillInstructions}` : "",
+            ].filter(Boolean);
+            const configuredPrompt = instructionSections.length
+                ? `${instructionSections.join("\n\n")}\n\nTask:\n${text}`
+                : text;
+            const attachmentSections = [
+                referencedFiles.length
+                    ? `Referenced files:\n${referencedFiles.map((filePath) => `- ${filePath}`).join("\n")}`
+                    : "",
+                pastedContent.length
+                    ? `Pasted content:\n${pastedContent
+                          .map((item, index) => `--- paste ${index + 1} (${item.wordCount} words) ---\n${item.content}`)
+                          .join("\n\n")}`
+                    : "",
+                files.length
+                    ? `Attached files:\n${files
+                          .map((file) =>
+                              file.textContent
+                                  ? `--- ${file.file.name} ---\n${file.textContent}`
+                                  : `- ${file.file.name} (${(file.file.size / 1024).toFixed(1)}KB)`
+                          )
+                          .join("\n\n")}`
+                    : "",
+            ].filter(Boolean);
+            return attachmentSections.length
+                ? `${configuredPrompt}\n\n${attachmentSections.join("\n\n")}`
+                : configuredPrompt;
+        },
+        [
+            configuredAgentDefinitions,
+            availableCommands,
+            configuredSkills,
+            kronosCodeAgents,
+            referencedFiles,
+            selectedAgent,
+            selectedKronosCodeAgent,
+        ]
+    );
+
     const startRuntime = async (
         agent: AcpBackendInfo,
         opts?: {
+            conversationId?: string;
             workspace?: string;
             messages?: AcpAgentMessage[];
             title?: string;
             referencedFiles?: string[];
             resumeSessionId?: string;
+            resumeSessionConversationId?: string;
         }
     ) => {
         const profile = profiles[agent.backend];
         const runtimeMcpServers = mcpEnabled
             ? (profile?.mcpserverids ?? []).flatMap((serverId) => {
                   const server = (mcpServers as Record<string, MCPConfig>)[serverId];
-                  if (!server?.command?.length) {
-                      return [];
-                  }
-                  return [{
-                      name: serverId,
-                      command: server.command[0],
-                      args: server.command.slice(1),
-                      env: Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value })),
-                  }];
+                  const sessionServer = buildAcpMcpSessionServer(serverId, server);
+                  return sessionServer ? [sessionServer] : [];
               })
             : [];
         return initialize({
+            conversationId: opts?.conversationId,
             backend: agent.backend,
             agentName: agent.name,
             cliPath: profile?.executable || agent.cliPath,
@@ -596,6 +1515,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
             title: opts?.title,
             referencedFiles: opts?.referencedFiles,
             resumeSessionId: opts?.resumeSessionId,
+            resumeSessionConversationId: opts?.resumeSessionConversationId,
             profile,
             mcpServers: runtimeMcpServers,
         });
@@ -608,6 +1528,23 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
             workspace: activeWorkspace || undefined,
             referencedFiles,
         }).catch((err) => console.error("ACP initialize failed:", err));
+    };
+
+    const handleToggleAgentEnabled = (backend: string) => {
+        if (backend === "hermes") {
+            return;
+        }
+        const next = enabledAgentBackends.includes(backend)
+            ? enabledAgentBackends.filter((candidate) => candidate !== backend)
+            : [...enabledAgentBackends, backend];
+        const normalized = Array.from(new Set(["hermes", ...next]));
+        void rpc.SetConfigCommand(TabRpcClient, {
+            [EnabledAgentBackendsSettingsKey]: normalized,
+        } as Partial<SettingsType>);
+        if (selectedAgent?.backend === backend && !normalized.includes(backend)) {
+            const hermesAgent = agents.find((agent) => agent.backend === "hermes") ?? null;
+            setSelectedAgent(hermesAgent);
+        }
     };
 
     const handleConfigureAgent = (agent: AcpBackendInfo) => {
@@ -643,6 +1580,8 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 referencedFiles: runtime.referencedFiles,
                 title: runtime.title,
                 resumeSessionId: runtime.capabilities?.loadSession ? (runtime.sessionId ?? undefined) : undefined,
+                conversationId: runtime.conversationId,
+                resumeSessionConversationId: runtime.conversationId,
             });
         }
         setRestartRequiredBackends((current) => {
@@ -652,38 +1591,10 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         });
     };
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const _handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!input.trim() || state.status === "running" || !selectedAgent?.available) return;
-        const enteredText = input.trim();
-        const commandMatch = enteredText.match(/^\/([^\s]+)(?:\s+([\s\S]*))?$/);
-        const command = commandMatch
-            ? Object.values(configuredCommands).find(
-                  (definition) => (definition.name || "").toLowerCase() === commandMatch[1].toLowerCase()
-              )
-            : undefined;
-        const text = command?.template
-            ? command.template.replace("$ARGUMENTS", commandMatch?.[2] ?? "").trim()
-            : enteredText;
-        const appliedSkills = Object.values(configuredSkills).filter((skill) => {
-            const name = skill.name?.trim();
-            return Boolean(name && new RegExp(`(?:^|\\s)/${escapeRegExp(name)}(?=\\s|$)`, "i").test(text));
-        });
-        const skillInstructions = appliedSkills
-            .filter((skill) => skill.instructions?.trim())
-            .map((skill) => `${skill.name}:\n${skill.instructions?.trim()}`)
-            .join("\n\n");
-        const agentInstructions = configuredAgentDefinitions[selectedAgent.backend]?.systemprompt?.trim();
-        const instructionSections = [
-            agentInstructions ? `Agent instructions:\n${agentInstructions}` : "",
-            skillInstructions ? `Loaded skills:\n${skillInstructions}` : "",
-        ].filter(Boolean);
-        const configuredPrompt = instructionSections.length
-            ? `${instructionSections.join("\n\n")}\n\nTask:\n${text}`
-            : text;
-        const prompt = referencedFiles.length
-            ? `${configuredPrompt}\n\nReferenced files:\n${referencedFiles.map((filePath) => `- ${filePath}`).join("\n")}`
-            : configuredPrompt;
+        const prompt = await withCanvasContext(buildPrompt(input));
         setInput("");
         setComposerMenu(null);
         let targetConversationId = activeRuntime?.conversationId;
@@ -695,6 +1606,8 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                 title: state.conversationId ? `${activeRuntime?.title ?? "Saved chat"} continued` : undefined,
                 resumeSessionId:
                     activeRuntime?.resumeState === "resumable" ? (activeRuntime.sessionId ?? undefined) : undefined,
+                conversationId: activeRuntime?.conversationId,
+                resumeSessionConversationId: activeRuntime?.conversationId,
             });
             if (!result.success) {
                 return;
@@ -704,18 +1617,47 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         await sendMessage(prompt, targetConversationId).catch((err) => console.error("ACP send failed:", err));
     };
 
-    const handleNewChat = async (workspace?: string) => {
-        const defaultAgent =
-            agents.find((agent) => agent.backend === defaultBackend && agent.available) ??
-            agents.find((agent) => agent.backend === "kronoscode" && agent.available) ??
-            agents.find((agent) => agent.available);
-        if (!defaultAgent) return;
-        setSelectedAgent(defaultAgent);
-        setInput("");
-        await startRuntime(defaultAgent, {
-            workspace: workspace ?? profiles[defaultAgent.backend]?.workspace,
-        }).catch((err) => console.error("ACP initialize failed:", err));
-    };
+    const handleNewChat = useCallback(
+        async (workspace?: string) => {
+            const defaultAgent =
+                pickerAgents.find((agent) => agent.backend === defaultBackend && agent.available) ??
+                pickerAgents.find((agent) => agent.backend === "hermes" && agent.available) ??
+                pickerAgents.find((agent) => agent.available);
+            if (!defaultAgent) return;
+            setSelectedAgent(defaultAgent);
+            setInput("");
+            await startRuntime(defaultAgent, {
+                workspace: workspace ?? profiles[defaultAgent.backend]?.workspace,
+            }).catch((err) => console.error("ACP initialize failed:", err));
+        },
+        [defaultBackend, pickerAgents, profiles, startRuntime]
+    );
+
+    useEffect(() => {
+        const handleOpenProject = (event: Event) => {
+            const project = (event as CustomEvent<KronchatProject>).detail;
+            if (!project) {
+                return;
+            }
+            const targetSession =
+                sessions.find(
+                    (session) =>
+                        session.resumeState !== "archived" &&
+                        (session.workspace || "") === project.workspace &&
+                        session.conversationId === project.activeConversationId
+                ) ??
+                sessions.find(
+                    (session) => session.resumeState !== "archived" && (session.workspace || "") === project.workspace
+                );
+            if (targetSession) {
+                selectSession(targetSession.conversationId);
+                return;
+            }
+            void handleNewChat(project.workspace || undefined);
+        };
+        window.addEventListener(KronchatOpenProjectEvent, handleOpenProject);
+        return () => window.removeEventListener(KronchatOpenProjectEvent, handleOpenProject);
+    }, [handleNewChat, selectSession, sessions]);
 
     const handlePickWorkspace = async () => {
         const workspace = await electron.selectDirectory();
@@ -795,7 +1737,7 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
         return () => model.unregisterAcpPanelBridge(bridge);
     }, [selectedAgent, sendMessage, state.status]);
 
-    const updateComposerMenu = (value: string, cursorPosition: number) => {
+    const _updateComposerMenu = (value: string, cursorPosition: number) => {
         if (value.startsWith("/")) {
             const firstSeparator = value.search(/[\s\n]/);
             const commandEnd = firstSeparator === -1 ? value.length : firstSeparator;
@@ -859,10 +1801,14 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
             replaceActiveToken(`@${suggestion.label} `, "@");
             return;
         }
+        if (suggestion.kind === "canvas") {
+            replaceActiveToken("@canvas ", "@");
+            return;
+        }
         replaceActiveToken(`@${suggestion.label} `, "@");
     };
 
-    const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    const _handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
         if (composerMenu) {
             if (event.key === "Escape") {
                 event.preventDefault();
@@ -896,8 +1842,8 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
     };
 
     return (
-        <div className={cn("@container relative flex min-h-0 flex-1 overflow-hidden bg-[#101010] text-[#e6e2dc]", className)}>
-            {!settingsOpen && sessionSidebarOpen ? (
+        <div className={cn("@container relative flex min-h-0 flex-1 overflow-hidden bg-panel text-primary", className)}>
+            {!settingsOpen && sessionSidebarMode === "open" ? (
                 <SessionSidebar
                     sessions={sessions}
                     activeConversationId={state.conversationId}
@@ -909,58 +1855,109 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                         setSettingsBackend(selectedAgent?.backend ?? defaultBackend);
                         setSettingsOpen(true);
                     }}
+                    onSetSidebarMode={setSessionSidebarMode}
+                />
+            ) : null}
+            {!settingsOpen && sessionSidebarMode === "compact" ? (
+                <CompactSessionRail
+                    sessions={sessions}
+                    activeConversationId={state.conversationId}
+                    onSelectSession={selectSession}
+                    onOpen={() => setSessionSidebarMode("open")}
+                    onHide={() => setSessionSidebarMode("hidden")}
+                    onNewChat={handleNewChat}
+                    onOpenSettings={() => {
+                        setResourcesOpen(false);
+                        setSettingsBackend(selectedAgent?.backend ?? defaultBackend);
+                        setSettingsOpen(true);
+                    }}
                 />
             ) : null}
             <div className="relative flex min-w-0 flex-1 flex-col">
-                <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#292827] bg-[#111111] px-4">
+                <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border bg-panel px-4">
                     <div className="flex min-w-0 items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setSessionSidebarOpen((open) => !open)}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
-                            aria-label={sessionSidebarOpen ? "Hide sessions" : "Show sessions"}
-                        >
-                            <i className="fa fa-columns text-xs" />
-                        </button>
-                        <AgentStatus agent={selectedAgent} status={state.status} />
-                    </div>
-                    <div className="flex items-center gap-1">
+                        {sessionSidebarMode === "hidden" ? (
+                            <button
+                                type="button"
+                                onClick={() => setSessionSidebarMode("compact")}
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] transition-colors hover:bg-[#22211f]"
+                                aria-label="Show project rail"
+                            >
+                                <AcpAgentMark backend="hermes" className="h-5 w-5" />
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => {
                                 setSettingsOpen(false);
+                                setAgentLibraryOpen(false);
                                 setResourcesOpen((open) => !open);
                             }}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
-                            title="Workspace and files"
-                            aria-label="Workspace and files"
+                            className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#171717] px-2.5 py-1.5 text-left text-xs text-[#d4d4d4] transition-colors hover:bg-[#1a1a1a] hover:text-[#eeeeee]"
+                            title={activeWorkspace || "Focused workspace"}
                         >
-                            <i className="fa fa-folder-open text-xs" />
+                            <i className="fa fa-folder-open text-[11px] text-[#8ab4f5]" />
+                            <span className="min-w-0 truncate">
+                                {activeWorkspace ? formatKronchatProjectName(activeWorkspace) : "Focused workspace"}
+                            </span>
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => void handleNewChat()}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
-                            title="Start new chat"
-                            aria-label="Start new chat"
-                        >
-                            <i className="fa fa-pen-to-square text-xs" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
+                        <div className="hidden min-w-0 items-center gap-1 text-[11px] text-[#6b6863] @lg:flex">
+                            <span>
+                                {sessions.length} session{sessions.length === 1 ? "" : "s"}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <WidgetTypeToolbar
+                            onOpenWorkspace={() => {
+                                setSettingsOpen(false);
+                                setAgentLibraryOpen(false);
+                                setResourcesOpen((open) => !open);
+                            }}
+                            onOpenGitTree={handleOpenGitTree}
+                            onOpenSettings={() => {
+                                setAgentLibraryOpen(false);
                                 setResourcesOpen(false);
                                 setSettingsBackend(selectedAgent?.backend ?? defaultBackend);
                                 setSettingsOpen((open) => !open);
                             }}
-                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#827f79] transition-colors hover:bg-[#1c1b1a] hover:text-[#dedad4]"
-                            title="Settings"
-                            aria-label="Settings"
+                        />
+                        {state.pendingConfirmations.length > 0 ? (
+                            <span className="mr-2 hidden rounded-full border border-[#522c29] bg-[#211716] px-2.5 py-1 text-[11px] text-[#dc7668] @lg:inline">
+                                {state.pendingConfirmations.length} approvals
+                            </span>
+                        ) : null}
+                    </div>
+                    {agentLibraryOpen ? (
+                        <AgentLibraryPopup
+                            agents={agents}
+                            enabledBackends={enabledAgentBackends}
+                            onToggleAgent={handleToggleAgentEnabled}
+                            onClose={() => setAgentLibraryOpen(false)}
+                        />
+                    ) : null}
+                </div>
+                <LiveSurfaceStrip activity={liveSurfaceActivity} onTakeOver={handleTakeOver} />
+                <AgentSurfaceViewer
+                    activity={liveSurfaceActivity}
+                    timeline={surfaceTimeline}
+                    onExpandSurface={handleExpandSurface}
+                    onTakeOver={handleTakeOver}
+                />
+
+                {takeoverActive && (
+                    <div className="flex shrink-0 items-center gap-2 border-b border-[#2a2a2a] bg-[#141c2a] px-4 py-2 text-[11px] text-[#8ab4f5]">
+                        <i className="fa fa-hand text-xs" />
+                        <span className="flex-1">Agent paused. Sandbox is ready for direct interaction.</span>
+                        <button
+                            type="button"
+                            onClick={() => setTakeoverActive(false)}
+                            className="cursor-pointer rounded-md border border-[#2a4a6a] bg-[#1a2a3a] px-2.5 py-1 text-[11px] text-[#eeeeee] transition-colors hover:bg-[#2a4a6a]"
                         >
-                            <i className="fa fa-sliders text-xs" />
+                            Dismiss
                         </button>
                     </div>
-                </div>
+                )}
 
                 {settingsOpen ? (
                     <SettingsPanel
@@ -1035,11 +2032,16 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     </div>
                 ) : null}
                 {activeRuntime && !activeRuntime.isLive && activeRuntime.resumeState !== "archived" ? (
-                    <div className="mx-auto mt-3 flex w-[calc(100%-32px)] max-w-3xl items-center justify-between gap-3 rounded-lg border border-[#3a3829] bg-[#1d1d18] px-4 py-2 text-xs text-[#b8b3ac]">
+                    <div className="mx-auto mt-3 flex w-[calc(100%-32px)] max-w-3xl items-center justify-between gap-3 rounded-lg border border-[#1e2a3a] bg-[#161c28] px-4 py-2 text-xs text-[#9e9a93]">
                         <span>
-                            Saved transcript. Sending continues in a {activeRuntime.resumeState === "resumable" ? "resumed" : "new"} runtime.
+                            Saved transcript. Sending continues in a{" "}
+                            {activeRuntime.resumeState === "resumable" ? "resumed" : "new"} runtime.
                         </span>
-                        <button type="button" onClick={() => textareaRef.current?.focus()} className="cursor-pointer font-medium text-[#b1b955]">
+                        <button
+                            type="button"
+                            onClick={() => textareaRef.current?.focus()}
+                            className="cursor-pointer font-medium text-[#5b9ef5]"
+                        >
                             Continue
                         </button>
                     </div>
@@ -1047,15 +2049,28 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
 
                 <AcpToolApproval confirmations={state.pendingConfirmations} onConfirm={confirmTool} />
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 @lg:px-6">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 @lg:px-6">
                     {hasMessages ? (
-                        <MessageStream
-                            messages={state.messages}
-                            assistantLabel={state.modelInfo?.currentModelLabel ?? "Assistant"}
-                            mode={selectedMode}
-                        />
+                        <>
+                            <ChatMessageListV2
+                                messages={state.messages}
+                                isStreaming={state.status === "running"}
+                                canvasBlockId={
+                                    openWidgetMentions.find((widget) => widget.viewType === "kronoscanvas")?.id
+                                }
+                            />
+                            {state.status === "running" ? (
+                                <TypingIndicator
+                                    agentBackend={selectedAgent?.backend ?? state.backend ?? "hermes"}
+                                    detail={
+                                        liveSurfaceActivity?.detail ??
+                                        (liveSurfaceActivity?.action ? `${liveSurfaceActivity.action}` : "Working")
+                                    }
+                                />
+                            ) : null}
+                        </>
                     ) : (
-                        <AssistantEmptyState
+                        <ChatEmptyState
                             agent={selectedAgent}
                             agents={pickerAgents}
                             onSelectAgent={handleAgentSelect}
@@ -1073,123 +2088,139 @@ export const AcpChatPanel = memo(({ className }: AcpChatPanelProps) => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="shrink-0 bg-[#101010]/95 px-3 pb-3 pt-2 backdrop-blur-sm @lg:px-5 @lg:pb-5">
-                    <form
-                        onSubmit={handleSubmit}
-                        className="relative mx-auto w-full max-w-3xl rounded-xl border border-[#42362a] bg-[#1a1918] p-3 shadow-sm shadow-black/20 focus-within:border-[#68533c]"
-                    >
-                        {composerMenu ? (
-                            <ComposerAutocomplete
-                                mode={composerMenu.mode}
-                                mentionTab={composerMenu.mentionTab}
-                                suggestions={composerSuggestions}
-                                selectedIndex={composerSuggestionIndex}
-                                onSelect={handleComposerSuggestion}
-                                onSelectedIndexChange={setComposerSuggestionIndex}
-                                onMentionTabChange={(mentionTab) =>
-                                    setComposerMenu((current) => (current ? { ...current, mentionTab } : current))
+                <div className="sticky bottom-0 z-20 shrink-0 border-t border-border bg-panel px-3 pb-3 pt-2 @lg:px-5 @lg:pb-5">
+                    <ChatWidgetAppsStrip />
+                    <div className="relative mx-auto w-full max-w-3xl">
+                        <ImprovedChatInput
+                            onSendMessage={async (message, files, pastedContent) => {
+                                try {
+                                    if (!selectedAgent?.available) {
+                                        console.warn("No available agent selected");
+                                        return;
+                                    }
+
+                                    const fullMessage = await withCanvasContext(
+                                        buildPrompt(message, files, pastedContent)
+                                    );
+
+                                    if (!fullMessage.trim()) {
+                                        console.warn("Empty message");
+                                        return;
+                                    }
+
+                                    setInput("");
+                                    setComposerMenu(null);
+                                    let targetConversationId = activeRuntime?.conversationId;
+
+                                    if (!activeRuntime?.isLive) {
+                                        if (!selectedAgent || !selectedAgent.backend) {
+                                            console.error("Invalid agent for runtime initialization");
+                                            return;
+                                        }
+
+                                        const result = await startRuntime(selectedAgent, {
+                                            workspace: activeWorkspace || undefined,
+                                            messages: state?.messages ?? [],
+                                            referencedFiles: referencedFiles ?? [],
+                                            title: state?.conversationId
+                                                ? `${activeRuntime?.title ?? "Saved chat"} continued`
+                                                : undefined,
+                                            resumeSessionId:
+                                                activeRuntime?.resumeState === "resumable"
+                                                    ? (activeRuntime.sessionId ?? undefined)
+                                                    : undefined,
+                                            conversationId: activeRuntime?.conversationId,
+                                            resumeSessionConversationId: activeRuntime?.conversationId,
+                                        });
+
+                                        if (!result || !result.success) {
+                                            console.error("Failed to initialize runtime:", result?.error);
+                                            return;
+                                        }
+                                        targetConversationId = result.conversationId;
+                                    }
+
+                                    if (!targetConversationId) {
+                                        console.error("No target conversation ID");
+                                        return;
+                                    }
+
+                                    await sendMessage(fullMessage, targetConversationId).catch((err) => {
+                                        console.error("ACP send failed:", err);
+                                    });
+                                } catch (error) {
+                                    console.error("Error in improved chat input callback:", error);
                                 }
-                            />
-                        ) : null}
-                        {referencedFiles.length ? (
-                            <div className="mb-2 flex flex-wrap gap-1.5">
-                                {referencedFiles.map((filePath) => (
-                                    <span
-                                        key={filePath}
-                                        className="flex max-w-full items-center gap-1.5 rounded-md border border-[#302f2d] bg-[#23211f] px-2 py-1 text-[11px] text-[#aaa59d]"
-                                    >
-                                        <i className="fa fa-file text-[#827f79]" />
-                                        <span className="max-w-44 truncate">
-                                            {filePath.split("/").pop() || filePath}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                updateSessionContext(
-                                                    activeWorkspace,
-                                                    referencedFiles.filter((currentPath) => currentPath !== filePath)
-                                                )
-                                            }
-                                            className="cursor-pointer text-[#827f79] hover:text-[#dedad4]"
-                                            aria-label={`Remove ${filePath}`}
-                                        >
-                                            <i className="fa fa-xmark" />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        ) : null}
-                        <textarea
-                            ref={textareaRef}
-                            value={input}
-                            onChange={(event) => {
-                                const value = event.target.value;
-                                setInput(value);
-                                updateComposerMenu(value, event.target.selectionStart ?? value.length);
                             }}
-                            onKeyDown={handleKeyDown}
+                            disabled={state.status === "running" || !selectedAgent?.available}
                             placeholder={
                                 state.status === "running"
                                     ? "Agent is working..."
                                     : selectedAgent?.available
-                                      ? "@ for files/agents; / for commands and skills"
+                                      ? "@ for files/agents; / for commands; ! for shell"
                                       : "Select an available agent..."
                             }
-                            rows={3}
-                            disabled={state.status === "running" || !selectedAgent?.available}
-                            data-chat-input="true"
-                            className="max-h-40 min-h-16 w-full resize-none bg-transparent px-1 pb-3 pt-1 text-sm leading-relaxed text-[#ddd9d2] outline-none placeholder:text-[#827f79] disabled:opacity-50"
+                            slashCommands={commandDeckCommands}
+                            referencedFiles={referencedFiles}
+                            openWidgets={openWidgetMentions}
+                            maxFiles={10}
+                            maxFileSize={50 * 1024 * 1024}
+                            acceptedFileTypes={[
+                                "image/*",
+                                ".pdf",
+                                ".txt",
+                                ".md",
+                                ".js",
+                                ".jsx",
+                                ".ts",
+                                ".tsx",
+                                ".go",
+                                ".py",
+                                ".java",
+                                ".c",
+                                ".cpp",
+                                ".h",
+                                ".html",
+                                ".css",
+                                ".scss",
+                                ".json",
+                                ".xml",
+                                ".yaml",
+                                ".yml",
+                                ".sh",
+                                ".bash",
+                            ]}
+                            models={useMemo<ModelOption[]>(() => {
+                                if (state.modelInfo?.availableModels?.length) {
+                                    return state.modelInfo.availableModels.map((model) => ({
+                                        id: model.id,
+                                        name: model.label || model.id,
+                                        description: "AI Model",
+                                    }));
+                                }
+                                return [{ id: "default", name: "Default Model", description: "KronosCode default" }];
+                            }, [state.modelInfo?.availableModels])}
+                            defaultModel={state.modelInfo?.currentModelId || "default"}
+                            onModelChange={(modelId) => {
+                                const backend = selectedAgent?.backend ?? defaultBackend;
+                                updateProfile(backend, { model: modelId });
+                                setModel(modelId);
+                            }}
+                            agentSelector={
+                                <RuntimeAgentPicker
+                                    agents={pickerAgents}
+                                    selectedAgent={selectedAgent}
+                                    onSelect={handleAgentSelect}
+                                    onConfigure={() => {
+                                        setResourcesOpen(false);
+                                        setSettingsBackend(selectedAgent?.backend ?? defaultBackend);
+                                        setSettingsOpen(true);
+                                    }}
+                                />
+                            }
+                            kronAgents={kronosCodeAgents}
                         />
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSettingsOpen(false);
-                                    setResourcesOpen(true);
-                                }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#aaa59d] transition-colors hover:bg-[#252421] hover:text-[#dedad4]"
-                                title="Attach files from workspace"
-                                aria-label="Attach files from workspace"
-                            >
-                                <i className="fa fa-plus-circle" />
-                            </button>
-                            <select
-                                value={selectedMode}
-                                onChange={(event) => setMode(event.target.value)}
-                                className="max-w-28 cursor-pointer appearance-none rounded-md border border-[#343521] bg-[#222419] px-2 py-1.5 text-xs font-medium capitalize text-[#b1b955] outline-none hover:bg-[#292b1d]"
-                                aria-label="Mode"
-                            >
-                                {modeOptions.map((mode) => (
-                                    <option key={mode.value} value={mode.value}>
-                                        {mode.label}
-                                    </option>
-                                ))}
-                            </select>
-                            <ModelPicker modelInfo={state.modelInfo} onSelect={setModel} />
-                            <div className="flex-1" />
-                            {state.status === "running" ? (
-                                <button
-                                    type="button"
-                                    onClick={() => stop()}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-[#522c29] bg-[#211716] text-[#dc7668] hover:bg-[#30201d]"
-                                    title="Stop"
-                                    aria-label="Stop"
-                                >
-                                    <i className="fa fa-square text-xs" />
-                                </button>
-                            ) : (
-                                <button
-                                    type="submit"
-                                    disabled={!input.trim() || !selectedAgent?.available}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#b1b955] transition-colors hover:bg-[#252421] disabled:text-[#57534e]"
-                                    title="Send"
-                                    aria-label="Send"
-                                >
-                                    <i className="fa fa-arrow-up" />
-                                </button>
-                            )}
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>

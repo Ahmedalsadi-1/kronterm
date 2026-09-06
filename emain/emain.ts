@@ -8,7 +8,9 @@ import { sprintf } from "sprintf-js";
 import * as services from "../frontend/app/store/services";
 import { initElectronWshrpc, shutdownWshrpc } from "../frontend/app/store/wshrpcutil-base";
 import { fireAndForget, sleep } from "../frontend/util/util";
+import { stopAllAgentManagers } from "./acp";
 import { AuthKey, configureAuthKeyRequestInjection } from "./authkey";
+import { stopChatHubV2Server } from "./chathubv2-server";
 import {
     getActivityState,
     getAndClearTermCommandsDurable,
@@ -25,9 +27,11 @@ import {
     setWasActive,
     setWasInFg,
 } from "./emain-activity";
+import { stopAudioEngine } from "./emain-audio";
 import { initIpcHandlers } from "./emain-ipc";
-import { stopAllAgentManagers } from "./acp";
+import { runKrondesignDaemon, stopKrondesignDaemon } from "./emain-krondesign";
 import { log } from "./emain-log";
+import { stopAllLanguageServers } from "./emain-lsp";
 import { initMenuEventSubscriptions, makeAndSetAppMenu, makeDockTaskbar } from "./emain-menu";
 import {
     checkIfRunningUnderARM64Translation,
@@ -53,6 +57,8 @@ import {
     WaveBrowserWindow,
 } from "./emain-window";
 import { ElectronWshClient, initElectronWshClient } from "./emain-wsh";
+import { HermesRuntime } from "./hermes-runtime";
+import { KronosCodeRuntime } from "./kronoscode-runtime";
 import { getLaunchSettings } from "./launchsettings";
 import { configureAutoUpdater, updater } from "./updater";
 
@@ -289,6 +295,12 @@ electronApp.on("before-quit", (e) => {
     }
     setGlobalIsQuitting(true);
     void stopAllAgentManagers();
+    stopChatHubV2Server();
+    HermesRuntime.stop();
+    KronosCodeRuntime.stop();
+    stopAllLanguageServers();
+    stopKrondesignDaemon();
+    stopAudioEngine();
     updater?.stop();
     if (unamePlatform == "win32") {
         // win32 doesn't have a SIGINT, so we just let electron die, which
@@ -390,8 +402,26 @@ async function appMain() {
     const ready = await getWaveSrvReady();
     console.log("wavesrv ready signal received", ready, Date.now() - startTs, "ms");
     await electronApp.whenReady();
+
+    // Start background daemons (non-blocking)
+    fireAndForget(async () => {
+        await runKrondesignDaemon();
+    });
+    if (process.platform === "darwin") {
+        const micStatus = electron.systemPreferences.getMediaAccessStatus("microphone");
+        if (micStatus === "not-determined") {
+            electron.systemPreferences.askForMediaAccess("microphone");
+        }
+    }
     configureAuthKeyRequestInjection(electron.session.defaultSession);
     initIpcHandlers();
+    fireAndForget(async () => {
+        try {
+            await HermesRuntime.ensure();
+        } catch (error) {
+            console.log("background Hermes startup failed", error);
+        }
+    });
 
     await sleep(10); // wait a bit for wavesrv to be ready
     try {
@@ -402,6 +432,13 @@ async function appMain() {
         console.log("error initializing wshrpc", e);
     }
     const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+    fireAndForget(async () => {
+        try {
+            await KronosCodeRuntime.ensure(fullConfig);
+        } catch (error) {
+            console.log("background KronosCode startup failed", error);
+        }
+    });
     checkIfRunningUnderARM64Translation(fullConfig);
     if (fullConfig?.settings?.["app:confirmquit"] != null) {
         confirmQuit = fullConfig.settings["app:confirmquit"];
@@ -427,6 +464,18 @@ async function appMain() {
     });
     electron.powerMonitor.on("resume", () => {
         console.log("system resumed from sleep, notifying server");
+        for (const webContents of electron.webContents.getAllWebContents()) {
+            if (!webContents.isDestroyed()) {
+                webContents.send("kronoscode-power-resume");
+            }
+        }
+        fireAndForget(async () => {
+            try {
+                await KronosCodeRuntime.revalidate();
+            } catch (error) {
+                console.log("KronosCode revalidation after system resume failed", error);
+            }
+        });
         fireAndForget(async () => {
             try {
                 await RpcApi.NotifySystemResumeCommand(ElectronWshClient, { noresponse: true });

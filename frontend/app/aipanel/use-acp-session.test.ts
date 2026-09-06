@@ -17,6 +17,9 @@ function makeRuntime(conversationId: string): AcpRuntimeRecord {
         usage: null,
         agentInfo: null,
         capabilities: null,
+        harnessProfile: null,
+        capabilityLease: null,
+        slashCommands: {},
         agentName: "KronosCode",
         workspace: "/tmp/workspace",
         title: "New chat",
@@ -70,6 +73,46 @@ describe("ACP runtime event routing", () => {
 
         expect(configured.pendingConfirmations[0].callId).toBe("tool-call");
         expect(configured.modelInfo?.currentModelId).toBe("model-a");
+    });
+
+    it("stores the active specialist profile and capability lease", () => {
+        const runtime = applyAcpEvent(makeRuntime("conversation-a"), {
+            conversationId: "conversation-a",
+            type: "harness_lease",
+            msgId: "lease-event",
+            data: {
+                profile: {
+                    backend: "hermes",
+                    summary: "Persistent specialist",
+                    specialties: ["automation"],
+                    patterns: [],
+                    source: "reference",
+                },
+                lease: {
+                    id: "lease-1",
+                    backend: "hermes",
+                    issuedAt: 1,
+                    expiresAt: 2,
+                    taskClass: "automation",
+                    reason: "Workflow task",
+                    workspace: "/tmp/workspace",
+                    capabilities: ["task:automation"],
+                    constraints: {
+                        filesystem: "workspace",
+                        writes: "approval-required",
+                        destructiveActions: "approval-required",
+                        externalSideEffects: "approval-required",
+                        credentialAccess: "brokered-only",
+                        surface: "none",
+                    },
+                },
+            },
+            timestamp: 4,
+        });
+
+        expect(runtime.harnessProfile?.backend).toBe("hermes");
+        expect(runtime.capabilityLease?.taskClass).toBe("automation");
+        expect(runtime.messages.at(-1)?.type).toBe("harness_lease");
     });
 
     it("applies profile controls only when a live runtime advertises them", () => {

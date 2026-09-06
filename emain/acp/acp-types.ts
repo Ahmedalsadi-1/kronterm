@@ -1,6 +1,8 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { AcpTraceEnvelope } from "./acp-observability";
+
 /**
  * ACP (Agent Client Protocol) types and backend configurations.
  * Adapted from AionUi's acpTypes.ts for kronterm integration.
@@ -68,7 +70,7 @@ export const CODEX_ACP_NPX_PACKAGE = `npx @zed-industries/codex-acp@${CODEX_ACP_
 export const CODEBUDDY_ACP_BRIDGE_VERSION = "2.73.0";
 export const CODEBUDDY_ACP_NPX_PACKAGE = `npx @tencent-ai/codebuddy-code@${CODEBUDDY_ACP_BRIDGE_VERSION}`;
 export const KRONOSCODE_DEVELOPMENT_FALLBACK_BIN =
-    "/Users/albsheralsadi/kronosfinal/kronoscoder/packages/kronoscode/bin/kronoscode";
+    "/Users/albsheralsadi/kronterm/kronoscoder/packages/kronoscode/bin/kronoscode";
 
 /**
  * All known ACP backend configurations.
@@ -246,14 +248,15 @@ export const ACP_BACKENDS_ALL: Record<string, AcpBackendConfig> = {
     },
     hermes: {
         id: "hermes",
-        name: "Hermes Agent",
+        name: "Kronos",
         cliCommand: "hermes",
         authRequired: true,
         enabled: true,
         supportsStreaming: false,
         acpArgs: ["acp"],
-        avatar: "✦",
-        description: "Nous Research Hermes Agent",
+        skillsDirs: [".agents/skills", ".kronoscode/skills", ".hermes/skills"],
+        avatar: "◎",
+        description: "Built-in KronTerm agent",
     },
     snow: {
         id: "snow",
@@ -357,7 +360,8 @@ export type AcpSessionUpdatePayload =
     | ErrorUpdate
     | UserMessageChunkUpdate
     | ConfigOptionsUpdate
-    | UsageUpdate;
+    | UsageUpdate
+    | AvailableCommandsUpdate;
 
 export interface AgentMessageChunkUpdate {
     sessionUpdate: "agent_message_chunk";
@@ -460,6 +464,15 @@ export interface UsageUpdate {
     used: number;
     size: number;
     cost?: { amount: number; currency: string };
+}
+
+export interface AvailableCommandsUpdate {
+    sessionUpdate: "available_commands_update";
+    availableCommands: Array<{
+        name?: string;
+        description?: string;
+        input?: { hint?: string };
+    }>;
 }
 
 // ── ACP Permission Types ─────────────────────────────────────────────
@@ -626,6 +639,7 @@ export interface AcpDetectedAgent {
     supportsStreaming?: boolean;
     acpArgs?: string[];
     skillsDirs?: string[];
+    harnessProfile?: import("./acp-harness").AcpHarnessProfile;
 }
 
 // ── ACP Event Types (Electron → Frontend via IPC) ────────────────────
@@ -645,6 +659,8 @@ export type AcpEventType =
     | "usage"
     | "session_id"
     | "agent_info"
+    | "harness_profile"
+    | "harness_lease"
     | "slash_commands";
 
 export interface AcpEvent {
@@ -653,6 +669,7 @@ export interface AcpEvent {
     msgId: string;
     data?: unknown;
     timestamp: number;
+    trace?: AcpTraceEnvelope;
 }
 
 // ── Utility Functions ────────────────────────────────────────────────

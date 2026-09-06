@@ -1,3 +1,7 @@
+/**
+ * @deprecated KronosChatHub is deprecated. Use AcpChatPanel instead.
+ * This file is retained for reference but is no longer rendered in the UI.
+ */
 import { getWebServerEndpoint } from "@/util/endpoints";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtom, useAtomValue } from "jotai";
@@ -58,7 +62,7 @@ type KronosChatHubSnapshot = {
         toolCapabilities?: unknown[];
         errors?: string[];
     };
-    bytebot: {
+    krontermDesktop: {
         mcpUrl: string;
         desktopUrl: string;
         mcpStatus: string;
@@ -80,15 +84,15 @@ type KronosChatHubProps = {
 
 const fallbackAgents: CatalogAgent[] = [
     { id: "kronoscode", name: "KronosCode", kind: "kronoscode", status: "ready", available: true, icon: "⬡" },
-    { id: "computer-use-mcp", name: "Bytebot MCP", kind: "mcp", status: "ready", available: true, icon: "▣" },
-    { id: "bytebot-desktop", name: "Bytebot Desktop", kind: "desktop", status: "ready", available: true, icon: "▤" },
+    { id: "computer-use-mcp", name: "Kron Computer Use", kind: "mcp", status: "ready", available: true, icon: "▣" },
+    { id: "kronterm-desktop", name: "Kronterm Desktop", kind: "desktop", status: "ready", available: true, icon: "▤" },
     { id: "codex", name: "Codex", kind: "acp", status: "missing", available: false, icon: "◈" },
     { id: "gemini", name: "Gemini", kind: "acp", status: "missing", available: false, icon: "✦" },
 ];
 
-const kronosDirectEndpoint = "http://127.0.0.1:3001";
-const bytebotMcpUrl = "http://localhost:9990/mcp";
-const bytebotDesktopUrl = "http://localhost:9990/novnc/vnc_lite.html?scale=true";
+const kronosDirectEndpoint = "http://127.0.0.1:4096";
+const krontermDesktopMcpUrl = "http://localhost:9990/computer-use";
+const krontermDesktopDesktopUrl = "http://localhost:9990/novnc/vnc_lite.html?scale=true";
 
 function unwrapData<T>(payload: any): T {
     return (payload?.data ?? payload) as T;
@@ -151,8 +155,8 @@ function normalizeProviderPayload(payload: any): KronosProvider[] {
 
 async function makeDirectFallbackSnapshot(mode: string, reason: string): Promise<KronosChatHubSnapshot> {
     const [mcpStatus, desktopStatus, catalogResult, providersResult] = await Promise.allSettled([
-        checkReachable(bytebotMcpUrl),
-        checkReachable(bytebotDesktopUrl),
+        checkReachable(krontermDesktopMcpUrl),
+        checkReachable(krontermDesktopDesktopUrl),
         fetchJson<{ generatedAt: number; agents: CatalogAgent[] }>(`${kronosDirectEndpoint}/agent/catalog`),
         fetchJson<any>(`${kronosDirectEndpoint}/config/providers`),
     ]);
@@ -172,7 +176,7 @@ async function makeDirectFallbackSnapshot(mode: string, reason: string): Promise
                               available: resolvedMcpStatus === "connected",
                           };
                       }
-                      if (agent.id === "bytebot-desktop") {
+                      if (agent.id === "kronterm-desktop") {
                           return {
                               ...agent,
                               status: (resolvedDesktopStatus === "connected" ? "ready" : "error") as CatalogAgentStatus,
@@ -202,15 +206,15 @@ async function makeDirectFallbackSnapshot(mode: string, reason: string): Promise
             toolCapabilities: [],
             errors,
         },
-        bytebot: {
-            mcpUrl: bytebotMcpUrl,
-            desktopUrl: bytebotDesktopUrl,
+        krontermDesktop: {
+            mcpUrl: krontermDesktopMcpUrl,
+            desktopUrl: krontermDesktopDesktopUrl,
             mcpStatus: resolvedMcpStatus,
             desktopStatus: resolvedDesktopStatus,
             error:
                 resolvedMcpStatus === "connected" && resolvedDesktopStatus === "connected"
                     ? ""
-                    : "Bytebot endpoint unavailable",
+                    : "Kronterm Desktop endpoint unavailable",
         },
         errors,
     };
@@ -562,7 +566,7 @@ export const KronosChatHub = memo(
 
         return (
             <div
-                className="flex min-h-0 flex-1 overflow-hidden bg-[#090b10] text-zinc-100"
+                className="flex min-h-0 flex-1 overflow-hidden bg-zinc-950 text-zinc-100"
                 onContextMenu={onContextMenu}
             >
                 <AgentRail
@@ -594,7 +598,8 @@ export const KronosChatHub = memo(
                                         : loading
                                           ? "Checking KronosCode"
                                           : "KronosCode offline"}{" "}
-                                    · {toolCount} tools · Bytebot MCP {snapshot?.bytebot.mcpStatus || "unknown"}
+                                    · {toolCount} tools · Kron Computer Use{" "}
+                                    {snapshot?.krontermDesktop.mcpStatus || "unknown"}
                                 </div>
                             </div>
                             <select
@@ -638,7 +643,12 @@ export const KronosChatHub = memo(
                                 <option value="computer-use">Computer Use</option>
                             </select>
                             <button
-                                onClick={() => window.open(snapshot?.bytebot.desktopUrl || bytebotDesktopUrl, "_blank")}
+                                onClick={() =>
+                                    window.open(
+                                        snapshot?.krontermDesktop.desktopUrl || krontermDesktopDesktopUrl,
+                                        "_blank"
+                                    )
+                                }
                                 className="cursor-pointer rounded-xl border border-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900"
                             >
                                 Open Desktop
@@ -672,9 +682,11 @@ export const KronosChatHub = memo(
                             </div>
                             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
                                 <div className="mb-2 font-semibold text-zinc-200">MCP</div>
-                                <div>Bytebot: {snapshot?.bytebot.mcpStatus}</div>
-                                <div className="truncate font-mono text-zinc-500">{snapshot?.bytebot.mcpUrl}</div>
-                                <div>Desktop: {snapshot?.bytebot.desktopStatus}</div>
+                                <div>Kronterm Desktop: {snapshot?.krontermDesktop.mcpStatus}</div>
+                                <div className="truncate font-mono text-zinc-500">
+                                    {snapshot?.krontermDesktop.mcpUrl}
+                                </div>
+                                <div>Desktop: {snapshot?.krontermDesktop.desktopStatus}</div>
                             </div>
                             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
                                 <div className="mb-2 font-semibold text-zinc-200">Skills</div>
@@ -709,15 +721,17 @@ export const KronosChatHub = memo(
                                 </div>
                                 <div className="text-2xl font-bold">KronosCode Cowork</div>
                                 <div className="mt-2 max-w-lg text-sm leading-6 text-zinc-400">
-                                    Multi-agent local coding, widget control, Bytebot desktop automation, MCP tools, and
-                                    KronTerm context in one chat surface.
+                                    Multi-agent local coding, widget control, Kronterm Desktop automation, MCP tools,
+                                    and KronTerm context in one chat surface.
                                 </div>
                                 <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs text-zinc-400">
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">
                                         @file mentions
                                     </span>
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">/commands</span>
-                                    <span className="rounded-full border border-zinc-800 px-3 py-1">Bytebot MCP</span>
+                                    <span className="rounded-full border border-zinc-800 px-3 py-1">
+                                        Kron Computer Use
+                                    </span>
                                     <span className="rounded-full border border-zinc-800 px-3 py-1">Widget tools</span>
                                 </div>
                             </div>

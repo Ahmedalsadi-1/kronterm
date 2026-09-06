@@ -19,6 +19,7 @@ import {
     LayoutTreeComputeMoveNodeAction,
     LayoutTreeDeleteNodeAction,
     LayoutTreeFocusNodeAction,
+    LayoutTreeFoldNodeToggleAction,
     LayoutTreeInsertNodeAction,
     LayoutTreeInsertNodeAtIndexAction,
     LayoutTreeMagnifyNodeToggleAction,
@@ -416,11 +417,27 @@ export function magnifyNodeToggle(layoutState: LayoutTreeState, action: LayoutTr
     }
 }
 
+export function foldNodeToggle(layoutState: LayoutTreeState, action: LayoutTreeFoldNodeToggleAction) {
+    if (!action.nodeId) {
+        console.error("invalid foldNodeToggle operation. nodeId must be defined.");
+        return;
+    }
+    if (!layoutState.foldedNodeIds) {
+        layoutState.foldedNodeIds = new Set<string>();
+    }
+    if (layoutState.foldedNodeIds.has(action.nodeId)) {
+        layoutState.foldedNodeIds.delete(action.nodeId);
+    } else {
+        layoutState.foldedNodeIds.add(action.nodeId);
+    }
+}
+
 export function clearTree(layoutState: LayoutTreeState) {
     layoutState.rootNode = undefined;
     layoutState.leafOrder = undefined;
     layoutState.focusedNodeId = undefined;
     layoutState.magnifiedNodeId = undefined;
+    layoutState.foldedNodeIds = undefined;
 }
 
 export function replaceNode(layoutState: LayoutTreeState, action: LayoutTreeReplaceNodeAction) {

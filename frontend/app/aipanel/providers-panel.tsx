@@ -1,11 +1,24 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { getWebServerEndpoint } from "@/util/endpoints";
 import { cn } from "@/util/util";
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 
 type ProviderModel = { id: string; name?: string; toolCall?: boolean; reasoning?: boolean; status?: string };
 type Provider = { id: string; name?: string; connected?: boolean; defaultModelId?: string; models?: ProviderModel[] };
+type NativeConnectorSnapshot = { available?: boolean; connector?: string; status?: string; reason?: string };
+type KronosSnapshot = {
+    connected?: boolean;
+    authConfigured?: boolean;
+    selectedProviderId?: string;
+    selectedModelId?: string;
+    selectedTools?: unknown[];
+    toolCapabilities?: unknown[];
+    nativeWaveConnector?: NativeConnectorSnapshot;
+    providers?: Provider[];
+    errors?: string[];
+};
 
 const ProviderCard = memo(({ provider }: { provider: Provider }) => {
     const [expanded, setExpanded] = useState(false);
@@ -46,39 +59,106 @@ ProviderCard.displayName = "ProviderCard";
 
 export const ProvidersPanel = memo(() => {
     const [providers, setProviders] = useState<Provider[]>([]);
+    const [snapshot, setSnapshot] = useState<KronosSnapshot | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
-    useEffect(() => {
+    const loadSnapshot = useCallback(() => {
+        const webEndpoint = getWebServerEndpoint();
+        if (!webEndpoint) {
+            setProviders([]);
+            setSnapshot(null);
+            setError("Wave web endpoint is unavailable in this window.");
+            setLoading(false);
+            return () => {};
+        }
         let cancelled = false;
-        fetch("http://127.0.0.1:3001/config/providers")
-            .then((r) => r.json())
+        setLoading(true);
+        setError(null);
+        fetch(`${webEndpoint}/api/waveai/kronos/snapshot?mode=${encodeURIComponent("waveai@kronos")}`)
+            .then(async (r) => {
+                const payload = await r.json().catch(() => null);
+                if (!r.ok) {
+                    throw new Error(payload?.error || r.statusText || "KronosCode snapshot unavailable");
+                }
+                return payload;
+            })
             .then((d) => {
-                const raw: any[] = d?.data?.providers ?? d?.providers ?? d?.all ?? [];
+                const nextSnapshot = (d?.data ?? d) as KronosSnapshot;
+                const raw: any[] = nextSnapshot?.providers ?? [];
                 const list: Provider[] = raw.map((p: any) => ({
                     id: p.id ?? p.providerID ?? "",
                     name: p.name ?? p.displayName ?? p.id,
-                    connected: true,
+                    connected: Boolean(p.connected),
                     defaultModelId: p.defaultModelId,
                     models: (Array.isArray(p.models) ? p.models : Object.values(p.models ?? {}))
                         .map((m: any) => ({ id: m.id ?? m.modelID ?? "", name: m.name ?? m.label ?? m.id, toolCall: Boolean(m.toolCall ?? m.tool_call), reasoning: Boolean(m.reasoning), status: m.status }))
                         .filter((m: ProviderModel) => m.id)
                         .slice(0, 100),
                 })).filter((p: Provider) => p.id);
-                if (!cancelled) setProviders(list);
+                if (!cancelled) {
+                    setSnapshot(nextSnapshot);
+                    setProviders(list);
+                    setError(nextSnapshot?.errors?.[0] ?? null);
+                }
             })
-            .catch(() => { if (!cancelled) setError("KronosCode not running — provider list unavailable"); })
+            .catch((err) => {
+                if (!cancelled) {
+                    setSnapshot(null);
+                    setProviders([]);
+                    setError(err instanceof Error ? err.message : "KronosCode snapshot unavailable");
+                }
+            })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, []);
+
+    useEffect(() => loadSnapshot(), [loadSnapshot, refreshNonce]);
+
+    const toolCount = snapshot?.selectedTools?.length ?? snapshot?.toolCapabilities?.length ?? 0;
+    const nativeConnector = snapshot?.nativeWaveConnector;
 
     return (
         <div className="flex-1 overflow-y-auto p-3">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold text-primary flex items-center gap-2">
-                    <i className="fa-solid fa-plug text-accent" /> Providers
+                    <i className="fa-solid fa-plug text-accent" /> Connection Center
                 </h3>
-                {loading && <i className="fa-solid fa-spinner fa-spin text-secondary text-xs" />}
+                <button
+                    type="button"
+                    onClick={() => setRefreshNonce((value) => value + 1)}
+                    className="flex items-center gap-1.5 rounded-md border border-border bg-white/5 px-2 py-1 text-[11px] text-secondary hover:text-primary hover:bg-white/10 cursor-pointer"
+                >
+                    <i className={cn("fa-solid fa-rotate-right", loading && "fa-spin")} />
+                    Refresh
+                </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="rounded-md border border-border bg-black/20 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted">Provider</div>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-primary">
+                        <span className={cn("h-2 w-2 rounded-full", snapshot?.connected ? "bg-green-400" : "bg-yellow-400")} />
+                        {snapshot?.selectedProviderId || "Not selected"}
+                    </div>
+                    <div className="mt-1 text-[11px] text-secondary">{snapshot?.selectedModelId || "No model selected"}</div>
+                </div>
+                <div className="rounded-md border border-border bg-black/20 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted">Tools</div>
+                    <div className="mt-1 text-sm text-primary">{toolCount} capabilities</div>
+                    <div className="mt-1 text-[11px] text-secondary">
+                        {snapshot?.authConfigured ? "Credentials configured" : "Credentials needed"}
+                    </div>
+                </div>
+                <div className="col-span-2 rounded-md border border-border bg-black/20 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted">Native Connector</div>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-primary">
+                        <span className={cn("h-2 w-2 rounded-full", nativeConnector?.available ? "bg-green-400" : "bg-zinc-500")} />
+                        {nativeConnector?.connector || "KronosCode"}
+                        <span className="text-[11px] text-secondary">{nativeConnector?.status || "unknown"}</span>
+                    </div>
+                    {nativeConnector?.reason && <div className="mt-1 text-[11px] text-muted">{nativeConnector.reason}</div>}
+                </div>
             </div>
             {error && (
                 <div className="mb-3 px-3 py-2 bg-yellow-900/20 border border-yellow-700/40 rounded text-xs text-yellow-400 flex items-center gap-2">

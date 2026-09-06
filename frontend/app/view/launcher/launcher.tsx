@@ -129,6 +129,14 @@ export class LauncherViewModel implements ViewModel {
     }
 
     async handleWidgetSelect(widget: WidgetConfigType) {
+        if (
+            widget.blockdef?.meta?.view === "waveai" ||
+            widget.blockdef?.meta?.view === "kronoschat" ||
+            widget.blockdef?.meta?.view === "chathubv2"
+        ) {
+            await replaceBlock(this.blockId, { meta: { view: "chathubv2" } }, true);
+            return;
+        }
         try {
             await replaceBlock(this.blockId, widget.blockdef, true);
         } catch (error) {

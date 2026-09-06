@@ -1,0 +1,249 @@
+- generic [ref=f1e3]:
+  - link "Skip to content" [ref=f1e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f1e5]:
+    - navigation "Main navigation" [ref=f1e6]:
+      - link "KronTerm home" [ref=f1e7] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f1e9]: KronTerm
+      - button "Close navigation" [expanded] [active] [ref=f1e511] [cursor=pointer]
+    - generic [ref=f1e515]:
+      - link "Platform" [ref=f1e516] [cursor=pointer]:
+        - /url: /#platform
+      - link "Capabilities" [ref=f1e517] [cursor=pointer]:
+        - /url: /#capabilities
+      - link "Use cases" [ref=f1e518] [cursor=pointer]:
+        - /url: /#use-cases
+      - link "Security" [ref=f1e519] [cursor=pointer]:
+        - /url: /security
+      - link "Pricing" [ref=f1e520] [cursor=pointer]:
+        - /url: /pricing
+      - link "Request access" [ref=f1e521] [cursor=pointer]:
+        - /url: /download
+  - main [ref=f1e13]:
+    - generic [ref=f1e14]:
+      - generic [ref=f1e16]: Private beta for ambitious technical teams
+      - generic [ref=f1e18]:
+        - heading "The command center for human + agent work." [level=1] [ref=f1e19]
+        - generic [ref=f1e20]:
+          - paragraph [ref=f1e21]: KronTerm unifies terminal, browser, editor, files, sandboxes, desktop control, and AI agents in one living workspace.
+          - generic [ref=f1e22]:
+            - link "Request private beta" [ref=f1e23] [cursor=pointer]:
+              - /url: /download
+            - link "See it in action" [ref=f1e26] [cursor=pointer]:
+              - /url: "#platform"
+      - generic [ref=f1e29]:
+        - img "The KronTerm command center with terminal, browser, files, and AI" [ref=f1e529]
+        - generic [ref=f1e36]:
+          - generic [ref=f1e50]:
+            - strong [ref=f1e51]: KronosCode is working
+            - generic [ref=f1e52]: Reading terminal output + 4 files
+          - generic [ref=f1e53]: LIVE
+        - generic [ref=f1e54]: One workspace
+      - generic [ref=f1e56]: Explore the workspace
+    - generic "KronTerm platform capabilities" [ref=f1e59]:
+      - generic [ref=f1e60]:
+        - generic [ref=f1e61]: Workspace canvas
+        - generic [ref=f1e67]: KronosCode
+        - generic [ref=f1e80]: Terminal
+        - generic [ref=f1e83]: Browser automation
+        - generic [ref=f1e89]: Sandbox VMs
+        - generic [ref=f1e93]: Desktop control
+        - generic [ref=f1e96]: Remote sessions
+        - generic [ref=f1e102]: ACP agents
+        - generic [ref=f1e106]: Workspace canvas
+        - generic [ref=f1e112]: KronosCode
+        - generic [ref=f1e125]: Terminal
+        - generic [ref=f1e128]: Browser automation
+        - generic [ref=f1e134]: Sandbox VMs
+        - generic [ref=f1e138]: Desktop control
+        - generic [ref=f1e141]: Remote sessions
+        - generic [ref=f1e147]: ACP agents
+    - generic [ref=f1e151]:
+      - generic [ref=f1e152]:
+        - paragraph [ref=f1e153]: The KronTerm model
+        - heading "Stop feeding AI a transcript. Give it the workspace." [level=2] [ref=f1e154]
+        - paragraph [ref=f1e155]: Context should not disappear between a terminal, a browser, a diff, and a chat. KronTerm turns them into connected surfaces that people and agents can understand together.
+      - generic [ref=f1e156]:
+        - tablist "KronTerm platform surfaces" [ref=f1e157]:
+          - tab "01 Workspace canvas" [selected] [ref=f1e158] [cursor=pointer]:
+            - generic [ref=f1e159]: "01"
+            - generic [ref=f1e165]: Workspace canvas
+          - tab "02 KronosCode" [ref=f1e168] [cursor=pointer]:
+            - generic [ref=f1e169]: "02"
+            - generic [ref=f1e182]: KronosCode
+          - tab "03 Terminal" [ref=f1e185] [cursor=pointer]:
+            - generic [ref=f1e186]: "03"
+            - generic [ref=f1e189]: Terminal
+          - tab "04 Browser automation" [ref=f1e192] [cursor=pointer]:
+            - generic [ref=f1e193]: "04"
+            - generic [ref=f1e199]: Browser automation
+          - tab "05 Sandbox VMs" [ref=f1e202] [cursor=pointer]:
+            - generic [ref=f1e203]: "05"
+            - generic [ref=f1e207]: Sandbox VMs
+        - tabpanel [ref=f1e210]:
+          - generic [ref=f1e211]:
+            - paragraph [ref=f1e212]: 01 / Command center
+            - heading "Your entire builder loop, composed on one canvas." [level=3] [ref=f1e213]
+            - paragraph [ref=f1e214]: Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface.
+            - link "Explore capability" [ref=f1e215] [cursor=pointer]:
+              - /url: /capabilities/workspace-canvas
+          - generic "KronTerm workspace canvas in motion" [ref=f1e535]
+    - generic [ref=f1e224]:
+      - generic [ref=f1e225]:
+        - paragraph [ref=f1e226]: Built to stay in motion
+        - heading "The work happens here. So does the proof." [level=2] [ref=f1e227]
+        - paragraph [ref=f1e228]: Watch the command line, product, and agent state evolve together—without reconstructing the story later.
+      - generic [ref=f1e229]:
+        - article [ref=f1e230]:
+          - generic [ref=f1e238]:
+            - paragraph [ref=f1e239]: Browser + terminal
+            - heading "Change the code. See the product answer." [level=3] [ref=f1e240]
+          - generic "A browser preview running beside the terminal" [ref=f1e541]
+        - article [ref=f1e247]:
+          - generic [ref=f1e253]:
+            - paragraph [ref=f1e254]: Safe execution
+            - heading "A whole Linux desktop, isolated on demand." [level=3] [ref=f1e255]
+          - img "A Linux sandbox desktop running inside KronTerm" [ref=f1e547]
+          - generic "Sandbox status" [ref=f1e262]:
+            - generic [ref=f1e263]: $ sandbox status
+            - strong [ref=f1e264]: isolated / healthy / ready
+        - article [ref=f1e265]:
+          - generic [ref=f1e273]:
+            - paragraph [ref=f1e274]: Diff-first
+            - heading "Every edit stays reviewable." [level=3] [ref=f1e275]
+          - img "A file diff review in KronosCode" [ref=f1e276]
+        - article [ref=f1e277]:
+          - paragraph [ref=f1e284]: Shared context
+          - heading "One signal, routed to every surface that needs it." [level=3] [ref=f1e285]
+          - paragraph [ref=f1e286]: Terminal output can inform an edit. An edit can trigger a preview. The preview becomes evidence.
+    - generic [ref=f1e287]:
+      - generic [ref=f1e288]:
+        - generic [ref=f1e289]:
+          - paragraph [ref=f1e290]: One system, eight surfaces
+          - heading "Everything your team needs to direct intelligent work." [level=2] [ref=f1e291]
+        - paragraph [ref=f1e292]: Each capability is useful alone. Together they form a control plane where context survives, boundaries stay visible, and the next action is always grounded in evidence.
+      - generic [ref=f1e293]:
+        - link "01 Workspace canvas Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface. Explore" [ref=f1e294] [cursor=pointer]:
+          - /url: /capabilities/workspace-canvas
+          - generic [ref=f1e295]: "01"
+          - heading "Workspace canvas" [level=3] [ref=f1e302]
+          - paragraph [ref=f1e303]: Terminal, browser, editor, files, sandboxes, and AI become one flexible operating surface.
+          - generic [ref=f1e304]: Explore
+        - link "02 KronosCode KronosCode reasons across the live workspace, then acts through visible, inspectable steps. Explore" [ref=f1e307] [cursor=pointer]:
+          - /url: /capabilities/kronoscode
+          - generic [ref=f1e308]: "02"
+          - heading "KronosCode" [level=3] [ref=f1e322]
+          - paragraph [ref=f1e323]: KronosCode reasons across the live workspace, then acts through visible, inspectable steps.
+          - generic [ref=f1e324]: Explore
+        - link "03 Terminal Local shells, durable sessions, logs, and dev servers stay connected to the rest of the workspace. Explore" [ref=f1e327] [cursor=pointer]:
+          - /url: /capabilities/terminal
+          - generic [ref=f1e328]: "03"
+          - heading "Terminal" [level=3] [ref=f1e332]
+          - paragraph [ref=f1e333]: Local shells, durable sessions, logs, and dev servers stay connected to the rest of the workspace.
+          - generic [ref=f1e334]: Explore
+        - link "04 Browser automation Embedded Chromium keeps localhost, documentation, and live product flows beside the code that drives them. Explore" [ref=f1e337] [cursor=pointer]:
+          - /url: /capabilities/browser-automation
+          - generic [ref=f1e338]: "04"
+          - heading "Browser automation" [level=3] [ref=f1e345]
+          - paragraph [ref=f1e346]: Embedded Chromium keeps localhost, documentation, and live product flows beside the code that drives them.
+          - generic [ref=f1e347]: Explore
+        - link "05 Sandbox VMs Disposable Linux desktops let people and agents experiment without putting the host machine at risk. Explore" [ref=f1e350] [cursor=pointer]:
+          - /url: /capabilities/sandbox-vms
+          - generic [ref=f1e351]: "05"
+          - heading "Sandbox VMs" [level=3] [ref=f1e356]
+          - paragraph [ref=f1e357]: Disposable Linux desktops let people and agents experiment without putting the host machine at risk.
+          - generic [ref=f1e358]: Explore
+        - link "06 Desktop control Observe and operate native applications through accessibility and screenshot-based controls. Explore" [ref=f1e361] [cursor=pointer]:
+          - /url: /capabilities/desktop-control
+          - generic [ref=f1e362]: "06"
+          - heading "Desktop control" [level=3] [ref=f1e366]
+          - paragraph [ref=f1e367]: Observe and operate native applications through accessibility and screenshot-based controls.
+          - generic [ref=f1e368]: Explore
+        - link "07 Remote sessions Durable SSH, remote files, and reconnecting sessions stay attached to the workspace. Explore" [ref=f1e371] [cursor=pointer]:
+          - /url: /capabilities/remote-sessions
+          - generic [ref=f1e372]: "07"
+          - heading "Remote sessions" [level=3] [ref=f1e379]
+          - paragraph [ref=f1e380]: Durable SSH, remote files, and reconnecting sessions stay attached to the workspace.
+          - generic [ref=f1e381]: Explore
+        - link "08 ACP agents Configure background and interactive agents for repeatable technical workflows. Explore" [ref=f1e384] [cursor=pointer]:
+          - /url: /capabilities/acp-agents
+          - generic [ref=f1e385]: "08"
+          - heading "ACP agents" [level=3] [ref=f1e390]
+          - paragraph [ref=f1e391]: Configure background and interactive agents for repeatable technical workflows.
+          - generic [ref=f1e392]: Explore
+    - generic [ref=f1e395]:
+      - generic [ref=f1e396]:
+        - paragraph [ref=f1e397]: From intent to evidence
+        - heading "A better loop for the work that actually crosses tools." [level=2] [ref=f1e398]
+        - link "Design a workflow with us" [ref=f1e399] [cursor=pointer]:
+          - /url: /contact-sales
+      - generic [ref=f1e402]:
+        - article [ref=f1e403]:
+          - generic [ref=f1e404]: "01"
+          - heading "Ship a feature" [level=3] [ref=f1e410]
+          - paragraph [ref=f1e411]: Plan, edit, run, preview, and verify without rebuilding context in every tool.
+        - article [ref=f1e412]:
+          - generic [ref=f1e413]: "02"
+          - heading "Investigate a bug" [level=3] [ref=f1e417]
+          - paragraph [ref=f1e418]: Put logs, source, browser state, and an isolated reproduction on the same canvas.
+        - article [ref=f1e419]:
+          - generic [ref=f1e420]: "03"
+          - heading "Review agent work" [level=3] [ref=f1e425]
+          - paragraph [ref=f1e426]: See proposed commands, diffs, screenshots, and results before anything meaningful lands.
+        - article [ref=f1e427]:
+          - generic [ref=f1e428]: "04"
+          - heading "Operate a system" [level=3] [ref=f1e440]
+          - paragraph [ref=f1e441]: Keep remote sessions, dashboards, runbooks, and specialist agents ready in a durable workspace.
+    - generic [ref=f1e443]:
+      - generic [ref=f1e444]:
+        - paragraph [ref=f1e445]: Control is a feature
+        - heading "Powerful agents. Legible boundaries." [level=2] [ref=f1e446]
+        - paragraph [ref=f1e447]: KronTerm keeps host, sandbox, browser, terminal, and remote actions distinct. Teams can bring their own models, review consequential steps, and retain the evidence behind each session.
+        - link "Explore security" [ref=f1e448] [cursor=pointer]:
+          - /url: /security
+      - generic "KronTerm control boundary diagram" [ref=f1e451]:
+        - generic [ref=f1e452]:
+          - strong [ref=f1e453]: KronTerm
+          - generic [ref=f1e454]: policy + context
+        - generic [ref=f1e455]: Terminal
+        - generic [ref=f1e458]: Browser
+        - generic [ref=f1e464]: Sandbox
+        - generic [ref=f1e468]: Desktop
+        - generic [ref=f1e471]: Agents
+    - generic [ref=f1e477]:
+      - paragraph [ref=f1e482]: A new home for technical work
+      - heading "Put the whole workspace behind the next prompt." [level=2] [ref=f1e483]
+      - paragraph [ref=f1e484]: Join the KronTerm private beta and help shape the command center for human + agent teams.
+      - generic [ref=f1e485]:
+        - link "Request private beta" [ref=f1e486] [cursor=pointer]:
+          - /url: /download
+        - link "Talk to the team" [ref=f1e489] [cursor=pointer]:
+          - /url: /contact-sales
+  - contentinfo [ref=f1e490]:
+    - generic [ref=f1e491]:
+      - generic [ref=f1e492]:
+        - link "KronTerm home" [ref=f1e493] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f1e495]: KronTerm
+        - paragraph [ref=f1e496]: The command center for human + agent work.
+      - generic [ref=f1e497]:
+        - generic [ref=f1e498]:
+          - strong [ref=f1e499]: Product
+          - link "Platform" [ref=f1e500] [cursor=pointer]:
+            - /url: /#platform
+          - link "Capabilities" [ref=f1e501] [cursor=pointer]:
+            - /url: /#capabilities
+          - link "Pricing" [ref=f1e502] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=f1e503]:
+          - strong [ref=f1e504]: Company
+          - link "Contact" [ref=f1e505] [cursor=pointer]:
+            - /url: /contact-sales
+          - link "Security" [ref=f1e506] [cursor=pointer]:
+            - /url: /security
+          - link "Private beta" [ref=f1e507] [cursor=pointer]:
+            - /url: /download
+    - generic [ref=f1e508]:
+      - generic [ref=f1e509]: © 2026 KronTerm
+      - generic [ref=f1e510]: Built for serious technical work.

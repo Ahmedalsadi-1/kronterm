@@ -1,0 +1,19 @@
+# KronTerm Voice Engine — Python dependencies
+# Phase 1: Real audio pipeline with STT + TTS
+
+# Audio capture
+sounddevice>=0.5.0
+numpy>=1.26.0
+
+# Speech-to-Text (local, GPU-accelerated via CUDA)
+faster-whisper>=1.0.0
+
+# Text-to-Speech (primary: edge-tts online, fallback: pyttsx3 offline)
+edge-tts>=6.0.0
+pyttsx3>=2.90
+
+# Voice Activity Detection (Phase 2)
+# webrtcvad>=2.0.10
+
+# Audio processing
+# pydub>=0.25.1

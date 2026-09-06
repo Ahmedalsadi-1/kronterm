@@ -16,9 +16,9 @@ export type ConnConfigKeyAtomFnType<Keys extends keyof ConnKeywords = keyof Conn
     key: T
 ) => Atom<ConnKeywords[T]>;
 
-export type SettingsKeyAtomFnType<Keys extends keyof SettingsType = keyof SettingsType> = <T extends Keys>(
+export type SettingsKeyAtomFnType<Keys extends KronSettingsKey = KronSettingsKey> = <T extends Keys>(
     key: T
-) => Atom<SettingsType[T]>;
+) => Atom<T extends keyof SettingsType ? SettingsType[T] : unknown>;
 
 type OmitNever<T> = {
     [K in keyof T as [T[K]] extends [never] ? never : K]: T[K];

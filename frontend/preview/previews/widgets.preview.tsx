@@ -12,12 +12,27 @@ const hasConfigErrorsAtom = atom(false);
 const isDevAtom = atom(true);
 const mockVersionAtom = atom(0);
 
-function makeMockApp(name: string, icon: string, iconcolor: string): AppInfo {
+type PreviewAppInfo = {
+    appid: string;
+    manifest?: {
+        appmeta?: {
+            title?: string;
+            displayname?: string;
+            shortdesc?: string;
+            icon?: string;
+            iconcolor?: string;
+        };
+        configschema?: Record<string, unknown>;
+        dataschema?: Record<string, unknown>;
+        secrets?: Record<string, unknown>;
+    };
+};
+
+function makeMockApp(name: string, icon: string, iconcolor: string): PreviewAppInfo {
     return {
         appid: `local/${name.toLowerCase().replace(/\s+/g, "-")}`,
-        modtime: 0,
         manifest: {
-            appmeta: { title: name, shortdesc: "", icon, iconcolor },
+            appmeta: { title: name, displayname: name, shortdesc: "", icon, iconcolor },
             configschema: {},
             dataschema: {},
             secrets: {},
@@ -25,7 +40,7 @@ function makeMockApp(name: string, icon: string, iconcolor: string): AppInfo {
     };
 }
 
-const mockApps: AppInfo[] = [
+const mockApps: PreviewAppInfo[] = [
     makeMockApp("Weather", "cloud-sun", "#60a5fa"),
     makeMockApp("Stocks", "chart-line", "#34d399"),
     makeMockApp("Notes", "note-sticky", "#fbbf24"),
@@ -61,9 +76,9 @@ const mockWidgets: { [key: string]: WidgetConfigType } = {
     },
     "defwidget@ai": {
         icon: "sparkles",
-        color: "#a78bfa",
-        label: "AI",
-        description: "Open KronosCode",
+        color: "#e8c47c",
+        label: "KronosChat",
+        description: "AI chat with KronosCode agents",
         "display:order": 3,
         blockdef: { meta: { view: "waveai" } },
     },
@@ -91,12 +106,15 @@ function makeWidgetsEnv(
     baseEnv: WaveEnv,
     isDev: boolean,
     hasCustomAIPresets: boolean,
-    apps?: AppInfo[],
+    apps?: PreviewAppInfo[],
     atomOverrides?: Partial<GlobalAtomsType>
 ) {
     return applyMockEnvOverrides(baseEnv, {
         isDev,
-        rpc: { ListAllAppsCommand: () => Promise.resolve(apps ?? []) },
+        rpc: {
+            ListAllAppsCommand: () => Promise.resolve(apps ?? []),
+            ListInstalledAppsCommand: () => Promise.resolve([]),
+        },
         atoms: {
             fullConfigAtom,
             hasCustomAIPresetsAtom: atom(hasCustomAIPresets),
@@ -116,7 +134,7 @@ function WidgetsScenario({
     isDev?: boolean;
     hasCustomAIPresets?: boolean;
     height?: number;
-    apps?: AppInfo[];
+    apps?: PreviewAppInfo[];
 }) {
     const baseEnv = useWaveEnv();
     const envRef = useRef<WaveEnv>(null);
@@ -225,7 +243,12 @@ export function WidgetsPreview() {
             <div key={mockVersion} className="flex flex-col gap-8">
                 <div className="flex flex-row gap-8 items-start flex-wrap">
                     <WidgetsScenario label="normal (with AI presets)" height={550} isDev={isDev} />
-                    <WidgetsScenario label="no custom AI presets" hasCustomAIPresets={false} height={550} isDev={isDev} />
+                    <WidgetsScenario
+                        label="no custom AI presets"
+                        hasCustomAIPresets={false}
+                        height={550}
+                        isDev={isDev}
+                    />
                     <WidgetsScenario label="dev mode (apps button)" height={550} isDev={isDev} apps={mockApps} />
                     <WidgetsScenario label="compact (200px)" height={200} isDev={isDev} apps={mockApps} />
                 </div>

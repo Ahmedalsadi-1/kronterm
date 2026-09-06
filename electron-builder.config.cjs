@@ -22,7 +22,15 @@ const config = {
         {
             from: "./dist",
             to: "./dist",
-            filter: ["**/*", "!bin/*", "bin/wavesrv.${arch}*", "bin/wsh*", "!tsunamiscaffold/**/*"],
+            filter: [
+                "**/*",
+                "!bin/*",
+                "bin/wavesrv.${arch}*",
+                "bin/wsh*",
+                "!tsunamiscaffold/**/*",
+                "!kronoschamber-web/**/*",
+                "!mcp-kron-term/**/*",
+            ],
         },
         {
             from: ".",
@@ -37,14 +45,29 @@ const config = {
             to: "tsunamiscaffold",
         },
         {
-            from: "mcp-kron-term",
+            from: "dist/mcp-kron-term",
             to: "mcp-kron-term",
-            filter: ["dist/**/*", "package.json", "node_modules/**/*"],
+            filter: ["dist/**/*", "package.json"],
+        },
+        {
+            from: "dist/hermes-plugins",
+            to: "hermes-plugins",
+            filter: ["**/*"],
         },
         {
             from: "agents/kronoscode",
             to: "agents/kronoscode",
-            filter: ["bin/kronoscode*", "LICENSE", "README.md"],
+            filter: ["bin/kronoscode", "LICENSE", "README.md"],
+        },
+        {
+            from: ".agents/skills",
+            to: "kronterm-skills",
+            filter: ["**/*"],
+        },
+        {
+            from: "dist/kronoschamber-web",
+            to: "kronoschamber-web",
+            filter: ["**/*"],
         },
     ],
     directories: {

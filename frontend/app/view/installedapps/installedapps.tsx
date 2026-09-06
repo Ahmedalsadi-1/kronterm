@@ -3,7 +3,8 @@
 
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
-import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
+import { createBlockSplitHorizontally } from "@/app/store/global";
+import { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import { makeIconClass } from "@/util/util";
 import clsx from "clsx";
 import type { PrimitiveAtom } from "jotai";
@@ -15,7 +16,6 @@ const featuredApps = ["browseros", "messages", "preview", "iterm"];
 export type InstalledAppsEnv = WaveEnvSubset<{
     rpc: {
         ListInstalledAppsCommand: WaveEnv["rpc"]["ListInstalledAppsCommand"];
-        LaunchInstalledAppCommand: WaveEnv["rpc"]["LaunchInstalledAppCommand"];
     };
 }>;
 
@@ -71,7 +71,6 @@ function InstalledAppsView({ model }: ViewComponentProps<InstalledAppsViewModel>
     const [searchTerm, setSearchTerm] = jotai.useAtom(model.searchTerm);
     const [category, setCategory] = jotai.useAtom(model.categoryAtom);
     const [launchState, setLaunchState] = jotai.useAtom(model.launchStateAtom);
-    const env = useWaveEnv<InstalledAppsEnv>();
 
     const categories = React.useMemo(() => {
         const counts = new Map<string, number>();
@@ -128,14 +127,24 @@ function InstalledAppsView({ model }: ViewComponentProps<InstalledAppsViewModel>
         async (app: InstalledAppInfo) => {
             setLaunchState({ execpath: app.execpath, name: app.name, status: "launching" });
             try {
-                await env.rpc.LaunchInstalledAppCommand(TabRpcClient, { execpath: app.execpath });
+                await createBlockSplitHorizontally(
+                    {
+                        meta: {
+                            view: "appstream",
+                            "appstream:appid": app.bundleid || app.appid,
+                            "appstream:appname": app.name,
+                        } as unknown as MetaType,
+                    },
+                    model.blockId,
+                    "after"
+                );
                 setLaunchState({ execpath: app.execpath, name: app.name, status: "launched" });
             } catch (e) {
-                console.error(`Failed to launch ${app.name}:`, e);
+                console.error(`Failed to stream ${app.name}:`, e);
                 setLaunchState({ execpath: app.execpath, name: app.name, status: "error" });
             }
         },
-        [env, setLaunchState]
+        [model.blockId, setLaunchState]
     );
 
     const handleSearchKeyDown = React.useCallback(
@@ -150,13 +159,13 @@ function InstalledAppsView({ model }: ViewComponentProps<InstalledAppsViewModel>
 
     const statusMessage = React.useMemo(() => {
         if (launchState?.status == "launching") {
-            return `Opening ${launchState.name}...`;
+            return `Starting ${launchState.name} stream...`;
         }
         if (launchState?.status == "launched") {
-            return `Opened ${launchState.name}`;
+            return `Streaming ${launchState.name}`;
         }
         if (launchState?.status == "error") {
-            return `Could not open ${launchState.name}`;
+            return `Could not stream ${launchState.name}`;
         }
         return "";
     }, [launchState]);
@@ -166,9 +175,9 @@ function InstalledAppsView({ model }: ViewComponentProps<InstalledAppsViewModel>
             <div className="p-3 border-b border-border space-y-3">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <div className="text-sm font-semibold text-primary">Open an app</div>
+                        <div className="text-sm font-semibold text-primary">Stream an app</div>
                         <div className="text-xs text-muted">
-                            Launch installed macOS applications without leaving Wave.
+                            Stream installed macOS applications without leaving Wave.
                         </div>
                     </div>
                     <button
@@ -400,8 +409,8 @@ const AppTile = React.memo(({ app, onLaunch, featured, launching, launched }: Ap
             )}
             onClick={() => onLaunch(app)}
             disabled={launching}
-            title={app.description || `Open ${app.name}`}
-            aria-label={`Open ${app.name}`}
+            title={app.description || `Stream ${app.name}`}
+            aria-label={`Stream ${app.name}`}
         >
             <div className={clsx("flex items-center justify-center mb-2", featured ? "w-12 h-12" : "w-10 h-10")}>
                 {iconSrc ? (
@@ -420,6 +429,10 @@ const AppTile = React.memo(({ app, onLaunch, featured, launching, launched }: Ap
                 ) : (
                     <i className="fa fa-arrow-up-right-from-square"></i>
                 )}
+            </span>
+            <span className="absolute left-1 bottom-1 text-[11px] text-accent/70 opacity-0 group-hover:opacity-100 rounded px-1 py-0.5">
+                <i className="fa fa-solid fa-tower-broadcast mr-1"></i>
+                Stream
             </span>
         </button>
     );

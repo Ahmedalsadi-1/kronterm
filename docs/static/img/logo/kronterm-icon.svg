@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">KronTerm</title>
+  <rect width="64" height="64" rx="14" fill="#0b0d0c"/>
+  <path d="M15 18h8v11l13-11h12L32 31l18 15H38L23 33v13h-8z" fill="#58c142"/>
+</svg>

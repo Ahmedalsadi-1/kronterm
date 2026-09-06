@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildBrowserInteractionScript } from "./tabrpcclient";
+import {
+    buildBrowserInteractionScript,
+    buildSandboxDragPayload,
+    buildSandboxKeyboardPressPayload,
+    buildSandboxScrollPayload,
+    sandboxComputerUseUrlFromStatus,
+} from "./tabrpcclient";
 
 class FakeElement {
     id = "";
@@ -135,5 +141,59 @@ describe("browser interaction scripts", () => {
 
         expect(result.success).toBe(true);
         expect(container.scrollTop).toBe(125);
+    });
+});
+
+describe("sandbox computer-use URL resolution", () => {
+    it("prefers the advertised MCP URL", () => {
+        expect(
+            sandboxComputerUseUrlFromStatus({
+                status: "running",
+                mcpUrl: "http://127.0.0.1:4567/computer-use/",
+                desktopUrl: "http://localhost:9990/novnc/vnc_lite.html?scale=true",
+            })
+        ).toBe("http://127.0.0.1:4567/computer-use");
+    });
+
+    it("derives computer-use from the desktop preview URL", () => {
+        expect(
+            sandboxComputerUseUrlFromStatus({
+                status: "running",
+                desktopUrl: "http://localhost:9990/novnc/vnc_lite.html?scale=true",
+            })
+        ).toBe("http://localhost:9990/computer-use");
+    });
+
+    it("falls back to the development endpoint when status has no URL", () => {
+        expect(sandboxComputerUseUrlFromStatus({ status: "running" })).toBe("http://localhost:9990/computer-use");
+    });
+});
+
+describe("sandbox computer-use payloads", () => {
+    it("uses type_keys for widget key presses", () => {
+        expect(buildSandboxKeyboardPressPayload(["Enter"])).toEqual({
+            action: "type_keys",
+            keys: ["Enter"],
+        });
+    });
+
+    it("uses scrollCount and optional coordinates for sandbox scrolling", () => {
+        expect(buildSandboxScrollPayload("down", 125, 40, 50)).toEqual({
+            action: "scroll",
+            direction: "down",
+            scrollCount: 3,
+            coordinates: { x: 40, y: 50 },
+        });
+    });
+
+    it("uses a path for sandbox drags", () => {
+        expect(buildSandboxDragPayload(10, 20, 30, 40)).toEqual({
+            action: "drag_mouse",
+            button: "left",
+            path: [
+                { x: 10, y: 20 },
+                { x: 30, y: 40 },
+            ],
+        });
     });
 });

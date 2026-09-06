@@ -8,9 +8,11 @@ export interface BlockNodeModel {
     blockId: string;
     isFocused: Atom<boolean>;
     isMagnified: Atom<boolean>;
+    isFolded: Atom<boolean>;
     onClose: () => void;
     focusNode: () => void;
     toggleMagnify: () => void;
+    toggleFold: () => void;
 }
 
 export type FullBlockProps = {

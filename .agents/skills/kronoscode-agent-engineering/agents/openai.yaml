@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronosCode Agent Engineering"
+  short_description: "Build reliable ACP agent runtime behavior"
+  default_prompt: "Use $kronoscode-agent-engineering to design or improve a KronosCode ACP runtime workflow with durable evidence and control."

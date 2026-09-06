@@ -1,6 +1,7 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import {
@@ -28,6 +29,7 @@ import {
     NullAtom,
 } from "@/util/util";
 import { atom, Atom, PrimitiveAtom, useAtomValue } from "jotai";
+import { getAdaptiveSplitDirection } from "./adaptive-split";
 import { setupBadgesSubscription } from "./badge";
 import { atoms, blockComponentModelMap, ConnStatusMapAtom, initGlobalAtoms, orefAtomCache } from "./global-atoms";
 import { globalStore } from "./jotaiStore";
@@ -36,9 +38,9 @@ import { ClientService, ObjectService } from "./services";
 import { isPreviewWindow } from "./windowtype";
 import * as WOS from "./wos";
 import { getFileSubject, waveEventSubscribeSingle } from "./wps";
-import { reportAgentSurfaceActivity, type AgentSurfaceActivity } from "@/app/aipanel/desktop-pet-activity";
 
 let globalPrimaryTabStartup: boolean = false;
+let removeDesktopPetSurfaceActivityListener: (() => void) | null = null;
 
 function initGlobal(initOpts: GlobalInitOptions) {
     globalPrimaryTabStartup = initOpts.primaryTabStartup ?? false;
@@ -47,6 +49,10 @@ function initGlobal(initOpts: GlobalInitOptions) {
     try {
         getApi().onMenuItemAbout(() => {
             modalsModel.pushModal("AboutModal");
+        });
+        removeDesktopPetSurfaceActivityListener?.();
+        removeDesktopPetSurfaceActivityListener = getApi().onDesktopPetSurfaceActivity((activity) => {
+            reportAgentSurfaceActivity(activity as AgentSurfaceActivity);
         });
     } catch (e) {
         console.log("failed to initialize onMenuItemAbout handler", e);
@@ -216,16 +222,18 @@ function useOverrideConfigAtom<T extends keyof SettingsType>(blockId: string | n
     return useAtomValue(getOverrideConfigAtom(blockId, key));
 }
 
-function getSettingsKeyAtom<T extends keyof SettingsType>(key: T): Atom<SettingsType[T]> {
-    if (isPreviewWindow()) return NullAtom as Atom<SettingsType[T]>;
-    let settingsKeyAtom = settingsAtomCache.get(key) as Atom<SettingsType[T]>;
+function getSettingsKeyAtom<T extends keyof SettingsType>(key: T): Atom<SettingsType[T]>;
+function getSettingsKeyAtom(key: KronSettingsKey): Atom<unknown>;
+function getSettingsKeyAtom(key: KronSettingsKey): Atom<unknown> {
+    if (isPreviewWindow()) return NullAtom as Atom<unknown>;
+    let settingsKeyAtom = settingsAtomCache.get(key) as Atom<unknown>;
     if (settingsKeyAtom == null) {
         settingsKeyAtom = atom((get) => {
             const settings = get(atoms.settingsAtom);
             if (settings == null) {
                 return null;
             }
-            return settings[key];
+            return settings[key as keyof SettingsType];
         });
         settingsAtomCache.set(key, settingsKeyAtom);
     }
@@ -400,6 +408,34 @@ async function createBlock(blockDef: BlockDef, magnified = false, ephemeral = fa
     const blockId = await ObjectService.CreateBlock(blockDef, rtOpts);
     if (ephemeral) {
         layoutModel.newEphemeralNode(blockId);
+        return blockId;
+    }
+    const focusedNode = globalStore.get(layoutModel.focusedNode);
+    const focusedBlockId = focusedNode?.data?.blockId;
+    const focusedBlockElement = focusedBlockId
+        ? document.querySelector<HTMLElement>(`[data-blockid="${focusedBlockId}"]`)
+        : null;
+    if (!magnified && focusedNode && focusedBlockElement) {
+        const { width, height } = focusedBlockElement.getBoundingClientRect();
+        const direction = getAdaptiveSplitDirection(width, height);
+        const newNode = newLayoutNode(undefined, undefined, undefined, { blockId });
+        const splitAction: LayoutTreeSplitHorizontalAction | LayoutTreeSplitVerticalAction =
+            direction === "horizontal"
+                ? {
+                      type: LayoutTreeActionType.SplitHorizontal,
+                      targetNodeId: focusedNode.id,
+                      newNode,
+                      position: "after",
+                      focused: true,
+                  }
+                : {
+                      type: LayoutTreeActionType.SplitVertical,
+                      targetNodeId: focusedNode.id,
+                      newNode,
+                      position: "after",
+                      focused: true,
+                  };
+        layoutModel.treeReducer(splitAction);
         return blockId;
     }
     const insertNodeAction: LayoutTreeInsertNodeAction = {
@@ -673,8 +709,8 @@ export {
     getApi,
     getBlockComponentModel,
     getBlockMetaKeyAtom,
-    getConnConfigKeyAtom,
     getBlockTermDurableAtom,
+    getConnConfigKeyAtom,
     getConnStatusAtom,
     getFocusedBlockId,
     getHostName,

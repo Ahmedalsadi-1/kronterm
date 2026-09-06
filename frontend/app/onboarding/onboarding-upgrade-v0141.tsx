@@ -6,8 +6,8 @@ const UpgradeOnboardingModal_v0_14_1_Content = () => {
         <div className="flex flex-col items-start w-full mb-2 unselectable">
             <div className="text-secondary leading-relaxed mb-4">
                 <p className="mb-0">
-                    Wave v0.14.1 fixes several high-impact terminal bugs and adds new config options for focus, cursor
-                    style, and block navigation.
+                    KronTerm v0.14.1 fixes several high-impact terminal bugs and adds new config options for focus,
+                    cursor style, and block navigation.
                 </p>
             </div>
 
@@ -29,8 +29,8 @@ const UpgradeOnboardingModal_v0_14_1_Content = () => {
                                 <strong>Scroll Position on Resize</strong> - Terminal stays at bottom across resizes
                             </li>
                             <li>
-                                <strong>Terminal Scrollback Save</strong> - New context menu item and{" "}
-                                <code>wsh</code> command to save scrollback to a file
+                                <strong>Terminal Scrollback Save</strong> - New context menu item and <code>wsh</code>{" "}
+                                command to save scrollback to a file
                             </li>
                         </ul>
                     </div>

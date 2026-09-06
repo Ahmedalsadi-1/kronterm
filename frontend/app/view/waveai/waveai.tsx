@@ -21,6 +21,7 @@ import { atom, Atom, PrimitiveAtom, useAtomValue, WritableAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
 import type { OverlayScrollbars } from "overlayscrollbars";
 import { OverlayScrollbarsComponent, OverlayScrollbarsComponentRef } from "overlayscrollbars-react";
+import type { CSSProperties } from "react";
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { debounce, throttle } from "throttle-debounce";
 import "./waveai.scss";
@@ -525,7 +526,7 @@ const ChatItem = ({ chatItemAtom, model }: ChatItemProps) => {
 
 interface ChatWindowProps {
     chatWindowRef: React.RefObject<HTMLDivElement>;
-    msgWidths: object;
+    msgWidths: CSSProperties;
     model: WaveAiModel;
 }
 
@@ -706,7 +707,7 @@ const WaveAi = ({ model }: { model: WaveAiModel; blockId: string }) => {
     const [showKronosAnimation, setShowKronosAnimation] = useState(true);
 
     const baseFontSize: number = 14;
-    const msgWidths = {};
+    const msgWidths: CSSProperties = {};
     const locked = useAtomValue(model.locked);
     const aiOpts = useAtomValue(model.aiOpts);
     const isUsingProxy = isBlank(aiOpts.apitoken) && isBlank(aiOpts.baseurl);

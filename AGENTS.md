@@ -1,146 +1,218 @@
-# Wave Terminal — Project Knowledge Base
+# KronTerm — Project Knowledge Base
 
-**Generated:** 2026-05-17
-**Commit:** main
-**Type:** Hybrid Electron + Go Desktop Application
-**Version:** 0.14.3
+**Type:** Agent-aware Electron + Go desktop workspace
+**Base version:** Wave Terminal 0.14.3 with the KronTerm private-beta product layer
+**Go module:** `github.com/wavetermdev/waveterm` (retained for source compatibility)
+
+## Product Model
+
+KronTerm is the user-facing product name. It combines terminal, browser, file, preview, sandbox, remote, native-app, and
+AI surfaces in one persistent workspace. KronosCode is the agent execution engine; KronosChamber is its primary chat and
+control surface.
+
+The desktop has four workspace presentations that share the same blocks (`app:layoutmode` — `widgets` | `tabs` | `canvas` | `os`):
+
+- `widgets`: resizable tiled splits.
+- `tabs`: focused widgets in a browser-style tab strip with pane splitting.
+- `canvas`: a pan-and-zoom spatial workspace with live widgets, notes, shapes, connectors, and agent task cards.
+- `os`: KronTerm OS spatial desktop — calm window composition, flat grid overview, Cover Flow app switcher, connected shell dock, and typed `os.*` surface actions for agent control (current development line, see `frontend/app/workspace/kronarchy-shell.tsx` and `.kilocode/skills/kronterm-os/SKILL.md`).
+
+The current development line also includes the KronTerm OS shell (dock, overview, app-stream rails, native app launches via shared `AppIcon`, no-overshoot springs, quiet menu entrances), Hermes agent panel with slash commands and working badges (`/files`, `/terminal`, `/preview`), grouped file browser with drag-to-canvas, command center palette at `Cmd+Shift+Space`, live agent activity overlays, task/evidence graphs, selection-to-agent context, a managed KronosChamber runtime, LSP-backed editing, improved computer-use streams, an optional voice engine, and desktop pet / overlay windows. The `mobile/` client and phone-control bridge are Labs work. Do not present experimental or Labs functionality as generally available.
+
+Legacy `Wave`, `WaveAI`, `waveai:*`, `.waveterm`, and Go module names remain in compatibility-sensitive code and config.
+Use KronTerm and KronosCode in new user-facing copy, but never rename compatibility identifiers as part of an unrelated
+change.
 
 ## Quick Reference
 
-| Need               | Location                            |
-| ------------------ | ----------------------------------- |
-| Add RPC call       | `pkg/wshrpc/` → run `task generate` |
-| Add config setting | `pkg/wconfig/` → see skill guide    |
-| Frontend state     | `frontend/app/store/` (Jotai)       |
-| AI backends        | `pkg/waveai/`                       |
-| AI chat tools      | `pkg/aiusechat/`                    |
-| SSH connections    | `pkg/remote/`                       |
-| Electron IPC       | `emain/`                            |
-| Terminal views     | `frontend/app/view/term/`           |
-| Job management     | `pkg/jobmanager/`                   |
-| Tsunami VDOM       | `tsunami/engine/`                   |
+| Need                        | Location                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| Add RPC call                | `pkg/wshrpc/wshrpctypes.go` → `task generate`                                  |
+| Add config setting          | `pkg/wconfig/` → `.kilocode/skills/add-config/SKILL.md`                        |
+| Frontend state              | `frontend/app/store/` (Jotai)                                                  |
+| Workspace presentations     | `frontend/app/tab/` (`widget-tabs-layout.tsx`, `workspace-canvas.tsx`) + `frontend/app/workspace/kronarchy-shell.tsx` (`os` mode) |
+| Workspace layout model      | `frontend/app/workspace/workspace-layout-model.ts`                             |
+| KronosChamber view          | `frontend/app/view/chathubv2/` (has its own AGENTS.md)                         |
+| KronosChamber runtime       | `emain/chathubv2-*.ts`, `emain/acp/`, `emain/kronoscode-runtime.ts`            |
+| Kronarchy / KronTerm OS shell | `frontend/app/workspace/kronarchy-shell.tsx` + `.kilocode/skills/kronterm-os/SKILL.md` (`os.*` typed actions, Overview, Cover Flow, AppStream rails) |
+| Hermes agent UI             | `frontend/hermes/`, `agents/hermes/`, `emain/hermes-runtime.ts` + `frontend/app/workspace/workspace-hermes-panel.ts` (`/files`, `/terminal`, `/preview` slash commands) |
+| Desktop pet and overlay     | `desktop-pet/`, `emain/emain-pet.ts`, `emain/emain-overlay.ts`, `frontend/pet/`|
+| Agent activity and overlays | `frontend/types/agent-activity.ts`, `frontend/app/view/use-agent-overlays.ts`  |
+| KronosCode package boundary | `agents/kronoscode/`                                                           |
+| AI backends                 | `pkg/waveai/`, `pkg/aiusechat/`                                                |
+| KronTerm MCP bridge         | `mcp-kron-term/`                                                               |
+| Code intelligence           | `frontend/app/lsp/`, `emain/emain-lsp.ts`                                      |
+| Voice                       | `audio-engine/`, `emain/emain-audio.ts`, `frontend/app/aipanel/voice-model.ts` |
+| Sandbox                     | `pkg/sandbox/`, `frontend/app/view/sandbox/`                                   |
+| Computer-use stream         | `frontend/app/view/appstream/`                                                 |
+| SSH connections             | `pkg/remote/`                                                                  |
+| Electron IPC                | `emain/emain-ipc.ts`, `emain/preload.ts`                                       |
+| Terminal views              | `frontend/app/view/term/`                                                      |
+| Tsunami VDOM                | `tsunami/engine/`                                                              |
+| Electron API access         | `getApi()` from `@/store/global`                                               |
+| iPhone Labs client          | `mobile/`                                                                      |
+| Product website             | `website/`                                                                     |
+| Documentation site          | `docs/`                                                                        |
 
-## OVERVIEW
+## Build, Lint, Test
 
-Wave Terminal (v0.14.3) — AI-native cross-platform terminal. Electron app with React 19 frontend and Go backend communicating over WebSocket RPC.
+```bash
+task dev                # Development (hot reload, full stack)
+task start              # Standalone run (production-like)
+task quickdev           # Dev mode, no docsite/wsh build (macOS arm64)
+task package            # Production build + electron-builder
+task preview            # Component preview (localhost:7007, no Electron)
+task check:ts           # TypeScript typecheck (tsc --noEmit)
+task generate           # Regenerate TS bindings from Go types
+task init               # Full project init (npm install + go mod tidy)
+npm --prefix website run build  # Validate the product website
+npm --prefix docs run build     # Validate the Docusaurus site
+npm --prefix mcp-kron-term run test  # Build + test the MCP server
+npm --prefix mobile test            # Mobile client Vitest suite
+npm --prefix mobile run test:host   # Phone bridge host tests (node --test)
 
-## STRUCTURE
+# Lint & format
+npx eslint .            # Lint TS/TSX (config: eslint.config.js)
+npx prettier --check .  # Check formatting (config: prettier.config.cjs)
+
+# Frontend tests (Vitest)
+npm test                # Run all frontend tests (watch mode)
+npm test -- --run       # Run once (no watch)
+npx vitest run src/path/file.test.ts  # Single test file
+npx vitest run -t "test name"         # Single test by name pattern
+npm run coverage        # Run with coverage (istanbul → lcov/)
+
+# Backend tests (Go)
+go test ./pkg/...                    # All Go packages
+go test ./pkg/waveai/...             # Single package
+go test ./pkg/waveai/... -run TestFn # Single test function
+go vet ./pkg/...                     # Static analysis
+
+# NEVER run `go build` in sub-packages — breaks compilation detection.
+# VSCode error diagnostics are sufficient to verify Go compilation.
+```
+
+## Project Structure
 
 ```
 kronterm/
-├── emain/              # Electron main process (TypeScript)
+├── emain/              # Electron main process, native bridges, managed agent runtimes
 ├── frontend/           # React renderer (TypeScript/TSX)
-│   ├── app/            # Main application components
-│   │   ├── store/      # Jotai state management (CRITICAL)
-│   │   ├── view/       # View types (term, waveai, preview, etc)
-│   │   ├── element/    # Shared UI components
-│   │   ├── block/      # Block system
-│   │   ├── tab/        # Tab management
-│   │   ├── onboarding/ # Onboarding flow
-│   │   ├── aipanel/    # AI panel
-│   │   ├── modals/     # Modal dialogs
-│   │   └── hook/       # React hooks
+│   ├── app/            # Components: block/, tab/, view/, store/, aipanel/, element/
 │   ├── builder/        # Builder app
-│   ├── layout/         # Layout system
-│   ├── preview/        # Standalone preview server
-│   ├── util/           # Frontend utilities
-│   └── types/          # TypeScript type definitions
-├── cmd/                # Go CLI apps (wsh daemon, server)
-├── pkg/                # Go packages
-│   ├── wshrpc/         # RPC system (backbone)
-│   ├── wshutil/        # WSH utilities (routing, adapters)
-│   ├── aiusechat/      # AI chat tools & backends
-│   ├── jobmanager/     # Job & stream management
-│   ├── service/        # Service layer
-│   ├── remote/         # SSH/WSL connections
-│   ├── waveai/         # AI provider backends
-│   ├── wconfig/        # Configuration system
-│   ├── wstore/         # Database persistence
-│   ├── wcore/          # Core business logic
-│   ├── waveobj/        # Object model
-│   ├── wps/            # Wave PubSub events
-│   ├── vdom/           # Virtual DOM bridge
-│   ├── filestore/      # File storage
-│   ├── streamclient/   # Streaming client
-│   ├── utilds/         # Data structures
-│   └── util/           # Shared utilities
-├── tsunami/            # Embedded monorepo (workspace)
-│   ├── engine/         # VDOM rendering engine
-│   └── frontend/       # Tsunami frontend
+│   ├── hermes/         # Hermes agent app embedded as a native widget (+ hermes-shared/)
+│   ├── layout/         # Layout engine (AGENTS.md inside; tests in layout/tests/)
+│   ├── overlay/        # Overlay window renderer
+│   ├── pet/            # Desktop pet renderer
+│   ├── preview/        # Standalone preview server (no Electron)
+│   ├── util/           # Utilities (base64, color, endpoints, etc.)
+│   └── types/          # TypeScript types (gotypes.d.ts is GENERATED)
+├── cmd/                # Go CLI apps (wsh daemon, server, generators)
+├── pkg/                # Go packages (wshrpc, waveai, wps, wconfig, etc.)
+├── agents/             # Packaged agent boundaries (kronoscode, hermes)
+├── mcp-kron-term/      # KronTerm workspace and computer-use MCP server
+├── audio-engine/       # Optional Python speech capture, STT, and TTS process
+├── desktop-pet/        # Standalone desktop pet window content
+├── mobile/             # KronTerm for iPhone Labs client and connector
+├── tsunami/            # Embedded VDOM rendering engine (Go + frontend)
 ├── db/                 # SQLite migrations
-├── docs/               # Docusaurus site
-└── .kilocode/          # AI coding rules & skills
+├── website/            # Vite product website
+├── video/              # Remotion promo/intro video production (see video/AGENTS.md)
+└── docs/               # Docusaurus documentation site
+
+Embedded sibling git repos (separate projects with their own docs — not part of core changes):
+`kronoscoder/`, `third_party/`, `UI-TARS-desktop/`, `vendor/`.
+
+`krondesign/` is a large self-documented design-systems work area (own AGENTS.md tree) — treat as separate from core changes.
 ```
 
-## BUILD
+Nested `AGENTS.md` files exist in most working directories (`emain/`, `cmd/`, `pkg/*`, `frontend/app/{block,store,tab,view,element,onboarding}`, `frontend/app/view/chathubv2/`, `frontend/layout/`, `frontend/preview/`, `frontend/hermes/`, `mcp-kron-term/`, `mobile/`, `video/`, `tsunami/engine/`, `krondesign/**`). Read the nearest one before working there.
 
-```bash
-task dev          # Development (hot reload)
-task start        # Standalone run
-task package      # Production build
-task preview      # Component preview (localhost:7007)
-npm test          # Frontend tests (Vitest)
-```
+## Key Generated Files (DO NOT EDIT)
 
-## KEY FILES
+| File                                 | Source                                        |
+| ------------------------------------ | --------------------------------------------- |
+| `frontend/types/gotypes.d.ts`        | Go types → `task generate`                    |
+| `frontend/app/store/wshclientapi.ts` | `pkg/wshrpc/wshrpctypes.go` → `task generate` |
+| `pkg/wshrpc/metaconsts.go`           | Generated constants                           |
 
-| Task                | Location                             | Notes                                |
-| ------------------- | ------------------------------------ | ------------------------------------ |
-| RPC definitions     | `pkg/wshrpc/wshrpctypes.go`          | Source of truth for all RPC commands |
-| Frontend RPC client | `frontend/app/store/wshclientapi.ts` | **Generated** - do not edit          |
-| TypeScript types    | `frontend/types/gotypes.d.ts`        | **Generated** - do not edit          |
-| Electron main       | `emain/emain.ts`                     | App lifecycle                        |
-| Window management   | `emain/emain-window.ts`              | `WaveBrowserWindow` class            |
-| State management    | `frontend/app/store/global.ts`       | Singleton atoms                      |
-| AI integration      | `pkg/waveai/`                        | Wave AI backend                      |
-| AI chat tools       | `pkg/aiusechat/`                     | Tool implementations, usechat logic  |
-| Config system       | `pkg/wconfig/`                       | Settings management                  |
-| Job management      | `pkg/jobmanager/`                    | Circular buffers, stream management  |
-| Tsunami engine      | `tsunami/engine/`                    | VDOM rendering, server handlers      |
+## Code Style Guidelines
 
-## CRITICAL RULES
+### General
 
-### DO NOT
+- **4-space indentation** (`.editorconfig`, `prettier.config.cjs`)
+- **Lowercase filenames** everywhere (except `Taskfile.yml`, etc.)
+- **Use 2026 for new/updated copyright years**
+- **Comments only for WHY**: never describe what code does; explain non-obvious choices, edge cases, or pitfalls. No comment is better than a redundant comment.
+- **Print width**: 120 characters
+- **Trailing commas**: ES5-style (no trailing commas on function calls)
+- **Prettier plugins**: `prettier-plugin-jsdoc`, `prettier-plugin-organize-imports`
 
-- ❌ Run `go build` — breaks compilation detection
-- ❌ Manually edit generated files (`gotypes.d.ts`, `wshclientapi.ts`, `metaconsts.go`)
-- ❌ Use `cursor-help`, `cursor-not-allowed` (looks terrible)
-- ❌ Use `atob()`/`btoa()` — use `@/util/util` base64 functions
-- ❌ Use `=== undefined` — use `== null`
-- ❌ Use default exports — named exports only
-- ❌ Add comments describing code — comments only for WHY
-- ❌ Use `write_to_file` — prefer `replace_in_file`
-- ❌ Call useAtom/useAtomValue inline in JSX — must be top-level
-- ❌ Hold `cm.lock` while calling SSHConn methods — causes deadlock
+### TypeScript / React
 
-### MUST
+- **Named exports only** — no `export default`
+- **Imports**: `@/...` aliases for cross-module (`@/app/`, `@/store/`, `@/util/`, `@/element/`, `@/view/`, `@/layout/`, `@/shadcn/`, `@/builder/`, `@/preview/`); relative imports (`./name`) only within same directory
+- **`== null` / `!= null`** — never `=== undefined` / `!== undefined` (unless specifically distinguishing undefined from null)
+- **Base64**: use `@/util/util` functions, never `atob()` / `btoa()` (not UTF-8 safe)
+- **CSS merging**: use `cn()` from `@/util/util` (wraps tailwind-merge + clsx)
+- **Class variants**: use `class-variance-authority` (cva)
+- **Styling**: Tailwind v4 preferred; SCSS deprecated for new code
+- **Accent buttons**: `bg-accent/80 text-primary rounded hover:bg-accent transition-colors cursor-pointer`
+- **`cursor-pointer`** on all clickable elements; never `cursor-help` or `cursor-not-allowed`
+- **Atom hooks** (`useAtom`, `useAtomValue`) must be called at component top level, never inline in JSX; complete all hook calls before any conditional returns
+- **`React.memo()`** components must have a `displayName`
+- **No private class fields** (impossible to inspect at runtime)
+- **PascalCase** for global constants at top of files
+- **Early returns** preferred: `if (!cond) { return };` over nesting in if-blocks
+- **TypeScript strict null checks off** — no need for `| null` on types; cast `atom(null)` to `PrimitiveAtom<Type>` for writable atoms
+- **`React.RefObject`** (not deprecated `MutableRefObject`) for React 19
+- **`no-explicit-any`** is off; `no-unused-vars` is warn with `_` prefix, `e` (event), `get` ignored
 
-- ✅ Use `lock.Lock(); defer lock.Unlock()` for synchronization
-- ✅ Use `@/...` aliases for cross-module imports
-- ✅ 4-space indentation
-- ✅ "Make" not "New" for Go constructors
-- ✅ String constants (not enum types) in Go
-- ✅ Lowercase JSON field names
-- ✅ Add `cursor-pointer` to buttons
-- ✅ Add displayName to React.memo()
-- ✅ Early returns: `if (!cond) { return };`
+### Jotai Model Pattern
 
-## SKILL GUIDES
+- Singleton per model: `getInstance()`, `private constructor`, `private static instance`
+- Simple atoms as field initializers; derived/readonly atoms in constructor
+- Models never use React hooks; use `globalStore.get/set` instead
+- Writable atoms typed as `PrimitiveAtom<Type>` (not generic `atom<Type>`)
+- OK to call model methods from event handlers or `useEffect`
+- Older models may not use the singleton pattern yet
+- Import `globalStore` from `@/app/store/jotaiStore`
+- Access Electron API via `getApi()` from `@/store/global` (type: `ElectronApi` in `custom.d.ts`)
 
-Located in `.kilocode/skills/` — read these for specific tasks:
+### Go
 
-- `add-config/` — Adding configuration settings
-- `add-rpc/` — Adding RPC calls
-- `add-wshcmd/` — Adding wsh commands
-- `context-menu/` — Creating and displaying context menus
-- `create-view/` — Creating new view types
-- `electron-api/` — Electron IPC communication
-- `waveenv/` — Creating WaveEnv narrowings
-- `wps-events/` — Event system (Wave PubSub)
+- **String constants, not enum types**: `const StatusRunning = "running"` instead of `type Status string`
+- **"Make" not "New"** for constructors: `MakeFoo()` not `NewFoo()`
+- **Synchronization**: `lock.Lock(); defer lock.Unlock()` pattern; avoid inline lock/unlock pairs; prefer helper functions with `defer`
+- **Constants at top of file** (before types and functions)
+- **JSON field names**: all lowercase, no underscores
+- **`Printf()` preferred over `Println()`**
+- **Never use `go build`** — rely on VSCode/IDE diagnostics to verify compilation
 
-## ANTI-PATTERNS
+### Skill Guides
 
-- **Backend touching frontend atoms** — strict boundary
-- **Private class fields** — impossible to inspect
-- **Deep nesting** — use early returns
+Read the matching `.kilocode/skills/<name>/SKILL.md` before these tasks:
+
+| Skill          | When to Read                                                   |
+| -------------- | -------------------------------------------------------------- |
+| `add-config`   | Adding a new configuration setting                             |
+| `add-rpc`      | Adding a new RPC call (modify `wshrpctypes.go`, then generate) |
+| `add-wshcmd`   | Adding a new wsh CLI command                                   |
+| `context-menu` | Creating and displaying right-click context menus              |
+| `create-view`  | Implementing a new view type + BlockRegistry                   |
+| `electron-api` | Adding frontend-to-Electron IPC through preload                |
+| `waveenv`      | Creating WaveEnv narrowings for component trees                |
+| `wps-events`   | Working with Wave PubSub event system                          |
+
+## Anti-Patterns
+
+- **Backend touching frontend atoms** — strict boundary violation
+- **Private class fields** — impossible to inspect at runtime
+- **Deep nesting** — use early returns to flatten
 - **Unrelated file changes in PRs** — one PR = one logical change
+- **Holding `cm.lock` while calling SSHConn methods** — causes deadlock
+- **Editing generated files** — always modify Go source and run `task generate`
+- **`cursor-help` or `cursor-not-allowed`** — looks terrible, never use
+- **Running `go build`** — breaks compilation detection; rely on IDE diagnostics
+- **Adding comments that describe what code does** — the code should speak for itself
+- **Treating `kronoscoder/`, or other embedded sibling repos as core code** — separate git repos with their own conventions

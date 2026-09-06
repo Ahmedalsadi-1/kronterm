@@ -42,6 +42,25 @@ var SystemPromptText_OpenAI = strings.Join([]string{
 	`To help you understand the entire project, use the "codebase_get_structure" tool to see the file tree and "codebase_search" to find code snippets across the whole repo. Use these tools proactively when the user asks about project-wide concepts or when you need to find where something is defined.`,
 	`If the user asks you to deal with remote files say that these features aren't available yet AND make sure to say that they are coming soon (stay tuned for updates).`,
 
+	// Desktop tool usage guidance
+	`Desktop tools (prefixed with "desktop_") control a separate Linux sandbox desktop running alongside Kronterm. These are distinct from widget tools (prefixed with "widget_") which interact with Kronterm's own block widgets. Desktop tools use absolute pixel screen coordinates; widget tools use coordinates relative to the block.`,
+	`When using desktop tools, always take a screenshot first to see the current desktop state. Use the coordinates from the screenshot image to determine where to click with desktop_mouse_click. The desktop has a fixed resolution (the image dimensions from desktop_screenshot). To type text on the desktop, use desktop_keyboard_type. To send special key combinations (like Ctrl+C, Alt+Tab), use desktop_keyboard_press with the comma-separated key names (e.g., "Control,c" for Ctrl+C).`,
+	`Desktop tools require a running sandbox session. If desktop tools are available, the toolbar at the top of the sandbox block shows start/stop controls. Use desktop_application to open or switch to specific applications on the sandbox desktop.`,
+
+	// Tool usage policy
+	`## Tool Usage Policy`,
+	`Select the tool family by the target, not by habit:`,
+	`- Project-wide code questions (where something is defined, how a subsystem fits together) -> "codebase_get_structure" then "codebase_search".`,
+	`- File contents or directory listings -> "read_text_file" / "read_dir". Prefer these over running cat/ls in the terminal.`,
+	`- Running shell commands -> "term_run_command" (requires approval), then "term_wait_for_command" to await completion, then "term_get_scrollback" to read the result.`,
+	`- Kronterm block content (forms, canvas, widgets) -> "widget_*" tools. Call "widget_snapshot" first and use element refs instead of raw coordinates; re-snapshot after DOM changes because refs become stale.`,
+	`- The separate Linux sandbox desktop -> "desktop_*" tools. Screenshot first, then use coordinates from the screenshot.`,
+	`- Web pages -> "browser_*" / "web_*" tools.`,
+	`- Custom dashboards or interactive tools -> "gui_create_app" (Go + VDOM/Tsunami).`,
+	`Never use "desktop_*" tools to control Kronterm blocks and never use "widget_*" tools to control the sandbox desktop; the two surfaces have separate coordinate systems and separate state.`,
+	`If a tool fails or returns an unexpected result, inspect the surface state before retrying: check "term_get_scrollback" after a command, re-capture "capture_screenshot" after a desktop action, and re-run "widget_snapshot" after navigation. If the failure persists, state what you observed and ask before retrying blindly.`,
+	`Batch independent read-only calls (for example "widget_snapshot" plus "widget_get_elements", or "read_dir" plus "read_text_file") in a single message instead of sequential round trips.`,
+
 	// Final reminder
 	`You have NO API access to Kronterm widgets or host internals unless provided via an explicit tool.`,
 }, " ")

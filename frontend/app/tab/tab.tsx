@@ -12,8 +12,8 @@ import clsx from "clsx";
 import { useAtomValue } from "jotai";
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { makeORef } from "../store/wos";
-import { TabBadges } from "./tabbadges";
 import "./tab.scss";
+import { TabBadges } from "./tabbadges";
 import { buildTabContextMenu } from "./tabcontextmenu";
 
 export type TabEnv = WaveEnvSubset<{
@@ -41,6 +41,7 @@ interface TabVProps {
     isNew: boolean;
     badges?: Badge[] | null;
     flagColor?: string | null;
+    groupColor?: string | null;
     onClick: () => void;
     onClose: (event: React.MouseEvent<HTMLButtonElement, MouseEvent> | null) => void;
     onDragStart: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
@@ -61,6 +62,7 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
         isNew,
         badges,
         flagColor,
+        groupColor,
         onClick,
         onClose,
         onDragStart,
@@ -187,11 +189,39 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
             })}
             onMouseDown={onDragStart}
             onClick={onClick}
+            onKeyDown={(event) => {
+                if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) {
+                    return;
+                }
+                event.preventDefault();
+                onClick();
+            }}
             onContextMenu={onContextMenu}
             data-tab-id={tabId}
+            role="tab"
+            aria-selected={active}
+            tabIndex={0}
         >
+            {groupColor && (
+                <div
+                    className="tab-group-indicator"
+                    style={{
+                        backgroundColor: groupColor,
+                        position: "absolute",
+                        top: "4px",
+                        left: "2px",
+                        bottom: "4px",
+                        width: "3px",
+                        borderRadius: "2px",
+                        boxShadow: `0 0 4px ${groupColor}40`,
+                    }}
+                />
+            )}
             {showDivider && <div className="tab-divider" />}
             <div className="tab-inner">
+                {!badges?.length && !flagColor && (
+                    <i className="fa-regular fa-file-lines tab-document-icon" aria-hidden="true" />
+                )}
                 <div
                     ref={editableRef}
                     className={clsx("name", { focused: isEditable })}
@@ -239,6 +269,7 @@ const TabInner = forwardRef<HTMLDivElement, TabProps>((props, ref) => {
     const badges = useAtomValue(getTabBadgeAtom(id, env));
 
     const rawFlagColor = tabData?.meta?.["tab:flagcolor"];
+    const groupColorHex = tabData?.meta?.["tab:groupcolor"];
     let flagColor: string | null = null;
     if (rawFlagColor) {
         try {
@@ -280,6 +311,16 @@ const TabInner = forwardRef<HTMLDivElement, TabProps>((props, ref) => {
         [id, env]
     );
 
+    const TabGroupColors: Record<string, string> = {
+        blue: "#60a5fa",
+        green: "#4ade80",
+        orange: "#fb923c",
+        red: "#f87171",
+        purple: "#a78bfa",
+        yellow: "#facc15",
+    };
+    const resolvedGroupColor = groupColorHex ? (TabGroupColors[groupColorHex] ?? groupColorHex) : null;
+
     return (
         <TabV
             ref={ref}
@@ -292,6 +333,7 @@ const TabInner = forwardRef<HTMLDivElement, TabProps>((props, ref) => {
             isNew={isNew}
             badges={badges}
             flagColor={flagColor}
+            groupColor={resolvedGroupColor}
             onClick={handleTabClick}
             onClose={onClose}
             onDragStart={onDragStart}

@@ -2,6 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:; img-src 'self' data: blob: file: http: https:; media-src 'self' data: blob: file: http: https:; font-src 'self' data:; frame-src 'self' file: http: https:; worker-src 'self' blob:"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color scheme" content="light dark" />
     <title>Wave</title>
@@ -11,18 +15,7 @@
     <link rel="stylesheet" href="/fontawesome/css/sharp-solid.min.css" />
     <link rel="stylesheet" href="/fontawesome/css/sharp-regular.min.css" />
     <link rel="stylesheet" href="/fontawesome/css/custom-icons.min.css" />
-    <script type="module">
-      if (window.api) {
-        import("/frontend/wave.ts");
-      } else {
-        import("/frontend/acp-browser-preview.tsx").catch((err) => {
-          const elem = document.getElementById("main");
-          if (elem) {
-            elem.innerHTML = `<pre style="padding:24px;color:#991b1b;background:#fff1f2;height:100vh;white-space:pre-wrap;font:13px ui-monospace,monospace">${err?.stack || err?.message || err}</pre>`;
-          }
-        });
-      }
-    </script>
+    <script type="module" src="/frontend/renderer-bootstrap.ts"></script>
   </head>
   <body class="init" data-colorscheme="dark">
     <div id="main" class="flex flex-col w-full h-full"></div>

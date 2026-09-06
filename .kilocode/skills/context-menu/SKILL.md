@@ -3,7 +3,7 @@ name: context-menu
 description: Guide for creating and displaying context menus in Wave Terminal. Use when implementing right-click menus, adding context menu items, creating submenus, or handling menu interactions with checkboxes and separators.
 ---
 
-# Context Menu Quick Reference
+# context-menu
 
 This guide provides a quick overview of how to create and display a context menu using our system.
 

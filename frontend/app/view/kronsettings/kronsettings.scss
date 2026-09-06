@@ -1,0 +1,648 @@
+// Copyright 2026, Command Line Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// Neutral, flat design language (Cursor-like): hairline borders, quiet surfaces,
+// one restrained accent. Decorative gradients and glows read as unprofessional here.
+
+// -- Settings Layout --
+.kron-settings {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    color: var(--text-primary-color);
+    font-family: var(--font-default);
+    background: var(--main-bg-color);
+}
+
+.kron-settings--embedded {
+    min-height: 0;
+    background: transparent;
+
+    .kron-settings-content-inner {
+        max-width: 760px;
+        padding-top: 24px;
+    }
+}
+
+.kron-settings-sidebar {
+    width: 208px;
+    min-width: 208px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    padding: 14px 10px 20px;
+    background: transparent;
+}
+
+.kron-settings-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+}
+
+.kron-settings-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 4px 12px;
+    padding: 4px 8px;
+
+    strong {
+        overflow: hidden;
+        color: var(--text-primary-color);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.kron-settings-brand-mark {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    color: var(--text-secondary-color);
+
+    svg {
+        width: 15px;
+        height: 15px;
+    }
+}
+
+.kron-settings-sidebar-group-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted-color);
+    font-weight: 500;
+    padding: 16px 10px 6px;
+    &:first-child {
+        padding-top: 4px;
+    }
+}
+
+.kron-settings-sidebar-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 9px;
+    min-height: 28px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-secondary-color);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    text-align: left;
+    transition:
+        background 0.1s ease,
+        color 0.1s ease;
+    user-select: none;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        color: var(--text-primary-color);
+    }
+
+    &--active {
+        background: var(--surface-hover-color);
+        color: var(--text-primary-color);
+        font-weight: 500;
+    }
+
+    svg {
+        width: 15px;
+        height: 15px;
+        flex: 0 0 auto;
+        opacity: 0.75;
+    }
+
+    &--active svg {
+        opacity: 1;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--focus-ring-color);
+        outline-offset: -2px;
+    }
+}
+
+.kron-settings-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: transparent;
+}
+
+.kron-settings-content-inner {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 44px 40px 64px;
+}
+
+.kron-settings-content-header {
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.kron-settings-content-title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary-color);
+    line-height: 1.25;
+}
+
+.kron-settings-content-subtitle {
+    max-width: 620px;
+    font-size: 12.5px;
+    color: var(--text-muted-color);
+    margin-top: 5px;
+    line-height: 1.45;
+}
+
+// -- Cards --
+.kron-settings-card {
+    background: var(--surface-raised-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+}
+
+// -- Section Headers --
+.kron-settings-section-header {
+    margin-bottom: 14px;
+}
+
+.kron-settings-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--text-primary-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kron-settings-section-icon {
+    width: 15px;
+    height: 15px;
+    color: var(--text-secondary-color);
+    opacity: 0.9;
+}
+
+.kron-settings-section-desc {
+    font-size: 12px;
+    color: var(--text-muted-color);
+    margin-top: 3px;
+    line-height: 1.45;
+}
+
+// -- Setting Rows --
+.kron-settings-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 40px;
+    padding: 11px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.kron-settings-row--indent {
+    padding-left: 20px;
+}
+
+.kron-settings-row-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.kron-settings-row-title {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-primary-color);
+    line-height: 1.35;
+}
+
+.kron-settings-row-desc {
+    font-size: 11.5px;
+    color: var(--text-muted-color);
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.kron-settings-row-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+// -- Select --
+.kron-settings-select {
+    appearance: none;
+    min-height: 32px;
+    background-color: color-mix(in srgb, var(--main-bg-color) 55%, black);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary-color);
+    font-family: var(--font-default);
+    font-size: 12px;
+    padding: 6px 28px 6px 10px;
+    cursor: pointer;
+    min-width: 150px;
+    transition: border-color 0.12s ease;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a9a9a' d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--border-color) 55%, var(--text-secondary-color));
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--focus-ring-color);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring-color) 20%, transparent);
+    }
+
+    option {
+        background: var(--main-bg-color);
+        color: var(--text-primary-color);
+    }
+}
+
+// -- Input --
+.kron-settings-input {
+    min-height: 32px;
+    background: color-mix(in srgb, var(--main-bg-color) 55%, black);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary-color);
+    font-family: var(--font-default);
+    font-size: 12px;
+    padding: 6px 10px;
+    width: 220px;
+    transition: border-color 0.12s ease;
+
+    &::placeholder {
+        color: var(--text-muted-color);
+        opacity: 0.65;
+    }
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--border-color) 55%, var(--text-secondary-color));
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--focus-ring-color);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring-color) 20%, transparent);
+    }
+
+    &--mono {
+        font-family: var(--fixed-font);
+        font-size: 12px;
+    }
+
+    &--number {
+        width: 72px;
+        text-align: center;
+    }
+}
+
+// -- Slider --
+.kron-settings-slider-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.kron-settings-slider-value {
+    font-size: 12px;
+    color: var(--text-muted-color);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+}
+
+.kron-settings-range {
+    width: 140px;
+    height: 3px;
+    background: color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 2px;
+    appearance: none;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+        appearance: none;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--text-primary-color);
+        border: none;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+        transition: transform 0.1s ease;
+    }
+
+    &::-webkit-slider-thumb:hover {
+        transform: scale(1.1);
+    }
+
+    &:focus-visible {
+        outline: none;
+
+        &::-webkit-slider-thumb {
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.35),
+                0 0 0 3px color-mix(in srgb, var(--focus-ring-color) 25%, transparent);
+        }
+    }
+}
+
+// -- Info Callout --
+.kron-settings-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent-color) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-color) 18%, transparent);
+    font-size: 12px;
+    color: var(--text-secondary-color);
+    line-height: 1.45;
+
+    i {
+        color: var(--accent-color);
+        margin-top: 1px;
+        flex-shrink: 0;
+    }
+}
+
+// -- Keyboard Shortcuts --
+.kron-settings-kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-family: var(--fixed-font);
+    background: color-mix(in srgb, var(--text-primary-color) 7%, transparent);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary-color);
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.kron-settings-shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 6px;
+    transition: background 0.1s ease;
+
+    &:hover {
+        background: var(--surface-hover-color);
+    }
+}
+
+.kron-settings-shortcut-label {
+    font-size: 13px;
+    color: var(--text-primary-color);
+}
+
+.kron-settings-shortcut-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted-color);
+    font-weight: 500;
+    padding: 14px 0 4px 0;
+}
+
+// -- Toggle Overrides for Settings Context --
+.kron-settings .check-toggle-wrapper {
+    .checkbox-toggle {
+        width: 36px;
+        height: 20px;
+
+        .slider {
+            transition:
+                background-color 0.15s ease,
+                transform 0.15s ease;
+        }
+
+        .slider:before {
+            height: 14px;
+            width: 14px;
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    }
+}
+
+// -- About Page --
+.kron-settings-about-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+
+    i {
+        font-size: 26px;
+        color: var(--text-secondary-color);
+    }
+}
+
+.kron-settings-about-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary-color);
+}
+
+.kron-settings-about-tagline {
+    font-size: 12px;
+    color: var(--text-muted-color);
+    margin-top: 1px;
+}
+
+.kron-settings-about-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.kron-settings-about-label {
+    font-size: 12.5px;
+    color: var(--text-secondary-color);
+}
+
+.kron-settings-about-value {
+    font-size: 12.5px;
+    color: var(--text-primary-color);
+    font-family: var(--fixed-font);
+}
+
+.kron-settings-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.kron-settings-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-muted-color);
+    cursor: pointer;
+    transition: color 0.12s ease;
+
+    &:hover {
+        color: var(--text-primary-color);
+    }
+
+    i {
+        font-size: 13px;
+    }
+}
+
+// -- Command & Skill Cards --
+.kron-settings-command-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.kron-settings-command-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-primary-color);
+    font-family: var(--fixed-font);
+}
+
+.kron-settings-command-desc {
+    font-size: 11.5px;
+    color: var(--text-muted-color);
+    margin-top: 1px;
+}
+
+// -- Empty state --
+.kron-settings-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    color: var(--text-muted-color);
+    text-align: center;
+
+    i {
+        font-size: 30px;
+        opacity: 0.35;
+        margin-bottom: 12px;
+    }
+
+    p {
+        font-size: 13px;
+        max-width: 260px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kron-settings * {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .kron-settings {
+        flex-direction: column;
+    }
+
+    .kron-settings-sidebar {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        max-height: 120px;
+        flex-direction: row;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 8px 12px;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .kron-settings-sidebar > div {
+        display: contents;
+    }
+
+    .kron-settings-brand {
+        display: none;
+    }
+
+    .kron-settings-sidebar-group-label {
+        display: none;
+    }
+
+    .kron-settings-sidebar-item {
+        flex: 0 0 auto;
+        min-height: 32px;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        background: transparent;
+        font-size: 12px;
+    }
+
+    .kron-settings-content-inner {
+        padding: 24px 16px 42px;
+    }
+
+    .kron-settings-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .kron-settings-row-control {
+        justify-content: flex-start;
+    }
+
+    .kron-settings-input,
+    .kron-settings-select {
+        width: 100%;
+        min-width: 0;
+    }
+}

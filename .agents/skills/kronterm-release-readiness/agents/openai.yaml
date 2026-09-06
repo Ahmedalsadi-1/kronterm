@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronTerm Release Readiness"
+  short_description: "Apply evidence-based private-beta release gates"
+  default_prompt: "Use $kronterm-release-readiness to assess a KronTerm change against release, privacy, support, and quality gates."

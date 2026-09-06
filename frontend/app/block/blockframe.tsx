@@ -11,14 +11,16 @@ import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
 import { blockViewToIcon, getViewIconElem } from "@/app/block/blockutil";
 import { ConnStatusOverlay } from "@/app/block/connstatusoverlay";
+import { FlickeringGrid } from "@/app/element/flickering-grid";
 import { ChangeConnectionBlockModal } from "@/app/modals/conntypeahead";
-import { getBlockComponentModel, globalStore, useBlockAtom } from "@/app/store/global";
+import { getBlockComponentModel, globalStore, refocusNode, useBlockAtom } from "@/app/store/global";
 import { useTabModel } from "@/app/store/tab-model";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { ErrorBoundary } from "@/element/errorboundary";
 import { NodeModel } from "@/layout/index";
+import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { makeORef } from "@/store/wos";
 import * as util from "@/util/util";
 import { makeIconClass } from "@/util/util";
@@ -26,8 +28,11 @@ import { computeBgStyleFromMeta } from "@/util/waveutil";
 import clsx from "clsx";
 import * as jotai from "jotai";
 import * as React from "react";
+import "./agent-aura.scss";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
+import "./typing-keyboard.scss";
+import { getAdjacentWidgetFocus } from "./widget-focus-utils";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     const waveEnv = useWaveEnv<BlockEnv>();
@@ -67,7 +72,7 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     }
 
     if (blockHighlight && !style.borderColor) {
-        style.borderColor = "rgb(59, 130, 246)";
+        style.borderColor = "rgb(0, 155, 255)";
     }
 
     let innerElem = null;
@@ -98,6 +103,99 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     );
 });
 
+const keyboardRows = [
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+    ["z", "x", "c", "v", "b", "n", "m"],
+];
+
+const TypingKeyboard = React.memo(({ text }: { text: string }) => {
+    const [activeIndex, setActiveIndex] = React.useState(0);
+    const [charIndex, setCharIndex] = React.useState(0);
+
+    React.useEffect(() => {
+        if (charIndex >= text.length) {
+            return;
+        }
+        const timer = setTimeout(() => {
+            setCharIndex((i) => i + 1);
+            setActiveIndex((i) => (i + 1) % 30);
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [charIndex, text.length]);
+
+    const currentChar = text[charIndex - 1]?.toLowerCase() ?? "";
+
+    const getKeyClass = (key: string, idx: number): string => {
+        const classes = ["keyboard-key"];
+        if (key === " ") classes.push("key-space");
+        if (key.toLowerCase() === currentChar) classes.push("key-active");
+        return classes.join(" ");
+    };
+
+    return (
+        <div className="agent-typing-keyboard">
+            <div className="typing-text-preview">
+                {text.slice(0, charIndex)}
+                <span className="typing-cursor-blink" />
+                {text.slice(charIndex)}
+            </div>
+            <div className="keyboard-body">
+                {keyboardRows.map((row, rowIdx) => (
+                    <div key={rowIdx} className="keyboard-row">
+                        {row.map((key, keyIdx) => (
+                            <span key={keyIdx} className={getKeyClass(key, keyIdx)}>
+                                {key}
+                            </span>
+                        ))}
+                    </div>
+                ))}
+                <div className="keyboard-row">
+                    <span className="keyboard-key key-space">space</span>
+                </div>
+            </div>
+        </div>
+    );
+});
+TypingKeyboard.displayName = "TypingKeyboard";
+
+const WidgetFocusArrows = React.memo(() => {
+    const moveFocus = (offset: -1 | 1) => {
+        const layoutModel = getLayoutModelForStaticTab();
+        const focusedNode = globalStore.get(layoutModel.focusedNode);
+        const nextFocus = getAdjacentWidgetFocus(globalStore.get(layoutModel.leafOrder), focusedNode?.id, offset);
+        if (nextFocus == null) {
+            return;
+        }
+        layoutModel.focusNode(nextFocus.nodeid);
+        window.requestAnimationFrame(() => refocusNode(nextFocus.blockid));
+    };
+    const controls = [
+        { offset: -1 as const, name: "left", icon: "arrow-left" },
+        { offset: 1 as const, name: "right", icon: "arrow-right" },
+    ];
+    return (
+        <div className="widget-focus-arrows" aria-label="Move focus between widgets">
+            {controls.map((control) => (
+                <button
+                    type="button"
+                    key={control.name}
+                    className={`widget-focus-arrow widget-focus-arrow-${control.name}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        moveFocus(control.offset);
+                    }}
+                    aria-label={`Focus widget ${control.name}`}
+                    title={`Focus widget ${control.name}`}
+                >
+                    <i className={`fa-solid fa-${control.icon}`} aria-hidden="true" />
+                </button>
+            ))}
+        </div>
+    );
+});
+WidgetFocusArrows.displayName = "WidgetFocusArrows";
 const AgentWidgetOverlay = React.memo(
     ({ activity, settings }: { activity: AgentWidgetActivity; settings: AgentWidgetVisualSettings }) => {
         const cursorStyle = activity.point
@@ -106,31 +204,51 @@ const AgentWidgetOverlay = React.memo(
                   top: activity.point.y,
               } as React.CSSProperties)
             : undefined;
+
+        const pointerStyle = settings.pointerStyle ?? "pixel";
+        const gridColor = pointerStyle === "pixel" ? "30, 144, 255" : "99, 102, 241";
+
+        const isTyping = activity.action === "typing";
+        const typingText = activity.typingText ?? (isTyping ? activity.detail : undefined);
+        const isSmoothCursor = settings.cursor;
+
         return (
             <div className="agent-widget-overlay" aria-hidden="true">
-                {settings.actionChip && (
-                    <div className="agent-widget-chip">
-                        <span className="agent-widget-dot" />
-                        KronosCode {activity.action}
+                {settings.aura && (
+                    <>
+                        <FlickeringGrid
+                            squareSize={3}
+                            gridGap={5}
+                            flickerChance={0.15}
+                            color={`rgb(${gridColor})`}
+                            maxOpacity={0.15}
+                            className="absolute inset-0 z-0"
+                        />
+                        <div className={clsx("agent-widget-aura", `aura-style-${pointerStyle}`)} />
+                    </>
+                )}
+                {isSmoothCursor && (
+                    <div
+                        className={clsx(
+                            "agent-smooth-cursor",
+                            activity.action === "cursor" && "cursor-clicking",
+                            isTyping && "cursor-typing"
+                        )}
+                        style={cursorStyle}
+                    >
+                        <div className="cursor-trail" />
+                        <div className="cursor-ring" />
+                        <div className="cursor-dot" />
                     </div>
                 )}
-                {settings.cursor && activity.action === "typing" ? (
-                    <div className="agent-typing-indicator">
-                        <span />
-                        <span />
-                        <span />
-                    </div>
-                ) : settings.cursor && activity.action !== "view" ? (
-                    <div className="agent-pet-cursor" style={cursorStyle}>
-                        <span>K</span>
-                    </div>
-                ) : null}
+                {isTyping && typingText && <TypingKeyboard text={typingText} />}
                 {settings.screenshots && activity.previewImageUrl ? (
                     <figure className="agent-capture-preview">
                         <figcaption>Agent screenshot</figcaption>
                         <img src={activity.previewImageUrl} alt="" />
                     </figure>
                 ) : null}
+                <div className="agent-pulse-border" />
             </div>
         );
     }
@@ -152,6 +270,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const connModalOpen = jotai.useAtomValue(changeConnModalAtom);
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
+    const isFolded = jotai.useAtomValue(nodeModel.isFolded);
     const [magnifiedBlockBlurAtom] = React.useState(() =>
         waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx")
     );
@@ -168,7 +287,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const [agentSettings, setAgentSettings] = React.useState<AgentWidgetVisualSettings>(() =>
         loadAgentWidgetVisualSettings(nodeModel.blockId)
     );
-    const visualAgentSurface = metaView === "web" || metaView === "sandbox";
+    const visualAgentSurface = true;
 
     React.useEffect(() => {
         if (!visualAgentSurface) {
@@ -261,6 +380,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 "block-no-highlight": numBlocksInTab === 1 && !aiPanelVisible,
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
+                "block-folded": isFolded,
                 "agent-widget-active": agentActivity != null && agentSettings.glow,
             })}
             data-blockid={nodeModel.blockId}
@@ -278,6 +398,10 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
         >
             {agentActivity != null && <AgentWidgetOverlay activity={agentActivity} settings={agentSettings} />}
             <BlockMask nodeModel={nodeModel} />
+            {isFocused &&
+                !preview &&
+                numBlocksInTab > 1 &&
+                ((window as any).__krontermLayoutMode ?? "widgets") !== "canvas" && <WidgetFocusArrows />}
             {preview || viewModel == null || !manageConnection ? null : (
                 <ConnStatusOverlay
                     nodeModel={nodeModel}

@@ -8,7 +8,7 @@ import { VTab, VTabItem } from "./vtab";
 const OriginalCss = globalThis.CSS;
 const HexColorRegex = /^#([\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 
-function renderVTab(tab: VTabItem): string {
+function renderVTab(tab: VTabItem, compact = false): string {
     return renderToStaticMarkup(
         <VTab
             tab={tab}
@@ -20,6 +20,8 @@ function renderVTab(tab: VTabItem): string {
             onDragOver={() => null}
             onDrop={() => null}
             onDragEnd={() => null}
+            compact={compact}
+            compactIndex={compact ? 3 : undefined}
         />
     );
 }
@@ -59,5 +61,16 @@ describe("VTab badges", () => {
         expect(markup).not.toContain("definitely-not-a-color");
         expect(markup).not.toContain("fa-flag");
         expect(markup).toContain("#4ade80");
+    });
+
+    it("keeps the tab accessible while hiding its visible name in compact mode", () => {
+        const markup = renderVTab({ id: "tab-3", name: "Research" }, true);
+
+        expect(markup).toContain('aria-label="Research"');
+        expect(markup).toContain("is-compact");
+        expect(markup).toContain("vtab-item-number");
+        expect(markup).toContain(">3</span>");
+        expect(markup).not.toContain("vtab-item-name");
+        expect(markup).not.toContain("vtab-item-divider");
     });
 });

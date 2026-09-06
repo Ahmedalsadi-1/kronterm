@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { loadAgentWidgetVisualSettings, updateAgentWidgetVisualSetting } from "@/app/block/agent-widget-settings";
-import {
-    blockViewToIcon,
-    blockViewToName,
-    getViewIconElem,
-    OptMagnifyButton,
-    renderHeaderElements,
-} from "@/app/block/blockutil";
+import { buildAgentWidgetShortcutText, isAgentWidgetShortcutView } from "@/app/block/agent-widget-shortcuts";
+import { blockViewToName, renderHeaderElements } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
 import { DurableSessionFlyover } from "@/app/block/durable-session-flyover";
 import { getBlockBadgeAtom } from "@/app/store/badge";
@@ -25,6 +20,7 @@ import * as jotai from "jotai";
 import * as React from "react";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
+import { getSurfaceChromeLabel, getSurfaceChromeName } from "./surface-chrome";
 
 function handleHeaderContextMenu(
     e: React.MouseEvent<HTMLDivElement>,
@@ -37,7 +33,14 @@ function handleHeaderContextMenu(
     e.preventDefault();
     e.stopPropagation();
     const magnified = globalStore.get(nodeModel.isMagnified);
+    const folded = globalStore.get(nodeModel.isFolded);
     const menu: ContextMenuItem[] = [
+        {
+            label: folded ? "Unfold Block" : "Fold Block",
+            click: () => {
+                nodeModel.toggleFold();
+            },
+        },
         {
             label: magnified ? "Un-Magnify Block" : "Magnify Block",
             click: () => {
@@ -52,6 +55,14 @@ function handleHeaderContextMenu(
             },
         },
     ];
+    if (isAgentWidgetShortcutView(metaView)) {
+        menu.push({
+            label: "Copy Agent Widget Shortcuts",
+            click: () => {
+                navigator.clipboard.writeText(buildAgentWidgetShortcutText(blockId, metaView));
+            },
+        });
+    }
     const extraItems = viewModel?.getSettingsMenuItems?.();
     if (extraItems && extraItems.length > 0) menu.push({ type: "separator" }, ...extraItems);
     if (metaView === "web" || metaView === "sandbox") {
@@ -67,6 +78,12 @@ function handleHeaderContextMenu(
                         type: "checkbox",
                         checked: activitySettings.glow,
                         click: () => updateAgentWidgetVisualSetting(blockId, "glow", !activitySettings.glow),
+                    },
+                    {
+                        label: "Pixel Aura",
+                        type: "checkbox",
+                        checked: activitySettings.aura,
+                        click: () => updateAgentWidgetVisualSetting(blockId, "aura", !activitySettings.aura),
                     },
                     {
                         label: "Action Chip",
@@ -88,6 +105,31 @@ function handleHeaderContextMenu(
                         click: () =>
                             updateAgentWidgetVisualSetting(blockId, "screenshots", !activitySettings.screenshots),
                     },
+                    { type: "separator" },
+                    {
+                        label: "Pointer Style",
+                        type: "submenu",
+                        submenu: [
+                            {
+                                label: "Pixel (Stepped)",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "pixel",
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "pixel"),
+                            },
+                            {
+                                label: "Smooth",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "smooth",
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "smooth"),
+                            },
+                            {
+                                label: "Minimal",
+                                type: "radio",
+                                checked: activitySettings.pointerStyle === "minimal",
+                                click: () => updateAgentWidgetVisualSetting(blockId, "pointerStyle", "minimal"),
+                            },
+                        ],
+                    },
                 ],
             }
         );
@@ -95,8 +137,123 @@ function handleHeaderContextMenu(
     menu.push(
         { type: "separator" },
         {
+            label: "KronosCode",
+            type: "submenu" as const,
+            submenu: [
+                {
+                    label: "Explain Output",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "explain-output", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Fix Error",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "fix-error", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Suggest Command",
+                    visible: metaView === "term",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "suggest-command", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Summarize Page",
+                    visible: metaView === "webview" || metaView === "preview",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "summarize-page", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Extract Data",
+                    visible: metaView === "webview",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "extract-data", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Refactor Code",
+                    visible:
+                        metaView === "waveai" ||
+                        metaView === "kronoschat" ||
+                        metaView === "chathubv2" ||
+                        metaView === "codeeditor",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "refactor", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Improve Response",
+                    visible: metaView === "waveai" || metaView === "kronoschat" || metaView === "chathubv2",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "improve", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                { type: "separator" as const },
+                {
+                    label: "Take Screenshot",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "screenshot", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+                {
+                    label: "Send to AI Panel",
+                    click: () => {
+                        document.dispatchEvent(
+                            new CustomEvent("kronoscode:block-action", {
+                                detail: { actionId: "send-to-panel", blockId, blockType: metaView },
+                                bubbles: true,
+                            })
+                        );
+                    },
+                },
+            ],
+        },
+        {
             label: "Close Block",
-            click: () => uxCloseBlock(blockId),
+            click: () => uxCloseBlock(blockId, () => nodeModel.onClose()),
         }
     );
     blockEnv.showContextMenu(menu, e);
@@ -146,68 +303,55 @@ const HeaderTextElems = React.memo(({ viewModel, blockId, preview, error }: Head
 });
 HeaderTextElems.displayName = "HeaderTextElems";
 
-type HeaderEndIconsProps = {
-    viewModel: ViewModel;
+type WidgetTrafficLightsProps = {
     nodeModel: NodeModel;
-    blockId: string;
-    metaView?: string;
+    magnified: boolean;
+    folded: boolean;
 };
 
-const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId, metaView }: HeaderEndIconsProps) => {
-    const blockEnv = useWaveEnv<BlockEnv>();
-    const endIconButtons = util.useAtomValueSafe(viewModel?.endIconButtons);
-    const magnified = jotai.useAtomValue(nodeModel.isMagnified);
-    const ephemeral = jotai.useAtomValue(nodeModel.isEphemeral);
-    const numLeafs = jotai.useAtomValue(nodeModel.numLeafs);
-    const magnifyDisabled = numLeafs <= 1;
-
-    const endIconsElem: React.ReactElement[] = [];
-
-    if (endIconButtons && endIconButtons.length > 0) {
-        endIconsElem.push(...endIconButtons.map((button, idx) => <IconButton key={idx} decl={button} />));
-    }
-    const settingsDecl: IconButtonDecl = {
-        elemtype: "iconbutton",
-        icon: "cog",
-        title: "Settings",
-        click: (e) => handleHeaderContextMenu(e, blockId, viewModel, nodeModel, blockEnv, metaView),
-    };
-    endIconsElem.push(<IconButton key="settings" decl={settingsDecl} className="block-frame-settings" />);
-    if (ephemeral) {
-        const addToLayoutDecl: IconButtonDecl = {
-            elemtype: "iconbutton",
-            icon: "circle-plus",
-            title: "Add to Layout",
-            click: () => {
-                nodeModel.addEphemeralNodeToLayout();
-            },
-        };
-        endIconsElem.push(<IconButton key="add-to-layout" decl={addToLayoutDecl} />);
-    } else {
-        endIconsElem.push(
-            <OptMagnifyButton
-                key="unmagnify"
-                magnified={magnified}
-                toggleMagnify={() => {
+const WidgetTrafficLights = React.memo(({ nodeModel, magnified, folded }: WidgetTrafficLightsProps) => {
+    const stopDrag = (event: React.PointerEvent<HTMLButtonElement>) => event.stopPropagation();
+    return (
+        <div className="block-frame-traffic-lights" aria-label="Widget window controls">
+            <button
+                type="button"
+                className="is-close"
+                title="Close widget"
+                aria-label="Close widget"
+                onPointerDown={stopDrag}
+                onClick={() => uxCloseBlock(nodeModel.blockId, () => nodeModel.onClose())}
+            >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
+            </button>
+            <button
+                type="button"
+                className="is-fold"
+                title={folded ? "Restore widget" : "Fold widget"}
+                aria-label={folded ? "Restore widget" : "Fold widget"}
+                aria-pressed={folded}
+                onPointerDown={stopDrag}
+                onClick={() => nodeModel.toggleFold()}
+            >
+                <i className="fa-solid fa-minus" aria-hidden="true" />
+            </button>
+            <button
+                type="button"
+                className="is-expand"
+                title={magnified ? "Restore widget" : "Expand widget"}
+                aria-label={magnified ? "Restore widget" : "Expand widget"}
+                aria-pressed={magnified}
+                onPointerDown={stopDrag}
+                onClick={() => {
                     nodeModel.toggleMagnify();
-                    setTimeout(() => refocusNode(blockId), 50);
+                    setTimeout(() => refocusNode(nodeModel.blockId), 50);
                 }}
-                disabled={magnifyDisabled}
-            />
-        );
-    }
-
-    const closeDecl: IconButtonDecl = {
-        elemtype: "iconbutton",
-        icon: "xmark-large",
-        title: "Close",
-        click: () => uxCloseBlock(nodeModel.blockId),
-    };
-    endIconsElem.push(<IconButton key="close" decl={closeDecl} className="block-frame-default-close" />);
-
-    return <div className="block-frame-end-icons">{endIconsElem}</div>;
+            >
+                <i className="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true" />
+            </button>
+        </div>
+    );
 });
-HeaderEndIcons.displayName = "HeaderEndIcons";
+WidgetTrafficLights.displayName = "WidgetTrafficLights";
 
 const BlockFrame_Header = ({
     nodeModel,
@@ -220,23 +364,22 @@ const BlockFrame_Header = ({
     const waveEnv = useWaveEnv<BlockEnv>();
     const metaView = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "view"));
     const metaFrameTitle = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:title"));
-    const metaFrameIcon = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:icon"));
     const metaConnection = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "connection"));
     let viewName = util.useAtomValueSafe(viewModel?.viewName) ?? blockViewToName(metaView);
-    let viewIconUnion = util.useAtomValueSafe(viewModel?.viewIcon) ?? blockViewToIcon(metaView);
     const preIconButton = util.useAtomValueSafe(viewModel?.preIconButton);
     const useTermHeader = util.useAtomValueSafe(viewModel?.useTermHeader);
     const termConfigedDurable = util.useAtomValueSafe(viewModel?.termConfigedDurable);
-    const hideViewName = util.useAtomValueSafe(viewModel?.hideViewName);
+    const headerTop = util.useAtomValueSafe(viewModel?.headerTop);
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
+    const folded = jotai.useAtomValue(nodeModel.isFolded);
     const prevMagifiedState = React.useRef(magnified);
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
-    const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
     const isTerminalBlock = metaView === "term";
     viewName = metaFrameTitle ?? viewName;
-    viewIconUnion = metaFrameIcon ?? viewIconUnion;
+    const surfaceLabel = getSurfaceChromeLabel(metaView, viewName);
+    const surfaceName = getSurfaceChromeName(metaView);
 
     React.useEffect(() => {
         if (magnified && !preview && !prevMagifiedState.current) {
@@ -246,60 +389,59 @@ const BlockFrame_Header = ({
         prevMagifiedState.current = magnified;
     }, [magnified]);
 
-    const viewIconElem = getViewIconElem(viewIconUnion, iconColor);
+    const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) =>
+        handleHeaderContextMenu(event, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView);
 
     return (
-        <div
-            className={cn("block-frame-default-header", useTermHeader && "!pl-[2px]")}
-            data-role="block-header"
-            ref={dragHandleRef}
-            onContextMenu={(e) =>
-                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
-            }
-            onDoubleClick={(e) =>
-                handleHeaderContextMenu(e, nodeModel.blockId, viewModel, nodeModel, waveEnv, metaView)
-            }
-        >
-            {!useTermHeader && (
-                <>
-                    {preIconButton && <IconButton decl={preIconButton} className="block-frame-preicon-button" />}
-                    <div className="block-frame-default-header-iconview">
-                        {viewIconElem}
-                        {viewName && !hideViewName && <div className="block-frame-view-type">{viewName}</div>}
-                    </div>
-                </>
-            )}
-            {manageConnection && (
-                <ConnectionButton
-                    ref={connBtnRef}
-                    key="connbutton"
-                    connection={metaConnection}
-                    changeConnModalAtom={changeConnModalAtom}
-                    isTerminalBlock={isTerminalBlock}
-                />
-            )}
-            {useTermHeader && termConfigedDurable != null && (
-                <DurableSessionFlyover
-                    key="durable-status"
-                    blockId={nodeModel.blockId}
-                    viewModel={viewModel}
-                    placement="bottom"
-                    divClassName="iconbutton disabled text-[13px] ml-[-4px]"
-                />
-            )}
-            {useTermHeader && badge && (
-                <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#fbbf24" }}>
-                    <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
+        <>
+            {headerTop && (
+                <div className="block-frame-header-top" onContextMenu={handleContextMenu}>
+                    {headerTop}
                 </div>
             )}
-            <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
-            <HeaderEndIcons
-                viewModel={viewModel}
-                nodeModel={nodeModel}
-                blockId={nodeModel.blockId}
-                metaView={metaView}
-            />
-        </div>
+            <div
+                className={cn("block-frame-default-header", useTermHeader && "!pl-[2px]")}
+                data-role="block-header"
+                data-surface={surfaceName}
+                role="toolbar"
+                aria-label={`${surfaceLabel} widget controls`}
+                ref={dragHandleRef}
+                onContextMenu={handleContextMenu}
+                onDoubleClick={handleContextMenu}
+            >
+                <WidgetTrafficLights nodeModel={nodeModel} magnified={magnified} folded={folded} />
+                {!useTermHeader && preIconButton && (
+                    <IconButton decl={preIconButton} className="block-frame-widget-action block-frame-preicon-button" />
+                )}
+                {manageConnection && (
+                    <ConnectionButton
+                        ref={connBtnRef}
+                        key="connbutton"
+                        connection={metaConnection}
+                        changeConnModalAtom={changeConnModalAtom}
+                        isTerminalBlock={isTerminalBlock}
+                    />
+                )}
+                {useTermHeader && termConfigedDurable != null && (
+                    <DurableSessionFlyover
+                        key="durable-status"
+                        blockId={nodeModel.blockId}
+                        viewModel={viewModel}
+                        placement="bottom"
+                        divClassName="iconbutton disabled text-[13px] ml-[-4px]"
+                    />
+                )}
+                {useTermHeader && badge && (
+                    <div
+                        className="pointer-events-none flex items-center px-1"
+                        style={{ color: badge.color || "#fbbf24" }}
+                    >
+                        <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
+                    </div>
+                )}
+                <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />
+            </div>
+        </>
     );
 };
 

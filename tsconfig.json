@@ -1,7 +1,12 @@
 {
     "include": ["frontend/**/*", "emain/**/*"],
+    "exclude": [
+        "frontend/hermes/plugins/**",
+        "frontend/hermes/debug/render-counter.ts",
+        "frontend/hermes/debug/**"
+    ],
     "compilerOptions": {
-        "target": "es6",
+        "target": "es2020",
         "module": "es2020",
         "jsx": "preserve",
         "esModuleInterop": true,
@@ -23,9 +28,19 @@
             "@/view/*": ["frontend/app/view/*"],
             "@/element/*": ["frontend/app/element/*"],
             "@/shadcn/*": ["frontend/app/shadcn/*"],
-            "@/preview/*": ["frontend/preview/*"]
+            "@/preview/*": ["frontend/preview/*"],
+            "@/stores/*": ["frontend/app/stores/*"],
+            "@/lib/*": ["frontend/app/lib/*"],
+            "@/components/*": ["frontend/app/components/*"],
+            "@hermes/shared": ["frontend/hermes-shared/index.ts"],
+            "@hermes/shared/*": ["frontend/hermes-shared/*"],
+            "@hermes/plugin-sdk": ["frontend/hermes/plugins/plugin-sdk.d.ts"],
+            "@hermes/plugin-sdk/*": ["frontend/hermes/plugins/plugin-sdk.d.ts"],
+            "bippy": ["frontend/hermes/debug/bippy.d.ts"],
+            "bippy/*": ["frontend/hermes/debug/bippy.d.ts"],
+            "@hermes/*": ["frontend/hermes/*"]
         },
-        "lib": ["dom", "dom.iterable", "es6"],
+        "lib": ["dom", "dom.iterable", "es2020"],
         "allowJs": true,
         "strict": false,
         "noEmit": true

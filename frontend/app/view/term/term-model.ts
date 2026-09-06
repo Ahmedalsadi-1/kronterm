@@ -39,6 +39,7 @@ import { isMacOS, isWindows } from "@/util/platformutil";
 import { boundNumber, fireAndForget, stringToBase64 } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
+import { isControllerInputUnavailableError } from "./controller-errors";
 import { getBlockingCommand } from "./shellblocking";
 import { computeTheme, DefaultTermTheme } from "./termutil";
 import { TermWrap, WebGLSupported } from "./termwrap";
@@ -198,7 +199,7 @@ export class TermViewModel implements ViewModel {
                                 elemtype: "textbutton",
                                 text: "Ask KronosCode",
                                 className:
-                                    "border !py-[2px] !px-[8px] text-[11px] font-[500] text-amber-300 border-amber-700/50 hover:border-amber-500/70",
+                                    "surface-header-action is-warning text-amber-300 border-amber-700/50 hover:border-amber-500/70",
                                 title: "Send error to KronosCode for help",
                                 onClick: () => {
                                     this.sendToKronosCode(fullShellProcStatus.shellprocexitcode);
@@ -213,7 +214,7 @@ export class TermViewModel implements ViewModel {
                 rtn.push({
                     elemtype: "textbutton",
                     text: "Multi Input ON",
-                    className: "yellow !py-[2px] !px-[10px] text-[11px] font-[500]",
+                    className: "surface-header-action is-warning yellow",
                     title: "Input will be sent to all connected terminals (click to disable)",
                     onClick: () => {
                         globalStore.set(this.tabModel.isTermMultiInput, false);
@@ -548,7 +549,14 @@ export class TermViewModel implements ViewModel {
 
     sendDataToController(data: string) {
         const b64data = stringToBase64(data);
-        RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, inputdata64: b64data });
+        void RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, inputdata64: b64data }).catch(
+            (error) => {
+                if (isControllerInputUnavailableError(error)) {
+                    return;
+                }
+                console.error("terminal input failed", error);
+            }
+        );
     }
 
     setTermMode(mode: "term" | "vdom") {

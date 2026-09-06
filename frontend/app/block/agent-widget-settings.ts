@@ -3,6 +3,8 @@ type AgentWidgetVisualSettings = {
     actionChip: boolean;
     cursor: boolean;
     screenshots: boolean;
+    aura: boolean;
+    pointerStyle: "pixel" | "smooth" | "minimal";
 };
 
 const DefaultAgentWidgetVisualSettings: AgentWidgetVisualSettings = {
@@ -10,6 +12,8 @@ const DefaultAgentWidgetVisualSettings: AgentWidgetVisualSettings = {
     actionChip: true,
     cursor: true,
     screenshots: true,
+    aura: true,
+    pointerStyle: "pixel",
 };
 
 const SettingsEvent = "agent-widget-settings";
@@ -35,7 +39,7 @@ function saveAgentWidgetVisualSettings(blockId: string, settings: AgentWidgetVis
     window.dispatchEvent(new CustomEvent(SettingsEvent, { detail: { blockId, settings } }));
 }
 
-function updateAgentWidgetVisualSetting(blockId: string, key: keyof AgentWidgetVisualSettings, value: boolean): void {
+function updateAgentWidgetVisualSetting(blockId: string, key: keyof AgentWidgetVisualSettings, value: boolean | string): void {
     saveAgentWidgetVisualSettings(blockId, { ...loadAgentWidgetVisualSettings(blockId), [key]: value });
 }
 

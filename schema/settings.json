@@ -236,6 +236,20 @@
             "left"
           ]
         },
+        "app:layoutmode": {
+          "type": "string",
+          "enum": [
+            "widgets",
+            "tabs",
+            "canvas"
+          ]
+        },
+        "app:quickcomposer": {
+          "type": "boolean"
+        },
+        "app:minimalui": {
+          "type": "boolean"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },
@@ -286,6 +300,18 @@
             "$ref": "#/$defs/ACPGitIdentity"
           },
           "type": "object"
+        },
+        "kronoscode:endpoint": {
+          "type": "string"
+        },
+        "kronoscode:binary": {
+          "type": "string"
+        },
+        "kronoscode:username": {
+          "type": "string"
+        },
+        "kronoscode:passwordsecretname": {
+          "type": "string"
         },
         "sandbox:enabled": {
           "type": "boolean"
@@ -447,6 +473,13 @@
         "web:defaultsearch": {
           "type": "string"
         },
+        "web:tabstripposition": {
+          "type": "string",
+          "enum": [
+            "top",
+            "left"
+          ]
+        },
         "autoupdate:*": {
           "type": "boolean"
         },
@@ -507,6 +540,12 @@
         },
         "window:bgcolor": {
           "type": "string"
+        },
+        "window:wallpaper": {
+          "type": "string"
+        },
+        "window:surfaceopacity": {
+          "type": "number"
         },
         "window:reducedmotion": {
           "type": "boolean"

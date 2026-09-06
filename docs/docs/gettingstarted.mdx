@@ -4,161 +4,96 @@ id: "gettingstarted"
 title: "Getting Started"
 ---
 
-import { PlatformProvider, PlatformSelectorButton, PlatformItem } from "@site/src/components/platformcontext";
 import { Kbd } from "@site/src/components/kbd";
 
-Wave Terminal is a modern terminal that includes graphical capabilities like web browsing, file previews, and AI assistance alongside traditional terminal features. This guide will help you get started.
+KronTerm is currently onboarding macOS private-beta users. This guide covers the private-beta build and the common first
+steps after launch.
 
-## Installation
+## Get access
 
-<PlatformProvider>
-  <PlatformSelectorButton />
+1. [Request private-beta access](https://www.kronterm.dev/download).
+2. Install the macOS build supplied with your invitation.
+3. Complete onboarding and allow only the native permissions required by the surfaces you plan to use.
 
-### Platform requirements
+| Platform                                 | Current status                                       |
+| ---------------------------------------- | ---------------------------------------------------- |
+| macOS 11 or later, Apple Silicon and x64 | Private beta                                         |
+| Windows x64                              | Under evaluation                                     |
+| Linux arm64 and x64                      | Under evaluation                                     |
+| iPhone                                   | Labs client; see the repository's `mobile/README.md` |
 
-<PlatformItem platforms={["mac"]}>
+The repository retains upstream package metadata and compatibility code for Windows and Linux. Do not use old Wave
+package-manager commands as KronTerm release instructions.
 
-- Supported architectures: Apple Silicon, x64
-- Supported OS version: macOS 11 Big Sur or later
+## Create the first workspace
 
-</PlatformItem>
+1. Open KronTerm. A new workspace starts with a terminal widget.
+2. Add the surfaces the project needs: terminal, browser, preview, editor, KronosChamber, or sandbox.
+3. Open **KronSettings → Visual** to select tiled widgets, focused tabs, or the spatial canvas.
+4. Open KronosChamber and choose a configured model provider.
 
-<PlatformItem platforms={["windows"]}>
+KronTerm saves workspace and layout state, so the operating picture can survive an app restart.
 
-- Supported architectures: x64
-- Supported OS version: Windows 10 1809 or later, Windows 11
+## Try the command layer
 
-:::note
-
-ARM64 is planned, but is currently blocked by upstream dependencies (see [Windows ARM Support](https://github.com/wavetermdev/waveterm/issues/928)).
-
-:::
-
-</PlatformItem>
-
-<PlatformItem platforms={["linux"]}>
-
-- Supported architectures: x64, ARM64
-- Supported OS version: must have glibc-2.28 or later (Debian >=10, RHEL >=8, Ubuntu >=20.04, etc.)
-
-</PlatformItem>
-
-### Package managers
-
-<PlatformItem platforms={["mac"]}>
-
-#### Homebrew
+The `wsh` helper connects terminal commands to the graphical workspace:
 
 ```bash
-brew install --cask wave
+# Preview a local file or directory
+wsh view .
+
+# Open a browser widget
+wsh web open https://docs.kronterm.dev
+
+# Add terminal output to the AI composer
+git diff | wsh ai -
 ```
 
-</PlatformItem>
+`wsh` receives an access token from KronTerm and is intended to run inside a KronTerm terminal or an explicitly connected
+session.
 
-<PlatformItem platforms={["windows"]}>
+## Choose a workspace mode
 
-#### Windows Package Manager
+### Tiled widgets
 
-```powershell
-winget install CommandLine.Wave
-```
+Drag widget headers to reflow the split layout. Resize neighboring widgets from their shared edge and use <Kbd k="Cmd:m" />
+to magnify the focused widget.
 
-#### Chocolatey
+### Focused tabs
 
-```powershell
-choco install wave
-```
+Use a browser-style tab strip to keep one widget visible in a pane. Drag a tab to another pane or create a split above,
+right, below, or left.
 
-</PlatformItem>
+### Spatial canvas
 
-<PlatformItem platforms={["linux"]}>
+Pan and zoom across live widgets. Add notes, shapes, connectors, or freehand marks, then keep agent task and evidence cards
+beside the surfaces that produced them. See [Workspace Modes and Canvas](./workspace-canvas).
 
-#### Snap
+## Connect KronosCode
 
-```bash
-sudo snap install --classic waveterm
-```
+KronosChamber is the primary KronosCode chat and control surface. The desktop starts and monitors its local runtime. If the
+runtime cannot become healthy, the view shows the failing component and a suggested recovery action.
 
-Other options available: [AUR package](https://aur.archlinux.org/packages/waveterm) (community maintained), [Nix package](https://search.nixos.org/packages?channel=unstable&show=waveterm) (community maintained)
+You can connect OpenAI, Anthropic, Google, OpenAI-compatible services, Ollama, or LM Studio. Cloud providers receive the
+context sent to their API; local models can keep inference on the machine. See [Providers and Local Models](./waveai-modes).
 
-</PlatformItem>
+## Remote and isolated work
 
-You can also download installers directly from our [Downloads page](https://www.waveterm.dev/download).
+- Use the connection control to open an SSH host. Durable sessions can reconnect after network changes, sleep, or app
+  restarts.
+- Use Kron Sandbox for package installation, reproductions, and browser or desktop work that should remain isolated from
+  the host.
+- Keep host, remote, browser, and sandbox actions on their explicit surfaces when directing an agent.
 
-## Core Concepts
+## Next steps
 
-### Tabs and Blocks
+- Learn [Workspace Modes and Canvas](./workspace-canvas).
+- Review [KronosCode](./waveai) and [Voice](./voice).
+- Explore [Widgets](./widgets) and [Custom Widgets](./customwidgets).
+- Configure [Key Bindings](./keybindings).
+- Read the [full wsh reference](./wsh-reference).
 
-- **Tabs**: Like browser tabs, these help organize your work. Create new tabs with <Kbd k="Cmd:t"/>.
-- **Blocks**: The building blocks of Wave. Each block can be a terminal, web browser, file preview, or other widget.
-- **Layout**: Blocks can be dragged, dropped, and resized to create your ideal layout.
-
-### Key Features
-
-1. **Terminal Features**
-
-   - Works with common shells (bash, zsh, fish)
-   - Supports standard terminal features (readline, control sequences, etc)
-   - Includes the `wsh` command for interacting with Wave's GUI features
-   - GPU accelerated (on most platforms)
-
-2. **Graphical Widgets**
-
-   - Preview files (images, video, markdown, code with syntax highlighting)
-   - Browse web pages
-   - Ask questions and get AI help directly from the terminal (set up multiple AI models)
-   - Basic system monitoring graphs
-
-3. **Remote Connections**
-   - Easy SSH connections with the connection button <i className="fa-sharp fa-laptop"/>
-   - WSL integration on Windows
-   - Consistent experience across local and remote sessions
-
-## Quick Start Guide
-
-1. **Open Your First New Tab**
-
-   - New Wave tabs start with a single terminal block
-   - Use it just like your regular terminal
-   - Create additional terminal blocks with <Kbd k="Cmd:n"/>
-
-2. **Try Some Basic Commands**
-
-   ```bash
-   # View a file or directory
-   wsh view ~/Documents
-
-   # Open a webpage
-   wsh web open github.com
-
-   # Get AI assistance
-   wsh ai -m "how do I find large files in my current directory?" -s
-   ```
-
-3. **Customize Your Layout**
-
-   - Drag block headers to rearrange them
-   - Hover between blocks to resize them
-   - Right-click tab headers for background options
-   - Right-click block headers for block-specific options
-
-4. **Connect to Remote Machines**
-   - Click the <i className="fa-sharp fa-laptop"/> button
-   - Enter `username@hostname` for SSH connections
-   - Or select a WSL distribution on Windows
-
-## Next Steps
-
-- Explore [Key Bindings](./keybindings) to work more efficiently
-- Learn about [Tab Layouts](./layout) to organize your workspace
-- Set up [Custom Widgets](./customwidgets) for quick access to your tools
-- Configure [Wave AI](./waveai) to use your preferred AI models
-- Check out [Configuration](./config) for detailed customization options
-
-## Getting Help
-
-- Join our [Discord community](https://discord.gg/XfvZ334gwU) for help and discussions
-- Report issues on [GitHub](https://github.com/wavetermdev/waveterm/issues)
-- Check our [FAQ](./faq) for common questions
-
-</PlatformProvider>
+For source builds, follow the repository's
+[`BUILD.md`](https://github.com/Ahmedalsadi-1/kronterm/blob/main/BUILD.md). Report issues on
+[GitHub](https://github.com/Ahmedalsadi-1/kronterm/issues) or ask in
+[Discord](https://discord.gg/XfvZ334gwU).

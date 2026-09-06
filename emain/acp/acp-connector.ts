@@ -21,8 +21,24 @@ export async function spawnAcpAgent(
 ): Promise<AcpSpawnResult> {
     const config = ACP_BACKENDS_ALL[backend];
     const acpArgs = customArgs ?? config?.acpArgs;
+    const runtimeEnv = {
+        ...(config?.env ?? {}),
+        ...customEnv,
+    };
+    if (backend === "kronoscode") {
+        runtimeEnv.KRONOSCODE_CLIENT ??= "acp";
+        runtimeEnv.KRONOSCODE_DISABLE_AUTOUPDATE ??= "1";
+        runtimeEnv.KRONOSCODE_DISABLE_EXTERNAL_SKILLS ??= "1";
+    }
+    if (backend === "hermes") {
+        runtimeEnv.HERMES_ACP_SKIP_CONFIGURED_MCP ??= "1";
+    }
+    const bunBinary = path.join(process.env.HOME || "", ".bun", "bin", "bun");
+    if (!runtimeEnv.BUN_BINARY && !process.env.BUN_BINARY && isExecutablePath(bunBinary)) {
+        runtimeEnv.BUN_BINARY = bunBinary;
+    }
 
-    const cleanEnv = await prepareCleanEnv(customEnv);
+    const cleanEnv = await prepareCleanEnv(runtimeEnv);
     const spawnConfig = createSpawnConfig(cliPath, workingDir, acpArgs, cleanEnv as Record<string, string>);
 
     const detached = process.platform !== "win32";
@@ -50,10 +66,29 @@ function isExecutablePath(filePath: string): boolean {
 function detectKronosCodeCli(defaultCliPath?: string): string | null {
     const resourcesPath = (process as typeof process & { resourcesPath?: string }).resourcesPath;
     const candidates = [
+        process.env.KRONOSCODE_BIN,
         process.env.KRONTERM_KRONOSCODE_BIN,
         resourcesPath ? path.join(resourcesPath, "agents", "kronoscode", "bin", "kronoscode") : null,
         path.resolve(import.meta.dirname, "..", "..", "agents", "kronoscode", "bin", "kronoscode"),
+        path.join(process.cwd(), "kronoscoder", "packages", "kronoscode", "bin", "kronoscode"),
         path.join(process.cwd(), "kronoscode", "bin", "kronoscode"),
+        process.env.HOME ? path.join(process.env.HOME, ".kronoscode", "bin", "kronoscode") : null,
+        process.env.HOME ? path.join(process.env.HOME, "bin", "kronoscode") : null,
+        defaultCliPath,
+    ].filter((candidate): candidate is string => Boolean(candidate));
+    return candidates.find((candidate) => isExecutablePath(candidate)) ?? null;
+}
+
+function detectHermesCli(defaultCliPath?: string): string | null {
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    const executableName = process.platform === "win32" ? "hermes.exe" : "hermes";
+    const venvBinDir = process.platform === "win32" ? "Scripts" : "bin";
+    const candidates = [
+        process.env.HERMES_BIN,
+        process.env.KRONTERM_HERMES_BIN,
+        homeDir ? path.join(homeDir, ".hermes", "venvs", "kronterm-hermes", venvBinDir, executableName) : null,
+        homeDir ? path.join(homeDir, ".hermes", "bin", executableName) : null,
+        homeDir ? path.join(homeDir, ".local", "bin", executableName) : null,
         defaultCliPath,
     ].filter((candidate): candidate is string => Boolean(candidate));
     return candidates.find((candidate) => isExecutablePath(candidate)) ?? null;
@@ -111,6 +146,14 @@ export async function detectInstalledAgents(): Promise<
 
         if (id === "kronoscode") {
             const detectedCliPath = detectKronosCodeCli(config.defaultCliPath);
+            if (detectedCliPath) {
+                available = true;
+                cliPath = detectedCliPath;
+            }
+        }
+
+        if (id === "hermes") {
+            const detectedCliPath = detectHermesCli(config.defaultCliPath);
             if (detectedCliPath) {
                 available = true;
                 cliPath = detectedCliPath;

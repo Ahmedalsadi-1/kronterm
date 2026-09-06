@@ -199,6 +199,21 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 		}
 		if viewTypes["web"] {
 			tools = append(tools, GetWebNavigateToolDefinition(tabid))
+			tools = append(tools, GetBrowserGetUrlToolDefinition(tabid))
+			tools = append(tools, GetBrowserReloadToolDefinition(tabid))
+			tools = append(tools, GetBrowserGetStateToolDefinition(tabid))
+			tools = append(tools, GetBrowserClickToolDefinition(tabid))
+			tools = append(tools, GetBrowserTypeTextToolDefinition(tabid))
+			tools = append(tools, GetBrowserScrollToolDefinition(tabid))
+			tools = append(tools, GetBrowserWaitToolDefinition(tabid))
+			tools = append(tools, GetBrowserGetElementsToolDefinition(tabid))
+			tools = append(tools, GetDesktopScrollToolDefinition())
+			tools = append(tools, GetDesktopDragToolDefinition())
+			tools = append(tools, GetDesktopTraceMouseToolDefinition())
+			tools = append(tools, GetDesktopMousePressToolDefinition())
+			tools = append(tools, GetDesktopPasteTextToolDefinition())
+			tools = append(tools, GetDesktopWaitToolDefinition())
+			tools = append(tools, GetDesktopCursorPositionToolDefinition())
 		}
 		if viewTypes["sandbox"] {
 			tools = append(tools, GetSandboxStartToolDefinition())
@@ -209,9 +224,21 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 			tools = append(tools, GetDesktopMouseClickToolDefinition())
 			tools = append(tools, GetDesktopKeyboardTypeToolDefinition())
 			tools = append(tools, GetDesktopKeyboardPressToolDefinition())
+			tools = append(tools, GetDesktopScrollToolDefinition())
+			tools = append(tools, GetDesktopDragToolDefinition())
+			tools = append(tools, GetDesktopCursorPositionToolDefinition())
+			tools = append(tools, GetDesktopPasteTextToolDefinition())
+			tools = append(tools, GetDesktopMousePressToolDefinition())
+			tools = append(tools, GetDesktopTraceMouseToolDefinition())
+			tools = append(tools, GetDesktopPressKeysToolDefinition())
+			tools = append(tools, GetDesktopApplicationToolDefinition())
+			tools = append(tools, GetDesktopWaitToolDefinition())
+			tools = append(tools, GetDesktopReadFileToolDefinition())
+			tools = append(tools, GetDesktopWriteFileToolDefinition())
 		}
 		// Human simulation tools - work across all widget types
 		if len(blocks) > 0 {
+			tools = append(tools, GetOpenWidgetsToolDefinition(tabid))
 			tools = append(tools, GetWidgetGetElementsToolDefinition(tabid))
 			tools = append(tools, GetWidgetGetStateToolDefinition(tabid))
 			tools = append(tools, GetMouseClickToolDefinition(tabid))
@@ -227,6 +254,7 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 			tools = append(tools, GetWidgetElementAtToolDefinition(tabid))
 			tools = append(tools, GetWidgetClickToolDefinition(tabid))
 			tools = append(tools, GetWidgetHoverToolDefinition(tabid))
+			tools = append(tools, GetWidgetMouseMoveToolDefinition(tabid))
 			tools = append(tools, GetWidgetLongPressToolDefinition(tabid))
 			tools = append(tools, GetWidgetDragToolDefinition(tabid))
 			tools = append(tools, GetWidgetScrollToToolDefinition(tabid))
@@ -240,6 +268,7 @@ func GenerateTabStateAndTools(ctx context.Context, tabid string, widgetAccess bo
 			tools = append(tools, GetWidgetWaitConditionToolDefinition(tabid))
 		}
 	}
+	tools = append(tools, GetMCPToolDefinitions()...)
 	tools = markWaveToolDefinitions(tools)
 	if len(tools) > 0 {
 		tabState += GenerateToolCapabilityPrompt(tools)
@@ -320,7 +349,7 @@ func toolActsOnWidgets(toolName string) bool {
 	if strings.HasPrefix(toolName, "mouse_") || strings.HasPrefix(toolName, "keyboard_") {
 		return true
 	}
-	if strings.HasPrefix(toolName, "term_") || strings.HasPrefix(toolName, "web_") {
+	if strings.HasPrefix(toolName, "term_") || strings.HasPrefix(toolName, "web_") || strings.HasPrefix(toolName, "browser_") {
 		return true
 	}
 	switch toolName {

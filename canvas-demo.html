@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kronos Canvas Demo</title>
+<style>
+  :root {
+    --navy: #0C101C;
+    --orange: #F66D41;
+    --orange-ink: #C93E13;
+    --card: #141a2b;
+    --muted: #8a93a8;
+    --fg: #eef1f7;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: radial-gradient(1200px 800px at 20% 10%, #16203a 0%, var(--navy) 60%);
+    color: var(--fg);
+    font-family: "Inter", "Sora", system-ui, sans-serif;
+  }
+  .wrap { display: flex; flex-direction: column; height: 100%; padding: 18px; gap: 14px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .3px; }
+  h1 .dot { color: var(--orange); }
+  .clock { font: 600 14px/1 "JetBrains Mono", monospace; color: var(--muted); }
+  .stage { flex: 1; border-radius: 20px; background: var(--card); border: 1px solid #232c44; overflow: hidden; position: relative; }
+  canvas { width: 100%; height: 100%; display: block; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: var(--orange); color: #1a0d06; border: 0; font-weight: 700;
+    padding: 10px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+  }
+  button.ghost { background: transparent; color: var(--fg); border: 1px solid #2c3654; }
+  input[type=text] {
+    background: #0e1422; border: 1px solid #2c3654; color: var(--fg);
+    padding: 10px 12px; border-radius: 12px; font-size: 13px; min-width: 220px;
+  }
+  .hint { color: var(--muted); font-size: 12px; }
+  .banner {
+    grid-column: 1 / -1; padding: 8px 12px; border-radius: 12px;
+    background: rgba(246,109,65,.12); border: 1px solid rgba(246,109,65,.35);
+    color: #ffd9c9; font-size: 12px; margin-top: 10px;
+  }
+  .banner b { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Kronos Canvas Demo <span class="dot">●</span></h1>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="banner">doop MCP is reachable at <b>localhost:4300</b> — controlled from the doop web app / its 26 MCP tools (for the Hermes/KronosCode agents). This preview is live-editable here.</div>
+    </header>
+    <div class="stage">
+      <canvas id="c"></canvas>
+    </div>
+    <div class="bar">
+      <input id="title" type="text" value="edit me — this is editable HTML" />
+      <button id="regen">Regenerate</button>
+      <button class="ghost" id="theme">Toggle theme</button>
+      <span class="hint">Edit the source file on disk → preview updates.</span>
+    </div>
+  </div>
+<script>
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const title = document.getElementById('title');
+  let dark = true;
+  function resize() {
+    cv.width = cv.clientWidth * devicePixelRatio;
+    cv.height = cv.clientHeight * devicePixelRatio;
+  }
+  window.addEventListener('resize', () => { resize(); draw(); });
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  let blobs = [];
+  function regen() {
+    blobs = Array.from({ length: 7 }, () => ({
+      x: rnd(0, 1), y: rnd(0, 1), r: rnd(.18, .5),
+      hue: rnd(8, 40), sp: rnd(-.0015, .0015)
+    }));
+    draw();
+  }
+  function draw() {
+    const w = cv.width, h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+    blobs.forEach(b => {
+      b.x += b.sp; if (b.x < -0.2 || b.x > 1.2) b.sp *= -1;
+      const g = ctx.createRadialGradient(b.x * w, b.y * h, 0, b.x * w, b.y * h, b.r * Math.max(w, h));
+      const col = dark ? `hsla(${b.hue},90%,60%,.55)` : `hsla(${b.hue},85%,45%,.5)`;
+      g.addColorStop(0, col); g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+  document.getElementById('regen').onclick = regen;
+  document.getElementById('theme').onclick = () => { dark = !dark; regen(); };
+  title.oninput = () => { document.querySelector('h1').firstChild.textContent = title.value + ' '; };
+  function tick() {
+    const d = new Date();
+    document.getElementById('clock').textContent = d.toLocaleTimeString();
+  }
+  setInterval(tick, 1000); tick();
+  resize(); regen();
+</script>
+</body>
+</html>

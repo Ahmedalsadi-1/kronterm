@@ -180,6 +180,19 @@ export function shFrameNavHandler(event: Electron.Event<Electron.WebContentsWill
             // Invalid URL, fall through to prevent navigation
         }
     }
+    if (frameOrAncestorHasName(event.frame, "chathubv2")) {
+        try {
+            const chatHubUrl = new URL(url);
+            if (
+                chatHubUrl.protocol === "http:" &&
+                (chatHubUrl.hostname === "localhost" || chatHubUrl.hostname === "127.0.0.1")
+            ) {
+                return;
+            }
+        } catch (e) {
+            // Invalid URL, fall through to prevent navigation
+        }
+    }
     if (frameOrAncestorHasName(event.frame, "sandbox-desktop")) {
         try {
             const sandboxUrl = new URL(url);

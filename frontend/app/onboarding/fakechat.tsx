@@ -16,32 +16,27 @@ const chatConfigs: ChatConfig[] = [
         userPrompt: "Check out ~/kronterm and summarize the project — what it does and how it's organized.",
         toolName: "read_dir",
         toolDescription: 'reading directory "~/kronterm"',
-        markdownResponse: `Here's a quick, file-structure–driven overview of this repo (Kronterm):
+        markdownResponse: `Here's a quick overview of this repo (KronTerm):
 
 ## What it is
-- Electron + React front end with a Go backend ("wavesrv"). Provides a terminal with GUI widgets, previews, web, and AI. (README.md)
+- Electron + React frontend with a Go backend. Provides an AI-native terminal with GUI widgets, previews, browser, and sandbox. (README.md)
 - Licensed Apache-2.0. (LICENSE)
 
 ## Architecture at a glance
-- **Electron main process:** \`emain/*.ts\` configures windows, menus, preload scripts, updater, and ties into the Go backend via local RPC. (\`emain/\`)
-- **Renderer UI:** React/TS built with Vite, Tailwind. (\`frontend/\`, \`index.html\`, \`electron.vite.config.ts\`)
-- **Go backend ("wavesrv"):** starts services, web and websocket listeners, telemetry loops, config watcher, local RPC, filestore and SQLite-backed object store. (\`cmd/server/main-server.go\`, \`pkg/*\`)
-- **CLI/helper ("wsh"):** built for multiple OS/arch; used for shell integration and remote operations. (\`cmd/wsh/\`, \`Taskfile.yml build:wsh\`)
+- **Electron main process:** \`emain/*.ts\` — windows, menus, preload, updater, Go backend RPC. (\`emain/\`)
+- **Renderer UI:** React 19 + Vite + Tailwind v4. (\`frontend/\`)
+- **Go backend:** services, WebSocket, telemetry, config, RPC, SQLite-backed store. (\`cmd/server/\`, \`pkg/*\`)
+- **CLI helper ("wsh"):** shell integration and remote operations. (\`cmd/wsh/\`)
 
 ## Key directories
-- **cmd/:** entrypoints and generators
-  - \`server/\`: wavesrv main
-  - \`generategs/\`, \`generatego/\`: TS/Go bindings generation
-  - \`wsh/\`: shell helper
-
+- **cmd/:** entrypoints — \`server/\` (main), \`wsh/\` (shell helper)
 - **pkg/:** backend packages
-  - \`wcore/\`: startup coordination, initial data, window/workspace creation
-  - \`web/\`: HTTP+WS servers, Unix listener
+  - \`wcore/\`: startup, workspace creation
   - \`waveai/\`: AI backends (OpenAI, Anthropic, Google, Perplexity)
-  - \`wshrpc\`, \`wshutil\`, \`wslconn\`, \`remote/*\`: local/remote RPC, WSL, SSH, fileshare
-  - \`wstore/\`: persistent store (SQLite via sqlx); \`waveobj/\`: object model
-  - \`filestore/\`: local file cache/storage
-  - \`telemetry/\`: metrics/events, periodic reporting`,
+  - \`wshrpc\`, \`remote/*\`: local/remote RPC, SSH, WSL
+  - \`wstore/\`: persistent store (SQLite)
+  - \`filestore/\`: local file cache
+- **frontend/:** React app with views, blocks, AI panel, settings`,
     },
     {
         userPrompt: "can you analyze the log output in my terminal?",

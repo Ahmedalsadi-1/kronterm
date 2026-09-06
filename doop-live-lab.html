@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Inter:wght@500;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,sans-serif;background:#0a0a0f;color:#e8e8ef;min-height:100%;padding:22px}
+  .wrap{max-width:680px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6d5bff,#00d2ff);display:grid;place-items:center;font-weight:800;font-size:16px;color:white;box-shadow:0 6px 20px rgba(109,91,255,.35)}
+  .title{font-size:17px;font-weight:800;letter-spacing:-.02em}
+  .sub{font-size:12px;color:#9aa0b3;margin-top:2px}
+  .live{margin-left:auto;display:flex;align-items:center;gap:8px;background:#111320;border:1px solid #23253a;border-radius:999px;padding:6px 12px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#aeb4cc}
+  .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 6px rgba(34,197,94,.18);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 6px rgba(34,197,94,.18)}50%{box-shadow:0 0 0 9px rgba(34,197,94,.08)}}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .card{background:linear-gradient(180deg,#15172a,#0f1120);border:1px solid #23253a;border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .card::before{content:'';position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)}
+  .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7b82a0;margin-bottom:6px}
+  .v{font-size:22px;font-weight:800;letter-spacing:-.03em}
+  .delta{font-size:11px;color:#22c55e;margin-top:4px}
+  .wide{grid-column:1/-1;background:linear-gradient(135deg,#6d5bff 0%,#8b5cf6 50%,#00d2ff 100%);border:none;color:white;padding:18px}
+  .wide .k{color:rgba(255,255,255,.82)}
+  .wide .v{font-size:18px;line-height:1.3}
+  .row{display:flex;gap:10px;margin-top:10px}
+  .btn{flex:1;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:white;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  .panel{background:#0f1120;border:1px solid #23253a;border-radius:16px;padding:14px;margin-bottom:12px}
+  .panel h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#9aa0b3;margin-bottom:8px}
+  .edit-area{background:#0a0a0f;border:1px dashed #2a2d47;border-radius:12px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#cbd5e1;min-height:64px}
+  .edit-area b{color:#e8e8ef}
+  .hint{font-size:11px;color:#7b82a0;margin-top:8px;line-height:1.5}
+  .hint code{background:#1a1d33;border:1px solid #2a2d47;padding:1px 6px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#a5b4fc}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chip{font-size:10px;letter-spacing:.04em;background:#1a1d33;border:1px solid #2a2d47;color:#aeb4cc;padding:5px 8px;border-radius:999px}
+  .footer{display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280;margin-top:10px}
+  .mono{font-family:'JetBrains Mono',monospace;font-size:10px;background:#111320;border:1px solid #23253a;padding:4px 7px;border-radius:8px;color:#9aa0b3}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="background:linear-gradient(135deg,#ff3b82 0%,#ff8a00 100%);color:white;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(255,59,130,.35)">✦ Agent edit @ 13:38 — this UI lives ON the KronTerm canvas (preview widget at 600,3600), not localhost. Double-click the widget to edit me back!</div>
+  <div class="top">
+    <div class="logo">◈</div>
+    <div>
+      <div class="title">KronTerm × Doop — Live Lab</div>
+      <div class="sub">Human + agent co-editing the same artboard in real time</div>
+    </div>
+    <div class="live"><span class="dot"></span> live — on canvas!</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="k">Canvas</div>
+      <div class="v">uwvapzF-iO</div>
+      <div class="delta">↗ open at /c/uwvapzF-iO</div>
+    </div>
+    <div class="card">
+      <div class="k">Mode</div>
+      <div class="v">Simultaneous</div>
+      <div class="delta">✦ you + Hermes can edit at once</div>
+    </div>
+    <div class="card wide">
+      <div class="k">Try this right now</div>
+      <div class="v">Select this frame → change the headline, colors, or add a new section in the inspector. I'll see it instantly — and I can stream edits back to you.</div>
+      <div class="row">
+        <button class="btn" onclick="document.getElementById('status').textContent='✦ Human clicked at '+new Date().toLocaleTimeString()">Click me (human)</button>
+        <button class="btn" onclick="this.textContent='✓ Agent will edit next…'">Agent turn →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>✎ Editable zone — change this HTML and watch it morph</h3>
+    <div class="edit-area" id="zone">
+      <b>Headline:</b> Live Co-Edit Lab<br/>
+      <b>Accent:</b> #6d5bff → #00d2ff<br/>
+      <b>Try:</b> change the headline to your name, swap the gradient, or add an emoji wall 🎨
+    </div>
+    <div class="hint">Human path: click the frame → right inspector → edit <code>html</code> (debounced live save).<br/>Agent path: <code>edit_frame_html</code> / <code>append_frame_html</code> / <code>set_frame_html</code> — same <code>actions.broadcast</code> plumbing, no white-flash (DOM-morphed).</div>
+    <div class="chips">
+      <span class="chip">pulsing ✦ designing… border while streaming</span>
+      <span class="chip">colored flash on remote change</span>
+      <span class="chip">undo / redo</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Status</h3>
+    <div id="status" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#22c55e;background:#0a1a12;border:1px solid #1a3a26;border-radius:10px;padding:10px">● Ready — canvas open, awaiting your edit. Try changing something!</div>
+    <div class="footer">
+      <span class="mono">frame: kronterm-live-lab</span>
+      <span>·</span>
+      <span id="clock" class="mono">--:--:--</span>
+      <span style="margin-left:auto;opacity:.7">Doop frame · sandboxed iframe · allow-scripts</span>
+    </div>
+  </div>
+</div>
+<script>
+  setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString()},1000);
+  // tiny easter egg: clicking the live dot triggers a confetti burst
+  document.querySelector('.dot').parentElement.addEventListener('click',()=>{
+    const s=document.getElementById('status');
+    s.textContent='✦ Live dot clicked — agent sees your cursor! Try editing the HTML now.';
+    s.style.color='#a5b4fc'; s.style.borderColor='#2a2d47'; s.style.background='#111320';
+  });
+</script>
+</body>
+</html>

@@ -26,13 +26,17 @@ type ScreenTool interface {
 
 type ScreenSearchTool struct {
 	BaseURL string
+	Client  *http.Client
 }
 
 func NewScreenSearchTool(baseURL string) *ScreenSearchTool {
 	if baseURL == "" {
 		baseURL = DefaultScreenpipeURL
 	}
-	return &ScreenSearchTool{BaseURL: baseURL}
+	return &ScreenSearchTool{
+		BaseURL: baseURL,
+		Client:  &http.Client{Timeout: 30 * time.Second},
+	}
 }
 
 func (t *ScreenSearchTool) Name() string { return "screen_search" }
@@ -57,7 +61,7 @@ func (t *ScreenSearchTool) Execute(ctx context.Context, args map[string]interfac
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := t.Client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("screenpipe not available: %v", err)
 	}
@@ -93,13 +97,17 @@ func (t *ScreenSearchTool) Execute(ctx context.Context, args map[string]interfac
 
 type ScreenRecallTool struct {
 	BaseURL string
+	Client  *http.Client
 }
 
 func NewScreenRecallTool(baseURL string) *ScreenRecallTool {
 	if baseURL == "" {
 		baseURL = DefaultScreenpipeURL
 	}
-	return &ScreenRecallTool{BaseURL: baseURL}
+	return &ScreenRecallTool{
+		BaseURL: baseURL,
+		Client:  &http.Client{Timeout: 30 * time.Second},
+	}
 }
 
 func (t *ScreenRecallTool) Name() string { return "screen_recall" }
@@ -124,7 +132,7 @@ func (t *ScreenRecallTool) Execute(ctx context.Context, args map[string]interfac
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := t.Client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("screenpipe not available: %v", err)
 	}
@@ -144,13 +152,17 @@ func (t *ScreenRecallTool) Execute(ctx context.Context, args map[string]interfac
 
 type ScreenContextTool struct {
 	BaseURL string
+	Client  *http.Client
 }
 
 func NewScreenContextTool(baseURL string) *ScreenContextTool {
 	if baseURL == "" {
 		baseURL = DefaultScreenpipeURL
 	}
-	return &ScreenContextTool{BaseURL: baseURL}
+	return &ScreenContextTool{
+		BaseURL: baseURL,
+		Client:  &http.Client{Timeout: 30 * time.Second},
+	}
 }
 
 func (t *ScreenContextTool) Name() string { return "screen_context" }
@@ -170,7 +182,7 @@ func (t *ScreenContextTool) Execute(ctx context.Context, args map[string]interfa
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := t.Client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("screenpipe not available: %v", err)
 	}

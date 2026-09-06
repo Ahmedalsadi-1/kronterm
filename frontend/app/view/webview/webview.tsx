@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { reportDesktopPetActivity, type AgentWidgetActivity } from "@/app/aipanel/desktop-pet-activity";
 import { BlockNodeModel } from "@/app/block/blocktypes";
 import { Search, useSearch } from "@/app/element/search";
 import { globalStore } from "@/app/store/jotaiStore";
@@ -13,17 +14,141 @@ import {
     SuggestionControlNoData,
     SuggestionControlNoResults,
 } from "@/app/suggestion/suggestion";
+import { ActionMarker } from "@/app/view/action-marker";
+import {
+    AgentWidgetInspectModeEvent,
+    isAgentWidgetInspectModeActive,
+    publishAgentWidgetDesignSelection,
+    setAgentWidgetInspectMode,
+    type AgentWidgetDesignSelection,
+} from "@/app/view/agent-widget-bridge";
+import { CURSOR_OVERLAY_SCRIPT, reportCursorToPet } from "@/app/view/cursor-overlay";
+import { useAgentOverlays } from "@/app/view/use-agent-overlays";
+import { WaterFlowOverlay } from "@/app/view/waterflow-overlay";
 import { MockBoundary } from "@/app/waveenv/mockboundary";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { openLink } from "@/store/global";
 import { adaptFromReactOrNativeKeyEvent, checkKeyPressed } from "@/util/keyutil";
 import { fireAndForget, useAtomValueSafe } from "@/util/util";
 import clsx from "clsx";
 import { WebviewTag } from "electron";
 import { Atom, PrimitiveAtom, atom, useAtomValue, useSetAtom } from "jotai";
 import { Fragment, createRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { subscribeAgentActivityStream } from "../../../types/agent-activity";
+import { makeBrowserPayload, publishCrossViewEvent } from "../../../types/cross-view-bus";
 import "./webview.scss";
 import type { WebViewEnv } from "./webviewenv";
+
+function readHermesOpenDesignTheme() {
+    const resolveColor = (token: string, fallback: string) => {
+        const probe = document.createElement("span");
+        probe.style.color = `var(${token}, ${fallback})`;
+        probe.style.display = "none";
+        document.documentElement.append(probe);
+        const color = getComputedStyle(probe).color || fallback;
+        probe.remove();
+        return color;
+    };
+    return {
+        background: resolveColor("--ui-bg-elevated", "#171717"),
+        surface: resolveColor("--ui-bg-secondary", "#242424"),
+        foreground: resolveColor("--foreground", "#f5f5f5"),
+        muted: resolveColor("--ui-text-secondary", "#b4b4b4"),
+        border: resolveColor("--ui-border", "#454545"),
+    };
+}
+
+const WebViewBrowserChrome = memo(({ model }: { model: WebViewModel }) => {
+    const block = useAtomValue(model.blockAtom);
+    const currentUrl = useAtomValue(model.url);
+    const homepageUrl = useAtomValue(model.homepageUrl);
+    const canGoBack = useAtomValue(model.canGoBack);
+    const canGoForward = useAtomValue(model.canGoForward);
+    const refreshIcon = useAtomValue(model.refreshIcon);
+    const [inspectMode, setInspectMode] = useState(() => isAgentWidgetInspectModeActive(model.blockId));
+    const url = currentUrl ?? block?.meta?.url ?? homepageUrl ?? "";
+
+    useEffect(() => {
+        const handleInspectMode = (event: Event) => {
+            const detail = (event as CustomEvent<{ blockId: string; enabled: boolean }>).detail;
+            if (detail.blockId !== model.blockId) {
+                return;
+            }
+            setInspectMode(detail.enabled);
+            model.webviewRef.current?.send("open-design-set-inspect-mode", {
+                enabled: detail.enabled,
+                theme: readHermesOpenDesignTheme(),
+            });
+        };
+        window.addEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+        return () => window.removeEventListener(AgentWidgetInspectModeEvent, handleInspectMode);
+    }, [model]);
+
+    return (
+        <div className="webview-browser-chrome">
+            <div className="webview-navigation" role="toolbar" aria-label="Browser navigation">
+                <button
+                    type="button"
+                    onClick={() => model.handleBack()}
+                    disabled={!canGoBack}
+                    aria-label="Back"
+                    title="Back"
+                >
+                    <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => model.handleForward()}
+                    disabled={!canGoForward}
+                    aria-label="Forward"
+                    title="Forward"
+                >
+                    <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => model.handleRefresh(null)} aria-label="Reload" title="Reload">
+                    <i className={`fa-solid fa-${refreshIcon}`} aria-hidden="true" />
+                </button>
+                <div className="webview-omnibox">
+                    <i className="fa-solid fa-shield-halved" aria-hidden="true" />
+                    <input
+                        ref={model.urlInputRef}
+                        value={url}
+                        onChange={(event) => model.handleUrlChange(event)}
+                        onKeyDown={(event) => model.handleKeyDown(event)}
+                        onFocus={(event) => model.handleFocus(event)}
+                        onBlur={(event) => model.handleBlur(event)}
+                        aria-label="Address and search"
+                        spellCheck={false}
+                    />
+                </div>
+                <button
+                    type="button"
+                    className={clsx("webview-open-design", inspectMode && "is-active")}
+                    onClick={() => setAgentWidgetInspectMode(model.blockId, !inspectMode)}
+                    aria-label={inspectMode ? "Stop selecting design components" : "Select design components"}
+                    aria-pressed={inspectMode}
+                    title={
+                        inspectMode ? "Stop Open Design inspection" : "Open Design: select and comment on components"
+                    }
+                >
+                    <i className="fa-solid fa-object-group" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (url) {
+                            void model.env.electron.openExternal(model.modifyExternalUrl?.(url) ?? url);
+                        }
+                    }}
+                    aria-label="Open in external browser"
+                    title="Open in external browser"
+                >
+                    <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    );
+});
+WebViewBrowserChrome.displayName = "WebViewBrowserChrome";
 
 // User agent strings for mobile emulation
 const USER_AGENT_IPHONE =
@@ -53,6 +178,7 @@ export class WebViewModel implements ViewModel {
     viewIcon: Atom<string | IconButtonDecl>;
     viewName: Atom<string>;
     viewText: Atom<HeaderElem[]>;
+    headerTop: Atom<React.ReactNode>;
     hideViewName: Atom<boolean>;
     url: PrimitiveAtom<string>;
     homepageUrl: Atom<string>;
@@ -66,6 +192,8 @@ export class WebViewModel implements ViewModel {
     endIconButtons?: Atom<IconButtonDecl[]>;
     mediaPlaying: PrimitiveAtom<boolean>;
     mediaMuted: PrimitiveAtom<boolean>;
+    canGoBack: PrimitiveAtom<boolean>;
+    canGoForward: PrimitiveAtom<boolean>;
     modifyExternalUrl?: (url: string) => string;
     domReady: PrimitiveAtom<boolean>;
     hideNav: Atom<boolean>;
@@ -107,6 +235,8 @@ export class WebViewModel implements ViewModel {
 
         this.mediaPlaying = atom(false);
         this.mediaMuted = atom(false);
+        this.canGoBack = atom(false);
+        this.canGoForward = atom(false);
 
         this.viewText = atom((get) => {
             const homepageUrl = get(this.homepageUrl);
@@ -116,6 +246,8 @@ export class WebViewModel implements ViewModel {
             const refreshIcon = get(this.refreshIcon);
             const mediaPlaying = get(this.mediaPlaying);
             const mediaMuted = get(this.mediaMuted);
+            const canGoBack = get(this.canGoBack);
+            const canGoForward = get(this.canGoForward);
             const url = currUrl ?? metaUrl ?? homepageUrl ?? "";
             const rtn: HeaderElem[] = [];
             if (get(this.hideNav)) {
@@ -126,13 +258,13 @@ export class WebViewModel implements ViewModel {
                 elemtype: "iconbutton",
                 icon: "chevron-left",
                 click: this.handleBack.bind(this),
-                disabled: this.shouldDisableBackButton(),
+                disabled: !canGoBack,
             });
             rtn.push({
                 elemtype: "iconbutton",
                 icon: "chevron-right",
                 click: this.handleForward.bind(this),
-                disabled: this.shouldDisableForwardButton(),
+                disabled: !canGoForward,
             });
             rtn.push({
                 elemtype: "iconbutton",
@@ -140,7 +272,18 @@ export class WebViewModel implements ViewModel {
                 click: this.handleHome.bind(this),
                 disabled: this.shouldDisableHomeButton(),
             });
+            rtn.push({
+                elemtype: "iconbutton",
+                icon: refreshIcon,
+                click: this.handleRefresh.bind(this),
+            });
             const divChildren: HeaderElem[] = [];
+            divChildren.push({
+                elemtype: "iconbutton",
+                icon: "shield-halved",
+                title: "Site information",
+                noAction: true,
+            });
             divChildren.push({
                 elemtype: "input",
                 value: url,
@@ -158,11 +301,6 @@ export class WebViewModel implements ViewModel {
                     click: this.handleMuteChange.bind(this),
                 });
             }
-            divChildren.push({
-                elemtype: "iconbutton",
-                icon: refreshIcon,
-                click: this.handleRefresh.bind(this),
-            });
             rtn.push({
                 elemtype: "div",
                 className: clsx("block-frame-div-url", urlWrapperClassName),
@@ -171,6 +309,13 @@ export class WebViewModel implements ViewModel {
                 children: divChildren,
             });
             return rtn;
+        });
+
+        this.headerTop = atom((get) => {
+            if (get(this.hideNav)) {
+                return null;
+            }
+            return <WebViewBrowserChrome model={this} />;
         });
 
         this.endIconButtons = atom((get) => {
@@ -322,6 +467,13 @@ export class WebViewModel implements ViewModel {
         this.webviewRef.current?.goForward();
     }
 
+    updateNavState() {
+        try {
+            globalStore.set(this.canGoBack, this.webviewRef.current?.canGoBack() ?? false);
+            globalStore.set(this.canGoForward, this.webviewRef.current?.canGoForward() ?? false);
+        } catch (_) {}
+    }
+
     handleRefresh(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
         e.preventDefault();
         e.stopPropagation();
@@ -375,13 +527,22 @@ export class WebViewModel implements ViewModel {
         fireAndForget(() =>
             this.env.rpc.SetMetaCommand(TabRpcClient, {
                 oref: makeORef("block", this.blockId),
-                meta: { url },
+                meta: { url } as unknown as MetaType,
             })
         );
         globalStore.set(this.url, url);
         if (this.searchAtoms) {
             globalStore.set(this.searchAtoms.isOpen, false);
         }
+    }
+
+    setBrowserTitle(title: string) {
+        fireAndForget(() =>
+            this.env.rpc.SetMetaCommand(TabRpcClient, {
+                oref: makeORef("block", this.blockId),
+                meta: { "web:title": title } as unknown as MetaType,
+            })
+        );
     }
 
     ensureUrlScheme(url: string, searchTemplate: string) {
@@ -816,6 +977,41 @@ function getWebPreviewDisplayUrl(url?: string | null): string {
     return url?.trim() || "about:blank";
 }
 
+function normalizeOpenDesignSelection(blockId: string, payload: unknown): AgentWidgetDesignSelection | null {
+    const raw = payload as Record<string, any> | null;
+    const element = raw?.element as Record<string, any> | null;
+    const numbers = [element?.x, element?.y, element?.width, element?.height];
+    if (!element || numbers.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
+        return null;
+    }
+    const text = (value: unknown, max: number) =>
+        String(value ?? "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, max);
+    const selection: AgentWidgetDesignSelection = {
+        blockId,
+        url: text(raw?.url, 2_048),
+        element: {
+            ref: text(element.ref, 512),
+            role: text(element.role, 80) || "element",
+            name: text(element.name, 240),
+            ...(text(element.value, 240) ? { value: text(element.value, 240) } : {}),
+            x: Math.round(element.x),
+            y: Math.round(element.y),
+            width: Math.max(0, Math.round(element.width)),
+            height: Math.max(0, Math.round(element.height)),
+            focusable: element.focusable === true,
+            visible: element.visible !== false,
+            ...(text(element.selector, 512) ? { selector: text(element.selector, 512) } : {}),
+            ...(text(element.tagName, 80) ? { tagName: text(element.tagName, 80) } : {}),
+            ...(text(element.componentName, 120) ? { componentName: text(element.componentName, 120) } : {}),
+        },
+    };
+    const comment = text(raw?.comment, 2_000);
+    return comment ? { ...selection, comment } : selection;
+}
+
 function WebViewPreviewFallback({ url }: { url?: string | null }) {
     const displayUrl = getWebPreviewDisplayUrl(url);
 
@@ -949,7 +1145,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
     }, []);
 
     useEffect(() => {
-        if (model.webviewRef.current == null || !domReady) {
+        if (model.webviewRef.current == null || !model.webviewRef.current.isConnected || !domReady) {
             return;
         }
         try {
@@ -1006,12 +1202,28 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             setErrorText("");
             if (e.isMainFrame) {
                 model.handleNavigate(e.url);
+                publishCrossViewEvent("browser:navigate", model.blockId, makeBrowserPayload(model.blockId, e.url));
             }
+            model.updateNavState();
         };
         const newWindowHandler = (e: any) => {
             e.preventDefault();
-            const newUrl = e.detail.url;
-            fireAndForget(() => openLink(newUrl, true));
+            const newUrl = e?.detail?.url || e?.url;
+            if (!newUrl) {
+                return;
+            }
+            model.loadUrl(newUrl, "new-window");
+        };
+        const titleUpdatedHandler = (e: any) => {
+            if (typeof e?.title !== "string" || e.title.length === 0) {
+                return;
+            }
+            model.setBrowserTitle(e.title);
+            publishCrossViewEvent(
+                "browser:title-change",
+                model.blockId,
+                makeBrowserPayload(model.blockId, undefined, e.title)
+            );
         };
         const startLoadingHandler = () => {
             model.setRefreshIcon("xmark-large");
@@ -1046,12 +1258,29 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         const handleDomReady = () => {
             globalStore.set(model.domReady, true);
             setBgColor();
+            webview.send("open-design-set-inspect-mode", {
+                enabled: isAgentWidgetInspectModeActive(model.blockId),
+                theme: readHermesOpenDesignTheme(),
+            });
+            // Inject cursor overlay (starts hidden, activated by agent activity events)
+            webview.executeJavaScript(CURSOR_OVERLAY_SCRIPT).catch((err: unknown) => {
+                console.warn("cursor overlay inject failed", err);
+            });
         };
         const handleMediaPlaying = () => {
             model.setMediaPlaying(true);
         };
         const handleMediaPaused = () => {
             model.setMediaPlaying(false);
+        };
+        const handleIpcMessage = (event: any) => {
+            if (event.channel !== "open-design-selection" && event.channel !== "open-design-comment") {
+                return;
+            }
+            const selection = normalizeOpenDesignSelection(model.blockId, event.args?.[0]);
+            if (selection) {
+                publishAgentWidgetDesignSelection(selection);
+            }
         };
 
         webview.addEventListener("did-frame-navigate", navigateListener);
@@ -1060,6 +1289,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         webview.addEventListener("did-start-loading", startLoadingHandler);
         webview.addEventListener("did-stop-loading", stopLoadingHandler);
         webview.addEventListener("new-window", newWindowHandler);
+        webview.addEventListener("page-title-updated", titleUpdatedHandler);
         webview.addEventListener("did-fail-load", failLoadHandler);
         webview.addEventListener("focus", webviewFocus);
         webview.addEventListener("blur", webviewBlur);
@@ -1067,6 +1297,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
         webview.addEventListener("media-started-playing", handleMediaPlaying);
         webview.addEventListener("media-paused", handleMediaPaused);
         webview.addEventListener("found-in-page", onFoundInPage);
+        webview.addEventListener("ipc-message", handleIpcMessage);
 
         // Clean up event listeners on component unmount
         return () => {
@@ -1074,6 +1305,7 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             webview.removeEventListener("did-navigate", navigateListener);
             webview.removeEventListener("did-navigate-in-page", navigateListener);
             webview.removeEventListener("new-window", newWindowHandler);
+            webview.removeEventListener("page-title-updated", titleUpdatedHandler);
             webview.removeEventListener("did-fail-load", failLoadHandler);
             webview.removeEventListener("did-start-loading", startLoadingHandler);
             webview.removeEventListener("did-stop-loading", stopLoadingHandler);
@@ -1083,31 +1315,131 @@ const WebView = memo(({ model, onFailLoad, blockRef, initialSrc }: WebViewProps)
             webview.removeEventListener("media-started-playing", handleMediaPlaying);
             webview.removeEventListener("media-paused", handleMediaPaused);
             webview.removeEventListener("found-in-page", onFoundInPage);
+            webview.removeEventListener("ipc-message", handleIpcMessage);
         };
     }, []);
 
+    // Listen for agent activity events to show/hide cursor overlay in webview
+    useEffect(() => {
+        const webview = model.webviewRef.current;
+        if (!webview) {
+            return;
+        }
+
+        let previewCapturePending = false;
+        let previewCaptureTimer: number | null = null;
+
+        const requestPreviewCapture = (detail: AgentWidgetActivity) => {
+            if (detail.previewImageUrl || previewCapturePending || typeof webview.capturePage !== "function") {
+                return;
+            }
+            previewCapturePending = true;
+            previewCaptureTimer = window.setTimeout(() => {
+                void webview
+                    .capturePage()
+                    .then((image) => {
+                        const previewImageUrl = image.toDataURL();
+                        if (!previewImageUrl || previewImageUrl === "data:image/png;base64,") {
+                            return;
+                        }
+                        const action =
+                            detail.action === "typing"
+                                ? "type"
+                                : detail.action === "scroll"
+                                  ? "scroll"
+                                  : detail.action === "cursor"
+                                    ? "click"
+                                    : detail.action === "view"
+                                      ? "inspect"
+                                      : "open";
+                        reportDesktopPetActivity(
+                            { kind: "tool", detail: detail.detail, previewImageUrl },
+                            model.blockId,
+                            detail.point,
+                            { surface: "browser", action }
+                        );
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        previewCapturePending = false;
+                    });
+            }, 90);
+        };
+
+        const handleWidgetActivity = (e: Event) => {
+            const detail = (e as CustomEvent<AgentWidgetActivity>).detail;
+            if (detail.blockId !== model.blockId) {
+                return;
+            }
+            webview.executeJavaScript("window.__showKronCursor(true)").catch(() => {});
+            if (detail.point) {
+                reportCursorToPet(detail.point, "browser");
+            }
+            requestPreviewCapture(detail);
+        };
+
+        const unsubscribeSurfaceActivity = subscribeAgentActivityStream((detail) => {
+            if (detail.blockid !== model.blockId) {
+                return;
+            }
+            const phase = detail.phase;
+            if (phase === "succeeded" || phase === "failed" || phase === "cancelled") {
+                webview.executeJavaScript("window.__showKronCursor(false)").catch(() => {});
+            } else if (phase === "running") {
+                webview.executeJavaScript("window.__showKronCursor(true)").catch(() => {});
+            }
+        });
+
+        window.addEventListener("agent-widget-activity", handleWidgetActivity);
+
+        return () => {
+            if (previewCaptureTimer != null) {
+                window.clearTimeout(previewCaptureTimer);
+            }
+            window.removeEventListener("agent-widget-activity", handleWidgetActivity);
+            unsubscribeSurfaceActivity();
+        };
+    }, [model.blockId]);
+
+    const { waterflowActive, markers } = useAgentOverlays("browser", model.blockId);
+
     return (
         <Fragment>
-            <MockBoundary fallback={<WebViewPreviewFallback url={metaUrl} />}>
-                <webview
-                    id="webview"
-                    className="webview"
-                    ref={model.webviewRef}
-                    src={metaUrlInitial}
-                    data-blockid={model.blockId}
-                    data-webcontentsid={webContentsId} // needed for emain
-                    preload={getWebviewPreloadUrl(env)}
-                    // @ts-expect-error This is a discrepancy between the React typing and the Chromium impl for webviewTag. Chrome webviewTag expects a string, while React expects a boolean.
-                    allowpopups="true"
-                    partition={webPartition}
-                    useragent={userAgent}
-                />
-            </MockBoundary>
-            {errorText && (
-                <div className="webview-error">
-                    <div>{errorText}</div>
+            <div className="webview-shell">
+                <div className="webview-stage">
+                    <MockBoundary fallback={<WebViewPreviewFallback url={metaUrl} />}>
+                        <webview
+                            id="webview"
+                            className="webview"
+                            ref={model.webviewRef}
+                            src={metaUrlInitial}
+                            data-blockid={model.blockId}
+                            data-webcontentsid={webContentsId} // needed for emain
+                            preload={getWebviewPreloadUrl(env)}
+                            // @ts-expect-error This is a discrepancy between the React typing and the Chromium impl for webviewTag. Chrome webviewTag expects a string, while React expects a boolean.
+                            allowpopups="true"
+                            partition={webPartition}
+                            useragent={userAgent}
+                        />
+                    </MockBoundary>
+                    {errorText && (
+                        <div className="webview-error">
+                            <div>{errorText}</div>
+                        </div>
+                    )}
+                    <WaterFlowOverlay active={waterflowActive} />
+                    {markers.map((m) => (
+                        <ActionMarker
+                            key={m.id}
+                            actionType={m.actionType}
+                            label={m.label}
+                            x={m.x}
+                            y={m.y}
+                            active={true}
+                        />
+                    ))}
                 </div>
-            )}
+            </div>
             <Search {...searchProps} />
             <BookmarkTypeahead model={model} blockRef={blockRef} />
         </Fragment>

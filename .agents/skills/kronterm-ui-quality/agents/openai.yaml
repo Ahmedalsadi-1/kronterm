@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronTerm UI Quality"
+  short_description: "Polish KronTerm into a native-feeling workspace"
+  default_prompt: "Use $kronterm-ui-quality to audit and improve a KronTerm interface without breaking its workspace models."

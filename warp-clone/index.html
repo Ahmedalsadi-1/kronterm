@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Warp — The Open Platform for Automating Development</title>
+    <style>
+      :root {
+        --bg: #0b0b10;
+        --bg-elev: #12121a;
+        --bg-card: #15151f;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #ececf1;
+        --muted: #9b9ba7;
+        --accent-a: #8b5cf6;
+        --accent-b: #4f6ef7;
+        --grad: linear-gradient(92deg, var(--accent-b), var(--accent-a));
+        --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ---------- announcement banner ---------- */
+      .banner {
+        background: var(--grad);
+        text-align: center;
+        padding: 9px 16px;
+        font-size: 13.5px;
+        font-weight: 500;
+      }
+      .banner a {
+        text-decoration: underline;
+        font-weight: 600;
+        margin-left: 6px;
+      }
+
+      /* ---------- nav ---------- */
+      header.nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(14px);
+        background: rgba(11, 11, 16, 0.78);
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-inner {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        height: 62px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 700;
+        font-size: 19px;
+        letter-spacing: -0.02em;
+      }
+      .logo-mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--grad);
+        display: grid;
+        place-items: center;
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 15px;
+        color: #fff;
+      }
+      .nav-links {
+        display: flex;
+        gap: 22px;
+        align-items: center;
+      }
+      .nav-links > a,
+      .nav-links > span {
+        font-size: 14px;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+      .nav-links > a:hover,
+      .nav-links > span:hover {
+        color: var(--text);
+      }
+      .caret::after {
+        content: "▾";
+        font-size: 10px;
+        margin-left: 5px;
+        opacity: 0.6;
+      }
+      .nav-right {
+        margin-left: auto;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+      }
+      .gh-stars {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13.5px;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        padding: 5px 11px;
+        border-radius: 8px;
+        transition: border-color 0.15s;
+      }
+      .gh-stars:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .btn-outline {
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 8px 15px;
+        font-size: 13.5px;
+        font-weight: 600;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .btn-outline:hover {
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      .btn-solid {
+        background: #fff;
+        color: #0b0b10;
+        border-radius: 9px;
+        padding: 8px 15px;
+        font-size: 13.5px;
+        font-weight: 650;
+        transition: opacity 0.15s;
+      }
+      .btn-solid:hover {
+        opacity: 0.85;
+      }
+      .btn-primary-lg {
+        display: inline-block;
+        background: #fff;
+        color: #0b0b10;
+        font-weight: 650;
+        font-size: 15px;
+        padding: 13px 24px;
+        border-radius: 11px;
+        transition:
+          transform 0.15s,
+          opacity 0.15s;
+      }
+      .btn-primary-lg:hover {
+        transform: translateY(-1px);
+        opacity: 0.88;
+      }
+      .btn-secondary-lg {
+        display: inline-block;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: var(--text);
+        font-weight: 600;
+        font-size: 15px;
+        padding: 13px 24px;
+        border-radius: 11px;
+        transition:
+          border-color 0.15s,
+          transform 0.15s;
+      }
+      .btn-secondary-lg:hover {
+        border-color: rgba(255, 255, 255, 0.38);
+        transform: translateY(-1px);
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 96px 0 72px;
+        text-align: center;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -40% -20% auto;
+        height: 130%;
+        background:
+          radial-gradient(46% 42% at 30% 28%, rgba(139, 92, 246, 0.17), transparent 68%),
+          radial-gradient(46% 42% at 70% 30%, rgba(79, 110, 247, 0.16), transparent 68%);
+        pointer-events: none;
+      }
+      .hero h1 {
+        position: relative;
+        font-size: clamp(40px, 6vw, 66px);
+        line-height: 1.06;
+        letter-spacing: -0.03em;
+        font-weight: 750;
+        max-width: 900px;
+        margin: 0 auto 22px;
+      }
+      .hero p.sub {
+        position: relative;
+        color: var(--muted);
+        font-size: 19px;
+        max-width: 640px;
+        margin: 0 auto 34px;
+      }
+      .hero .ctas {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        flex-wrap: wrap;
+        position: relative;
+      }
+
+      /* marquee chips */
+      .chips-band {
+        margin-top: 74px;
+        position: relative;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 18px 0;
+      }
+      .marquee {
+        display: flex;
+        gap: 44px;
+        width: max-content;
+        animation: scrollx 32s linear infinite;
+      }
+      @keyframes scrollx {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      .chip-group {
+        display: flex;
+        gap: 44px;
+        align-items: center;
+      }
+      .chip-label {
+        font-size: 11.5px;
+        letter-spacing: 0.14em;
+        color: var(--accent-a);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .chip-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 14px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .chip-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--grad);
+      }
+
+      /* ---------- stats ---------- */
+      .stats {
+        padding: 64px 0 56px;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        text-align: center;
+      }
+      .stat-num {
+        font-size: clamp(36px, 4.4vw, 54px);
+        font-weight: 780;
+        letter-spacing: -0.03em;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .stat-label {
+        color: var(--muted);
+        font-size: 15px;
+        margin-top: 6px;
+      }
+
+      /* ---------- sections ---------- */
+      section.block {
+        padding: 84px 0;
+      }
+      .kicker {
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        font-weight: 700;
+        color: var(--accent-a);
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+      h2.section-title {
+        font-size: clamp(30px, 4vw, 44px);
+        letter-spacing: -0.02em;
+        font-weight: 720;
+        line-height: 1.12;
+        margin-bottom: 14px;
+      }
+      .section-sub {
+        color: var(--muted);
+        font-size: 17.5px;
+        max-width: 660px;
+      }
+
+      /* logos */
+      .logos-grid {
+        margin-top: 48px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      .logo-cell {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-card);
+        height: 76px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-weight: 650;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+      }
+      .logo-cell:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      /* factories feature split */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 56px;
+        align-items: center;
+      }
+      .mock {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg-elev);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+      .mock-titlebar {
+        display: flex;
+        gap: 7px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+      }
+      .dot.r {
+        background: #ff5f57;
+      }
+      .dot.y {
+        background: #febc2e;
+      }
+      .dot.g {
+        background: #28c840;
+      }
+      .mock-body {
+        padding: 20px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.85;
+      }
+      .c-dim {
+        color: #6b6b7a;
+      }
+      .c-purple {
+        color: #b79bff;
+      }
+      .c-blue {
+        color: #82aaff;
+      }
+      .c-green {
+        color: #7ee787;
+      }
+      .c-pink {
+        color: #ff9ec4;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: -apple-system, sans-serif;
+        font-size: 12.5px;
+        color: var(--muted);
+        padding: 9px 0;
+        border-bottom: 1px dashed var(--border);
+      }
+      .pill {
+        font-size: 11px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+      }
+      .pill.ok {
+        color: var(--c-green, #7ee787);
+        border-color: rgba(126, 231, 135, 0.35);
+      }
+      .pill.run {
+        color: #82aaff;
+        border-color: rgba(130, 170, 255, 0.35);
+      }
+
+      /* three product cards */
+      .cards3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 52px;
+      }
+      .pcard {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: linear-gradient(180deg, var(--bg-card), rgba(21, 21, 31, 0.55));
+        padding: 26px;
+        transition:
+          transform 0.18s,
+          border-color 0.18s;
+      }
+      .pcard:hover {
+        transform: translateY(-4px);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .pcard .icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 11px;
+        background: var(--grad);
+        display: grid;
+        place-items: center;
+        font-size: 19px;
+        margin-bottom: 18px;
+      }
+      .pcard h3 {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin-bottom: 8px;
+      }
+      .pcard p {
+        color: var(--muted);
+        font-size: 14.5px;
+        margin-bottom: 16px;
+      }
+      .pcard a.link {
+        color: #fff;
+        font-size: 14px;
+        font-weight: 650;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+        padding-bottom: 2px;
+      }
+      .pcard a.link:hover {
+        border-color: #fff;
+      }
+
+      /* accordion */
+      .accordion {
+        margin-top: 52px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .acc-item {
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-elev);
+      }
+      .acc-item:last-child {
+        border-bottom: none;
+      }
+      .acc-head {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 22px 26px;
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+      }
+      .acc-head .sign {
+        font-size: 22px;
+        font-weight: 400;
+        color: var(--muted);
+        transition: transform 0.2s;
+      }
+      .acc-body {
+        display: none;
+        padding: 0 26px 24px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .acc-item.open .acc-body {
+        display: block;
+      }
+      .acc-item.open .acc-head .sign {
+        transform: rotate(45deg);
+      }
+      .acc-body a {
+        color: #fff;
+        font-weight: 650;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* testimonials */
+      .quote-wrap {
+        position: relative;
+        max-width: 860px;
+        margin: 48px auto 0;
+        text-align: center;
+        min-height: 190px;
+      }
+      blockquote.quote {
+        font-size: clamp(20px, 2.6vw, 27px);
+        line-height: 1.42;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+        display: none;
+      }
+      blockquote.quote.active {
+        display: block;
+        animation: fadein 0.4s ease;
+      }
+      @keyframes fadein {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .quote-attrib {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .quote-attrib b {
+        color: var(--text);
+      }
+      .quote-nav {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 28px;
+      }
+      .qdot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          background 0.2s,
+          width 0.2s;
+      }
+      .qdot.active {
+        background: #fff;
+        width: 22px;
+        border-radius: 99px;
+      }
+
+      /* download */
+      .dl-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 48px;
+      }
+      .dl-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--bg-card);
+        padding: 26px;
+      }
+      .dl-card h3 {
+        font-size: 19px;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+      .dl-card p {
+        color: var(--muted);
+        font-size: 14.5px;
+        margin-bottom: 18px;
+        min-height: 42px;
+      }
+      .cmd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #08080c;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #c9d1d9;
+      }
+      .cmd .prompt {
+        color: #7ee787;
+      }
+      .copy-btn {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        font-family: inherit;
+        transition: color 0.15s;
+      }
+      .copy-btn:hover {
+        color: #fff;
+      }
+      .dl-links {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .dl-link {
+        font-size: 12.5px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 11px;
+        color: var(--muted);
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+      .dl-link:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+
+      /* CTA band */
+      .cta-band {
+        text-align: center;
+        padding: 90px 24px;
+        position: relative;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+      }
+      .cta-band::before {
+        content: "";
+        position: absolute;
+        inset: auto -10% -70% -10%;
+        height: 160%;
+        background: radial-gradient(48% 46% at 50% 100%, rgba(139, 92, 246, 0.2), transparent 70%);
+        pointer-events: none;
+      }
+
+      /* footer */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 64px 0 40px;
+        background: #09090d;
+      }
+      .foot-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 32px;
+      }
+      .foot-col h4 {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: var(--text);
+      }
+      .foot-col a {
+        display: block;
+        color: var(--muted);
+        font-size: 13.5px;
+        padding: 5px 0;
+        transition: color 0.15s;
+      }
+      .foot-col a:hover {
+        color: var(--text);
+      }
+      .foot-bottom {
+        margin-top: 56px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--muted);
+        font-size: 13px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .soc2 {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .soc2-badge {
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 11.5px;
+        letter-spacing: 0.05em;
+      }
+
+      @media (max-width: 900px) {
+        .nav-links {
+          display: none;
+        }
+        .split,
+        .cards3,
+        .dl-cards {
+          grid-template-columns: 1fr;
+        }
+        .foot-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .stats-grid {
+          grid-template-columns: 1fr;
+          gap: 34px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      Introducing Warp Factories: open, flexible infrastructure for building your own cloud software factory.<a
+        href="#factories"
+        >Learn More</a
+      >
+    </div>
+
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="logo" href="#"><span class="logo-mark">W</span>Warp</a>
+        <nav class="nav-links">
+          <span class="caret">Products</span>
+          <span class="caret">Solutions</span>
+          <span class="caret">Resources</span>
+          <span class="caret">Company</span>
+          <a href="#enterprise">Enterprise</a>
+          <a href="#pricing">Pricing</a>
+        </nav>
+        <div class="nav-right">
+          <a class="gh-stars" href="#github">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            64k
+          </a>
+          <a class="btn-outline" href="#demo">Book a demo</a>
+          <a class="btn-solid" href="#download">Get Started</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- HERO -->
+      <section class="hero">
+        <div class="container">
+          <h1>The open platform for<br />automating development</h1>
+          <p class="sub">
+            Infrastructure to build, measure, and interact with agents across your SDLC — so you ship more and spend
+            less.
+          </p>
+          <div class="ctas">
+            <a class="btn-primary-lg" href="#factories">Build your factory</a>
+            <a class="btn-secondary-lg" href="#download">Download Warp Terminal</a>
+          </div>
+        </div>
+        <div class="chips-band">
+          <div class="marquee" id="marquee"></div>
+        </div>
+      </section>
+
+      <!-- STATS -->
+      <section class="stats">
+        <div class="container stats-grid">
+          <div>
+            <div class="stat-num">718K</div>
+            <div class="stat-label">active developers</div>
+          </div>
+          <div>
+            <div class="stat-num">51%</div>
+            <div class="stat-label">of the Fortune 500</div>
+          </div>
+          <div>
+            <div class="stat-num">179K</div>
+            <div class="stat-label">agents running daily</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGOS -->
+      <section class="block" style="padding-top: 20px">
+        <div class="container">
+          <p class="kicker">Trusted by leading engineering teams</p>
+          <h2 class="section-title">Over 800,000 engineers use Warp</h2>
+          <div class="logos-grid">
+            <div class="logo-cell">Anthropic</div>
+            <div class="logo-cell">OpenAI</div>
+            <div class="logo-cell">Docker</div>
+            <div class="logo-cell">Google</div>
+            <div class="logo-cell">Stanford</div>
+            <div class="logo-cell">Microsoft</div>
+            <div class="logo-cell">Stripe</div>
+            <div class="logo-cell">Amazon</div>
+            <div class="logo-cell">Asana</div>
+            <div class="logo-cell">NVIDIA</div>
+            <div class="logo-cell">Retool</div>
+            <div class="logo-cell">VMware</div>
+            <div class="logo-cell">Ramp</div>
+            <div class="logo-cell">DoorDash</div>
+            <div class="logo-cell">Phantom</div>
+            <div class="logo-cell">GitHub</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FACTORIES -->
+      <section class="block" id="factories">
+        <div class="container split">
+          <div>
+            <p class="kicker">Introducing Warp Factories</p>
+            <h2 class="section-title">Open infrastructure for cloud software factories</h2>
+            <p class="section-sub">
+              Run fleets of coding agents across your SDLC defined as code, on any model or harness, with humans at the
+              checkpoints you choose.
+            </p>
+            <div style="margin-top: 26px"><a class="btn-primary-lg" href="#demo">Build your factory</a></div>
+          </div>
+          <div class="mock">
+            <div class="mock-titlebar">
+              <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            </div>
+            <div class="mock-body">
+              <div><span class="c-dim"># factory.yaml — define your SDLC as code</span></div>
+              <div><span class="c-purple">pipeline</span>: <span class="c-blue">release-train</span></div>
+              <div>&nbsp;&nbsp;<span class="c-purple">agents</span>:</div>
+              <div>
+                &nbsp;&nbsp;&nbsp;&nbsp;- <span class="c-blue">review</span>:
+                <span class="c-green">first-pass on every PR</span>
+              </div>
+              <div>
+                &nbsp;&nbsp;&nbsp;&nbsp;- <span class="c-blue">bugfix</span>:
+                <span class="c-green">reproduce &amp; route fixes</span>
+              </div>
+              <div>
+                &nbsp;&nbsp;&nbsp;&nbsp;- <span class="c-blue">migration</span>:
+                <span class="c-green">scope &amp; validate changes</span>
+              </div>
+              <div>
+                &nbsp;&nbsp;<span class="c-purple">checkpoints</span>: [<span class="c-pink">human-approval</span>,
+                <span class="c-pink">ci-gate</span>]
+              </div>
+              <br />
+              <div class="bar-row"><span>code-review · fleet ×12</span><span class="pill ok">✓ passing</span></div>
+              <div class="bar-row"><span>bug-invest · agent #4</span><span class="pill run">● running</span></div>
+              <div class="bar-row">
+                <span>cost-per-PR · $0.41 ▾ 62%</span><span class="pill ok">✓ under budget</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- THREE PRODUCTS -->
+      <section class="block">
+        <div class="container">
+          <p class="kicker">Products</p>
+          <h2 class="section-title">One platform for Agentic Development</h2>
+          <p class="section-sub">
+            Every layer of the agentic stack, from your local terminal to fleets of cloud agents — built to work
+            together.
+          </p>
+          <div class="cards3">
+            <div class="pcard">
+              <div class="icon">🏭</div>
+              <h3>Factories</h3>
+              <p>A software factory that automates and orchestrates software development across your whole SDLC.</p>
+              <a class="link" href="#factories">Learn more →</a>
+            </div>
+            <div class="pcard">
+              <div class="icon">⌨️</div>
+              <h3>Terminal</h3>
+              <p>
+                An open-source terminal built for AI-assisted software development, with agents alongside your shell.
+              </p>
+              <a class="link" href="#download">Explore Terminal →</a>
+            </div>
+            <div class="pcard">
+              <div class="icon">🤖</div>
+              <h3>Agent CLI</h3>
+              <p>
+                A powerful coding agent that works in any terminal — pipe it, script it, and run it wherever you work.
+              </p>
+              <a class="link" href="#agent-cli">Try the Agent CLI →</a>
+            </div>
+          </div>
+
+          <div class="accordion" style="margin-top: 40px">
+            <div class="acc-item open">
+              <button class="acc-head">Factories <span class="sign">+</span></button>
+              <div class="acc-body">
+                A software factory that automates and orchestrates software development across your whole SDLC. Define
+                agents-as-code, measure outcomes, and keep humans at the checkpoints you choose.
+                <a href="#">Learn more</a>
+              </div>
+            </div>
+            <div class="acc-item">
+              <button class="acc-head">Terminal <span class="sign">+</span></button>
+              <div class="acc-body">
+                An open-source terminal built for AI-assisted software development, with agents alongside your shell.
+                Blocks, workflows, and completions that stay out of your way. <a href="#">Explore Terminal</a>
+              </div>
+            </div>
+            <div class="acc-item">
+              <button class="acc-head">Agent CLI <span class="sign">+</span></button>
+              <div class="acc-body">
+                A powerful coding agent that works in any terminal — pipe it, script it, and run it wherever you work.
+                <a href="#">Try the Agent CLI</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TESTIMONIALS -->
+      <section class="block">
+        <div class="container" style="text-align: center">
+          <p class="kicker">Customers</p>
+          <h2 class="section-title">Teams shipping faster with Warp</h2>
+          <div class="quote-wrap">
+            <blockquote class="quote active">
+              “Things that would normally take me 10 minutes instead take just a few seconds to do with Warp.”
+              <div class="quote-attrib"><b>Marco Casalaina</b> — VP Products, Core AI at Microsoft</div>
+            </blockquote>
+            <blockquote class="quote">
+              “We love how Warp supports builders through the entire software development cycle and are excited to see
+              them continue to push the frontier.”
+              <div class="quote-attrib"><b>Marc Manara</b> — Head of Startups at OpenAI</div>
+            </blockquote>
+            <blockquote class="quote">
+              “Claude Code + Warp is peanut butter and jelly. Warp gracefully manages juggling multiple Claude
+              instances, plus a wide range of other tasks.”
+              <div class="quote-attrib"><b>Lucas Dickey</b> — Product at Stripe</div>
+            </blockquote>
+          </div>
+          <div class="quote-nav" id="quoteNav"></div>
+        </div>
+      </section>
+
+      <!-- DOWNLOAD -->
+      <section class="block" id="download">
+        <div class="container">
+          <p class="kicker">Use Warp everywhere</p>
+          <h2 class="section-title">Get started in seconds</h2>
+          <p class="section-sub">
+            Warp is an open agentic development platform built to work wherever and however you work.
+          </p>
+          <div class="dl-cards">
+            <div class="dl-card">
+              <h3>Terminal</h3>
+              <p>An open-source terminal built for AI-assisted software development.</p>
+              <div class="cmd">
+                <span><span class="prompt">$</span> brew install --cask warp</span
+                ><button class="copy-btn" data-copy="brew install --cask warp">Copy</button>
+              </div>
+              <div class="dl-links">
+                <a class="dl-link" href="#">macOS dmg</a><a class="dl-link" href="#">Linux .deb</a
+                ><a class="dl-link" href="#">Windows .exe</a>
+              </div>
+            </div>
+            <div class="dl-card" id="agent-cli">
+              <h3>Agent CLI</h3>
+              <p>A powerful coding agent that works in any terminal.</p>
+              <div class="cmd">
+                <span><span class="prompt">$</span> curl -fsSL app.warp.dev/download/agent-cli | bash</span
+                ><button class="copy-btn" data-copy="curl -fsSL https://app.warp.dev/download/agent-cli | bash">
+                  Copy
+                </button>
+              </div>
+              <div class="dl-links">
+                <a class="dl-link" href="#">Mac</a><a class="dl-link" href="#">Linux</a
+                ><a class="dl-link" href="#">Windows</a>
+              </div>
+            </div>
+            <div class="dl-card" id="enterprise">
+              <h3>Factories</h3>
+              <p>A software factory that automates and orchestrates software development.</p>
+              <a class="btn-primary-lg" href="#" style="display: inline-block">Request access</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section class="cta-band" id="pricing">
+        <h2 class="section-title">Ship more. Spend less.</h2>
+        <p class="section-sub" style="margin: 0 auto 30px">
+          Join 718K developers automating their development lifecycle with agents.
+        </p>
+        <a class="btn-primary-lg" href="#demo">Get Started Free</a>
+      </section>
+    </main>
+
+    <footer id="github">
+      <div class="container">
+        <div class="foot-grid">
+          <div class="foot-col">
+            <h4>Product</h4>
+            <a href="#">Download</a><a href="#">Pricing</a><a href="#">Enterprise</a><a href="#">Changelog</a
+            ><a href="#">Docs</a><a href="#">Open Source</a><a href="#">Status</a>
+          </div>
+          <div class="foot-col">
+            <h4>Solutions</h4>
+            <a href="#">Code Review</a><a href="#">Bug Investigation</a><a href="#">Refactors &amp; Migration</a
+            ><a href="#">Incident Response</a>
+          </div>
+          <div class="foot-col">
+            <h4>Resources</h4>
+            <a href="#">Blog</a><a href="#">FAQ</a><a href="#">Community</a><a href="#">Agent Kits</a
+            ><a href="#">Events</a><a href="#">Roadmap</a><a href="#">Support</a>
+          </div>
+          <div class="foot-col">
+            <h4>Company</h4>
+            <a href="#">About</a><a href="#">How We Work</a><a href="#">Careers</a><a href="#">Press</a
+            ><a href="#">Contact</a>
+          </div>
+          <div class="foot-col">
+            <h4>Connect</h4>
+            <a href="#">X</a><a href="#">GitHub</a><a href="#">YouTube</a><a href="#">Slack</a><a href="#">LinkedIn</a>
+          </div>
+        </div>
+        <div class="foot-bottom">
+          <span>All Rights Reserved © 2026 — Warp clone demo</span>
+          <div class="soc2">
+            <span class="soc2-badge">SOC 2 CERTIFIED</span><span class="soc2-badge">● ALL SYSTEMS OPERATIONAL</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // marquee
+      const chipData = [
+        ["CHOOSE ANY HARNESS", ["OpenAI", "Claude Code", "Gemini CLI"]],
+        ["SELF-HOST OR WARP-HOST", []],
+        ["CONNECT ANY TOOL", ["Slack", "GitHub", "Jira"]],
+        ["OWN YOUR DATA", []],
+        ["ANY INFERENCE PROVIDER", ["Bedrock", "LiteLLM", "OpenRouter"]],
+        ["ANY MODEL", ["GPT-5", "Claude", "Gemini"]],
+      ];
+      const marquee = document.getElementById("marquee");
+      const groupHTML = chipData
+        .map(
+          ([label, items]) =>
+            `<div class="chip-group"><span class="chip-label">${label}</span>` +
+            items.map((i) => `<span class="chip-item"><span class="chip-dot"></span>${i}</span>`).join("") +
+            `</div>`
+        )
+        .join("");
+      marquee.innerHTML = groupHTML + groupHTML;
+
+      // accordion
+      document
+        .querySelectorAll(".acc-head")
+        .forEach((btn) => btn.addEventListener("click", () => btn.parentElement.classList.toggle("open")));
+
+      // testimonials
+      const quotes = [...document.querySelectorAll("blockquote.quote")];
+      const nav = document.getElementById("quoteNav");
+      let qi = 0,
+        qTimer;
+      quotes.forEach((_, i) => {
+        const d = document.createElement("button");
+        d.className = "qdot" + (i === 0 ? " active" : "");
+        d.addEventListener("click", () => showQuote(i));
+        nav.appendChild(d);
+      });
+      function showQuote(i) {
+        clearInterval(qTimer);
+        quotes[qi].classList.remove("active");
+        nav.children[qi].classList.remove("active");
+        qi = i;
+        quotes[qi].classList.add("active");
+        nav.children[qi].classList.add("active");
+        qTimer = setInterval(() => showQuote((qi + 1) % quotes.length), 6000);
+      }
+      qTimer = setInterval(() => showQuote((qi + 1) % quotes.length), 6000);
+
+      // copy buttons
+      document.querySelectorAll(".copy-btn").forEach((b) =>
+        b.addEventListener("click", () => {
+          navigator.clipboard?.writeText(b.dataset.copy);
+          const old = b.textContent;
+          b.textContent = "Copied!";
+          setTimeout(() => (b.textContent = old), 1400);
+        })
+      );
+    </script>
+  </body>
+</html>

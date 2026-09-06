@@ -1,0 +1,7 @@
+/* Copyright 2026, Command Line Inc. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Minimal UI mode — opt-in quiet-chrome layer, active while <html> has .minimal-ui */
+@import "./minimal-ui-tokens.css";
+@import "./minimal-ui-workspace.css";
+@import "./minimal-ui-panels.css";

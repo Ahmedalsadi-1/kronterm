@@ -1,8 +1,8 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useRef } from "react";
 import { cn } from "@/util/util";
+import { useId, useRef } from "react";
 import "./toggle.scss";
 
 interface ToggleProps {
@@ -15,6 +15,7 @@ interface ToggleProps {
 
 const Toggle = ({ checked, onChange, label, id, className }: ToggleProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const generatedId = useId();
 
     const handleChange = (e: any) => {
         if (onChange != null) {
@@ -28,7 +29,7 @@ const Toggle = ({ checked, onChange, label, id, className }: ToggleProps) => {
         }
     };
 
-    const inputId = id || `toggle-${Math.random().toString(36).substr(2, 9)}`;
+    const inputId = id || generatedId;
 
     return (
         <div className={cn("check-toggle-wrapper", className)}>

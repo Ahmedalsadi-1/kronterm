@@ -1,17 +1,24 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+    KronchatProjectsChangedEvent,
+    readKronchatProjects,
+    requestOpenKronchatProject,
+    type KronchatProject,
+} from "@/app/aipanel/kronchat-projects";
 import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { deleteLayoutModelForTab } from "@/layout/index";
+import { deleteLayoutModelForTab } from "@/layout/lib/layoutModelHooks";
 import { isMacOSTahoeOrLater } from "@/util/platformutil";
 import { fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { OverlayScrollbars } from "overlayscrollbars";
-import { createRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { createRef, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce } from "throttle-debounce";
+import { FoldedWidgetsBar } from "./folded-widgets-bar";
 import { Tab } from "./tab";
 import "./tabbar.scss";
 import { TabBarEnv } from "./tabbarenv";
@@ -64,7 +71,7 @@ const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement
             content="Toggle KronosCode Panel"
             placement="bottom"
             hideOnClick
-            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-saturn" : "text-secondary"}`}
+            divClassName={`shell-toolbar-button shell-ai-button ${aiPanelOpen ? "is-active text-saturn" : "text-secondary"}`}
             divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             divOnClick={onClick}
             divRef={divRef}
@@ -74,6 +81,40 @@ const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement
     );
 });
 WaveAIButton.displayName = "WaveAIButton";
+
+const KronchatProjectPills = memo(({ projects }: { projects: KronchatProject[] }) => {
+    const visibleProjects = projects.slice(0, 3);
+    if (!visibleProjects.length) {
+        return null;
+    }
+
+    const handleOpenProject = (project: KronchatProject) => {
+        WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
+        requestOpenKronchatProject(project);
+    };
+
+    return (
+        <div className="kronchat-project-pills" aria-label="Kronchat projects">
+            {visibleProjects.map((project) => (
+                <button
+                    type="button"
+                    key={project.workspace || "focused"}
+                    className="kronchat-project-pill"
+                    title={`${project.name}${project.workspace ? ` - ${project.workspace}` : ""}`}
+                    onClick={() => handleOpenProject(project)}
+                >
+                    <i className="fa fa-folder-tree" />
+                    <span className="kronchat-project-pill-name">{project.name}</span>
+                    <span className="kronchat-project-pill-count">{project.sessionCount}</span>
+                </button>
+            ))}
+            {projects.length > visibleProjects.length ? (
+                <span className="kronchat-project-pill-more">+{projects.length - visibleProjects.length}</span>
+            ) : null}
+        </div>
+    );
+});
+KronchatProjectPills.displayName = "KronchatProjectPills";
 
 function strArrayIsEqual(a: string[], b: string[]) {
     // null check
@@ -123,10 +164,13 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const rightContainerRef = useRef<HTMLDivElement>(null);
     const workspaceSwitcherRef = useRef<HTMLDivElement>(null);
     const waveAIButtonRef = useRef<HTMLDivElement>(null);
-    const appMenuButtonRef = useRef<HTMLDivElement>(null);
+    const projectPillsRef = useRef<HTMLDivElement>(null);
+    const appMenuButtonRef = useRef<HTMLButtonElement>(null);
     const tabWidthRef = useRef<number>(TabDefaultWidth);
     const scrollableRef = useRef<boolean>(false);
     const prevAllLoadedRef = useRef<boolean>(false);
+    const resizeFrameRef = useRef<number | null>(null);
+    const draggingTabOrderRef = useRef<string[]>([]);
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const isFullScreen = useAtomValue(env.atoms.isFullScreen);
     const zoomFactor = useAtomValue(env.atoms.zoomFactorAtom);
@@ -134,6 +178,14 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
     const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
+    const [kronchatProjects, setKronchatProjects] = useState<KronchatProject[]>(() => readKronchatProjects());
+    const kronchatProjectLayoutKey = useMemo(
+        () =>
+            kronchatProjects
+                .map((project) => `${project.workspace}:${project.name}:${project.sessionCount}:${project.updatedTs}`)
+                .join("|"),
+        [kronchatProjects]
+    );
 
     let prevDelta: number;
     let prevDragDirection: string;
@@ -156,6 +208,20 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         }
     }, [workspace, tabIds]);
 
+    useEffect(() => {
+        const refreshProjects = () => setKronchatProjects(readKronchatProjects());
+        const handleProjectsChanged = (event: Event) => {
+            const nextProjects = (event as CustomEvent<KronchatProject[]>).detail;
+            setKronchatProjects(Array.isArray(nextProjects) ? nextProjects : readKronchatProjects());
+        };
+        window.addEventListener(KronchatProjectsChangedEvent, handleProjectsChanged);
+        window.addEventListener("storage", refreshProjects);
+        return () => {
+            window.removeEventListener(KronchatProjectsChangedEvent, handleProjectsChanged);
+            window.removeEventListener("storage", refreshProjects);
+        };
+    }, []);
+
     const saveTabsPosition = useCallback(() => {
         const tabs = tabRefs.current;
         if (tabs === null) return;
@@ -175,7 +241,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const setSizeAndPosition = (animate?: boolean) => {
         const tabBar = tabBarRef.current;
-        if (tabBar === null) return;
+        const tabbarWrapper = tabbarWrapperRef.current;
+        const draggerLeft = draggerLeftRef.current;
+        const addButton = addBtnRef.current;
+        if (tabBar === null || tabbarWrapper === null || draggerLeft === null || addButton === null) return;
 
         const getOuterWidth = (el: HTMLElement): number => {
             const rect = el.getBoundingClientRect();
@@ -183,13 +252,23 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             return rect.width + parseFloat(style.marginLeft) + parseFloat(style.marginRight);
         };
 
-        const tabbarWrapperWidth = tabbarWrapperRef.current.getBoundingClientRect().width;
-        const windowDragLeftWidth = draggerLeftRef.current.getBoundingClientRect().width;
+        const numberOfTabs = tabIds.length;
+        if (numberOfTabs === 0) {
+            if (osInstanceRef.current) {
+                osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
+            }
+            return;
+        }
+
+        const tabbarWrapperWidth = tabbarWrapper.getBoundingClientRect().width;
+        const windowDragLeftWidth = draggerLeft.getBoundingClientRect().width;
         const rightContainerWidth = rightContainerRef.current?.getBoundingClientRect().width ?? 0;
-        const addBtnWidth = getOuterWidth(addBtnRef.current);
+        const addBtnWidth = getOuterWidth(addButton);
         const appMenuButtonWidth = appMenuButtonRef.current?.getBoundingClientRect().width ?? 0;
         const workspaceSwitcherWidth = workspaceSwitcherRef.current?.getBoundingClientRect().width ?? 0;
         const waveAIButtonWidth = waveAIButtonRef.current != null ? getOuterWidth(waveAIButtonRef.current) : 0;
+        const projectPillsWidth = projectPillsRef.current != null ? getOuterWidth(projectPillsRef.current) : 0;
 
         const nonTabElementsWidth =
             windowDragLeftWidth +
@@ -197,10 +276,9 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             addBtnWidth +
             appMenuButtonWidth +
             workspaceSwitcherWidth +
-            waveAIButtonWidth;
+            waveAIButtonWidth +
+            projectPillsWidth;
         const spaceForTabs = tabbarWrapperWidth - nonTabElementsWidth;
-
-        const numberOfTabs = tabIds.length;
 
         // Compute the ideal width per tab by dividing the available space by the number of tabs
         let idealTabWidth = spaceForTabs / numberOfTabs;
@@ -237,10 +315,15 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
         // Initialize/destroy overlay scrollbars
         if (newScrollable) {
-            osInstanceRef.current = OverlayScrollbars(tabBarRef.current, { ...(OSOptions as any) });
+            if (osInstanceRef.current == null) {
+                osInstanceRef.current = OverlayScrollbars(tabBar, { ...(OSOptions as any) });
+            } else {
+                osInstanceRef.current.update();
+            }
         } else {
             if (osInstanceRef.current) {
                 osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
             }
         }
     };
@@ -251,9 +334,27 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     );
 
     const handleResizeTabs = useCallback(() => {
-        setSizeAndPosition();
-        saveTabsPositionDebounced();
+        if (resizeFrameRef.current != null) {
+            return;
+        }
+        resizeFrameRef.current = window.requestAnimationFrame(() => {
+            resizeFrameRef.current = null;
+            setSizeAndPosition();
+            saveTabsPositionDebounced();
+        });
     }, [tabIds, newTabId, isFullScreen]);
+
+    useEffect(() => {
+        return () => {
+            if (resizeFrameRef.current != null) {
+                window.cancelAnimationFrame(resizeFrameRef.current);
+            }
+            if (osInstanceRef.current) {
+                osInstanceRef.current.destroy();
+                osInstanceRef.current = null;
+            }
+        };
+    }, []);
 
     // update layout on reinit version
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
@@ -271,6 +372,15 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         };
     }, [handleResizeTabs]);
 
+    useEffect(() => {
+        if (workspaceSwitcherRef.current == null) {
+            return;
+        }
+        const resizeObserver = new ResizeObserver(handleResizeTabs);
+        resizeObserver.observe(workspaceSwitcherRef.current);
+        return () => resizeObserver.disconnect();
+    }, [handleResizeTabs]);
+
     // update layout on changed tabIds, tabsLoaded, newTabId, hideAiButton, appUpdateStatus, or zoomFactor
     useEffect(() => {
         // Check if all tabs are loaded
@@ -282,7 +392,17 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 prevAllLoadedRef.current = true;
             }
         }
-    }, [tabIds, tabsLoaded, newTabId, saveTabsPosition, hideAiButton, appUpdateStatus, zoomFactor, showMenuBar]);
+    }, [
+        tabIds,
+        tabsLoaded,
+        newTabId,
+        saveTabsPosition,
+        hideAiButton,
+        appUpdateStatus,
+        zoomFactor,
+        showMenuBar,
+        kronchatProjectLayoutKey,
+    ]);
 
     const getDragDirection = (currentX: number) => {
         let dragDirection: string;
@@ -301,9 +421,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const getNewTabIndex = (currentX: number, tabIndex: number, dragDirection: string) => {
         let newTabIndex = tabIndex;
         const tabWidth = tabWidthRef.current;
+        const tabCount = draggingTabOrderRef.current.length || tabIds.length;
         if (dragDirection === "+") {
             // Dragging to the right
-            for (let i = tabIndex + 1; i < tabIds.length; i++) {
+            for (let i = tabIndex + 1; i < tabCount; i++) {
                 const otherTabStart = dragStartPositions[i];
                 if (currentX + tabWidth > otherTabStart + tabWidth / 2) {
                     newTabIndex = i;
@@ -397,23 +518,24 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         const newTabIndex = getNewTabIndex(currentX, tabIndex, dragDirection);
 
         if (newTabIndex !== tabIndex) {
+            const orderedTabIds = draggingTabOrderRef.current;
             // Remove the dragged tab if not already done
             if (!draggingRemovedRef.current) {
-                tabIds.splice(tabIndex, 1);
+                orderedTabIds.splice(tabIndex, 1);
                 draggingRemovedRef.current = true;
             }
 
             // Find current index of the dragged tab in tempTabs
-            const currentIndexOfDraggingTab = tabIds.indexOf(tabId);
+            const currentIndexOfDraggingTab = orderedTabIds.indexOf(tabId);
 
             // Move the dragged tab to its new position
             if (currentIndexOfDraggingTab !== -1) {
-                tabIds.splice(currentIndexOfDraggingTab, 1);
+                orderedTabIds.splice(currentIndexOfDraggingTab, 1);
             }
-            tabIds.splice(newTabIndex, 0, tabId);
+            orderedTabIds.splice(newTabIndex, 0, tabId);
 
             // Update visual positions of the tabs
-            tabIds.forEach((localTabId, index) => {
+            orderedTabIds.forEach((localTabId, index) => {
                 const ref = tabRefs.current.find((ref) => ref.current.dataset.tabId === localTabId);
                 if (ref.current && localTabId !== tabId) {
                     ref.current.style.transform = `translate3d(${index * tabWidth}px,0,0)`;
@@ -442,9 +564,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const handleMouseUp = (_event: MouseEvent) => {
         const { tabIndex, dragged } = draggingTabDataRef.current;
+        const orderedTabIds = draggingTabOrderRef.current.length ? draggingTabOrderRef.current : tabIds;
 
         // Update the final position of the dragged tab
-        const draggingTab = tabIds[tabIndex];
+        const draggingTab = orderedTabIds[tabIndex];
         const tabWidth = tabWidthRef.current;
         const finalLeftPosition = tabIndex * tabWidth;
         const ref = tabRefs.current.find((ref) => ref.current.dataset.tabId === draggingTab);
@@ -454,7 +577,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         }
 
         if (dragged) {
-            setUpdatedTabsDebounced(tabIds);
+            setUpdatedTabsDebounced([...orderedTabIds]);
         } else {
             // Reset styles
             tabRefs.current.forEach((ref) => {
@@ -468,6 +591,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         document.removeEventListener("mouseup", handleMouseUp);
         document.removeEventListener("mousemove", handleMouseMove);
         draggingRemovedRef.current = false;
+        draggingTabOrderRef.current = [];
     };
 
     const handleDragStart = useCallback(
@@ -489,6 +613,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                     totalScrollOffset: 0,
                     dragged: false,
                 };
+                draggingTabOrderRef.current = [...tabIds];
 
                 document.addEventListener("mousemove", handleMouseMove);
                 document.addEventListener("mouseup", handleMouseUp);
@@ -592,14 +717,16 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 style={{ width: windowDragLeftWidth, WebkitAppRegion: "drag" } as any}
             />
             {showAppMenuButton && (
-                <div
+                <button
+                    type="button"
                     ref={appMenuButtonRef}
-                    className="flex items-center justify-center pr-1.5 text-[26px] select-none cursor-pointer text-secondary hover:text-primary"
+                    className="shell-toolbar-button shell-app-menu-button"
                     style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
                     onClick={onEllipsisClick}
+                    aria-label="Open application menu"
                 >
                     <i className="fa fa-ellipsis" />
-                </div>
+                </button>
             )}
             <WaveAIButton divRef={waveAIButtonRef} />
             <Tooltip
@@ -609,9 +736,19 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 divRef={workspaceSwitcherRef}
                 divClassName="flex items-center"
             >
-                <WorkspaceSwitcher />
+                <WorkspaceSwitcher showLabel />
             </Tooltip>
-            <div className="tab-bar" ref={tabBarRef} data-overlayscrollbars-initialize>
+            <FoldedWidgetsBar />
+            <div ref={projectPillsRef}>
+                <KronchatProjectPills projects={kronchatProjects} />
+            </div>
+            <div
+                className="tab-bar"
+                ref={tabBarRef}
+                role="tablist"
+                aria-label="Workspace tabs"
+                data-overlayscrollbars-initialize
+            >
                 <div
                     className="tabs-wrapper"
                     ref={tabsWrapperRef}
@@ -644,9 +781,11 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                 </div>
             </div>
             <button
+                type="button"
                 ref={addBtnRef}
                 title="Add Tab"
-                className={`flex h-[22px] px-2 mb-1 mx-1 items-center rounded-md box-border cursor-pointer hover:bg-hoverbg transition-colors text-[12px] text-secondary hover:text-primary${noTabs ? " invisible" : ""}`}
+                aria-label="Add tab"
+                className={`shell-toolbar-button add-tab${noTabs ? " invisible" : ""}`}
                 style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
                 onClick={handleAddTab}
             >

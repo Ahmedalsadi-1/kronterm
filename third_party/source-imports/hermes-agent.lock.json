@@ -1,0 +1,7 @@
+{
+    "upstream": "https://github.com/NousResearch/hermes-agent.git",
+    "commit": "fc9cbc872d8050c22f1192b16bc5ff4aed471e10",
+    "clonedAt": "2026-08-21",
+    "checkout": "third_party/upstream/hermes-agent",
+    "imports": ["apps/desktop", "acp_adapter", "hermes_cli/plugins.py"]
+}

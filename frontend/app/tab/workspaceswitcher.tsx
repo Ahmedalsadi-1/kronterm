@@ -1,6 +1,8 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { BasePopover } from "@/app/shadcn/base-popover";
+import { globalStore } from "@/app/store/jotaiStore";
 import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import {
     ExpandableMenu,
@@ -10,7 +12,6 @@ import {
     ExpandableMenuItemLeftElement,
     ExpandableMenuItemRightElement,
 } from "@/element/expandablemenu";
-import { Popover, PopoverButton, PopoverContent } from "@/element/popover";
 import { fireAndForget, makeIconClass, useAtomValueSafe } from "@/util/util";
 import clsx from "clsx";
 import { atom, PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -19,7 +20,6 @@ import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { CSSProperties, forwardRef, useCallback, useEffect } from "react";
 import WorkspaceSVG from "../asset/workspace.svg";
 import { IconButton } from "../element/iconbutton";
-import { globalStore } from "@/app/store/jotaiStore";
 import { makeORef } from "../store/wos";
 import { waveEventSubscribeSingle } from "../store/wps";
 import { WorkspaceEditor } from "./workspaceeditor";
@@ -49,7 +49,12 @@ type WorkspaceList = WorkspaceListEntry[];
 const workspaceMapAtom = atom<WorkspaceList>([]);
 const workspaceSplitAtom = splitAtom(workspaceMapAtom);
 const editingWorkspaceAtom = atom<string>();
-const WorkspaceSwitcher = forwardRef<HTMLDivElement>((_, ref) => {
+
+interface WorkspaceSwitcherProps {
+    showLabel?: boolean;
+}
+
+const WorkspaceSwitcher = forwardRef<HTMLButtonElement, WorkspaceSwitcherProps>(({ showLabel = false }, ref) => {
     const env = useWaveEnv<WorkspaceSwitcherEnv>();
     const setWorkspaceList = useSetAtom(workspaceMapAtom);
     const activeWorkspace = useAtomValueSafe(env.atoms.workspace);
@@ -107,50 +112,55 @@ const WorkspaceSwitcher = forwardRef<HTMLDivElement>((_, ref) => {
     };
 
     return (
-        <Popover
-            className="workspace-switcher-popover"
-            placement="bottom-start"
+        <BasePopover
             onDismiss={() => setEditingWorkspace(null)}
             ref={ref}
-        >
-            <PopoverButton
-                className="workspace-switcher-button grey"
-                as="div"
-                onClick={() => {
-                    fireAndForget(updateWorkspaceList);
-                }}
-            >
-                <span className="workspace-icon">{workspaceIcon}</span>
-            </PopoverButton>
-            <PopoverContent className="workspace-switcher-content">
-                <div className="title">{isActiveWorkspaceSaved ? "Switch workspace" : "Open workspace"}</div>
-                <OverlayScrollbarsComponent className={"scrollable"} options={{ scrollbars: { autoHide: "leave" } }}>
-                    <ExpandableMenu noIndent singleOpen>
-                        {workspaceList.map((entry, i) => (
-                            <WorkspaceSwitcherItem key={i} entryAtom={entry} onDeleteWorkspace={onDeleteWorkspace} />
-                        ))}
-                    </ExpandableMenu>
-                </OverlayScrollbarsComponent>
-
-                <div className="actions">
-                    {isActiveWorkspaceSaved ? (
-                        <ExpandableMenuItem onClick={() => env.electron.createWorkspace()}>
-                            <ExpandableMenuItemLeftElement>
-                                <i className="fa-sharp fa-solid fa-plus"></i>
-                            </ExpandableMenuItemLeftElement>
-                            <div className="content">Create new workspace</div>
-                        </ExpandableMenuItem>
-                    ) : (
-                        <ExpandableMenuItem onClick={() => saveWorkspace()}>
-                            <ExpandableMenuItemLeftElement>
-                                <i className="fa-sharp fa-solid fa-floppy-disk"></i>
-                            </ExpandableMenuItemLeftElement>
-                            <div className="content">Save workspace</div>
-                        </ExpandableMenuItem>
+            triggerClassName="workspace-switcher-button"
+            popupClassName="workspace-switcher-content"
+            onTriggerClick={() => {
+                fireAndForget(updateWorkspaceList);
+            }}
+            trigger={
+                <>
+                    <span className="workspace-icon">{workspaceIcon}</span>
+                    {showLabel && (
+                        <>
+                            <span className="workspace-switcher-name">
+                                {isActiveWorkspaceSaved ? activeWorkspace.name : "Workspace"}
+                            </span>
+                            <i className="fa-solid fa-chevron-down workspace-switcher-chevron" aria-hidden="true" />
+                        </>
                     )}
-                </div>
-            </PopoverContent>
-        </Popover>
+                </>
+            }
+        >
+            <div className="title">{isActiveWorkspaceSaved ? "Switch workspace" : "Open workspace"}</div>
+            <OverlayScrollbarsComponent className={"scrollable"} options={{ scrollbars: { autoHide: "leave" } }}>
+                <ExpandableMenu noIndent singleOpen>
+                    {workspaceList.map((entry, i) => (
+                        <WorkspaceSwitcherItem key={i} entryAtom={entry} onDeleteWorkspace={onDeleteWorkspace} />
+                    ))}
+                </ExpandableMenu>
+            </OverlayScrollbarsComponent>
+
+            <div className="actions">
+                {isActiveWorkspaceSaved ? (
+                    <ExpandableMenuItem onClick={() => env.electron.createWorkspace()}>
+                        <ExpandableMenuItemLeftElement>
+                            <i className="fa-sharp fa-solid fa-plus"></i>
+                        </ExpandableMenuItemLeftElement>
+                        <div className="content">Create new workspace</div>
+                    </ExpandableMenuItem>
+                ) : (
+                    <ExpandableMenuItem onClick={() => saveWorkspace()}>
+                        <ExpandableMenuItemLeftElement>
+                            <i className="fa-sharp fa-solid fa-floppy-disk"></i>
+                        </ExpandableMenuItemLeftElement>
+                        <div className="content">Save workspace</div>
+                    </ExpandableMenuItem>
+                )}
+            </div>
+        </BasePopover>
     );
 });
 

@@ -1,10 +1,42 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { WshClient } from "@/app/store/wshclient";
 import type { WaveEnv } from "@/app/waveenv/waveenv";
 import { type Placement } from "@floating-ui/react";
 import type * as jotai from "jotai";
 import type * as rxjs from "rxjs";
+
+declare module "@/app/store/wshclientapi" {
+    interface RpcApiType {
+        ListAllAppsCommand(
+            client: WshClient,
+            opts?: RpcOpts
+        ): Promise<
+            Array<{
+                appid: string;
+                modtime?: number;
+                manifest?: {
+                    appmeta?: {
+                        title?: string;
+                        displayname?: string;
+                        shortdesc?: string;
+                        icon?: string;
+                        iconcolor?: string;
+                    };
+                    configschema?: Record<string, unknown>;
+                    dataschema?: Record<string, unknown>;
+                    secrets?: Record<string, unknown>;
+                };
+            }>
+        >;
+        MakeDraftFromLocalCommand(
+            client: WshClient,
+            data: CommandMakeDraftFromLocalData,
+            opts?: RpcOpts
+        ): Promise<CommandMakeDraftFromLocalRtnData>;
+    }
+}
 
 declare global {
     type GlobalAtomsType = {
@@ -27,6 +59,8 @@ declare global {
         allConnStatus: jotai.Atom<ConnStatus[]>;
         reinitVersion: jotai.PrimitiveAtom<number>;
         waveAIRateLimitInfoAtom: jotai.PrimitiveAtom<RateLimitInfo>;
+        builderId: jotai.PrimitiveAtom<string>;
+        builderAppId: jotai.PrimitiveAtom<string>;
     };
 
     type ThrottledValueAtom<T> = jotai.WritableAtom<T, [update: jotai.SetStateAction<T>], void>;
@@ -41,6 +75,85 @@ declare global {
     type AtomWithDebounce<T> = {
         currentValueAtom: jotai.Atom<T>;
         debouncedValueAtom: DebouncedValueAtom<T>;
+    };
+
+    type ChatHubV2RuntimeHealth = {
+        runtime: "kronoscode-kronoschamber";
+        status: "not-found" | "starting" | "ready" | "error" | "stopped";
+        checkedAt: number;
+        candidateRoots: string[];
+        detectedRoot?: string;
+        serverPath?: string;
+        distPath?: string;
+        kronosCodeBinary?: string;
+        startupError?: string;
+        logExcerpt: string[];
+        supportedProviders: string[];
+        supportedModels: string[];
+        recoveryActions: Array<"retry" | "open-settings" | "inspect-logs">;
+    };
+
+    type ChatHubV2ServerData = {
+        url: string;
+        port: number;
+        pid?: number;
+        serverPath: string;
+        distPath: string;
+        ready: boolean;
+        health?: ChatHubV2RuntimeHealth;
+    };
+
+    type HermesConnectionDescriptor = {
+        baseUrl: string;
+        wsUrl: string;
+        token: string;
+        pid: number;
+    };
+
+    type HermesApiIpcRequest = {
+        path: string;
+        method?: string;
+        body?: unknown;
+        upload?: { filename: string; contentType?: string; bytes: ArrayBuffer };
+        timeoutMs?: number;
+        profile?: string | null;
+    };
+
+    type KronosCodeConnectionDescriptor = {
+        mode: "managed" | "external";
+        baseUrl: string;
+        backendVersion: string;
+        protocolVersion: string;
+        serverInstanceId: string;
+        capabilities: {
+            gateway: boolean;
+            replay: boolean;
+            asyncPrompt: boolean;
+            promptIdempotency?: boolean;
+            pagedHistory?: boolean;
+        };
+        managed: boolean;
+    };
+
+    type KronosCodeBootProgress = {
+        phase: "idle" | "resolving" | "validating" | "launching" | "waiting" | "ready" | "recovering" | "error";
+        message: string;
+        progress: number;
+        attempt?: number;
+        error?: string;
+    };
+
+    type KronosCodeApiRequest = {
+        path: string;
+        method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+        body?: unknown;
+        directory?: string;
+    };
+
+    type KronosCodeApiResponse = {
+        status: number;
+        headers: Record<string, string>;
+        body: unknown;
     };
 
     type SplitAtom<Item> = Atom<Atom<Item>[]>;
@@ -59,6 +172,51 @@ declare global {
         primaryTabStartup?: boolean;
         builderId?: string;
         isPreview?: boolean;
+    };
+
+    type WaveInitOpts = GlobalInitOptions & {
+        tabId: string;
+        fullConfig: FullConfigType;
+        clientId: string;
+        activate?: boolean;
+    };
+
+    type BuilderInitOpts = GlobalInitOptions & {
+        builderId: string;
+        appId?: string;
+    };
+
+    type KronSettingsKey =
+        | keyof SettingsType
+        | "app:defaulteditor"
+        | "desktop:control"
+        | "desktop:screenshare"
+        | "desktop:autominimize"
+        | "git:username"
+        | "git:useremail"
+        | "github:token"
+        | "github:owner"
+        | "notify:desktop"
+        | "notify:sound"
+        | "notify:taskcomplete"
+        | "notify:error"
+        | "term:autodelete"
+        | "term:autodeletedays";
+
+    type CommandMakeDraftFromLocalData = {
+        localappid: string;
+    };
+
+    type CommandMakeDraftFromLocalRtnData = {
+        draftappid: string;
+    };
+
+    type SystemSearchItem = {
+        kind: "file" | "folder" | "wallpaper";
+        name: string;
+        path: string;
+        detail: string;
+    };
 
     type ElectronApi = {
         getAuthKey(): string; // get-auth-key
@@ -75,6 +233,7 @@ declare global {
         getAboutModalDetails: () => AboutModalDetails; // get-about-modal-details
         getZoomFactor: () => number; // get-zoom-factor
         showWorkspaceAppMenu: (workspaceId: string) => void; // workspace-appmenu-show
+        showBuilderAppMenu: (builderId: string) => void; // builder-appmenu-show
         showContextMenu: (workspaceId: string, menu: ElectronContextMenuItem[]) => void; // contextmenu-show
         onContextMenuClick: (callback: (id: string | null) => void) => void; // contextmenu-click
         onNavigate: (callback: (url: string) => void) => void;
@@ -94,6 +253,9 @@ declare global {
         registerGlobalWebviewKeys: (keys: string[]) => void; // register-global-webview-keys
         onControlShiftStateUpdate: (callback: (state: boolean) => void) => void; // control-shift-state-update
         createWorkspace: () => void; // create-workspace
+        openBuilder: (appId?: string) => void; // open-builder
+        closeBuilderWindow: (builderId?: string) => void; // close-builder-window
+        setBuilderWindowAppId: (appId: string) => void; // set-builder-window-app-id
         switchWorkspace: (workspaceId: string) => void; // switch-workspace
         deleteWorkspace: (workspaceId: string) => void; // delete-workspace
         setActiveTab: (tabId: string) => void; // set-active-tab
@@ -101,6 +263,7 @@ declare global {
         closeTab: (workspaceId: string, tabId: string, confirmClose: boolean) => Promise<boolean>; // close-tab
         setWindowInitStatus: (status: "ready" | "wave-ready") => void; // set-window-init-status
         onWaveInit: (callback: (initOpts: WaveInitOpts) => void) => void; // wave-init
+        onBuilderInit?: (callback: (initOpts: BuilderInitOpts) => void) => void; // builder-init
         sendLog: (log: string) => void; // fe-log
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
@@ -114,6 +277,7 @@ declare global {
         saveTextFile: (fileName: string, content: string) => Promise<boolean>; // save-text-file
         selectDirectory: () => Promise<string | null>; // select-directory
         selectFiles: () => Promise<string[]>; // select-files
+        searchSystemItems: (query: string) => Promise<SystemSearchItem[]>; // search-system-items
         acpApplyGitIdentity: (opts: {
             workspace: string;
             userName: string;
@@ -126,22 +290,49 @@ declare global {
             thought?: string;
             target?: { x: number; y: number; width: number; height: number };
             cursorAction?: "idle" | "click" | "type" | "scroll" | "hover" | null;
+            cursorPoint?: { x: number; y: number } | null;
+            reasoningLog?: string[];
             previewImageUrl?: string;
             petActivityUrl?: string;
             surfaceActivity?: {
                 sessionid?: string;
-                source: "acp" | "kronoscode-tui";
-                phase: "start" | "update" | "finish" | "error";
+                source: "acp" | "kronoscode-tui" | "wave" | "mcp" | "plugin" | "surface-runtime";
+                phase:
+                    | "queued"
+                    | "awaiting-approval"
+                    | "running"
+                    | "verifying"
+                    | "succeeded"
+                    | "degraded"
+                    | "failed"
+                    | "cancelled"
+                    | "paused"
+                    | "start"
+                    | "update"
+                    | "finish"
+                    | "error";
                 blockid?: string;
-                surface: "browser" | "sandbox" | "terminal" | "file" | "panel";
+                surface: "browser" | "sandbox" | "desktop" | "terminal" | "file" | "panel";
                 action: string;
+                capabilityid?: string;
+                connectorid?: string;
                 detail?: string;
                 thought?: string;
+                reasoningSteps?: string[];
                 point?: { x: number; y: number };
+                target?: { x: number; y: number; width: number; height: number };
                 previewimageurl?: string;
+                petactivityurl?: string;
+                appname?: string;
+                presentationHints?: {
+                    cursorAction?: "idle" | "click" | "type" | "scroll" | "hover" | null;
+                    overlayAction?: string;
+                };
             };
         }) => void; // desktop-pet-activity
         onDesktopPetChat: (callback: (text: string) => void) => () => void; // desktop-pet-chat
+        onDesktopPetResume: (callback: () => void) => () => void; // desktop-pet-resume
+        onDesktopPetSurfaceActivity: (callback: (activity: Record<string, unknown>) => void) => () => void; // desktop-pet-surface-activity
         acpDetectAgents: () => Promise<
             Array<{
                 backend: string;
@@ -154,6 +345,7 @@ declare global {
                 supportsStreaming?: boolean;
                 acpArgs?: string[];
                 skillsDirs?: string[];
+                harnessProfile?: any;
             }>
         >;
         acpInitialize: (opts: {
@@ -164,17 +356,45 @@ declare global {
             customArgs?: string[];
             customEnv?: Record<string, string>;
             resumeSessionId?: string;
-            mcpServers?: Array<{
-                name: string;
-                command: string;
-                args: string[];
-                env: Array<{ name: string; value: string }>;
-            }>;
+            resumeSessionConversationId?: string;
+            mcpServers?: Array<
+                | {
+                      type?: "stdio";
+                      name: string;
+                      command: string;
+                      args: string[];
+                      env: Array<{ name: string; value: string }>;
+                  }
+                | {
+                      type: "http" | "sse";
+                      name: string;
+                      url: string;
+                      headers?: Array<{ name: string; value: string }>;
+                  }
+            >;
             surfaceContext?: {
                 tabId: string;
                 blockId?: string;
             };
-        }) => Promise<{ success: boolean; error?: string }>;
+        }) => Promise<{
+            success: boolean;
+            error?: string;
+            conversationId?: string;
+            state?: {
+                status: string;
+                sessionId: string | null;
+                backend: string;
+                error: string | null;
+                confirmations: any[];
+                modes: any;
+                currentMode: string;
+                configOptions: any[];
+                modelInfo: any;
+                capabilities: any;
+                harnessProfile?: any;
+                capabilityLease?: any;
+            };
+        }>;
         acpSendMessage: (opts: {
             conversationId: string;
             content: string;
@@ -198,6 +418,8 @@ declare global {
             configOptions?: any[];
             modelInfo?: any;
             capabilities?: any;
+            harnessProfile?: any;
+            capabilityLease?: any;
         }>;
         acpListRuntimes: () => Promise<
             Array<{
@@ -213,6 +435,8 @@ declare global {
                 configOptions?: any[];
                 modelInfo?: any;
                 capabilities?: any;
+                harnessProfile?: any;
+                capabilityLease?: any;
             }>
         >;
         acpGetMode: (opts: { conversationId: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
@@ -244,6 +468,62 @@ declare global {
                 timestamp: number;
             }) => void
         ) => () => void;
+
+        // ── LSP (Language Server Protocol) ────────────────────────────
+        lspStart: (language: string) => Promise<string>;
+        lspSend: (sessionId: string, content: string) => void;
+        lspStop: (sessionId: string) => void;
+        onLspMessage: (callback: (msg: { sessionId: string; content: string }) => void) => () => void;
+
+        // ── Krondesign daemon ────────────────────────────────────────
+        krondesignStatus: () => Promise<{ running: boolean; url: string; pid: number | null }>;
+        krondesignStart: () => Promise<{ success: boolean; error?: string }>;
+
+        // ── ChatHub V2 / KronosChamber backend ──────────────────────
+        chathubv2Start: (context?: { tabId?: string; blockId?: string; surfaceId?: string }) => Promise<{
+            success: boolean;
+            error?: string;
+            data?: ChatHubV2ServerData;
+            health?: ChatHubV2RuntimeHealth;
+        }>;
+        chathubv2Status: () => Promise<{
+            success: boolean;
+            data?: ChatHubV2ServerData | null;
+            health?: ChatHubV2RuntimeHealth;
+        }>;
+        chathubv2Stop: () => Promise<{ success: boolean; error?: string }>;
+        hermesGetConnection: (context?: { tabId?: string; blockId?: string }) => Promise<HermesConnectionDescriptor>; // hermes-get-connection
+        hermesApi: <T = unknown>(input: HermesApiIpcRequest) => Promise<T>; // hermes-api
+        onHermesConnection: (callback: (connection: HermesConnectionDescriptor) => void) => () => void; // hermes-connection
+        kronoscodeGetConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-get-connection
+        kronoscodeRevalidateConnection: () => Promise<KronosCodeConnectionDescriptor>; // kronoscode-revalidate-connection
+        kronoscodeTouchBackend: () => Promise<boolean>; // kronoscode-touch-backend
+        kronoscodeGetGatewayWsUrl: (input?: { directory?: string; surfaceId?: string }) => Promise<string>; // kronoscode-get-gateway-ws-url
+        kronoscodeApi: (input: KronosCodeApiRequest) => Promise<KronosCodeApiResponse>; // kronoscode-api
+        kronoscodeApplyConnection: (input: {
+            endpoint?: string;
+            binary?: string;
+            username?: string;
+            password?: string;
+        }) => Promise<KronosCodeConnectionDescriptor>; // kronoscode-apply-connection
+        kronoscodeGetBootProgress: () => Promise<KronosCodeBootProgress>; // kronoscode-get-boot-progress
+        onKronosCodeBootProgress: (callback: (progress: KronosCodeBootProgress) => void) => () => void; // kronoscode-boot-progress
+        onKronosCodeExit: (
+            callback: (exit: { code: number | null; signal: string | null; managed?: boolean }) => void
+        ) => () => void; // kronoscode-exit
+        onKronosCodePowerResume: (callback: () => void) => () => void; // kronoscode-power-resume
+        onKronosCodeConnectionApplied: (callback: (connection: KronosCodeConnectionDescriptor) => void) => () => void; // kronoscode-connection-applied
+
+        // ── Audio / Voice Engine IPC ──────────────────────────────
+        audioStart: () => Promise<boolean>;
+        audioShutdown: () => void;
+        audioStartListening: () => void;
+        audioStopListening: () => void;
+        audioSpeak: (text: string) => void;
+        audioSetWakeWord: (enabled: boolean) => void;
+        onAudioStatusChange: (callback: (status: string) => void) => () => void;
+        onAudioTranscript: (callback: (text: string) => void) => () => void;
+        onAudioError: (callback: (message: string) => void) => () => void;
     };
 
     type ElectronContextMenuItem = {
@@ -427,6 +707,8 @@ declare global {
 
         // Optional header text or elements for the view.
         viewText?: jotai.Atom<string | HeaderElem[]>;
+
+        headerTop?: jotai.Atom<React.ReactNode>;
 
         termDurableStatus?: jotai.Atom<BlockJobStatusData | null>;
         termConfigedDurable?: jotai.Atom<null | boolean>;

@@ -69,9 +69,25 @@ export function loadMonaco() {
         schemas: [],
     });
     monaco.editor.setTheme("wave-theme-dark");
-    // Disable default validation errors for typescript and javascript
-    monaco.typescript.typescriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: true,
+    // Enable TypeScript/JavaScript language intelligence
+    // Monaco's built-in TypeScript worker provides completions, hover,
+    // go-to-definition, find-references, and diagnostics
+    const ts = monaco.typescript;
+    ts.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+    });
+    ts.typescriptDefaults.setCompilerOptions({
+        target: ts.ScriptTarget.Latest,
+        allowNonTsExtensions: true,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        module: ts.ModuleKind.ESNext,
+        noEmit: true,
+        strict: true,
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        allowJs: true,
+        typeRoots: ["node_modules/@types"],
     });
     monaco.json.jsonDefaults.setDiagnosticsOptions({
         validate: true,

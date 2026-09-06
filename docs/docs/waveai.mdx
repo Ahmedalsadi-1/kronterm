@@ -1,110 +1,145 @@
 ---
 sidebar_position: 1.5
 id: "waveai"
-title: "Wave AI"
+title: "KronosCode"
 ---
 
 import { Kbd } from "@site/src/components/kbd";
-import { PlatformProvider, PlatformSelectorButton } from "@site/src/components/platformcontext";
 
-<PlatformProvider>
+KronosCode is KronTerm's local agent execution layer. KronosChamber is its primary chat and control surface. Together they
+connect a request to the terminal, files, browser, sandbox, native desktop, canvas, research tools, and configured MCP
+servers while keeping meaningful actions visible.
 
-<PlatformSelectorButton />
+## Open KronosChamber
 
-<br/><br/>
-Context-aware terminal assistant with access to terminal output, widgets, and filesystem.
+| Shortcut                                 | Action                   |
+| ---------------------------------------- | ------------------------ |
+| <Kbd k="Cmd:Shift:a" />                  | Toggle the AI panel      |
+| <Kbd k="Ctrl:Shift:0" windows="Alt:0" /> | Focus the AI composer    |
+| <Kbd k="Cmd:k" />                        | Start a new conversation |
+| <Kbd k="Enter" />                        | Send a message           |
+| <Kbd k="Shift:Enter" />                  | Insert a new line        |
 
-## Keyboard Shortcuts
+KronTerm starts and monitors the local KronosCode/KronosChamber runtime. The view reports startup, connection, degraded,
+and unavailable states. When startup fails, use the displayed component status and suggested recovery action instead of
+repeatedly reopening the widget.
 
-| Shortcut | Action |
-|----------|--------|
-| <Kbd k="Cmd:Shift:a"/> | Toggle AI panel |
-| <Kbd k="Ctrl:Shift:0" windows="Alt:0"/> | Focus AI input |
-| <Kbd k="Cmd:k"/> | Clear chat / start new |
-| <Kbd k="Enter"/> | Send message |
-| <Kbd k="Shift:Enter"/> | New line |
+## Workspace context
 
-## Widget Context Toggle
+KronosCode can work from the surfaces already open in the workspace:
 
-Controls AI's access to your workspace:
+| Surface            | Context and actions                                                         |
+| ------------------ | --------------------------------------------------------------------------- |
+| **Terminal**       | Scrollback, shell state, commands, running processes, exit results          |
+| **Files and code** | Local or remote files, diff-reviewed edits, Monaco and LSP information      |
+| **Browser**        | Structured page state, navigation, clicking, typing, scrolling, screenshots |
+| **Sandbox**        | Isolated Linux desktop, terminal, editor, browser, and filesystem           |
+| **macOS desktop**  | Accessibility state and permission-aware native input                       |
+| **Canvas**         | Selected widgets, task lineage, approvals, evidence, and outputs            |
+| **Research**       | Documentation, web search, code search, MCP servers, and skills             |
 
-**ON**: AI can read terminal output, capture widget screenshots, access files/directories (with approval), navigate web widgets, and use custom widget tools. Use for debugging, code analysis, and workspace tasks.
+Context is scoped to the request and active surface. Host, browser, remote, desktop, and sandbox operations remain separate
+execution routes.
 
-**OFF**: AI only sees your messages and attached files. Standard chat mode for general questions.
+### Canvas context
 
-## File Attachments
+On the spatial canvas, open a widget or agent card's context menu:
 
-Drag files onto the AI panel to attach (not supported with all models):
+- **Focus in Kronos task** or **Ask about selection** uses the node as active `follow` context.
+- **Use as evidence** attaches it as `quote` context.
 
-| Type | Formats | Size Limit | Notes |
-|------|---------|------------|-------|
-| Images | JPEG, PNG, GIF, WebP, SVG | 10 MB | Auto-resized to 4096px max, converted to WebP |
-| PDFs | `.pdf` | 5 MB | Text extraction for analysis |
-| Text/Code | `.js`, `.ts`, `.py`, `.go`, `.md`, `.json`, `.yaml`, etc. | 200 KB | All common languages and configs |
+The composer displays the selection so you can clear it before submitting. See [Workspace Modes and Canvas](./workspace-canvas).
 
-## CLI Integration
+## Visible execution
 
-Use `wsh ai` to send files and prompts from the command line:
+KronosCode streams tool activity back into KronTerm. Depending on the surface, you may see:
+
+- active specialist and tool status;
+- command and process output;
+- code diffs and file previews;
+- browser screenshots and structured evidence;
+- native or sandbox cursor activity;
+- approval requests;
+- retry, degraded, failure, verification, and completion state;
+- request, decision, action, evidence, approval, and output cards on the canvas.
+
+Do not treat a progress indicator as proof of completion. Review the returned evidence and the final state.
+
+## Files and attachments
+
+Drag files into the composer or use its attachment control. The current compatibility panel accepts common text/code,
+image, and PDF inputs. File and provider limits vary.
+
+| Type              | Typical handling                                                           |
+| ----------------- | -------------------------------------------------------------------------- |
+| Images            | Validated, resized when needed, and sent to models with image capability   |
+| PDFs              | Attached to providers with PDF support or prepared for text extraction     |
+| Text and code     | Validated, previewed, and attached as readable content                     |
+| Large pasted text | Kept as a separate pasted-content item so it remains visible and removable |
+
+Always review attachments and selected canvas context before sending sensitive information to a cloud provider.
+
+## Command-line integration
+
+Use `wsh ai` from a KronTerm terminal:
 
 ```bash
-git diff | wsh ai -                          # Pipe to AI
-wsh ai main.go -m "find bugs"                # Attach files with message
-wsh ai $(tail -n 500 my.log) -m "review" -s  # Auto-submit with output
+git diff | wsh ai -
+wsh ai main.go -m "Review this file for race conditions"
+wsh ai "$(tail -n 500 server.log)" -m "Find the first failure" -s
 ```
 
-Supports text files, images, PDFs, and directories. Use `-n` for new chat, `-s` to auto-submit.
+Use `-n` for a new conversation and `-s` to submit immediately. Without `-s`, the content is added to the composer for
+review.
 
-## AI Tools (Widget Context Enabled)
+## Models and providers
 
-### Terminal
-- **Read Terminal Output**: Fetches scrollback from terminal widgets, supports line ranges
+KronTerm supports provider presets, OpenAI-compatible endpoints, and local model servers. Existing configuration names
+such as `waveai.json` and `waveai:*` remain for compatibility.
 
-### File System
-- **Read Files**: Reads text files with line range support (requires approval)
-- **List Directories**: Returns file info, sizes, permissions, timestamps (requires approval)
-- **Write Text Files**: Create or modify files with diff preview and approval (requires approval)
+See [Providers and Local Models](./waveai-modes) for configuration examples. Cloud providers receive the messages,
+attachments, and authorized context sent to their API. Ollama, LM Studio, vLLM, or another local endpoint can keep model
+inference on your machine.
 
-### Web
-- **Navigate Web**: Changes URLs in web browser widgets
+## Approvals and boundaries
 
-### All Widgets
-- **Capture Screenshots**: Takes screenshots of any widget for visual analysis (not supported on all models)
+Sensitive actions can pause for approval. The exact confirmation depends on the backend and advertised capability, but
+the UI preserves pending requests instead of converting them into ordinary messages.
 
-:::warning Security
-File system operations require explicit approval. You control all file access.
-:::
+Keep these distinctions in mind:
 
-## Local Models & BYOK
+- model permission does not grant access to every operating surface;
+- sandbox root access does not grant host access;
+- structured browser interaction is separate from native desktop control;
+- an attached file is model context, while an approved file tool is an execution capability;
+- an ACP agent can expose a different capability set from the bundled KronosCode agent.
 
-Wave AI supports using your own AI models and API keys:
+## Voice, experimental
 
-- **Local Models**: Run AI models locally with [Ollama](https://ollama.ai), [LM Studio](https://lmstudio.ai), [vLLM](https://docs.vllm.ai), and other OpenAI-compatible servers
-- **BYOK (Bring Your Own Key)**: Use your own API keys with OpenAI, OpenRouter, Google AI (Gemini), Azure OpenAI, and other cloud providers
-- **Multiple Modes**: Configure and switch between multiple AI providers and models
-- **Privacy**: Keep your data local or use your preferred cloud provider
+The microphone control can start the optional local Python engine, capture speech, transcribe it with `faster-whisper`,
+and submit the final text through the active composer. Speech output is also supported when an online or offline TTS engine
+is available. See [Voice](./voice) for dependencies and privacy details.
 
-See the [**Local Models & BYOK guide**](./waveai-modes.mdx) for complete configuration instructions, examples, and troubleshooting.
+## Troubleshooting
 
-## Privacy
+### KronosChamber does not load
 
-**Default Wave AI Service:**
-- Messages are proxied through the Wave Cloud AI service (powered by OpenAI's APIs). Please refer to OpenAI's privacy policy for details on how they handle your data.
-- Wave does not store your chats, attachments, or use them for training
-- Usage counters included in anonymous telemetry
-- File access requires explicit approval
+Read the runtime repair panel. It identifies whether the child process, HTTP health endpoint, credentials, or embedded
+client failed and supplies the next recovery action.
 
-**Local Models & BYOK:**
-- When using local models, your chat data never leaves your machine
-- When using BYOK with cloud providers, requests are sent directly to your chosen provider
-- Refer to your provider's privacy policy for details on how they handle your data
+### A tool is missing
 
-:::info Under Active Development
-Wave AI is in active beta with included AI credits while we refine the experience. Share feedback in our [Discord](https://discord.gg/XfvZ334gwU).
+Tools depend on the selected agent, model, provider, host, and surface. Check the active agent profile, model capability,
+MCP configuration, and surface connection.
 
-**Coming Soon:**
-- **Remote File Access**: Read files on SSH-connected systems
-- **Command Execution**: Run terminal commands with approval
-- **Web Content**: Extract text from web pages (currently screenshots only)
-:::
+### A local model cannot use tools
 
-</PlatformProvider>
+Confirm that its AI mode includes the `tools` capability and that the endpoint implements the required tool-call format.
+
+### Voice is unavailable
+
+Voice requires the optional Python process, its dependencies, a usable microphone, and operating-system permission. The
+rest of KronosCode works without it.
+
+KronosCode and KronosChamber are active private-beta features. The voice engine is experimental, and behavior may change
+before general release.

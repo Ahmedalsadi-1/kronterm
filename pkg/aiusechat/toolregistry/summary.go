@@ -8,10 +8,12 @@ type Manifest struct {
 }
 
 type Scorecard struct {
-	Total    int
-	ByPack   map[ToolPack]int
-	BySource map[ToolSource]int
-	ByRisk   map[ToolRisk]int
+	Total          int
+	ByPack         map[ToolPack]int
+	BySource       map[ToolSource]int
+	ByRisk         map[ToolRisk]int
+	ByAvailability map[ToolAvailability]int
+	ByVerification map[ToolVerification]int
 }
 
 type Summary struct {
@@ -28,15 +30,19 @@ func (r *Registry) Manifest() Manifest {
 func (r *Registry) Scorecard() Scorecard {
 	capabilities := r.List()
 	scorecard := Scorecard{
-		Total:    len(capabilities),
-		ByPack:   make(map[ToolPack]int),
-		BySource: make(map[ToolSource]int),
-		ByRisk:   make(map[ToolRisk]int),
+		Total:          len(capabilities),
+		ByPack:         make(map[ToolPack]int),
+		BySource:       make(map[ToolSource]int),
+		ByRisk:         make(map[ToolRisk]int),
+		ByAvailability: make(map[ToolAvailability]int),
+		ByVerification: make(map[ToolVerification]int),
 	}
 
 	for _, capability := range capabilities {
 		scorecard.BySource[capability.Source]++
 		scorecard.ByRisk[capability.Risk]++
+		scorecard.ByAvailability[capability.Availability]++
+		scorecard.ByVerification[capability.Verification]++
 		for _, pack := range capability.Packs {
 			scorecard.ByPack[pack]++
 		}

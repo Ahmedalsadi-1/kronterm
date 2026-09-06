@@ -199,6 +199,7 @@ type PromptsListChangedNotification struct {
 type Transport interface {
 	Connect(ctx context.Context) error
 	Send(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+	Notify(ctx context.Context, method string, params interface{}) error
 	Close() error
 }
 
@@ -211,6 +212,7 @@ const (
 	ServerStatusConnecting   ServerStatus = "connecting"
 	ServerStatusConnected    ServerStatus = "connected"
 	ServerStatusError        ServerStatus = "error"
+	ServerStatusDisabled     ServerStatus = "disabled"
 )
 
 type Server struct {

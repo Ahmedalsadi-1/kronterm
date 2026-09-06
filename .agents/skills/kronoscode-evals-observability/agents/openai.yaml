@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronosCode Evals and Observability"
+  short_description: "Evaluate agent quality with useful telemetry"
+  default_prompt: "Use $kronoscode-evals-observability to add a measurable KronosCode evaluation or observability improvement."

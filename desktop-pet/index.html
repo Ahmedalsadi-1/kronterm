@@ -50,7 +50,7 @@
 <body>
     <div id="pet-container">
         <div id="thought-bubble">Thinking...</div>
-        <img id="pet" src="../assets/idle/idle-1.png">
+        <img id="pet" src="../assets/pet/idle/idle-1.png">
     </div>
 
     <script>
@@ -65,7 +65,7 @@
 
         function updateAnimation() {
             currentFrame = (currentFrame % maxFrames) + 1;
-            const path = `../assets/${currentState}/${currentState}-${currentFrame}.png`;
+            const path = `../assets/pet/${currentState}/${currentState}-${currentFrame}.png`;
             pet.src = path;
         }
 

@@ -181,6 +181,7 @@ declare global {
         target?: AgentSurfaceTarget;
         previewimageurl?: string;
         petactivityurl?: string;
+        appname?: string;
     };
 
     // wps.AgentSurfacePoint
@@ -210,6 +211,40 @@ declare global {
         iconcolor: string;
     };
 
+    // wshrpc.AppStreamActionRequest
+    type AppStreamActionRequest = {
+        sessionId?: string;
+        action: string;
+        x?: number;
+        y?: number;
+        button?: string;
+        text?: string;
+        keys?: string;
+        direction?: string;
+        scrollCount?: number;
+    };
+
+    // wshrpc.AppStreamStartRequest
+    type AppStreamStartRequest = {
+        sessionId?: string;
+        appId?: string;
+        appName?: string;
+        bundleId?: string;
+    };
+
+    // wshrpc.AppStreamStartResponse
+    type AppStreamStartResponse = {
+        sessionId?: string;
+        streamUrl?: string;
+        status: string;
+        error?: string;
+    };
+
+    // wshrpc.AppStreamStopRequest
+    type AppStreamStopRequest = {
+        sessionId?: string;
+    };
+
     // baseds.Badge
     type Badge = {
         badgeid: string;
@@ -235,6 +270,59 @@ declare global {
         stickers?: StickerType[];
         subblockids?: string[];
         jobid?: string;
+    };
+
+    // wshrpc.BlockContentAIData
+    type BlockContentAIData = {
+        model?: string;
+        provider?: string;
+        messagecount?: number;
+    };
+
+    // wshrpc.BlockContentEditorData
+    type BlockContentEditorData = {
+        filepath?: string;
+        language?: string;
+        modified?: boolean;
+        linecount?: number;
+        previewtype?: string;
+    };
+
+    // wshrpc.BlockContentPreviewData
+    type BlockContentPreviewData = {
+        filepath?: string;
+        mimetype?: string;
+        filesize?: number;
+    };
+
+    // wshrpc.BlockContentSandboxData
+    type BlockContentSandboxData = {
+        sandboxid?: string;
+        os?: string;
+        running?: boolean;
+    };
+
+    // wshrpc.BlockContentTermData
+    type BlockContentTermData = {
+        cwd?: string;
+        runningprocess?: string;
+        shelltype?: string;
+        exitcode?: number;
+        hasshellintegration?: boolean;
+        jobid?: string;
+        jobrunning?: boolean;
+        controllertype?: string;
+        totallines?: number;
+        connectionname?: string;
+    };
+
+    // wshrpc.BlockContentWebData
+    type BlockContentWebData = {
+        url?: string;
+        title?: string;
+        loading?: boolean;
+        pinnedurl?: string;
+        elementcount?: number;
     };
 
     // blockcontroller.BlockControllerRuntimeStatus
@@ -288,6 +376,169 @@ declare global {
     type BlocksListRequest = {
         windowid?: string;
         workspaceid?: string;
+    };
+
+    // wshrpc.BookmarkCreateData
+    type BookmarkCreateData = {
+        title: string;
+        url: string;
+        parentId?: string;
+        "display:order"?: number;
+    };
+
+    // wshrpc.BookmarkMoveData
+    type BookmarkMoveData = {
+        id: string;
+        parentId?: string;
+        index?: number;
+    };
+
+    // wshrpc.BookmarkSearchResult
+    type BookmarkSearchResult = {
+        id: string;
+        title: string;
+        url: string;
+    };
+
+    // wshrpc.BookmarkUpdateData
+    type BookmarkUpdateData = {
+        id: string;
+        title?: string;
+        url?: string;
+        "display:order"?: number;
+    };
+
+    // wshrpc.BrowserOSInfo
+    type BrowserOSInfo = {
+        version: string;
+        capabilities: string[];
+        features: string[];
+    };
+
+    // wshrpc.CanvasAssetUploadRequest
+    type CanvasAssetUploadRequest = {
+        workspaceid: string;
+        blockid: string;
+        filename: string;
+        mimetype: string;
+        data64: string;
+    };
+
+    // wshrpc.CanvasAssetUploadResponse
+    type CanvasAssetUploadResponse = {
+        filename: string;
+        path: string;
+        mimetype: string;
+        dataurl: string;
+    };
+
+    // wshrpc.CanvasConnectNodesRequest
+    type CanvasConnectNodesRequest = {
+        workspaceid: string;
+        blockid: string;
+        fromnode: string;
+        tonode: string;
+        label?: string;
+    };
+
+    // wshrpc.CanvasDocument
+    type CanvasDocument = {
+        version: number;
+        snapshot?: {[key: string]: any};
+        shapetonode?: {[key: string]: string};
+        nodes?: CanvasNode[];
+        edges?: CanvasEdge[];
+        updatedts?: number;
+    };
+
+    // wshrpc.CanvasEdge
+    type CanvasEdge = {
+        id: string;
+        shapeid?: string;
+        fromnode: string;
+        tonode: string;
+        label?: string;
+    };
+
+    // wshrpc.CanvasLaunchNodeRequest
+    type CanvasLaunchNodeRequest = {
+        workspaceid: string;
+        blockid: string;
+        nodeid: string;
+        tabid?: string;
+        blockdef?: BlockDef;
+        targetblockid?: string;
+        targetaction?: string;
+    };
+
+    // wshrpc.CanvasLaunchNodeResponse
+    type CanvasLaunchNodeResponse = {
+        node: CanvasNode;
+    };
+
+    // wshrpc.CanvasLoadRequest
+    type CanvasLoadRequest = {
+        workspaceid: string;
+        blockid: string;
+    };
+
+    // wshrpc.CanvasLoadResponse
+    type CanvasLoadResponse = {
+        document: CanvasDocument;
+    };
+
+    // wshrpc.CanvasNode
+    type CanvasNode = {
+        id: string;
+        shapeid: string;
+        type: string;
+        title: string;
+        path?: string;
+        content?: string;
+        parentid?: string;
+        workspaceid?: string;
+        blockid?: string;
+        liveblockid?: string;
+        appid?: string;
+        appname?: string;
+        sessionid?: string;
+        status?: string;
+        meta?: {[key: string]: any};
+    };
+
+    // wshrpc.CanvasNodeIdRequest
+    type CanvasNodeIdRequest = {
+        workspaceid: string;
+        blockid: string;
+        nodeid: string;
+    };
+
+    // wshrpc.CanvasNodeMutationRequest
+    type CanvasNodeMutationRequest = {
+        workspaceid: string;
+        blockid: string;
+        node: CanvasNode;
+    };
+
+    // wshrpc.CanvasSaveRequest
+    type CanvasSaveRequest = {
+        workspaceid: string;
+        blockid: string;
+        document: CanvasDocument;
+    };
+
+    // wshrpc.CanvasSnapshotRequest
+    type CanvasSnapshotRequest = {
+        workspaceid: string;
+        blockid: string;
+        includecontent?: boolean;
+    };
+
+    // wshrpc.CanvasSnapshotResponse
+    type CanvasSnapshotResponse = {
+        summary: string;
+        nodes: CanvasNode[];
+        edges: CanvasEdge[];
     };
 
     // waveobj.Client
@@ -477,6 +728,18 @@ declare global {
         streammeta: StreamMeta;
     };
 
+    // wshrpc.CommandGetBlockContentRtnData
+    type CommandGetBlockContentRtnData = {
+        blockid: string;
+        viewtype: string;
+        terminal?: BlockContentTermData;
+        web?: BlockContentWebData;
+        editor?: BlockContentEditorData;
+        preview?: BlockContentPreviewData;
+        sandbox?: BlockContentSandboxData;
+        ai?: BlockContentAIData;
+    };
+
     // wshrpc.CommandGetMetaData
     type CommandGetMetaData = {
         oref: ORef;
@@ -559,6 +822,23 @@ declare global {
         execpath: string;
         workspace: string;
         terminal: boolean;
+    };
+
+    // wshrpc.CommandLspQueryData
+    type CommandLspQueryData = {
+        workspacepath: string;
+        filepath: string;
+        language: string;
+        query: string;
+        line?: number;
+        character?: number;
+        maxresults?: number;
+    };
+
+    // wshrpc.CommandLspQueryRtnData
+    type CommandLspQueryRtnData = {
+        resultjson: string;
+        truncated?: boolean;
     };
 
     // wshrpc.CommandMessageData
@@ -769,6 +1049,14 @@ declare global {
         streammeta: StreamMeta;
     };
 
+    // wshrpc.CommandWebEvalData
+    type CommandWebEvalData = {
+        workspaceid: string;
+        blockid: string;
+        tabid: string;
+        script: string;
+    };
+
     // wshrpc.CommandWebSelectorData
     type CommandWebSelectorData = {
         workspaceid: string;
@@ -967,6 +1255,26 @@ declare global {
         elementref?: string;
         condition: string;
         timeoutms: number;
+    };
+
+    // wshrpc.CommandWorkspaceSurfaceControlData
+    type CommandWorkspaceSurfaceControlData = {
+        action: string;
+        presentation?: string;
+        blockid?: string;
+        targetblockid?: string;
+        position?: string;
+        direction?: string;
+        size?: number;
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        objectid?: string;
+        fromobjectid?: string;
+        toobjectid?: string;
+        text?: string;
+        color?: string;
     };
 
     // wshrpc.CommandWriteTempFileData
@@ -1186,6 +1494,33 @@ declare global {
         configerrors: ConfigError[];
     };
 
+    // wshrpc.GroupTabsData
+    type GroupTabsData = {
+        tabIds: string[];
+        title?: string;
+    };
+
+    // wshrpc.HistoryDeleteRangeData
+    type HistoryDeleteRangeData = {
+        startTime: number;
+        endTime: number;
+    };
+
+    // wshrpc.HistoryEntry
+    type HistoryEntry = {
+        id: string;
+        url: string;
+        title?: string;
+        visitTime: number;
+        visitCount?: number;
+    };
+
+    // wshrpc.HistorySearchData
+    type HistorySearchData = {
+        query: string;
+        maxItems?: number;
+    };
+
     // wshrpc.InstalledAppInfo
     type InstalledAppInfo = {
         name: string;
@@ -1386,6 +1721,7 @@ declare global {
         "bg:bordercolor"?: string;
         "bg:activebordercolor"?: string;
         "layout:vtabbarwidth"?: number;
+        "layout:sidepanelmode"?: string;
         "waveai:panelopen"?: boolean;
         "waveai:panelwidth"?: number;
         "waveai:model"?: string;
@@ -1613,6 +1949,9 @@ declare global {
         "app:disablectrlshiftdisplay"?: boolean;
         "app:focusfollowscursor"?: string;
         "app:tabbar"?: string;
+        "app:layoutmode"?: string;
+        "app:quickcomposer"?: boolean;
+        "app:minimalui"?: boolean;
         "feature:waveappbuilder"?: boolean;
         "mcp:*"?: boolean;
         "mcp:enabled"?: boolean;
@@ -1624,6 +1963,10 @@ declare global {
         "acp:commands"?: {[key: string]: ACPCommandDefinition};
         "acp:skills"?: {[key: string]: ACPSkillDefinition};
         "acp:gitidentities"?: {[key: string]: ACPGitIdentity};
+        "kronoscode:endpoint"?: string;
+        "kronoscode:binary"?: string;
+        "kronoscode:username"?: string;
+        "kronoscode:passwordsecretname"?: string;
         "sandbox:enabled"?: boolean;
         "sandbox:cpu"?: number;
         "sandbox:memory"?: number;
@@ -1675,6 +2018,7 @@ declare global {
         "web:openlinksinternally"?: boolean;
         "web:defaulturl"?: string;
         "web:defaultsearch"?: string;
+        "web:tabstripposition"?: string;
         "autoupdate:*"?: boolean;
         "autoupdate:enabled"?: boolean;
         "autoupdate:intervalms"?: number;
@@ -1694,6 +2038,8 @@ declare global {
         "window:blur"?: boolean;
         "window:opacity"?: number;
         "window:bgcolor"?: string;
+        "window:wallpaper"?: string;
+        "window:surfaceopacity"?: number;
         "window:reducedmotion"?: boolean;
         "window:tilegapsize"?: number;
         "window:showmenubar"?: boolean;
@@ -1837,7 +2183,7 @@ declare global {
         "conn:errorcode"?: string;
         "conn:suberrorcode"?: string;
         "conn:contexterror"?: boolean;
-        "onboarding:feature"?: "waveai" | "durable" | "magnify" | "wsh";
+        "onboarding:feature"?: "waveai" | "durable" | "canvas" | "magnify" | "files" | "sandbox" | "apps" | "wsh";
         "onboarding:version"?: string;
         "onboarding:githubstar"?: "already" | "star" | "later";
         "onboarding:page"?: string;
@@ -1921,6 +2267,15 @@ declare global {
         blockids: string[];
     };
 
+    // wshrpc.TabGroupInfo
+    type TabGroupInfo = {
+        id: string;
+        title?: string;
+        color?: string;
+        tabIds?: string[];
+        collapsed: boolean;
+    };
+
     // waveobj.TermSize
     type TermSize = {
         rows: number;
@@ -2002,6 +2357,14 @@ declare global {
         id?: string;
         data?: any;
         providerMetadata?: {[key: string]: any};
+    };
+
+    // wshrpc.UpdateTabGroupData
+    type UpdateTabGroupData = {
+        id: string;
+        title?: string;
+        color?: string;
+        collapsed?: boolean;
     };
 
     // userinput.UserInputRequest
@@ -2438,6 +2801,7 @@ declare global {
     // wconfig.WidgetConfigType
     type WidgetConfigType = {
         "display:order"?: number;
+        "display:group"?: string;
         "display:hidden"?: boolean;
         icon?: string;
         color?: string;
@@ -2571,6 +2935,25 @@ declare global {
     type WinSize = {
         width: number;
         height: number;
+    };
+
+    // wshrpc.WindowBounds
+    type WindowBounds = {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+
+    // wshrpc.WindowInfo
+    type WindowInfo = {
+        windowId: string;
+        workspaceId: string;
+        title?: string;
+        tabCount: number;
+        activeTabId?: string;
+        focused: boolean;
+        bounds?: WindowBounds;
     };
 
     // waveobj.Workspace

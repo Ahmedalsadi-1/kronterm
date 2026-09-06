@@ -1,0 +1,183 @@
+// Copyright 2026, Command Line Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+.vtab-block-tree {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: -1px 2px 3px 14px;
+    padding: 3px 3px 4px 8px;
+    border-left: 1px solid rgb(from var(--accent-color) r g b / 0.28);
+    border-radius: 0 0 0 7px;
+    background: linear-gradient(90deg, rgb(from var(--accent-color) r g b / 0.035), transparent 62%);
+}
+
+.vtab-block-tree-header,
+.vtab-block-item {
+    display: flex;
+    width: 100%;
+    cursor: pointer;
+    align-items: center;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary-color);
+    font: inherit;
+    text-align: left;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease,
+        color 150ms ease;
+
+    &:hover {
+        background: var(--surface-hover-color);
+        color: var(--text-primary-color);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--focus-ring-color);
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.2);
+    }
+}
+
+.vtab-block-tree-header {
+    min-height: 25px;
+    gap: 5px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    user-select: none;
+}
+
+.vtab-block-tree-chevron {
+    width: 9px;
+    color: var(--text-muted-color);
+    font-size: 7px;
+    text-align: center;
+    transition: transform 150ms ease;
+
+    &.expanded {
+        transform: rotate(90deg);
+    }
+}
+
+.vtab-block-tree-folder {
+    width: 13px;
+    color: rgb(from var(--accent-color) r g b / 0.8);
+    font-size: 10px;
+    text-align: center;
+}
+
+.vtab-block-tree-name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vtab-block-tree-count {
+    display: inline-flex;
+    min-width: 16px;
+    height: 15px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 1px solid rgb(from var(--border-color) r g b / 0.42);
+    border-radius: 999px;
+    background: rgb(from var(--surface-raised-color) r g b / 0.68);
+    color: var(--text-muted-color);
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.vtab-block-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.vtab-block-item {
+    position: relative;
+    min-height: 27px;
+    gap: 5px;
+    padding: 3px 6px 3px 16px;
+    border-radius: 6px;
+    font-size: 10px;
+
+    &.folded {
+        opacity: 0.58;
+    }
+
+    &.is-active {
+        border-color: rgb(from var(--accent-color) r g b / 0.34);
+        background: rgb(from var(--accent-color) r g b / 0.1);
+        color: var(--text-primary-color);
+
+        .vtab-block-item-icon {
+            color: var(--accent-color);
+        }
+    }
+
+    &:last-child .vtab-block-branch::after {
+        height: 50%;
+    }
+}
+
+.vtab-block-branch {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 8px;
+
+    &::before {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 8px;
+        border-top: 1px solid rgb(from var(--border-color) r g b / 0.58);
+        content: "";
+    }
+
+    &::after {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        border-left: 1px solid rgb(from var(--border-color) r g b / 0.58);
+        content: "";
+    }
+}
+
+.vtab-block-item-icon {
+    width: 13px;
+    flex-shrink: 0;
+    color: var(--text-muted-color);
+    font-size: 9px;
+    text-align: center;
+}
+
+.vtab-block-item-name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vtab-block-item-type {
+    max-width: 52px;
+    overflow: hidden;
+    color: rgb(from var(--text-muted-color) r g b / 0.72);
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vtab-block-item-fold-icon {
+    color: var(--accent-color);
+    font-size: 8px;
+    opacity: 0.72;
+}

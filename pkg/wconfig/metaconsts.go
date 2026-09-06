@@ -18,6 +18,9 @@ const (
 	ConfigKey_AppDisableCtrlShiftDisplay     = "app:disablectrlshiftdisplay"
 	ConfigKey_AppFocusFollowsCursor          = "app:focusfollowscursor"
 	ConfigKey_AppTabBar                      = "app:tabbar"
+	ConfigKey_AppLayoutMode                  = "app:layoutmode"
+	ConfigKey_AppQuickComposer               = "app:quickcomposer"
+	ConfigKey_AppMinimalUi                   = "app:minimalui"
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 
@@ -32,6 +35,11 @@ const (
 	ConfigKey_ACPCommands                    = "acp:commands"
 	ConfigKey_ACPSkills                      = "acp:skills"
 	ConfigKey_ACPGitIdentities               = "acp:gitidentities"
+
+	ConfigKey_KronosCodeEndpoint             = "kronoscode:endpoint"
+	ConfigKey_KronosCodeBinary               = "kronoscode:binary"
+	ConfigKey_KronosCodeUsername             = "kronoscode:username"
+	ConfigKey_KronosCodePasswordSecretName   = "kronoscode:passwordsecretname"
 
 	ConfigKey_SandboxEnabled                 = "sandbox:enabled"
 	ConfigKey_SandboxCPUCores                = "sandbox:cpu"
@@ -89,6 +97,7 @@ const (
 	ConfigKey_WebOpenLinksInternally         = "web:openlinksinternally"
 	ConfigKey_WebDefaultUrl                  = "web:defaulturl"
 	ConfigKey_WebDefaultSearch               = "web:defaultsearch"
+	ConfigKey_WebTabStripPosition            = "web:tabstripposition"
 
 	ConfigKey_AutoUpdateClear                = "autoupdate:*"
 	ConfigKey_AutoUpdateEnabled              = "autoupdate:enabled"
@@ -114,6 +123,8 @@ const (
 	ConfigKey_WindowBlur                     = "window:blur"
 	ConfigKey_WindowOpacity                  = "window:opacity"
 	ConfigKey_WindowBgColor                  = "window:bgcolor"
+	ConfigKey_WindowWallpaper                = "window:wallpaper"
+	ConfigKey_WindowSurfaceOpacity           = "window:surfaceopacity"
 	ConfigKey_WindowReducedMotion            = "window:reducedmotion"
 	ConfigKey_WindowTileGapSize              = "window:tilegapsize"
 	ConfigKey_WindowShowMenuBar              = "window:showmenubar"

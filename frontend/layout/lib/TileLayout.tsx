@@ -19,6 +19,7 @@ import React, {
 import { DropTargetMonitor, XYCoord, useDrag, useDragLayer, useDrop } from "react-dnd";
 import { debounce, throttle } from "throttle-debounce";
 import { useDevicePixelRatio } from "use-device-pixel-ratio";
+import { shouldIncludeDragPreviewNode } from "./drag-preview";
 import { LayoutModel } from "./layoutModel";
 import { useNodeModel, useTileLayout } from "./layoutModelHooks";
 import "./tilelayout.scss";
@@ -242,9 +243,7 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
         [node, addlProps, isEphemeral, isMagnified]
     );
 
-    const [previewElementGeneration, setPreviewElementGeneration] = useState(0);
     const previewElement = useMemo(() => {
-        setPreviewElementGeneration(previewElementGeneration + 1);
         return (
             <div key="preview" className="tile-preview-container">
                 <div
@@ -262,30 +261,19 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
         );
     }, [devicePixelRatio, nodeModel]);
 
-    const [previewImage, setPreviewImage] = useState<HTMLImageElement>(null);
-    const [previewImageGeneration, setPreviewImageGeneration] = useState(0);
     const generatePreviewImage = useCallback(() => {
         const offsetX = (DragPreviewWidth * devicePixelRatio - DragPreviewWidth) / 2 + 10;
         const offsetY = (DragPreviewHeight * devicePixelRatio - DragPreviewHeight) / 2 + 10;
-        if (previewImage !== null && previewElementGeneration === previewImageGeneration) {
-            dragPreview(previewImage, { offsetY, offsetX });
-        } else if (previewRef.current) {
-            setPreviewImageGeneration(previewElementGeneration);
-            toPng(previewRef.current).then((url) => {
-                const img = new Image();
-                img.src = url;
-                setPreviewImage(img);
-                dragPreview(img, { offsetY, offsetX });
-            });
+        if (previewRef.current) {
+            void toPng(previewRef.current, { filter: shouldIncludeDragPreviewNode, skipFonts: true })
+                .then((url) => {
+                    const img = new Image();
+                    img.src = url;
+                    dragPreview(img, { offsetY, offsetX });
+                })
+                .catch(() => undefined);
         }
-    }, [
-        dragPreview,
-        previewRef.current,
-        previewElementGeneration,
-        previewImageGeneration,
-        previewImage,
-        devicePixelRatio,
-    ]);
+    }, [dragPreview, previewRef.current, devicePixelRatio]);
 
     const leafContent = useMemo(() => {
         return (

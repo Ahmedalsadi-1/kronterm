@@ -1,0 +1,154 @@
+- generic [ref=f4e3]:
+  - link "Skip to content" [ref=f4e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f4e5]:
+    - navigation "Main navigation" [ref=f4e6]:
+      - link "KronTerm home" [ref=f4e7] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f4e9]: KronTerm
+      - button "Open navigation" [ref=f4e11] [cursor=pointer]
+  - main [ref=f4e13]:
+    - article [ref=f4e14]:
+      - navigation "KronTerm field guide chapters" [ref=f4e15]:
+        - link "Field guide" [ref=f4e16] [cursor=pointer]:
+          - /url: /capabilities
+        - generic [ref=f4e19]:
+          - 'link "Chapter 1: Workspace canvas" [ref=f4e20] [cursor=pointer]':
+            - /url: /capabilities/workspace-canvas
+            - text: "01"
+          - 'link "Chapter 2: KronosCode" [ref=f4e21] [cursor=pointer]':
+            - /url: /capabilities/kronoscode
+            - text: "02"
+          - 'link "Chapter 3: Terminal" [ref=f4e22] [cursor=pointer]':
+            - /url: /capabilities/terminal
+            - text: "03"
+          - 'link "Chapter 4: Browser automation" [ref=f4e23] [cursor=pointer]':
+            - /url: /capabilities/browser-automation
+            - text: "04"
+          - 'link "Chapter 5: Sandbox VMs" [ref=f4e24] [cursor=pointer]':
+            - /url: /capabilities/sandbox-vms
+            - text: "05"
+          - 'link "Chapter 6: Desktop control" [ref=f4e25] [cursor=pointer]':
+            - /url: /capabilities/desktop-control
+            - text: "06"
+          - 'link "Chapter 7: Remote sessions" [ref=f4e26] [cursor=pointer]':
+            - /url: /capabilities/remote-sessions
+            - text: "07"
+          - 'link "Chapter 8: ACP agents" [ref=f4e27] [cursor=pointer]':
+            - /url: /capabilities/acp-agents
+            - text: "08"
+      - generic [ref=f4e28]:
+        - generic: "01"
+        - generic [ref=f4e29]:
+          - generic [ref=f4e30]:
+            - generic [ref=f4e31]: Chapter 01 of 08
+            - generic [ref=f4e32]: Command center
+          - heading "Your entire builder loop, composed on one canvas." [level=1] [ref=f4e39]
+          - paragraph [ref=f4e40]: KronTerm replaces the pile of disconnected windows with a block-based workspace. Arrange the exact surfaces a project needs, keep them visible together, and return to the same working context later.
+          - generic [ref=f4e41]:
+            - link "Read the chapter" [ref=f4e42] [cursor=pointer]:
+              - /url: "#chapter-story"
+            - link "All chapters" [ref=f4e43] [cursor=pointer]:
+              - /url: /capabilities
+        - generic "KronTerm workspace canvas in motion" [ref=f4e49]
+      - generic [ref=f4e50]:
+        - generic [ref=f4e51]:
+          - generic [ref=f4e52]: Thesis
+          - generic [ref=f4e53]: 01—A
+        - blockquote [ref=f4e54]: The workspace should preserve the shape of the problem, not force every problem into a row of tabs.
+      - generic [ref=f4e55]:
+        - complementary [ref=f4e56]:
+          - paragraph [ref=f4e57]: Why it exists
+          - heading "Workspace canvas is a complete product surface." [level=2] [ref=f4e58]
+        - generic [ref=f4e59]:
+          - paragraph [ref=f4e60]: Most technical work is spatial. A terminal explains what is running, a browser shows what the customer sees, an editor exposes the change, and an agent follows the evidence between them. Conventional desktops scatter that story across windows and ask the operator to rebuild it mentally.
+          - paragraph [ref=f4e61]: KronTerm turns those surfaces into blocks on a persistent canvas. A project can have its own composition, with the terminal, preview, files, sandbox, and agent arranged around the work. The layout becomes part of the project memory and remains useful when the team returns tomorrow.
+      - generic [ref=f4e62]:
+        - generic [ref=f4e63]:
+          - paragraph [ref=f4e64]: The operating model
+          - heading "What changes when this surface is part of the workspace." [level=2] [ref=f4e65]
+        - generic [ref=f4e66]:
+          - article [ref=f4e67]:
+            - generic [ref=f4e68]: "01"
+            - heading "Compose the loop" [level=3] [ref=f4e69]
+            - paragraph [ref=f4e70]: Arrange blocks around the workflow instead of adapting the workflow to a fixed application shell.
+          - article [ref=f4e71]:
+            - generic [ref=f4e72]: "02"
+            - heading "Keep context visible" [level=3] [ref=f4e73]
+            - paragraph [ref=f4e74]: Output, previews, files, and agent state remain present at the same time and in the same place.
+          - article [ref=f4e75]:
+            - generic [ref=f4e76]: "03"
+            - heading "Return without reconstruction" [level=3] [ref=f4e77]
+            - paragraph [ref=f4e78]: Persistent layouts retain the operational shape of a project between sessions.
+      - generic [ref=f4e79]:
+        - generic [ref=f4e80]:
+          - generic [ref=f4e81]:
+            - paragraph [ref=f4e82]: Product plates
+            - heading "A closer look at workspace canvas." [level=2] [ref=f4e83]
+          - generic [ref=f4e84]: Plate 01—03
+        - generic [ref=f4e85]:
+          - figure "Plate 01 A complete KronTerm workspace composition" [ref=f4e86]:
+            - img "A complete KronTerm workspace composition" [ref=f4e92]
+            - generic [ref=f4e93]:
+              - generic [ref=f4e94]: Plate 01
+              - paragraph [ref=f4e95]: A complete KronTerm workspace composition
+          - figure "Plate 02 The KronTerm canvas being arranged in real time" [ref=f4e96]:
+            - generic "The KronTerm canvas being arranged in real time" [ref=f4e102]
+            - generic [ref=f4e103]:
+              - generic [ref=f4e104]: Plate 02
+              - paragraph [ref=f4e105]: The KronTerm canvas being arranged in real time
+          - figure "Plate 03 A sandbox surface composed inside the workspace" [ref=f4e106]:
+            - img "A sandbox surface composed inside the workspace" [ref=f4e112]
+            - generic [ref=f4e113]:
+              - generic [ref=f4e114]: Plate 03
+              - paragraph [ref=f4e115]: A sandbox surface composed inside the workspace
+      - generic [ref=f4e116]:
+        - generic [ref=f4e117]:
+          - paragraph [ref=f4e118]: A typical sequence
+          - heading "From entry to evidence." [level=2] [ref=f4e119]
+        - list [ref=f4e120]:
+          - listitem [ref=f4e121]:
+            - generic [ref=f4e122]: "01"
+            - strong [ref=f4e123]: Open a project workspace
+          - listitem [ref=f4e124]:
+            - generic [ref=f4e125]: "02"
+            - strong [ref=f4e126]: Compose the surfaces the work needs
+          - listitem [ref=f4e127]:
+            - generic [ref=f4e128]: "03"
+            - strong [ref=f4e129]: Route context between blocks
+          - listitem [ref=f4e130]:
+            - generic [ref=f4e131]: "04"
+            - strong [ref=f4e132]: Return to the same operating picture
+      - link "Turn the page Next / Chapter 02 KronosCode" [ref=f4e133] [cursor=pointer]:
+        - /url: /capabilities/kronoscode
+        - generic [ref=f4e134]: Turn the page
+        - generic [ref=f4e135]:
+          - paragraph [ref=f4e136]: Next / Chapter 02
+          - heading "KronosCode" [level=2] [ref=f4e137]
+  - contentinfo [ref=f4e140]:
+    - generic [ref=f4e141]:
+      - generic [ref=f4e142]:
+        - link "KronTerm home" [ref=f4e143] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f4e145]: KronTerm
+        - paragraph [ref=f4e146]: The command center for human + agent work.
+      - generic [ref=f4e147]:
+        - generic [ref=f4e148]:
+          - strong [ref=f4e149]: Product
+          - link "Field guide" [ref=f4e150] [cursor=pointer]:
+            - /url: /capabilities
+          - link "Workspace" [ref=f4e151] [cursor=pointer]:
+            - /url: /capabilities/workspace-canvas
+          - link "Pricing" [ref=f4e152] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=f4e153]:
+          - strong [ref=f4e154]: Company
+          - link "Contact" [ref=f4e155] [cursor=pointer]:
+            - /url: /contact-sales
+          - link "Security" [ref=f4e156] [cursor=pointer]:
+            - /url: /security
+          - link "Private beta" [ref=f4e157] [cursor=pointer]:
+            - /url: /download
+    - generic [ref=f4e158]:
+      - generic [ref=f4e159]: © 2026 KronTerm
+      - generic [ref=f4e160]: Built for serious technical work.

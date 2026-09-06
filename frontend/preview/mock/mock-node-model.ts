@@ -15,6 +15,7 @@ export type MockNodeModelOpts = {
 export function makeMockNodeModel(opts: MockNodeModelOpts): NodeModel {
     const isFocusedAtom = atom(true);
     const isMagnifiedAtom = atom(false);
+    const isFoldedAtom = atom(false);
 
     return {
         additionalProps: atom({} as any),
@@ -28,12 +29,16 @@ export function makeMockNodeModel(opts: MockNodeModelOpts): NodeModel {
         isResizing: atom(false),
         isFocused: isFocusedAtom,
         isMagnified: isMagnifiedAtom,
+        isFolded: isFoldedAtom,
         anyMagnified: atom((get) => get(isMagnifiedAtom)),
         isEphemeral: atom(false),
         ready: atom(true),
         disablePointerEvents: atom(false),
         toggleMagnify: () => {
             globalStore.set(isMagnifiedAtom, !globalStore.get(isMagnifiedAtom));
+        },
+        toggleFold: () => {
+            globalStore.set(isFoldedAtom, !globalStore.get(isFoldedAtom));
         },
         focusNode: () => {
             globalStore.set(isFocusedAtom, true);

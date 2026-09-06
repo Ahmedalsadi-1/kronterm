@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronosCode Tool Safety"
+  short_description: "Secure tools, approvals, and sandbox boundaries"
+  default_prompt: "Use $kronoscode-tool-safety to review or improve a KronosCode tool, approval, or sandbox boundary."

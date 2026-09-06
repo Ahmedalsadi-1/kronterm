@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld("api", {
     saveTextFile: (fileName: string, content: string) => ipcRenderer.invoke("save-text-file", fileName, content),
     selectDirectory: () => ipcRenderer.invoke("select-directory"),
     selectFiles: () => ipcRenderer.invoke("select-files"),
+    searchSystemItems: (query: string) => ipcRenderer.invoke("search-system-items", query),
     acpApplyGitIdentity: (opts) => ipcRenderer.invoke("acp-apply-git-identity", opts),
     setIsActive: () => ipcRenderer.invoke("set-is-active"),
     setDesktopPetActivity: (notification) => ipcRenderer.send("desktop-pet-activity", notification),
@@ -75,6 +76,16 @@ contextBridge.exposeInMainWorld("api", {
         const handler = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
         ipcRenderer.on("desktop-pet-chat", handler);
         return () => ipcRenderer.removeListener("desktop-pet-chat", handler);
+    },
+    onDesktopPetResume: (callback: () => void) => {
+        const handler = () => callback();
+        ipcRenderer.on("desktop-pet-resume", handler);
+        return () => ipcRenderer.removeListener("desktop-pet-resume", handler);
+    },
+    onDesktopPetSurfaceActivity: (callback: (activity: Record<string, unknown>) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, activity: Record<string, unknown>) => callback(activity);
+        ipcRenderer.on("desktop-pet-surface-activity", handler);
+        return () => ipcRenderer.removeListener("desktop-pet-surface-activity", handler);
     },
     acpDetectAgents: () => ipcRenderer.invoke("acp-detect-agents"),
     acpInitialize: (opts) => ipcRenderer.invoke("acp-initialize", opts),
@@ -93,6 +104,92 @@ contextBridge.exposeInMainWorld("api", {
         const handler = (_event: any, event: any) => callback(event);
         ipcRenderer.on("acp-event", handler);
         return () => ipcRenderer.removeListener("acp-event", handler);
+    },
+
+    // ── LSP (Language Server Protocol) IPC ───────────────────────────
+    lspStart: (language: string) =>
+        ipcRenderer.invoke("lsp-start", language).then((r: any) => {
+            if (!r.success) throw new Error(r.error ?? "Failed to start language server");
+            return r.sessionId as string;
+        }),
+    lspSend: (sessionId: string, content: string) => ipcRenderer.send("lsp-send", sessionId, content),
+    lspStop: (sessionId: string) => ipcRenderer.send("lsp-stop", sessionId),
+    onLspMessage: (callback: (msg: { sessionId: string; content: string }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, msg: { sessionId: string; content: string }) =>
+            callback(msg);
+        ipcRenderer.on("lsp-message", handler);
+        return () => ipcRenderer.removeListener("lsp-message", handler);
+    },
+
+    // ── Krondesign daemon IPC ────────────────────────────────────────
+    krondesignStatus: () => ipcRenderer.invoke("krondesign-status"),
+    krondesignStart: () => ipcRenderer.invoke("krondesign-start"),
+
+    // ── ChatHub V2 / KronosChamber backend IPC ────────────────────────
+    chathubv2Start: (context?: { tabId?: string; blockId?: string; surfaceId?: string }) =>
+        ipcRenderer.invoke("chathubv2-start", context),
+    chathubv2Status: () => ipcRenderer.invoke("chathubv2-status"),
+    chathubv2Stop: () => ipcRenderer.invoke("chathubv2-stop"),
+    hermesGetConnection: (context?: { tabId?: string; blockId?: string }) =>
+        ipcRenderer.invoke("hermes-get-connection", context),
+    hermesApi: (input) => ipcRenderer.invoke("hermes-api", input),
+    onHermesConnection: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: HermesConnectionDescriptor) => callback(payload);
+        ipcRenderer.on("hermes-connection", handler);
+        return () => ipcRenderer.removeListener("hermes-connection", handler);
+    },
+    kronoscodeGetConnection: () => ipcRenderer.invoke("kronoscode-get-connection"),
+    kronoscodeRevalidateConnection: () => ipcRenderer.invoke("kronoscode-revalidate-connection"),
+    kronoscodeTouchBackend: () => ipcRenderer.invoke("kronoscode-touch-backend"),
+    kronoscodeGetGatewayWsUrl: (input?: { directory?: string; surfaceId?: string }) =>
+        ipcRenderer.invoke("kronoscode-get-gateway-ws-url", input),
+    kronoscodeApi: (input) => ipcRenderer.invoke("kronoscode-api", input),
+    kronoscodeApplyConnection: (input) => ipcRenderer.invoke("kronoscode-apply-connection", input),
+    kronoscodeGetBootProgress: () => ipcRenderer.invoke("kronoscode-get-boot-progress"),
+    onKronosCodeBootProgress: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: KronosCodeBootProgress) => callback(payload);
+        ipcRenderer.on("kronoscode-boot-progress", handler);
+        return () => ipcRenderer.removeListener("kronoscode-boot-progress", handler);
+    },
+    onKronosCodeExit: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: { code: number | null; signal: string | null }) =>
+            callback(payload);
+        ipcRenderer.on("kronoscode-exit", handler);
+        return () => ipcRenderer.removeListener("kronoscode-exit", handler);
+    },
+    onKronosCodePowerResume: (callback) => {
+        const handler = () => callback();
+        ipcRenderer.on("kronoscode-power-resume", handler);
+        return () => ipcRenderer.removeListener("kronoscode-power-resume", handler);
+    },
+    onKronosCodeConnectionApplied: (callback) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: KronosCodeConnectionDescriptor) =>
+            callback(payload);
+        ipcRenderer.on("kronoscode-connection-applied", handler);
+        return () => ipcRenderer.removeListener("kronoscode-connection-applied", handler);
+    },
+
+    // ── Audio / Voice Engine IPC ─────────────────────────────────────
+    audioStart: () => ipcRenderer.invoke("audio-start"),
+    audioShutdown: () => ipcRenderer.send("audio-shutdown"),
+    audioStartListening: () => ipcRenderer.send("audio-start-listening"),
+    audioStopListening: () => ipcRenderer.send("audio-stop-listening"),
+    audioSpeak: (text: string) => ipcRenderer.send("audio-speak", text),
+    audioSetWakeWord: (enabled: boolean) => ipcRenderer.send("audio-set-wake-word", enabled),
+    onAudioStatusChange: (callback: (status: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, status: string) => callback(status);
+        ipcRenderer.on("audio-status-change", handler);
+        return () => ipcRenderer.removeListener("audio-status-change", handler);
+    },
+    onAudioTranscript: (callback: (text: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+        ipcRenderer.on("audio-transcript", handler);
+        return () => ipcRenderer.removeListener("audio-transcript", handler);
+    },
+    onAudioError: (callback: (message: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
+        ipcRenderer.on("audio-error", handler);
+        return () => ipcRenderer.removeListener("audio-error", handler);
     },
 });
 

@@ -7,6 +7,7 @@ import { atoms, getApi, getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { useTabModelMaybe } from "@/app/store/tab-model";
 import { isBuilderWindow } from "@/app/store/windowtype";
+import { ChatHubV2Frame } from "@/app/view/chathubv2/chathubv2";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { getWebServerEndpoint } from "@/util/endpoints";
 import { checkKeyPressed, keydownWrapper } from "@/util/keyutil";
@@ -17,11 +18,13 @@ import { DefaultChatTransport } from "ai";
 import * as jotai from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { AcpChatPanel } from "./acp-chat-panel";
 import { formatFileSizeError, isAcceptableFile, validateFileSize } from "./ai-utils";
+import "./aipanel.scss";
+import { AIPanelHeader } from "./aipanelheader";
 import { AIRateLimitStrip } from "./airatelimitstrip";
 import { WaveUIMessage } from "./aitypes";
 import { BYOKAnnouncement } from "./byokannouncement";
+import { SiriVoiceOverlay } from "./siri-button";
 import { WaveAIModel } from "./waveai-model";
 
 const AIBlockMask = memo(() => {
@@ -40,7 +43,10 @@ const AIBlockMask = memo(() => {
                     backgroundColor: "rgb(from var(--block-bg-color) r g b / 50%)",
                 }}
             >
-                <div className="font-bold opacity-70 mt-[-25%] text-[60px]">0</div>
+                <div className="flex flex-col items-center gap-2 opacity-60">
+                    <i className="fa fa-circle-nodes text-5xl" style={{ color: "var(--accent-color)" }}></i>
+                    <span className="text-xs font-mono text-muted">AI Block</span>
+                </div>
             </div>
         </div>
     );
@@ -471,8 +477,13 @@ const ConfigChangeModeFixer = memo(() => {
     const model = WaveAIModel.getInstance();
     const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
     const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
+    const initialized = useRef(false);
 
     useEffect(() => {
+        if (!initialized.current) {
+            initialized.current = true;
+            return;
+        }
         model.fixModeAfterConfigChange();
     }, [telemetryEnabled, aiModeConfigs, model]);
 
@@ -483,376 +494,393 @@ ConfigChangeModeFixer.displayName = "ConfigChangeModeFixer";
 
 type AIPanelComponentInnerProps = {
     roundTopLeft: boolean;
+    isWidget?: boolean;
+    onFloatingIsland?: () => void;
+    floatingIslandActive?: boolean;
 };
 
-const AIPanelComponentInner = memo(({ roundTopLeft }: AIPanelComponentInnerProps) => {
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [isReactDndDragOver, setIsReactDndDragOver] = useState(false);
-    const [initialLoadDone, setInitialLoadDone] = useState(false);
-    const model = WaveAIModel.getInstance();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const isLayoutMode = jotai.useAtomValue(atoms.controlShiftDelayAtom);
-    const showOverlayBlockNums = jotai.useAtomValue(getSettingsKeyAtom("app:showoverlayblocknums")) ?? true;
-    const isFocused = jotai.useAtomValue(model.isWaveAIFocusedAtom);
-    const focusFollowsCursorMode = jotai.useAtomValue(getSettingsKeyAtom("app:focusfollowscursor")) ?? "off";
-    const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
-    const isPanelVisible = jotai.useAtomValue(model.getPanelVisibleAtom());
-    const tabModel = useTabModelMaybe();
-    const defaultMode = jotai.useAtomValue(getSettingsKeyAtom("waveai:defaultmode")) ?? "waveai@kronos";
-    const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
+const AIPanelComponentInner = memo(
+    ({ roundTopLeft, isWidget = false, onFloatingIsland, floatingIslandActive }: AIPanelComponentInnerProps) => {
+        const [isDragOver, setIsDragOver] = useState(false);
+        const [isReactDndDragOver, setIsReactDndDragOver] = useState(false);
+        const [initialLoadDone, setInitialLoadDone] = useState(false);
+        const model = WaveAIModel.getInstance();
+        const containerRef = useRef<HTMLDivElement>(null);
+        const isLayoutMode = jotai.useAtomValue(atoms.controlShiftDelayAtom);
+        const showOverlayBlockNums = jotai.useAtomValue(getSettingsKeyAtom("app:showoverlayblocknums")) ?? true;
+        const isFocused = jotai.useAtomValue(model.isWaveAIFocusedAtom);
+        const focusFollowsCursorMode = jotai.useAtomValue(getSettingsKeyAtom("app:focusfollowscursor")) ?? "off";
+        const telemetryEnabled = jotai.useAtomValue(getSettingsKeyAtom("telemetry:enabled")) ?? false;
+        const isPanelVisible = jotai.useAtomValue(model.getPanelVisibleAtom());
+        const tabModel = useTabModelMaybe();
+        const defaultMode = jotai.useAtomValue(getSettingsKeyAtom("waveai:defaultmode")) ?? "waveai@kronos";
+        const aiModeConfigs = jotai.useAtomValue(model.aiModeConfigs);
 
-    useEffect(() => {
-        return getApi().onDesktopPetChat((text) => {
-            WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
-            void model.sendMessage(text);
-        });
-    }, [model]);
+        useEffect(() => {
+            return getApi().onDesktopPetChat((text) => {
+                WorkspaceLayoutModel.getInstance().setAIPanelVisible(true);
+                void model.sendMessage(text);
+            });
+        }, [model]);
 
-    const hasCustomModes = Object.keys(aiModeConfigs).some((key) => !key.startsWith("waveai@"));
-    const isUsingCustomMode = !defaultMode.startsWith("waveai@");
-    const hasKronosMode = Object.values(aiModeConfigs).some(
-        (config) =>
-            config["ai:provider"] === "kronos" ||
-            config["ai:provider"] === "kronoscode" ||
-            config["ai:apitype"] === "kronos-session" ||
-            config["ai:apitype"] === "kronoscode"
-    );
-    const allowAccess = telemetryEnabled || hasKronosMode || (hasCustomModes && isUsingCustomMode);
+        const hasCustomModes = Object.keys(aiModeConfigs).some((key) => !key.startsWith("waveai@"));
+        const isUsingCustomMode = !defaultMode.startsWith("waveai@");
+        const hasKronosMode = Object.values(aiModeConfigs).some(
+            (config) =>
+                config["ai:provider"] === "kronos" ||
+                config["ai:provider"] === "kronoscode" ||
+                config["ai:apitype"] === "kronos-session" ||
+                config["ai:apitype"] === "kronoscode"
+        );
+        const allowAccess = telemetryEnabled || hasKronosMode || (hasCustomModes && isUsingCustomMode);
 
-    const { messages, sendMessage, status, setMessages, error, stop } = useChat<WaveUIMessage>({
-        transport: new DefaultChatTransport({
-            api: model.getUseChatEndpointUrl(),
-            prepareSendMessagesRequest: (_opts) => {
-                const msg = model.getAndClearMessage();
-                const selectedKronosAgent = globalStore.get(model.selectedKronosAgentAtom);
-                const body: any = {
-                    msg,
-                    chatid: globalStore.get(model.chatId),
-                    widgetaccess: globalStore.get(model.widgetAccessAtom),
-                    aimode: globalStore.get(model.currentAIMode),
-                    kronosAgent: selectedKronosAgent === "kronoscode" ? "build" : selectedKronosAgent,
-                    kronosProvider: globalStore.get(model.selectedKronosProviderAtom),
-                    kronosModel: globalStore.get(model.selectedKronosModelAtom),
-                    kronosMode: globalStore.get(model.selectedKronosModeAtom),
-                };
-                if (isBuilderWindow()) {
-                    body.builderid = globalStore.get(atoms.builderId);
-                    body.builderappid = globalStore.get(atoms.builderAppId);
-                } else {
-                    body.tabid = tabModel.tabId;
-                }
-                return { body };
+        const { messages, sendMessage, status, setMessages, error, stop } = useChat<WaveUIMessage>({
+            transport: new DefaultChatTransport({
+                api: model.getUseChatEndpointUrl(),
+                prepareSendMessagesRequest: (_opts) => {
+                    const msg = model.getAndClearMessage();
+                    const selectedKronosAgent = globalStore.get(model.selectedKronosAgentAtom);
+                    const body: any = {
+                        msg,
+                        chatid: globalStore.get(model.chatId),
+                        widgetaccess: globalStore.get(model.widgetAccessAtom),
+                        aimode: globalStore.get(model.currentAIMode),
+                        kronosAgent: selectedKronosAgent === "kronoscode" ? "build" : selectedKronosAgent,
+                        kronosProvider: globalStore.get(model.selectedKronosProviderAtom),
+                        kronosModel: globalStore.get(model.selectedKronosModelAtom),
+                        kronosMode: globalStore.get(model.selectedKronosModeAtom),
+                    };
+                    if (isBuilderWindow()) {
+                        body.builderid = globalStore.get(atoms.builderId);
+                        body.builderappid = globalStore.get(atoms.builderAppId);
+                    } else {
+                        body.tabid = tabModel.tabId;
+                    }
+                    return { body };
+                },
+            }),
+            onError: (error) => {
+                console.error("AI Chat error:", error);
+                model.setError(error.message || "An error occurred");
             },
-        }),
-        onError: (error) => {
-            console.error("AI Chat error:", error);
-            model.setError(error.message || "An error occurred");
-        },
-    });
+        });
 
-    model.registerUseChatData(sendMessage, setMessages, status, stop);
+        model.registerUseChatData(sendMessage, setMessages, status, stop);
 
-    // console.log("AICHAT messages", messages);
-    (window as any).aichatmessages = messages;
-    (window as any).aichatstatus = status;
+        // console.log("AICHAT messages", messages);
+        (window as any).aichatmessages = messages;
+        (window as any).aichatstatus = status;
 
-    const handleKeyDown = (waveEvent: WaveKeyboardEvent): boolean => {
-        if (checkKeyPressed(waveEvent, "Cmd:k")) {
-            model.clearChat();
-            return true;
-        }
-        return false;
-    };
-
-    useEffect(() => {
-        globalStore.set(model.isAIStreaming, status === "streaming" || status === "submitted");
-    }, [status]);
-
-    useEffect(() => {
-        const keyHandler = keydownWrapper(handleKeyDown);
-        document.addEventListener("keydown", keyHandler);
-        return () => {
-            document.removeEventListener("keydown", keyHandler);
+        const handleKeyDown = (waveEvent: WaveKeyboardEvent): boolean => {
+            if (checkKeyPressed(waveEvent, "Cmd:k")) {
+                model.clearChat();
+                return true;
+            }
+            return false;
         };
-    }, []);
 
-    useEffect(() => {
-        const loadChat = async () => {
-            await model.uiLoadInitialChat();
-            setInitialLoadDone(true);
-        };
-        loadChat();
-    }, [model]);
+        useEffect(() => {
+            globalStore.set(model.isAIStreaming, status === "streaming" || status === "submitted");
+        }, [status]);
 
-    useEffect(() => {
-        const updateWidth = () => {
+        useEffect(() => {
+            const keyHandler = keydownWrapper(handleKeyDown);
+            document.addEventListener("keydown", keyHandler);
+            return () => {
+                document.removeEventListener("keydown", keyHandler);
+            };
+        }, []);
+
+        useEffect(() => {
+            const loadChat = async () => {
+                await model.uiLoadInitialChat();
+                setInitialLoadDone(true);
+            };
+            loadChat();
+        }, [model]);
+
+        useEffect(() => {
+            const updateWidth = () => {
+                if (containerRef.current) {
+                    globalStore.set(model.containerWidth, containerRef.current.offsetWidth);
+                }
+            };
+
+            updateWidth();
+
+            const resizeObserver = new ResizeObserver(updateWidth);
             if (containerRef.current) {
-                globalStore.set(model.containerWidth, containerRef.current.offsetWidth);
+                resizeObserver.observe(containerRef.current);
             }
-        };
 
-        updateWidth();
+            return () => {
+                resizeObserver.disconnect();
+            };
+        }, [model]);
 
-        const resizeObserver = new ResizeObserver(updateWidth);
-        if (containerRef.current) {
-            resizeObserver.observe(containerRef.current);
-        }
+        useEffect(() => {
+            model.ensureRateLimitSet();
+        }, [model]);
 
-        return () => {
-            resizeObserver.disconnect();
-        };
-    }, [model]);
-
-    useEffect(() => {
-        model.ensureRateLimitSet();
-    }, [model]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        await model.handleSubmit();
-        setTimeout(() => {
-            model.focusInput();
-        }, 100);
-    };
-
-    const hasFilesDragged = (dataTransfer: DataTransfer): boolean => {
-        // Check if the drag operation contains files by looking at the types
-        return dataTransfer.types.includes("Files");
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        if (!allowAccess) {
-            return;
-        }
-
-        const hasFiles = hasFilesDragged(e.dataTransfer);
-
-        // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
-        if (!hasFiles) {
-            return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (!isDragOver) {
-            setIsDragOver(true);
-        }
-    };
-
-    const handleDragEnter = (e: React.DragEvent) => {
-        if (!allowAccess) {
-            return;
-        }
-
-        const hasFiles = hasFilesDragged(e.dataTransfer);
-
-        // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
-        if (!hasFiles) {
-            return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        setIsDragOver(true);
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        if (!allowAccess) {
-            return;
-        }
-
-        const hasFiles = hasFilesDragged(e.dataTransfer);
-
-        // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
-        if (!hasFiles) {
-            return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Only set drag over to false if we're actually leaving the drop zone
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const x = e.clientX;
-        const y = e.clientY;
-
-        if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-            setIsDragOver(false);
-        }
-    };
-
-    const handleDrop = async (e: React.DragEvent) => {
-        if (!allowAccess) {
+        const handleSubmit = async (e: React.FormEvent) => {
             e.preventDefault();
-            e.stopPropagation();
-            setIsDragOver(false);
-            return;
-        }
+            await model.handleSubmit();
+            setTimeout(() => {
+                model.focusInput();
+            }, 100);
+        };
 
-        // Check if this is a FILE_ITEM drag from react-dnd
-        // If so, let react-dnd handle it instead
-        if (!e.dataTransfer.files.length) {
-            return; // Let react-dnd handle FILE_ITEM drags
-        }
+        const hasFilesDragged = (dataTransfer: DataTransfer): boolean => {
+            // Check if the drag operation contains files by looking at the types
+            return dataTransfer.types.includes("Files");
+        };
 
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOver(false);
-
-        const files = Array.from(e.dataTransfer.files);
-        const acceptableFiles = files.filter(isAcceptableFile);
-
-        for (const file of acceptableFiles) {
-            const sizeError = validateFileSize(file);
-            if (sizeError) {
-                model.setError(formatFileSizeError(sizeError));
-                return;
-            }
-            await model.addFile(file);
-        }
-
-        if (acceptableFiles.length < files.length) {
-            const rejectedCount = files.length - acceptableFiles.length;
-            const rejectedFiles = files.filter((f) => !isAcceptableFile(f));
-            const fileNames = rejectedFiles.map((f) => f.name).join(", ");
-            model.setError(
-                `${rejectedCount} file${rejectedCount > 1 ? "s" : ""} rejected (unsupported type): ${fileNames}. Supported: images, PDFs, and text/code files.`
-            );
-        }
-    };
-
-    const handleFileItemDrop = useCallback(
-        (draggedFile: DraggedFile) => {
+        const handleDragOver = (e: React.DragEvent) => {
             if (!allowAccess) {
                 return;
             }
-            model.addFileFromRemoteUri(draggedFile);
-        },
-        [model, allowAccess]
-    );
 
-    const [{ isOver, canDrop }, drop] = useDrop(
-        () => ({
-            accept: "FILE_ITEM",
-            drop: handleFileItemDrop,
-            collect: (monitor) => ({
-                isOver: monitor.isOver(),
-                canDrop: monitor.canDrop(),
-            }),
-        }),
-        [handleFileItemDrop]
-    );
+            const hasFiles = hasFilesDragged(e.dataTransfer);
 
-    // Update drag over state for FILE_ITEM drags
-    useEffect(() => {
-        if (isOver && canDrop) {
-            setIsReactDndDragOver(true);
-        } else {
-            setIsReactDndDragOver(false);
-        }
-    }, [isOver, canDrop]);
-
-    // Attach the drop ref to the container
-    useEffect(() => {
-        if (containerRef.current) {
-            drop(containerRef.current);
-        }
-    }, [drop]);
-
-    const handleFocusCapture = useCallback(
-        (_event: React.FocusEvent) => {
-            // console.log("KronosCode focus capture", getElemAsStr(event.target));
-            model.requestWaveAIFocus();
-        },
-        [model]
-    );
-
-    const handlePointerEnter = useCallback(
-        (event: React.PointerEvent<HTMLDivElement>) => {
-            if (focusFollowsCursorMode !== "on") return;
-            if (event.pointerType === "touch" || event.buttons > 0) return;
-            if (isFocused) return;
-            model.focusInput();
-        },
-        [focusFollowsCursorMode, isFocused, model]
-    );
-
-    const handleClick = (e: React.MouseEvent) => {
-        const target = e.target as HTMLElement;
-        const isInteractive = target.closest('button, a, input, textarea, select, [role="button"], [tabindex]');
-
-        if (isInteractive) {
-            return;
-        }
-
-        const hasSelection = waveAIHasSelection();
-        if (hasSelection) {
-            model.requestWaveAIFocus();
-            return;
-        }
-
-        setTimeout(() => {
-            if (!waveAIHasSelection()) {
-                model.focusInput();
+            // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
+            if (!hasFiles) {
+                return;
             }
-        }, 0);
-    };
 
-    const showBlockMask = isLayoutMode && showOverlayBlockNums;
+            e.preventDefault();
+            e.stopPropagation();
 
-    return (
-        <div
-            ref={containerRef}
-            data-waveai-panel="true"
-            className={cn(
-                "@container bg-panel flex flex-col relative",
-                model.inBuilder ? "mt-0 h-full" : "mt-1 h-[calc(100%-4px)]",
-                (isDragOver || isReactDndDragOver) && "bg-hoverbg border-accent",
-                isFocused ? "border-2 border-accent" : "border-2 border-transparent"
-            )}
-            style={{
-                borderTopLeftRadius: roundTopLeft ? 10 : 0,
-                borderTopRightRadius: model.inBuilder ? 0 : 10,
-                borderBottomRightRadius: model.inBuilder ? 0 : 10,
-                borderBottomLeftRadius: 10,
-            }}
-            onFocusCapture={handleFocusCapture}
-            onPointerEnter={handlePointerEnter}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={handleClick}
-            inert={!isPanelVisible ? true : undefined}
-        >
-            <ConfigChangeModeFixer />
-            {(isDragOver || isReactDndDragOver) && allowAccess && <AIDragOverlay />}
-            {showBlockMask && <AIBlockMask />}
-            <AIRateLimitStrip />
+            if (!isDragOver) {
+                setIsDragOver(true);
+            }
+        };
 
-            <div key="main-content" className="flex-1 flex flex-col min-h-0">
-                <AcpChatPanel />
+        const handleDragEnter = (e: React.DragEvent) => {
+            if (!allowAccess) {
+                return;
+            }
+
+            const hasFiles = hasFilesDragged(e.dataTransfer);
+
+            // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
+            if (!hasFiles) {
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            setIsDragOver(true);
+        };
+
+        const handleDragLeave = (e: React.DragEvent) => {
+            if (!allowAccess) {
+                return;
+            }
+
+            const hasFiles = hasFilesDragged(e.dataTransfer);
+
+            // Only handle native file drags here, let react-dnd handle FILE_ITEM drags
+            if (!hasFiles) {
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Only set drag over to false if we're actually leaving the drop zone
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const x = e.clientX;
+            const y = e.clientY;
+
+            if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
+                setIsDragOver(false);
+            }
+        };
+
+        const handleDrop = async (e: React.DragEvent) => {
+            if (!allowAccess) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOver(false);
+                return;
+            }
+
+            // Check if this is a FILE_ITEM drag from react-dnd
+            // If so, let react-dnd handle it instead
+            if (!e.dataTransfer.files.length) {
+                return; // Let react-dnd handle FILE_ITEM drags
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(false);
+
+            const files = Array.from(e.dataTransfer.files);
+            const acceptableFiles = files.filter(isAcceptableFile);
+
+            for (const file of acceptableFiles) {
+                const sizeError = validateFileSize(file);
+                if (sizeError) {
+                    model.setError(formatFileSizeError(sizeError));
+                    return;
+                }
+                await model.addFile(file);
+            }
+
+            if (acceptableFiles.length < files.length) {
+                const rejectedCount = files.length - acceptableFiles.length;
+                const rejectedFiles = files.filter((f) => !isAcceptableFile(f));
+                const fileNames = rejectedFiles.map((f) => f.name).join(", ");
+                model.setError(
+                    `${rejectedCount} file${rejectedCount > 1 ? "s" : ""} rejected (unsupported type): ${fileNames}. Supported: images, PDFs, and text/code files.`
+                );
+            }
+        };
+
+        const handleFileItemDrop = useCallback(
+            (draggedFile: DraggedFile) => {
+                if (!allowAccess) {
+                    return;
+                }
+                model.addFileFromRemoteUri(draggedFile);
+            },
+            [model, allowAccess]
+        );
+
+        const [{ isOver, canDrop }, drop] = useDrop(
+            () => ({
+                accept: "FILE_ITEM",
+                drop: handleFileItemDrop,
+                collect: (monitor) => ({
+                    isOver: monitor.isOver(),
+                    canDrop: monitor.canDrop(),
+                }),
+            }),
+            [handleFileItemDrop]
+        );
+
+        // Update drag over state for FILE_ITEM drags
+        useEffect(() => {
+            if (isOver && canDrop) {
+                setIsReactDndDragOver(true);
+            } else {
+                setIsReactDndDragOver(false);
+            }
+        }, [isOver, canDrop]);
+
+        // Attach the drop ref to the container
+        useEffect(() => {
+            if (containerRef.current) {
+                drop(containerRef.current);
+            }
+        }, [drop]);
+
+        const handleFocusCapture = useCallback(
+            (_event: React.FocusEvent) => {
+                // console.log("KronosCode focus capture", getElemAsStr(event.target));
+                model.requestWaveAIFocus();
+            },
+            [model]
+        );
+
+        const handlePointerEnter = useCallback(
+            (event: React.PointerEvent<HTMLDivElement>) => {
+                if (isWidget) return;
+                if (focusFollowsCursorMode !== "on") return;
+                if (event.pointerType === "touch" || event.buttons > 0) return;
+                if (isFocused) return;
+                model.focusInput();
+            },
+            [focusFollowsCursorMode, isFocused, isWidget, model]
+        );
+
+        const handleClick = (e: React.MouseEvent) => {
+            if (isWidget) {
+                return;
+            }
+            const target = e.target as HTMLElement;
+            const isInteractive = target.closest('button, a, input, textarea, select, [role="button"], [tabindex]');
+
+            if (isInteractive) {
+                return;
+            }
+
+            const hasSelection = waveAIHasSelection();
+            if (hasSelection) {
+                model.requestWaveAIFocus();
+                return;
+            }
+
+            setTimeout(() => {
+                if (!waveAIHasSelection()) {
+                    model.focusInput();
+                }
+            }, 0);
+        };
+
+        const showBlockMask = isLayoutMode && showOverlayBlockNums;
+
+        return (
+            <div
+                ref={containerRef}
+                data-waveai-panel="true"
+                className={cn(
+                    "@container bg-panel flex flex-col relative",
+                    model.inBuilder || isWidget ? "mt-0 h-full" : "mt-1 h-[calc(100%-4px)]",
+                    (isDragOver || isReactDndDragOver) && "bg-hoverbg border-accent",
+                    isFocused ? "border-2 border-accent" : "border-2 border-transparent"
+                )}
+                style={{
+                    borderTopLeftRadius: roundTopLeft ? 10 : 0,
+                    borderTopRightRadius: model.inBuilder || isWidget ? 0 : 10,
+                    borderBottomRightRadius: model.inBuilder || isWidget ? 0 : 10,
+                    borderBottomLeftRadius: 10,
+                }}
+                onFocusCapture={handleFocusCapture}
+                onPointerEnter={handlePointerEnter}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handleClick}
+                inert={!isWidget && !isPanelVisible && !floatingIslandActive ? true : undefined}
+            >
+                <ConfigChangeModeFixer />
+                {(isDragOver || isReactDndDragOver) && allowAccess && <AIDragOverlay />}
+                {showBlockMask && <AIBlockMask />}
+                <AIRateLimitStrip />
+
+                {!isWidget && <AIPanelHeader onFloatingIsland={onFloatingIsland} />}
+                {!isWidget && <SiriVoiceOverlay />}
+                <div key="main-content" className="flex-1 flex flex-col min-h-0">
+                    <ChatHubV2Frame blockId={isWidget ? "widget" : "side-panel"} tabId={tabModel?.tabId} />
+                </div>
             </div>
-        </div>
-    );
-});
+        );
+    }
+);
 
 AIPanelComponentInner.displayName = "AIPanelInner";
 
 type AIPanelComponentProps = {
     roundTopLeft: boolean;
+    onFloatingIsland?: () => void;
+    floatingIslandActive?: boolean;
 };
 
-const AIPanelComponent = ({ roundTopLeft }: AIPanelComponentProps) => {
+const AIPanelComponent = ({ roundTopLeft, onFloatingIsland, floatingIslandActive }: AIPanelComponentProps) => {
     return (
         <ErrorBoundary>
-            <AIPanelComponentInner roundTopLeft={roundTopLeft} />
+            <AIPanelComponentInner
+                roundTopLeft={roundTopLeft}
+                onFloatingIsland={onFloatingIsland}
+                floatingIslandActive={floatingIslandActive}
+            />
         </ErrorBoundary>
     );
 };
 
 AIPanelComponent.displayName = "AIPanel";
 
-export { AIPanelComponent as AIPanel };
+export { AIPanelComponent as AIPanel, AIPanelComponentInner };

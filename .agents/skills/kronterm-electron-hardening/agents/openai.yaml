@@ -1,0 +1,4 @@
+interface:
+  display_name: "KronTerm Electron Hardening"
+  short_description: "Harden Electron IPC, lifecycle, and packaging"
+  default_prompt: "Use $kronterm-electron-hardening to review a KronTerm Electron boundary and implement a compatible hardening improvement."

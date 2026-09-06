@@ -21,13 +21,16 @@ import {
     WOS,
 } from "@/app/store/global";
 import { getActiveTabModel } from "@/app/store/tab-model";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { deleteLayoutModelForTab, getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
+import { deleteLayoutModelForTab, getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
+import { NavigateDirection } from "@/layout/lib/types";
 import * as keyutil from "@/util/keyutil";
 import { isWindows } from "@/util/platformutil";
 import { CHORD_TIMEOUT } from "@/util/sharedconst";
 import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
+import { routeBlockClose } from "./block-close-routing";
 import { modalsModel } from "./modalmodel";
 import { isBuilderWindow, isTabWindow } from "./windowtype";
 
@@ -144,7 +147,7 @@ function simpleCloseStaticTab() {
         });
 }
 
-function uxCloseBlock(blockId: string) {
+function uxCloseBlock(blockId: string, closeOwnedNode: () => void = () => {}) {
     const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
     const isAIPanelOpen = workspaceLayoutModel.getAIPanelVisible();
     if (isAIPanelOpen && getStaticTabBlockCount() === 1) {
@@ -170,19 +173,17 @@ function uxCloseBlock(blockId: string) {
 
     const layoutModel = getLayoutModelForStaticTab();
     const node = layoutModel.getNodeByBlockId(blockId);
-    if (node) {
-        fireAndForget(() => layoutModel.closeNode(node.id));
+    routeBlockClose(node, (nodeId) => fireAndForget(() => layoutModel.closeNode(nodeId)), closeOwnedNode);
 
-        if (isAIFileDiff && isAIPanelOpen) {
-            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-        }
+    if (isAIFileDiff && isAIPanelOpen) {
+        setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
     }
 }
 
 function genericClose() {
     const focusType = FocusManager.getInstance().getFocusType();
     if (focusType === "waveai") {
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(false);
+        hermesSurfaceController.dismiss();
         return;
     }
 
@@ -344,10 +345,10 @@ function globalRefocus() {
 function getDefaultNewBlockDef(): BlockDef {
     const adnbAtom = getSettingsKeyAtom("app:defaultnewblock");
     const adnb = globalStore.get(adnbAtom) ?? "term";
-    if (adnb == "launcher") {
+    if (adnb == "launcher" || adnb == "web" || adnb == "hermes" || adnb == "preview") {
         return {
             meta: {
-                view: "launcher",
+                view: adnb,
             },
         };
     }
@@ -691,18 +692,19 @@ function registerGlobalKeys() {
     function activateSearch(event: WaveKeyboardEvent): boolean {
         const bcm = getBlockComponentModel(getFocusedBlockInStaticTab());
         // Ctrl+f is reserved in most shells
-        if (event.control && bcm.viewModel.viewType == "term") {
+        if (event.control && bcm?.viewModel?.viewType == "term") {
             return false;
         }
-        if (bcm.viewModel.searchAtoms) {
-            if (globalStore.get(bcm.viewModel.searchAtoms.isOpen)) {
+        const searchAtoms = bcm?.viewModel?.searchAtoms;
+        if (searchAtoms) {
+            if (globalStore.get(searchAtoms.isOpen)) {
                 // Already open — increment the focusInput counter so this block's
                 // SearchComponent focuses its own input (avoids a global DOM query
                 // that could target the wrong block when multiple searches are open).
-                const cur = globalStore.get(bcm.viewModel.searchAtoms.focusInput) as number;
-                globalStore.set(bcm.viewModel.searchAtoms.focusInput, cur + 1);
+                const cur = globalStore.get(searchAtoms.focusInput) as number;
+                globalStore.set(searchAtoms.focusInput, cur + 1);
             } else {
-                globalStore.set(bcm.viewModel.searchAtoms.isOpen, true);
+                globalStore.set(searchAtoms.isOpen, true);
             }
             return true;
         }
@@ -710,8 +712,9 @@ function registerGlobalKeys() {
     }
     function deactivateSearch(): boolean {
         const bcm = getBlockComponentModel(getFocusedBlockInStaticTab());
-        if (bcm.viewModel.searchAtoms && globalStore.get(bcm.viewModel.searchAtoms.isOpen)) {
-            globalStore.set(bcm.viewModel.searchAtoms.isOpen, false);
+        const searchAtoms = bcm?.viewModel?.searchAtoms;
+        if (searchAtoms && globalStore.get(searchAtoms.isOpen)) {
+            globalStore.set(searchAtoms.isOpen, false);
             return true;
         }
         return false;
@@ -728,8 +731,35 @@ function registerGlobalKeys() {
         return false;
     });
     globalKeyMap.set("Cmd:Shift:a", () => {
-        const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+        const presentation = hermesSurfaceController.getSnapshot().presentation;
+        if (presentation === "panel") {
+            hermesSurfaceController.dismiss();
+        } else {
+            hermesSurfaceController.requestOpenPanel();
+        }
+        return true;
+    });
+    const toggleCommandPalette = () => {
+        if (modalsModel.isModalOpen("CommandPaletteModal")) {
+            modalsModel.popModal();
+        } else {
+            modalsModel.pushModal("CommandPaletteModal");
+        }
+        return true;
+    };
+    globalKeyMap.set("Cmd:Shift:p", toggleCommandPalette);
+    globalKeyMap.set("Cmd:Shift:Space", toggleCommandPalette);
+    globalKeyMap.set("Ctrl:Shift:t", () => {
+        const blockId = getFocusedBlockInStaticTab();
+        if (!blockId) return false;
+        const bcm = getBlockComponentModel(blockId);
+        if (bcm?.viewModel?.viewType !== "sandbox") return false;
+        const desktopUrl = "http://localhost:9990/computer-use";
+        fetch(desktopUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "screenshot" }),
+        }).catch(() => {});
         return true;
     });
     const allKeys = Array.from(globalKeyMap.keys());

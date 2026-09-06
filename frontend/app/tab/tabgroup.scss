@@ -1,0 +1,73 @@
+.tab-group {
+    display: flex;
+    flex-direction: column;
+
+    &.tab-group-collapsed {
+        .tab-group-items {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+    }
+}
+
+.tab-group-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px 1px 2px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+    min-height: 20px;
+
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+}
+
+.tab-group-color-bar {
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 4px rgb(from currentColor r g b / 0.3);
+}
+
+.tab-group-chevron {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.4);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.tab-group-name {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-group-count {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.3);
+    margin-left: 2px;
+}
+
+.tab-group-items {
+    max-height: 500px;
+    opacity: 1;
+    transition:
+        max-height 0.2s ease,
+        opacity 0.15s ease;
+    overflow: hidden;
+}
+
+.tab-group-items-hidden {
+    max-height: 0;
+    opacity: 0;
+}

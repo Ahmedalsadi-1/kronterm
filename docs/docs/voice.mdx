@@ -1,0 +1,42 @@
+---
+sidebar_position: 2.5
+id: "voice"
+title: "Voice (Experimental)"
+---
+
+KronTerm's optional voice engine connects microphone input to the active KronosCode composer and can produce speech output.
+It is experimental and disabled when its local runtime dependencies are unavailable.
+
+## How it works
+
+1. The microphone control asks Electron to start the Python audio process.
+2. The process captures audio and reports listening or transcription state over JSON lines.
+3. `faster-whisper` produces a transcript locally.
+4. KronTerm submits the final transcript through the active composer.
+5. Speech output can use an online TTS provider or an offline system fallback when available.
+
+The UI distinguishes idle, listening, transcribing, speaking, and error states.
+
+## Local dependencies
+
+The implementation lives in `audio-engine/` and uses Python packages listed in `audio-engine/requirements.txt`. A source
+checkout can prepare the optional environment with:
+
+```bash
+python3 -m venv audio-engine/.venv
+audio-engine/.venv/bin/pip install -r audio-engine/requirements.txt
+```
+
+Model downloads and microphone permissions may be required on first use. The packaged private-beta behavior can differ
+while distribution work is in progress.
+
+## Privacy
+
+Audio capture and speech-to-text run in the local Python process. If online text-to-speech is selected, the text being
+spoken is sent to that provider. Use the offline fallback or disable speech output when the text must stay local.
+
+## Stop the engine
+
+Turn voice off in KronSettings to stop capture, clear the active listening state, and terminate the child process. If the
+engine exits unexpectedly, KronTerm returns the control to an error or idle state instead of continuing to show a live
+microphone.

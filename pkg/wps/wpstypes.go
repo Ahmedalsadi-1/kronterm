@@ -101,6 +101,7 @@ type AgentSurfaceActivityData struct {
 	Target          *AgentSurfaceTarget `json:"target,omitempty"`
 	PreviewImageUrl string              `json:"previewimageurl,omitempty"`
 	PetActivityUrl  string              `json:"petactivityurl,omitempty"`
+	AppName         string              `json:"appname,omitempty"`
 }
 
 const (

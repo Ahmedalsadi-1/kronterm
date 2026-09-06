@@ -11,17 +11,24 @@ import {
 } from "@/app/block/blocktypes";
 import type { TabModel } from "@/app/store/tab-model";
 import { useTabModel } from "@/app/store/tab-model";
+import { HermesViewModel } from "@/app/view/hermes/hermes-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
+import { AppStreamViewModel } from "@/app/view/appstream/appstream-model";
+import { ChatHubV2ViewModel } from "@/app/view/chathubv2/chathubv2-model";
 import { InstalledAppsViewModel } from "@/app/view/installedapps/installedapps";
+import { KronosCanvasViewModel } from "@/app/view/kronoscanvas/kronoscanvas-model";
+import { KronosChamberViewModel } from "@/app/view/kronoschamber/kronoschamber-model";
+import { KronSettingsViewModel } from "@/app/view/kronsettings/kronsettings-model";
 import { LauncherViewModel } from "@/app/view/launcher/launcher";
 import { PreviewModel } from "@/app/view/preview/preview-model";
 import { SysinfoViewModel } from "@/app/view/sysinfo/sysinfo";
 import { TsunamiViewModel } from "@/app/view/tsunami/tsunami";
+import { WarpAgentViewModel } from "@/app/view/warpagent/warpagent-model";
 import { VDomModel } from "@/app/view/vdom/vdom-model";
 import { useWaveEnv, WaveEnv } from "@/app/waveenv/waveenv";
 import { ErrorBoundary } from "@/element/errorboundary";
 import { CenteredDiv } from "@/element/quickelems";
-import { useDebouncedNodeInnerRect } from "@/layout/index";
+import { useDebouncedNodeInnerRect } from "@/layout/lib/layoutModelHooks";
 import { counterInc } from "@/store/counters";
 import { getBlockComponentModel, registerBlockComponentModel, unregisterBlockComponentModel } from "@/store/global";
 import { makeORef } from "@/store/wos";
@@ -47,6 +54,9 @@ BlockRegistry.set("term", TermViewModel);
 BlockRegistry.set("preview", PreviewModel);
 BlockRegistry.set("web", WebViewModel);
 BlockRegistry.set("waveai", WaveAiModel);
+BlockRegistry.set("kronoschat", ChatHubV2ViewModel);
+BlockRegistry.set("chathubv2", ChatHubV2ViewModel);
+BlockRegistry.set("warpagent", WarpAgentViewModel);
 BlockRegistry.set("cpuplot", SysinfoViewModel);
 BlockRegistry.set("sysinfo", SysinfoViewModel);
 BlockRegistry.set("vdom", VDomModel);
@@ -56,7 +66,12 @@ BlockRegistry.set("launcher", LauncherViewModel);
 BlockRegistry.set("tsunami", TsunamiViewModel);
 BlockRegistry.set("aifilediff", AiFileDiffViewModel);
 BlockRegistry.set("waveconfig", WaveConfigViewModel);
+BlockRegistry.set("kronsettings", KronSettingsViewModel);
+BlockRegistry.set("kronoschamber", KronosChamberViewModel);
+BlockRegistry.set("kronoscanvas", KronosCanvasViewModel);
+BlockRegistry.set("hermes", HermesViewModel);
 BlockRegistry.set("sandbox", SandboxViewModel);
+BlockRegistry.set("appstream", AppStreamViewModel);
 BlockRegistry.set("installedapps", InstalledAppsViewModel);
 
 function makeViewModel(
@@ -235,8 +250,7 @@ const BlockFull = memo(({ nodeModel, viewModel }: FullBlockProps) => {
     const focusFromPointerEnter = useCallback(
         (event: React.PointerEvent<HTMLDivElement>) => {
             const focusFollowsCursorEnabled =
-                focusFollowsCursorMode === "on" ||
-                (focusFollowsCursorMode === "term" && blockView === "term");
+                focusFollowsCursorMode === "on" || (focusFollowsCursorMode === "term" && blockView === "term");
             if (!focusFollowsCursorEnabled || event.pointerType === "touch" || event.buttons > 0) {
                 return;
             }

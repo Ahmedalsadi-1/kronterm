@@ -15,7 +15,7 @@ import (
 )
 
 var webCmd = &cobra.Command{
-	Use:               "web [open|get|set]",
+	Use:               "web [open|get|eval]",
 	Short:             "web commands",
 	PersistentPreRunE: preRunSetupRpcClient,
 }
@@ -35,6 +35,14 @@ var webGetCmd = &cobra.Command{
 	RunE:   webGetRun,
 }
 
+var webEvalCmd = &cobra.Command{
+	Use:    "eval <javascript-expression>",
+	Short:  "Execute JavaScript in a web widget and get the result",
+	Args:   cobra.ExactArgs(1),
+	Hidden: true,
+	RunE:   webEvalRun,
+}
+
 var webGetInner bool
 var webGetAll bool
 var webGetJson bool
@@ -49,6 +57,7 @@ func init() {
 	webGetCmd.Flags().BoolVarP(&webGetAll, "all", "", false, "get all matches (querySelectorAll)")
 	webGetCmd.Flags().BoolVarP(&webGetJson, "json", "", false, "output as json")
 	webCmd.AddCommand(webGetCmd)
+	webCmd.AddCommand(webEvalCmd)
 	rootCmd.AddCommand(webCmd)
 }
 
@@ -92,6 +101,35 @@ func webGetRun(cmd *cobra.Command, args []string) error {
 			WriteStdout("%s\n", item)
 		}
 	}
+	return nil
+}
+
+func webEvalRun(cmd *cobra.Command, args []string) error {
+	fullORef, err := resolveBlockArg()
+	if err != nil {
+		return fmt.Errorf("resolving blockid: %w", err)
+	}
+	blockInfo, err := wshclient.BlockInfoCommand(RpcClient, fullORef.OID, nil)
+	if err != nil {
+		return fmt.Errorf("getting block info: %w", err)
+	}
+	if blockInfo.Block.Meta.GetString(waveobj.MetaKey_View, "") != "web" {
+		return fmt.Errorf("block %s is not a web block", fullORef.OID)
+	}
+	data := wshrpc.CommandWebEvalData{
+		WorkspaceId: blockInfo.WorkspaceId,
+		BlockId:     fullORef.OID,
+		TabId:       blockInfo.TabId,
+		Script:      args[0],
+	}
+	result, err := wshclient.WebEvalCommand(RpcClient, data, &wshrpc.RpcOpts{
+		Route:   wshutil.ElectronRoute,
+		Timeout: 10000,
+	})
+	if err != nil {
+		return err
+	}
+	WriteStdout("%s\n", result)
 	return nil
 }
 

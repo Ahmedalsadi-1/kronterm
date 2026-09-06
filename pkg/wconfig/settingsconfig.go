@@ -131,6 +131,9 @@ type SettingsType struct {
 	AppDisableCtrlShiftDisplay    bool   `json:"app:disablectrlshiftdisplay,omitempty"`
 	AppFocusFollowsCursor         string `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
+	AppLayoutMode                 string `json:"app:layoutmode,omitempty" jsonschema:"enum=widgets,enum=tabs,enum=canvas"`
+	AppQuickComposer              *bool  `json:"app:quickcomposer,omitempty"`
+	AppMinimalUi                  bool   `json:"app:minimalui,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
 
@@ -145,6 +148,11 @@ type SettingsType struct {
 	ACPCommands       map[string]ACPCommandDefinition `json:"acp:commands,omitempty"`
 	ACPSkills         map[string]ACPSkillDefinition   `json:"acp:skills,omitempty"`
 	ACPGitIdentities  map[string]ACPGitIdentity       `json:"acp:gitidentities,omitempty"`
+
+	KronosCodeEndpoint           string `json:"kronoscode:endpoint,omitempty"`
+	KronosCodeBinary             string `json:"kronoscode:binary,omitempty"`
+	KronosCodeUsername           string `json:"kronoscode:username,omitempty"`
+	KronosCodePasswordSecretName string `json:"kronoscode:passwordsecretname,omitempty"`
 
 	SandboxEnabled   bool   `json:"sandbox:enabled,omitempty"`
 	SandboxCPUCores  int    `json:"sandbox:cpu,omitempty"`
@@ -202,6 +210,7 @@ type SettingsType struct {
 	WebOpenLinksInternally bool   `json:"web:openlinksinternally,omitempty"`
 	WebDefaultUrl          string `json:"web:defaulturl,omitempty"`
 	WebDefaultSearch       string `json:"web:defaultsearch,omitempty"`
+	WebTabStripPosition    string `json:"web:tabstripposition,omitempty" jsonschema:"enum=top,enum=left"`
 
 	AutoUpdateClear         bool    `json:"autoupdate:*,omitempty"`
 	AutoUpdateEnabled       bool    `json:"autoupdate:enabled,omitempty"`
@@ -227,6 +236,8 @@ type SettingsType struct {
 	WindowBlur                          bool     `json:"window:blur,omitempty"`
 	WindowOpacity                       *float64 `json:"window:opacity,omitempty"`
 	WindowBgColor                       string   `json:"window:bgcolor,omitempty"`
+	WindowWallpaper                     string   `json:"window:wallpaper,omitempty"`
+	WindowSurfaceOpacity                *float64 `json:"window:surfaceopacity,omitempty"`
 	WindowReducedMotion                 bool     `json:"window:reducedmotion,omitempty"`
 	WindowTileGapSize                   *int64   `json:"window:tilegapsize,omitempty"`
 	WindowShowMenuBar                   bool     `json:"window:showmenubar,omitempty"`
@@ -923,6 +934,7 @@ func SetConnectionsConfigValue(connName string, toMerge waveobj.MetaMapType) err
 
 type WidgetConfigType struct {
 	DisplayOrder  float64          `json:"display:order,omitempty"`
+	DisplayGroup  string           `json:"display:group,omitempty"`
 	DisplayHidden bool             `json:"display:hidden,omitempty"`
 	Icon          string           `json:"icon,omitempty"`
 	Color         string           `json:"color,omitempty"`

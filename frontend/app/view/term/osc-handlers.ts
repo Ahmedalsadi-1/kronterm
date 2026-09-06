@@ -1,8 +1,10 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import {
     getApi,
     getBlockMetaKeyAtom,
@@ -14,9 +16,42 @@ import {
 } from "@/store/global";
 import { base64ToString, fireAndForget, isSshConnName, isWslConnName } from "@/util/util";
 import debug from "debug";
+import { makeTerminalPayload, publishCrossViewEvent } from "../../../types/cross-view-bus";
 import type { TermWrap } from "./termwrap";
 
 const dlog = debug("wave:termwrap");
+
+let autoDiagnoseTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Schedule an auto-diagnosis when a terminal command exits with non-zero.
+ * Debounces rapid failures (1.5s) and avoids triggering when the AI panel
+ * is already processing.
+ */
+function scheduleAutoDiagnosis(blockId: string, exitCode: number, termWrap: TermWrap): void {
+    if (autoDiagnoseTimer != null) {
+        clearTimeout(autoDiagnoseTimer);
+    }
+    autoDiagnoseTimer = setTimeout(() => {
+        autoDiagnoseTimer = null;
+        const lastCommand = globalStore.get(termWrap.lastCommandAtom);
+        const scrollback = termWrap.getScrollbackContent();
+        const lastLines = scrollback ? scrollback.split("\n").slice(-40).join("\n") : "";
+        const prompt = lastCommand
+            ? `The command \`${lastCommand}\` failed with exit code ${exitCode}. Here is the terminal output:\n\n${lastLines}`
+            : `A command failed with exit code ${exitCode}. Here is the terminal output:\n\n${lastLines}`;
+        try {
+            const aiModel = WaveAIModel.getInstance();
+            const layoutModel = WorkspaceLayoutModel.getInstance();
+            if (!layoutModel.getAIPanelVisible()) {
+                layoutModel.setAIPanelVisible(true);
+            }
+            aiModel.sendMessage(prompt);
+        } catch (e) {
+            console.log("auto-diagnosis error:", e);
+        }
+    }, 1500);
+}
 
 const Osc52MaxDecodedSize = 75 * 1024; // max clipboard size for OSC 52 (matches common terminal implementations)
 const Osc52MaxRawLength = 128 * 1024; // includes selector + base64 + whitespace (rough check)
@@ -328,6 +363,15 @@ export function handleOsc16162Command(data: string, blockId: string, loaded: boo
             if (cmd.data.exitcode != null) {
                 rtInfo["shell:lastcmdexitcode"] = cmd.data.exitcode;
                 globalStore.set(termWrap.lastExitCodeAtom, cmd.data.exitcode);
+                // Publish cross-view event for terminal command completion
+                const lastCommand = globalStore.get(termWrap.lastCommandAtom);
+                const scrollback = termWrap.getScrollbackContent();
+                const snippet = scrollback ? scrollback.split("\n").slice(-20).join("\n") : "";
+                publishCrossViewEvent(
+                    cmd.data.exitcode !== 0 ? "terminal:error" : "terminal:command-complete",
+                    blockId,
+                    makeTerminalPayload(blockId, lastCommand ?? undefined, cmd.data.exitcode, snippet)
+                );
             } else {
                 rtInfo["shell:lastcmdexitcode"] = null;
                 globalStore.set(termWrap.lastExitCodeAtom, null);

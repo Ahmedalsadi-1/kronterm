@@ -101,7 +101,8 @@ type MetaTSType struct {
 	BgActiveBorderColor string  `json:"bg:activebordercolor,omitempty"` // frame:activebordercolor
 
 	// for workspace
-	LayoutVTabBarWidth int `json:"layout:vtabbarwidth,omitempty"`
+	LayoutVTabBarWidth  int    `json:"layout:vtabbarwidth,omitempty"`
+	LayoutSidePanelMode string `json:"layout:sidepanelmode,omitempty"` // hidden, compact, full
 
 	// for tabs+waveai
 	WaveAiPanelOpen     bool   `json:"waveai:panelopen,omitempty"`

@@ -70,7 +70,10 @@ const UserMessageFiles = memo(({ fileParts }: UserMessageFilesProps) => {
         <div className="mt-2 pt-2 border-t border-border">
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {fileParts.map((file, index) => (
-                    <div key={index} className="relative bg-panel border border-border rounded-md p-2 min-w-20 flex-shrink-0">
+                    <div
+                        key={index}
+                        className="relative bg-panel border border-border rounded-md p-2 min-w-20 flex-shrink-0"
+                    >
                         <div className="flex flex-col items-center text-center">
                             <div className="w-12 h-12 mb-1 flex items-center justify-center bg-black/25 rounded overflow-hidden">
                                 {file.data?.previewurl ? (
@@ -218,30 +221,23 @@ export const AIMessage = memo(({ message, isStreaming }: AIMessageProps) => {
     const groupedParts = groupMessageParts(displayParts);
 
     return (
-        <div className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-            <div
-                className={cn(
-                    "px-2 rounded-md [&>*:first-child]:!mt-0",
-                    message.role === "user"
-                        ? "py-2 bg-panel border border-border text-primary max-w-[calc(100%-50px)]"
-                        : "min-w-[min(100%,500px)]"
-                )}
-            >
+        <div className={cn("ai-message", message.role === "user" ? "ai-message-user" : "ai-message-assistant")}>
+            <div className="ai-message-content">
                 {displayParts.length === 0 && !isStreaming && !thinkingData ? (
-                    <div className="whitespace-pre-wrap break-words">(no text content)</div>
+                    <div className="whitespace-pre-wrap break-words text-secondary">(no text content)</div>
                 ) : (
                     <>
                         {groupedParts.map((group, index: number) =>
                             group.type === "toolgroup" ? (
                                 <AIToolUseGroup key={index} parts={group.parts} isStreaming={isStreaming} />
                             ) : (
-                                <div key={index} className="mt-2">
+                                <div key={index} className="mt-2 first:mt-0">
                                     <AIMessagePart part={group.part} role={message.role} isStreaming={isStreaming} />
                                 </div>
                             )
                         )}
                         {thinkingData != null && (
-                            <div className="mt-2">
+                            <div className="mt-2 first:mt-0">
                                 <AIThinking
                                     message={thinkingData.message}
                                     reasoningText={thinkingData.reasoningText}

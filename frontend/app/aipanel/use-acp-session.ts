@@ -1,10 +1,9 @@
 import { atoms, getBlockMetaKeyAtom, getFocusedBlockId, globalStore } from "@/app/store/global";
-import { getLayoutModelForStaticTab } from "@/layout/index";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
+import { getLayoutModelForStaticTab } from "@/layout/index";
 import { isLocalConnName } from "@/util/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { v7 as uuidv7 } from "uuid";
-import { blockIdFromToolInput, previewImageFromToolUpdate, reportDesktopPetActivity } from "./desktop-pet-activity";
 
 export type AcpBackendInfo = {
     backend: string;
@@ -17,6 +16,43 @@ export type AcpBackendInfo = {
     supportsStreaming?: boolean;
     acpArgs?: string[];
     skillsDirs?: string[];
+    harnessProfile?: AcpHarnessProfile;
+};
+
+export type AcpHarnessTaskClass =
+    | "architecture"
+    | "automation"
+    | "coding"
+    | "debugging"
+    | "research"
+    | "review"
+    | "workspace-control";
+
+export type AcpHarnessProfile = {
+    backend: string;
+    summary: string;
+    specialties: AcpHarnessTaskClass[];
+    patterns: Array<{ id: string; label: string; description: string }>;
+    source: "builtin" | "reference";
+};
+
+export type AcpCapabilityLease = {
+    id: string;
+    backend: string;
+    issuedAt: number;
+    expiresAt: number;
+    taskClass: AcpHarnessTaskClass;
+    reason: string;
+    workspace: string;
+    capabilities: string[];
+    constraints: {
+        filesystem: "workspace";
+        writes: "approval-required";
+        destructiveActions: "approval-required";
+        externalSideEffects: "approval-required";
+        credentialAccess: "brokered-only";
+        surface: "none" | "tab";
+    };
 };
 
 export type AcpAgentProfile = {
@@ -74,6 +110,13 @@ export type AcpAgentMessage = {
     timestamp: number;
 };
 
+export type AcpSlashCommand = {
+    name?: string;
+    description?: string;
+    hint?: string;
+    template?: string;
+};
+
 export type AcpPendingConfirmation = {
     id: string;
     callId: string;
@@ -97,6 +140,9 @@ export type AcpSessionState = {
     usage: unknown | null;
     agentInfo: unknown | null;
     capabilities: AcpCapabilities | null;
+    harnessProfile: AcpHarnessProfile | null;
+    capabilityLease: AcpCapabilityLease | null;
+    slashCommands: Record<string, AcpSlashCommand>;
 };
 
 export type AcpRuntimeRecord = AcpSessionState & {
@@ -130,14 +176,6 @@ type AcpEvent = {
     timestamp: number;
 };
 
-function textFromAcpEvent(data: unknown): string | undefined {
-    if (typeof data === "string") {
-        return data;
-    }
-    const content = data as { text?: unknown } | undefined;
-    return typeof content?.text === "string" ? content.text : undefined;
-}
-
 const initialState: AcpSessionState = {
     conversationId: "",
     status: "idle",
@@ -153,6 +191,9 @@ const initialState: AcpSessionState = {
     usage: null,
     agentInfo: null,
     capabilities: null,
+    harnessProfile: null,
+    capabilityLease: null,
+    slashCommands: {},
 };
 
 const initialRuntimeStore: AcpRuntimeStore = {
@@ -161,6 +202,28 @@ const initialRuntimeStore: AcpRuntimeStore = {
     orderedSessionIds: [],
     hydrated: false,
 };
+
+const ActiveSessionStorageKey = "kronoscode:active-session-id";
+
+function readStoredActiveSessionId(): string {
+    try {
+        return localStorage.getItem(ActiveSessionStorageKey) ?? "";
+    } catch {
+        return "";
+    }
+}
+
+function writeStoredActiveSessionId(conversationId: string) {
+    try {
+        if (conversationId) {
+            localStorage.setItem(ActiveSessionStorageKey, conversationId);
+        } else {
+            localStorage.removeItem(ActiveSessionStorageKey);
+        }
+    } catch {
+        return;
+    }
+}
 
 function normalizeText(data: unknown): string {
     if (typeof data === "string") {
@@ -299,13 +362,31 @@ export function applyAcpEvent(runtime: AcpRuntimeRecord, event: AcpEvent): AcpRu
             next.capabilities = data?.capabilities ?? runtime.capabilities;
             break;
         }
+        case "harness_profile": {
+            const data = event.data as any;
+            next.harnessProfile = data?.profile ?? runtime.harnessProfile;
+            break;
+        }
+        case "harness_lease": {
+            const data = event.data as any;
+            next.harnessProfile = data?.profile ?? runtime.harnessProfile;
+            next.capabilityLease = data?.lease ?? runtime.capabilityLease;
+            break;
+        }
+        case "slash_commands": {
+            const commands = (event.data as any)?.commands;
+            next.slashCommands = commands && typeof commands === "object" ? commands : runtime.slashCommands;
+            break;
+        }
     }
-    next.messages.push({
-        msgId: event.msgId,
-        type: event.type,
-        data: event.data,
-        timestamp: event.timestamp,
-    });
+    if (event.type !== "slash_commands") {
+        next.messages.push({
+            msgId: event.msgId,
+            type: event.type,
+            data: event.data,
+            timestamp: event.timestamp,
+        });
+    }
     return next;
 }
 
@@ -428,7 +509,9 @@ export function useAcpSession() {
 
     useEffect(() => {
         let cancelled = false;
-        const hydrate = async () => {
+        const maxRetries = 3;
+        const baseDelay = 1000;
+        const hydrate = async (attempt = 1): Promise<void> => {
             const [storedSessions, liveRuntimes] = await Promise.all([
                 services.acp
                     .ListSessions()
@@ -437,6 +520,13 @@ export function useAcpSession() {
                 electron.acpListRuntimes().catch(() => []),
             ]);
             if (cancelled) {
+                return;
+            }
+            if (storedSessions.length === 0 && liveRuntimes.length === 0 && attempt <= maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)));
+                if (!cancelled) {
+                    return hydrate(attempt + 1);
+                }
                 return;
             }
             const sessionsById: Record<string, AcpRuntimeRecord> = {};
@@ -461,6 +551,8 @@ export function useAcpSession() {
                     currentMode: live.currentMode ?? prior.currentMode,
                     modelInfo: live.modelInfo ?? prior.modelInfo,
                     capabilities: live.capabilities ?? prior.capabilities,
+                    harnessProfile: live.harnessProfile ?? prior.harnessProfile,
+                    capabilityLease: live.capabilityLease ?? prior.capabilityLease,
                     isLive: true,
                     resumeState: "live",
                 };
@@ -468,8 +560,13 @@ export function useAcpSession() {
             const orderedSessionIds = Object.values(sessionsById)
                 .sort((left, right) => right.updatedTs - left.updatedTs)
                 .map((runtime) => runtime.conversationId);
+            const storedActiveId = readStoredActiveSessionId();
+            const activeConversationId =
+                (storedActiveId && sessionsById[storedActiveId]?.resumeState !== "archived" && storedActiveId) ||
+                orderedSessionIds.find((id) => sessionsById[id].resumeState !== "archived") ||
+                "";
             setRuntimeStore({
-                activeConversationId: orderedSessionIds.find((id) => sessionsById[id].resumeState !== "archived") ?? "",
+                activeConversationId,
                 sessionsById,
                 orderedSessionIds,
                 hydrated: true,
@@ -485,6 +582,7 @@ export function useAcpSession() {
 
     const initialize = useCallback(
         async (opts: {
+            conversationId?: string;
             backend: string;
             agentName?: string;
             workspace?: string;
@@ -492,18 +590,28 @@ export function useAcpSession() {
             customArgs?: string[];
             customEnv?: Record<string, string>;
             resumeSessionId?: string;
-            mcpServers?: Array<{
-                name: string;
-                command: string;
-                args: string[];
-                env: Array<{ name: string; value: string }>;
-            }>;
+            resumeSessionConversationId?: string;
+            mcpServers?: Array<
+                | {
+                      type?: "stdio";
+                      name: string;
+                      command: string;
+                      args: string[];
+                      env: Array<{ name: string; value: string }>;
+                  }
+                | {
+                      type: "http" | "sse";
+                      name: string;
+                      url: string;
+                      headers?: Array<{ name: string; value: string }>;
+                  }
+            >;
             title?: string;
             referencedFiles?: string[];
             messages?: AcpAgentMessage[];
             profile?: AcpAgentProfile;
         }) => {
-            const conversationId = uuidv7();
+            const conversationId = opts.conversationId || uuidv7();
             const workspace = opts.workspace ?? opts.profile?.workspace ?? getFocusedLocalWorkspace() ?? "";
             const runtime = makeRuntime({
                 conversationId,
@@ -517,7 +625,10 @@ export function useAcpSession() {
             setRuntimeStore((previous) => ({
                 ...previous,
                 activeConversationId: conversationId,
-                orderedSessionIds: [conversationId, ...previous.orderedSessionIds],
+                orderedSessionIds: [
+                    conversationId,
+                    ...previous.orderedSessionIds.filter((id) => id !== conversationId),
+                ],
                 sessionsById: { ...previous.sessionsById, [conversationId]: runtime },
             }));
             const result = await electron.acpInitialize({
@@ -528,6 +639,7 @@ export function useAcpSession() {
                 customArgs: opts.customArgs,
                 customEnv: opts.customEnv,
                 resumeSessionId: opts.resumeSessionId,
+                resumeSessionConversationId: opts.resumeSessionConversationId,
                 mcpServers: opts.mcpServers,
                 surfaceContext: getSurfaceContext(),
             });
@@ -541,31 +653,36 @@ export function useAcpSession() {
                 }));
                 return { conversationId, success: false, error: result.error };
             }
-            const status = await electron.acpGetStatus({ conversationId });
-            updateRuntime(conversationId, (current) => ({
-                ...current,
-                status: status.status ?? current.status,
-                sessionId: status.sessionId ?? current.sessionId,
-                configOptions: status.configOptions ?? current.configOptions,
-                modes: status.modes ?? current.modes,
-                currentMode: status.currentMode ?? current.currentMode,
-                modelInfo: status.modelInfo ?? current.modelInfo,
-                capabilities: status.capabilities ?? current.capabilities,
-            }));
-            if (
-                opts.profile?.mode &&
-                status.modes?.availableModes?.some((mode: any) => mode.id === opts.profile?.mode)
-            ) {
+            const initState = result.state;
+            if (initState) {
+                updateRuntime(conversationId, (current) => ({
+                    ...current,
+                    status: initState.status ?? current.status,
+                    error: initState.error ?? current.error,
+                    sessionId: initState.sessionId ?? current.sessionId,
+                    configOptions: initState.configOptions ?? current.configOptions,
+                    modes: initState.modes ?? current.modes,
+                    currentMode: initState.currentMode ?? current.currentMode,
+                    modelInfo: initState.modelInfo ?? current.modelInfo,
+                    capabilities: initState.capabilities ?? current.capabilities,
+                    harnessProfile: initState.harnessProfile ?? current.harnessProfile,
+                    capabilityLease: initState.capabilityLease ?? current.capabilityLease,
+                }));
+            }
+            const modeModes = initState?.modes ?? null;
+            const modeModelInfo = initState?.modelInfo ?? null;
+            if (opts.profile?.mode && modeModes?.availableModes?.some((mode: any) => mode.id === opts.profile?.mode)) {
                 await electron.acpSetMode({ conversationId, mode: opts.profile.mode }).catch(() => null);
             }
             if (
                 opts.profile?.model &&
-                status.modelInfo?.availableModels?.some((model: any) => model.id === opts.profile?.model)
+                modeModelInfo?.availableModels?.some((model: any) => model.id === opts.profile?.model)
             ) {
                 await electron.acpSetModel({ conversationId, modelId: opts.profile.model }).catch(() => null);
             }
+            const modeConfigOptions = initState?.configOptions ?? [];
             for (const [configId, value] of Object.entries(opts.profile?.configoptions ?? {})) {
-                if (status.configOptions?.some((option: any) => option.id === configId)) {
+                if (modeConfigOptions.some((option: any) => option.id === configId)) {
                     await electron.acpSetConfigOption({ conversationId, configId, value }).catch(() => null);
                 }
             }
@@ -575,10 +692,21 @@ export function useAcpSession() {
     );
 
     const selectSession = useCallback((conversationId: string) => {
-        setRuntimeStore((previous) =>
-            previous.sessionsById[conversationId] ? { ...previous, activeConversationId: conversationId } : previous
-        );
+        setRuntimeStore((previous) => {
+            if (!previous.sessionsById[conversationId]) {
+                return previous;
+            }
+            writeStoredActiveSessionId(conversationId);
+            return { ...previous, activeConversationId: conversationId };
+        });
     }, []);
+
+    useEffect(() => {
+        if (!runtimeStore.hydrated || !runtimeStore.activeConversationId) {
+            return;
+        }
+        writeStoredActiveSessionId(runtimeStore.activeConversationId);
+    }, [runtimeStore.hydrated, runtimeStore.activeConversationId]);
 
     const updateSessionContext = useCallback(
         (workspace: string, referencedFiles: string[]) => {
@@ -618,7 +746,10 @@ export function useAcpSession() {
                 ],
                 updatedTs: Date.now(),
             }));
-            const result = await electron.acpSendMessage({ conversationId, content });
+            const result = await electron.acpSendMessage({ conversationId, content }).catch((err) => ({
+                success: false,
+                error: err instanceof Error ? err.message : String(err),
+            }));
             if (!result.success) {
                 updateRuntime(conversationId, (runtime) => ({
                     ...runtime,
@@ -729,7 +860,11 @@ export function useAcpSession() {
             if (!conversationId) {
                 return;
             }
-            const result = await electron.acpSetModel({ conversationId, modelId });
+            const result = await electron.acpSetModel({ conversationId, modelId }).catch((err) => ({
+                success: false,
+                error: err instanceof Error ? err.message : String(err),
+                data: undefined,
+            }));
             updateRuntime(conversationId, (runtime) => ({
                 ...runtime,
                 error: result.success ? null : (result.error ?? "Failed to set ACP model"),
@@ -805,53 +940,12 @@ export function useAcpSession() {
     );
 
     useEffect(() => {
-        return electron.onAcpEvent((event: AcpEvent) => {
-            if (event.type === "status") {
-                const status = (event.data as { status?: string } | undefined)?.status;
-                if (status === "running" || status === "connecting") {
-                    reportDesktopPetActivity({ kind: "thinking", detail: "KronosCode working" });
-                } else {
-                    reportDesktopPetActivity({ kind: "idle" });
-                }
-            }
-            if (event.type === "agent_thought_chunk") {
-                reportDesktopPetActivity({
-                    kind: "thinking",
-                    detail: "Reasoning",
-                    thought: textFromAcpEvent(event.data),
-                });
-            }
-            if (event.type === "tool_call") {
-                const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | undefined;
-                reportDesktopPetActivity(
-                    { kind: "tool", detail: data?.title ?? "Using tool" },
-                    blockIdFromToolInput(data?.rawInput),
-                    data?.rawInput
-                );
-            }
-            if (event.type === "tool_call_update") {
-                const data = event.data as { title?: string; rawInput?: Record<string, unknown> } | undefined;
-                const previewImageUrl = previewImageFromToolUpdate(data);
-                if (data?.title || previewImageUrl) {
-                    reportDesktopPetActivity(
-                        {
-                            kind: "tool",
-                            detail: previewImageUrl ? "Computer use screenshot" : (data?.title ?? "Using tool"),
-                            previewImageUrl,
-                        },
-                        blockIdFromToolInput(data?.rawInput),
-                        data?.rawInput
-                    );
-                }
-            }
-            if (event.type === "finish" || event.type === "error") {
-                reportDesktopPetActivity({
-                    kind: "idle",
-                    detail: event.type === "finish" ? "Task complete" : "Task ended",
-                });
-            }
+        const unsubscribe = electron.onAcpEvent((event: AcpEvent) => {
             updateRuntime(event.conversationId, (runtime) => applyAcpEvent(runtime, event));
         });
+        return () => {
+            unsubscribe();
+        };
     }, [electron, updateRuntime]);
 
     const sessions = useMemo(

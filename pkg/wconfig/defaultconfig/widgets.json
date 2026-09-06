@@ -43,13 +43,26 @@
             }
         }
     },
-    "defwidget@ai": {
-        "display:order": -2,
+    "defwidget@chat": {
+        "display:order": -5.5,
         "icon": "sparkles",
-        "label": "ai",
+        "label": "Chamber V2",
+        "color": "#e8c47c",
+        "description": "Open the canonical Kronos workspace",
         "blockdef": {
             "meta": {
-                "view": "waveai"
+                "view": "chathubv2"
+            }
+        }
+    },
+    "defwidget@warpagent": {
+        "display:order": -5.4,
+        "icon": "wand-magic-sparkles",
+        "label": "Warp Agent",
+        "description": "Warp-style agent chat surface",
+        "blockdef": {
+            "meta": {
+                "view": "warpagent"
             }
         }
     },
@@ -80,6 +93,19 @@
         "blockdef": {
             "meta": {
                 "view": "installedapps"
+            }
+        }
+    },
+    "defwidget@hermesdesktop": {
+        "display:order": -5.45,
+        "display:group": "agents",
+        "icon": "sparkles",
+        "label": "Kronos",
+        "color": "#8b7cf6",
+        "description": "Open Kronos, the built-in KronTerm agent",
+        "blockdef": {
+            "meta": {
+                "view": "hermes"
             }
         }
     }

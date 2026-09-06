@@ -51,11 +51,19 @@ export type RpcHandlerType = (...args: any[]) => Promise<any>;
 export type RpcStreamHandlerType = (...args: any[]) => AsyncGenerator<any, void, boolean>;
 
 export type RpcOverrides = {
-    [K in keyof RpcApiType as K extends `${string}Command` ? K : never]?: RpcHandlerType;
+    [K in keyof RpcApiType as K extends `${string}Command`
+        ? RpcApiType[K] extends (...args: any[]) => Promise<any>
+            ? K
+            : never
+        : never]?: RpcHandlerType;
 };
 
 export type RpcStreamOverrides = {
-    [K in keyof RpcApiType as K extends `${string}Command` ? K : never]?: RpcStreamHandlerType;
+    [K in keyof RpcApiType as K extends `${string}Command`
+        ? RpcApiType[K] extends (...args: any[]) => AsyncGenerator<any, void, boolean>
+            ? K
+            : never
+        : never]?: RpcStreamHandlerType;
 };
 
 type ServiceOverrides = {
@@ -125,15 +133,15 @@ export function mergeMockEnv(base: MockEnv, overrides: MockEnv): MockEnv {
 }
 
 function makeMockSettingsKeyAtom(settingsAtom: Atom<SettingsType>): WaveEnv["getSettingsKeyAtom"] {
-    const keyAtomCache = new Map<keyof SettingsType, Atom<any>>();
-    return <T extends keyof SettingsType>(key: T) => {
+    const keyAtomCache = new Map<KronSettingsKey, Atom<any>>();
+    return <T extends KronSettingsKey>(key: T) => {
         if (!keyAtomCache.has(key)) {
             keyAtomCache.set(
                 key,
-                atom((get) => get(settingsAtom)?.[key])
+                atom((get) => (get(settingsAtom) as Record<string, unknown>)?.[key])
             );
         }
-        return keyAtomCache.get(key) as Atom<SettingsType[T]>;
+        return keyAtomCache.get(key) as Atom<T extends keyof SettingsType ? SettingsType[T] : unknown>;
     };
 }
 

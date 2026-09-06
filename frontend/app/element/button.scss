@@ -4,8 +4,7 @@
 .wave-button {
     // override default button appearance
     border: 1px solid transparent;
-    outline: 1px solid transparent;
-    border: 1px solid transparent;
+    outline: none;
 
     cursor: pointer;
     display: flex;
@@ -22,7 +21,12 @@
     user-select: none;
     font-size: 14px;
     font-weight: normal;
-    transition: all 0.3s ease;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        color 160ms ease,
+        opacity 160ms ease;
 
     &.solid {
         &.green {
@@ -155,7 +159,7 @@
     }
 
     &:focus-visible {
-        outline: 1px solid var(--success-color);
-        outline-offset: 2px;
+        border-color: var(--focus-ring-color);
+        box-shadow: 0 0 0 2px rgb(from var(--focus-ring-color) r g b / 0.24);
     }
 }

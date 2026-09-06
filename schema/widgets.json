@@ -188,6 +188,9 @@
         "display:order": {
           "type": "number"
         },
+        "display:group": {
+          "type": "string"
+        },
         "display:hidden": {
           "type": "boolean"
         },

@@ -1,5 +1,5 @@
 import { base64ToArray, base64ToString } from "@/util/util";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { DefaultMockFilesystem } from "./mockfilesystem";
 
 const { showPreviewContextMenu } = vi.hoisted(() => ({
@@ -10,9 +10,14 @@ vi.mock("../preview-contextmenu", () => ({
     showPreviewContextMenu,
 }));
 
+let makeMockWaveEnv: (typeof import("./mockwaveenv"))["makeMockWaveEnv"];
+
+beforeAll(async () => {
+    ({ makeMockWaveEnv } = await import("./mockwaveenv"));
+}, 30_000);
+
 describe("makeMockWaveEnv", () => {
     it("uses the preview context menu by default", async () => {
-        const { makeMockWaveEnv } = await import("./mockwaveenv");
         const env = makeMockWaveEnv();
         const menu = [{ label: "Open" }];
         const event = { stopPropagation: vi.fn() } as any;
@@ -29,7 +34,6 @@ describe("makeMockWaveEnv", () => {
     });
 
     it("implements file info, read, list, and join commands", async () => {
-        const { makeMockWaveEnv } = await import("./mockwaveenv");
         const env = makeMockWaveEnv();
 
         const bashrcInfo = await env.rpc.FileInfoCommand(null as any, {
@@ -70,7 +74,6 @@ describe("makeMockWaveEnv", () => {
     });
 
     it("implements file list and read stream commands", async () => {
-        const { makeMockWaveEnv } = await import("./mockwaveenv");
         const env = makeMockWaveEnv();
 
         const listPackets: CommandRemoteListEntriesRtnData[] = [];
@@ -95,13 +98,15 @@ describe("makeMockWaveEnv", () => {
     });
 
     it("implements secrets commands with in-memory storage", async () => {
-        const { makeMockWaveEnv } = await import("./mockwaveenv");
         const env = makeMockWaveEnv({ platform: "linux" });
 
-        await env.rpc.SetSecretsCommand(null as any, {
-            OPENAI_API_KEY: "sk-test",
-            ANTHROPIC_API_KEY: "anthropic-test",
-        } as any);
+        await env.rpc.SetSecretsCommand(
+            null as any,
+            {
+                OPENAI_API_KEY: "sk-test",
+                ANTHROPIC_API_KEY: "anthropic-test",
+            } as any
+        );
 
         expect(await env.rpc.GetSecretsLinuxStorageBackendCommand(null as any)).toBe("libsecret");
         expect(await env.rpc.GetSecretsNamesCommand(null as any)).toEqual(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);

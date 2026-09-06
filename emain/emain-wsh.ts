@@ -6,6 +6,7 @@ import { RpcResponseHelper, WshClient } from "@/app/store/wshclient";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { Notification, net, safeStorage, shell } from "electron";
 import { getResolvedUpdateChannel } from "emain/updater";
+import { queryLanguageServer } from "./emain-lsp";
 import { unamePlatform } from "./emain-platform";
 import { getWebContentsByBlockId, webGetSelector } from "./emain-web";
 import { createBrowserWindow, getWaveWindowById, getWaveWindowByWorkspaceId } from "./emain-window";
@@ -13,6 +14,27 @@ import { createBrowserWindow, getWaveWindowById, getWaveWindowByWorkspaceId } fr
 export class ElectronWshClientType extends WshClient {
     constructor() {
         super("electron");
+    }
+
+    async handle_webeval(rh: RpcResponseHelper, data: CommandWebEvalData): Promise<string> {
+        if (!data.tabid || !data.blockid) {
+            throw new Error("tabid and blockid are required");
+        }
+        const ww = getWaveWindowByWorkspaceId(data.workspaceid);
+        if (ww == null) {
+            throw new Error(`no window found with workspace ${data.workspaceid}`);
+        }
+        const wc = await getWebContentsByBlockId(ww, data.tabid, data.blockid);
+        if (wc == null) {
+            throw new Error(`no webcontents found with blockid ${data.blockid}`);
+        }
+        const result = await wc.executeJavaScript(data.script);
+        const rtn = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+        return rtn;
+    }
+
+    async handle_lspquery(rh: RpcResponseHelper, data: CommandLspQueryData): Promise<CommandLspQueryRtnData> {
+        return queryLanguageServer(data);
     }
 
     async handle_webselector(rh: RpcResponseHelper, data: CommandWebSelectorData): Promise<string[]> {
@@ -110,15 +132,50 @@ export class ElectronWshClientType extends WshClient {
         shell.beep();
     }
 
-    // async handle_workspaceupdate(rh: RpcResponseHelper) {
-    //     console.log("workspaceupdate");
-    //     fireAndForget(async () => {
-    //         console.log("workspace menu clicked");
-    //         const updatedWorkspaceMenu = await getWorkspaceMenu();
-    //         const workspaceMenu = Menu.getApplicationMenu().getMenuItemById("workspace-menu");
-    //         workspaceMenu.submenu = Menu.buildFromTemplate(updatedWorkspaceMenu);
-    //     });
-    // }
+    // --- Window Management Handlers ---
+
+    async handle_windowlist(rh: RpcResponseHelper): Promise<WindowInfo[]> {
+        const { waveWindowMap } = await import("./emain-window");
+        const windows: WindowInfo[] = [];
+        for (const [id, ww] of waveWindowMap) {
+            windows.push({
+                windowId: id,
+                workspaceId: ww.workspaceId,
+                tabCount: ww.allLoadedTabViews?.size ?? 0,
+                activeTabId: ww.activeTabView?.waveTabId ?? "",
+                focused: ww.isFocused(),
+                title: ww.getTitle() ?? "",
+            });
+        }
+        return windows;
+    }
+
+    async handle_createwindow(rh: RpcResponseHelper): Promise<string> {
+        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+        const { createBrowserWindow } = await import("./emain-window");
+        const window = await createBrowserWindow(null, fullConfig, {
+            unamePlatform,
+            isPrimaryStartupWindow: false,
+        });
+        return window.waveWindowId;
+    }
+
+    async handle_closewindow(rh: RpcResponseHelper, windowId: string) {
+        const { getWaveWindowById } = await import("./emain-window");
+        const ww = getWaveWindowById(windowId);
+        if (ww == null) {
+            throw new Error(`window ${windowId} not found`);
+        }
+        ww.close();
+    }
+
+    async handle_activatewindow(rh: RpcResponseHelper, windowId: string) {
+        const { getWaveWindowById } = await import("./emain-window");
+        const ww = getWaveWindowById(windowId);
+        if (ww != null) {
+            ww.focus();
+        }
+    }
 }
 
 export let ElectronWshClient: ElectronWshClientType;

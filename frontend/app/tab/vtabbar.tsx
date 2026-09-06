@@ -6,53 +6,69 @@ import { getTabBadgeAtom } from "@/app/store/badge";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { Widgets } from "@/app/workspace/widgets";
+import { SidePanelMode, WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { validateCssColor } from "@/util/color-validator";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
+import { Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
 import { VTab, VTabItem } from "./vtab";
+import { VTabBlockTree } from "./vtab-block-tree";
+import "./vtabbar.scss";
 import { VTabBarEnv } from "./vtabbarenv";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 export type { VTabItem } from "./vtab";
 
-const VTabBarAIButton = memo(() => {
-    const env = useWaveEnv<VTabBarEnv>();
-    const aiPanelOpen = useAtomValue(WorkspaceLayoutModel.getInstance().panelVisibleAtom);
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+const SidePanelModeButton = memo(() => {
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const sidePanelMode = useAtomValue(layoutModel.sidePanelModeAtom);
 
-    const onClick = () => {
-        const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
-        WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
+    const getModeIcon = (mode: SidePanelMode): string => {
+        switch (mode) {
+            case "hidden":
+                return "fa-sidebar-flip";
+            case "compact":
+                return "fa-sidebar";
+            case "full":
+                return "fa-table-columns";
+        }
     };
 
-    if (hideAiButton) {
-        return null;
-    }
+    const getModeLabel = (mode: SidePanelMode): string => {
+        switch (mode) {
+            case "hidden":
+                return "Hidden";
+            case "compact":
+                return "Compact";
+            case "full":
+                return "Full";
+        }
+    };
+
+    const onClick = () => {
+        layoutModel.cycleSidePanelMode();
+    };
 
     return (
-        <Tooltip
-            content="Toggle KronosCode Panel"
-            placement="bottom"
-            hideOnClick
-            divClassName={`flex h-[22px] px-3.5 justify-end mb-1 items-center rounded-md mr-1 box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] ${aiPanelOpen ? "text-saturn" : "text-secondary"}`}
-            divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-            divOnClick={onClick}
-        >
-            <i className={`fa fa-circle-nodes ${aiPanelOpen ? "text-saturn" : ""}`} />
+        <Tooltip content={`Side Panel: ${getModeLabel(sidePanelMode)} (click to cycle)`} placement="right" hideOnClick>
+            <button type="button" className="vtab-footer-action" onClick={onClick}>
+                <i className={`fa ${getModeIcon(sidePanelMode)}`} style={{ fontSize: "12px" }} />
+                <span>{getModeLabel(sidePanelMode)} sidebar</span>
+            </button>
         </Tooltip>
     );
 });
-VTabBarAIButton.displayName = "VTabBarAIButton";
+SidePanelModeButton.displayName = "SidePanelModeButton";
 
-const MacOSHeader = memo(() => {
+const VTabBarHeader = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
     const isFullScreen = useAtomValue(env.atoms.isFullScreen);
     return (
         <>
-            {!isFullScreen && (
+            {env.isMacOS() && !isFullScreen && (
                 <div
                     className="w-full shrink-0"
                     style={
@@ -63,20 +79,21 @@ const MacOSHeader = memo(() => {
                     }
                 />
             )}
-            <div
-                className="flex shrink-0 flex-row flex-wrap items-end px-1 pb-1 pl-2"
-                style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-            >
-                <VTabBarAIButton />
-                <Tooltip content="Workspace Switcher" placement="bottom" hideOnClick divClassName="flex items-center">
-                    <WorkspaceSwitcher />
-                </Tooltip>
-                <UpdateStatusBanner />
+            <div className="vtab-navigation-header">
+                <div className="vtab-workspace-control">
+                    <span className="vtab-workspace-kicker">Workspace</span>
+                    <Tooltip content="Switch workspace" placement="right" hideOnClick divClassName="min-w-0">
+                        <WorkspaceSwitcher showLabel />
+                    </Tooltip>
+                </div>
+                <div className="vtab-header-actions">
+                    <UpdateStatusBanner />
+                </div>
             </div>
         </>
     );
 });
-MacOSHeader.displayName = "MacOSHeader";
+VTabBarHeader.displayName = "VTabBarHeader";
 
 interface VTabBarProps {
     workspace: Workspace;
@@ -99,6 +116,8 @@ interface VTabWrapperProps {
     onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
     onDragEnd: () => void;
     onHoverChanged: (isHovered: boolean) => void;
+    compact: boolean;
+    compactIndex: number;
 }
 
 function VTabWrapper({
@@ -116,6 +135,8 @@ function VTabWrapper({
     onDrop,
     onDragEnd,
     onHoverChanged,
+    compact,
+    compactIndex,
 }: VTabWrapperProps) {
     const env = useWaveEnv<VTabBarEnv>();
     const [tabData] = env.wos.useWaveObjectValue<Tab>(makeORef("tab", tabId));
@@ -151,24 +172,29 @@ function VTabWrapper({
     );
 
     return (
-        <VTab
-            key={`${tabId}:${hoverResetVersion}`}
-            tab={tab}
-            active={active}
-            showDivider={showDivider}
-            isDragging={isDragging}
-            isReordering={isReordering}
-            onSelect={onSelect}
-            onClose={onClose}
-            onRename={onRename}
-            onContextMenu={handleContextMenu}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onDragEnd={onDragEnd}
-            onHoverChanged={onHoverChanged}
-            renameRef={renameRef}
-        />
+        <>
+            <VTab
+                key={`${tabId}:${hoverResetVersion}`}
+                tab={tab}
+                active={active}
+                showDivider={showDivider}
+                isDragging={isDragging}
+                isReordering={isReordering}
+                onSelect={onSelect}
+                onClose={onClose}
+                onRename={onRename}
+                onContextMenu={handleContextMenu}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onDragEnd={onDragEnd}
+                onHoverChanged={onHoverChanged}
+                renameRef={renameRef}
+                compact={compact}
+                compactIndex={compactIndex}
+            />
+            {!compact && <VTabBlockTree tabId={tabId} active={active} />}
+        </>
     );
 }
 
@@ -177,6 +203,10 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
     const documentHasFocus = useAtomValue(env.atoms.documentHasFocus);
+    const layoutModel = WorkspaceLayoutModel.getInstance();
+    const sidePanelMode = useAtomValue(layoutModel.sidePanelModeAtom);
+    const widgetsPanelVisible = useAtomValue(layoutModel.widgetsPanelVisibleAtom);
+    const compact = sidePanelMode === "compact";
     const tabIds = workspace?.tabids ?? [];
 
     const [orderedTabIds, setOrderedTabIds] = useState<string[]>(tabIds);
@@ -185,7 +215,6 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const [dropLineTop, setDropLineTop] = useState<number | null>(null);
     const [hoverResetVersion, setHoverResetVersion] = useState(0);
     const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
-    const [isNewTabHovered, setIsNewTabHovered] = useState(false);
     const dragSourceRef = useRef<string | null>(null);
     const didResetHoverForDragRef = useRef(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -314,14 +343,31 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
 
     return (
         <div
-            className={cn("flex h-full flex-col overflow-hidden", className)}
-            style={{ backdropFilter: "blur(20px)", background: "rgba(0, 0, 0, 0.35)" }}
+            className={cn("vtab-navigation flex h-full flex-col overflow-hidden", compact && "is-compact", className)}
             onContextMenu={handleTabBarContextMenu}
         >
-            {env.isMacOS() && <MacOSHeader />}
+            <VTabBarHeader />
+            <div className="vtab-section-header">
+                <div className="vtab-section-title">
+                    <span>Workspace tabs</span>
+                    <span className="vtab-section-count">{orderedTabIds.length}</span>
+                </div>
+                <Tooltip content="New workspace tab" placement="right">
+                    <button
+                        type="button"
+                        className="vtab-section-action is-new-tab"
+                        onClick={() => env.electron.createTab()}
+                        aria-label="New workspace tab"
+                    >
+                        <Plus aria-hidden="true" />
+                    </button>
+                </Tooltip>
+            </div>
             <div
                 ref={scrollContainerRef}
-                className="relative flex min-h-0 flex-col overflow-y-auto"
+                className="vtab-scroll-region relative flex min-h-0 flex-1 flex-col overflow-y-auto"
+                role="tablist"
+                aria-label="Workspace tabs"
                 onDragOver={(event) => {
                     event.preventDefault();
                     updateScrollFromDragY(event.clientY);
@@ -351,11 +397,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             tabId={tabId}
                             active={isActive}
                             showDivider={
-                                !isActive &&
-                                !isNextActive &&
-                                !isHovered &&
-                                !isNextHovered &&
-                                !(isLast && isNewTabHovered)
+                                !compact && !isActive && !isNextActive && !isHovered && !isNextHovered && !isLast
                             }
                             isDragging={dragTabId === tabId}
                             isReordering={dragTabId != null}
@@ -397,6 +439,8 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             }}
                             onDragEnd={clearDragState}
                             onHoverChanged={(isHovered) => setHoveredTabId(isHovered ? tabId : null)}
+                            compact={compact}
+                            compactIndex={index + 1}
                         />
                     );
                 })}
@@ -407,18 +451,28 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                     />
                 )}
             </div>
-            <button
-                type="button"
-                className="group relative flex h-9 w-full shrink-0 cursor-pointer items-center gap-1.5 pl-3 pr-3 text-xs text-secondary/60 transition-colors hover:text-primary select-none whitespace-nowrap"
-                onClick={() => env.electron.createTab()}
-                onMouseEnter={() => setIsNewTabHovered(true)}
-                onMouseLeave={() => setIsNewTabHovered(false)}
-                aria-label="New Tab"
-            >
-                <div className="pointer-events-none absolute inset-x-1 inset-y-[4px] rounded-sm bg-transparent transition-colors group-hover:bg-hover" />
-                <i className="fa fa-solid fa-plus" style={{ fontSize: "10px" }} />
-                <span>New Tab</span>
-            </button>
+            <Widgets
+                compact
+                showCompactAddButton={false}
+                compactTrailingAction={
+                    <Tooltip
+                        content={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
+                        placement="right"
+                        hideOnClick
+                    >
+                        <button
+                            type="button"
+                            className={cn("widget-rail-compact-item", widgetsPanelVisible && "is-active")}
+                            onClick={() => layoutModel.toggleWidgetsPanel()}
+                            aria-label={widgetsPanelVisible ? "Hide all widgets" : "Show all widgets"}
+                            aria-pressed={widgetsPanelVisible}
+                        >
+                            <Plus className="widget-rail-compact-icon" aria-hidden="true" />
+                        </button>
+                    </Tooltip>
+                }
+            />
+            <SidePanelModeButton />
         </div>
     );
 }

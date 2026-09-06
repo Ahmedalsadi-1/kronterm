@@ -3,7 +3,7 @@ name: add-wshcmd
 description: Guide for adding new wsh commands to Wave Terminal. Use when implementing new CLI commands, adding command-line functionality, or extending the wsh command interface.
 ---
 
-# Adding a New wsh Command to Wave Terminal
+# add-wshcmd
 
 This guide explains how to add a new command to the `wsh` CLI tool.
 

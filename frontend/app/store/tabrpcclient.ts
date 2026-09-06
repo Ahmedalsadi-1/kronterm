@@ -2,10 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
-import { getApi, getBlockComponentModel, getConnStatusAtom, globalStore, WOS } from "@/app/store/global";
+import { atoms, getApi, getBlockComponentModel, getConnStatusAtom, globalStore, WOS } from "@/app/store/global";
+import { isWorkspacePresentation, type WorkspacePresentation } from "@/app/tab/workspace-presentation";
+import { getWorkspaceSurfaceModeProvider } from "@/app/tab/workspace-surface-runtime";
+import { hermesSurfaceController } from "@/app/view/hermes/hermes-surface-controller";
 import type { TermViewModel } from "@/app/view/term/term-model";
-import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { getLayoutModelForStaticTab } from "@/layout/index";
+import type {
+    LayoutNode,
+    LayoutTreeComputeMoveNodeAction,
+    LayoutTreeResizeNodeAction,
+    LayoutTreeSwapNodeAction,
+} from "@/layout/index";
+import { DropDirection, getLayoutModelForStaticTab, LayoutTreeActionType, NavigateDirection } from "@/layout/index";
 import { base64ToArrayBuffer } from "@/util/util";
 import { WebviewTag } from "electron";
 import { RpcResponseHelper, WshClient } from "./wshclient";
@@ -18,7 +26,67 @@ type BrowserInteractionResult = {
     message: string;
 };
 
-export function buildBrowserInteractionScript(action: BrowserInteractionAction, payload: Record<string, unknown>): string {
+const DefaultKrontermDesktopComputerUseUrl = "http://localhost:9990/computer-use";
+
+export function sandboxComputerUseUrlFromStatus(status: SandboxStatusResponse | null | undefined): string {
+    const statusWithUrls = status as
+        (SandboxStatusResponse & { mcpUrl?: string; desktopUrl?: string }) | null | undefined;
+    if (statusWithUrls?.mcpUrl) {
+        return statusWithUrls.mcpUrl.replace(/\/+$/, "");
+    }
+    if (statusWithUrls?.desktopUrl) {
+        try {
+            const desktopUrl = new URL(statusWithUrls.desktopUrl);
+            return `${desktopUrl.protocol}//${desktopUrl.host}/computer-use`;
+        } catch {
+            return DefaultKrontermDesktopComputerUseUrl;
+        }
+    }
+    return DefaultKrontermDesktopComputerUseUrl;
+}
+
+export function buildSandboxKeyboardPressPayload(keys: string[]): Record<string, unknown> {
+    return { action: "type_keys", keys };
+}
+
+export function buildSandboxScrollPayload(
+    direction: string,
+    amount: number,
+    originX?: number,
+    originY?: number
+): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+        action: "scroll",
+        direction: direction || "down",
+        scrollCount: Math.max(1, Math.ceil(Math.abs(amount) / 50)),
+    };
+    if (originX != null && originY != null) {
+        payload.coordinates = { x: originX, y: originY };
+    }
+    return payload;
+}
+
+export function buildSandboxDragPayload(
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    button = "left"
+): Record<string, unknown> {
+    return {
+        action: "drag_mouse",
+        button,
+        path: [
+            { x: startX, y: startY },
+            { x: endX, y: endY },
+        ],
+    };
+}
+
+export function buildBrowserInteractionScript(
+    action: BrowserInteractionAction,
+    payload: Record<string, unknown>
+): string {
     return `
         (async function() {
             const action = ${JSON.stringify(action)};
@@ -49,6 +117,25 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 };
             }
 
+            function pointerEvent(element, type, x, y, buttons) {
+                if (typeof PointerEvent !== "function") {
+                    return;
+                }
+                const point = pointFor(element, x, y);
+                element.dispatchEvent(new PointerEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    pointerId: 1,
+                    pointerType: "mouse",
+                    isPrimary: true,
+                    clientX: point.clientX,
+                    clientY: point.clientY,
+                    button,
+                    buttons,
+                }));
+            }
+
             function mouseEvent(element, type, x, y, detail, buttons) {
                 const point = pointFor(element, x, y);
                 element.dispatchEvent(new MouseEvent(type, {
@@ -60,6 +147,21 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                     button,
                     buttons,
                     detail,
+                }));
+            }
+
+            function dragEvent(element, type, x, y, dataTransfer) {
+                if (typeof DragEvent !== "function") {
+                    return;
+                }
+                const point = pointFor(element, x, y);
+                element.dispatchEvent(new DragEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    clientX: point.clientX,
+                    clientY: point.clientY,
+                    dataTransfer,
                 }));
             }
 
@@ -119,7 +221,13 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 target.focus({ preventScroll: true });
                 const count = payload.clickCount ?? (payload.clicktype === "triple" ? 3 : payload.clicktype === "double" ? 2 : 1);
                 for (let index = 1; index <= count; index++) {
+                    pointerEvent(target, "pointerover", payload.x, payload.y, 0);
+                    pointerEvent(target, "pointerenter", payload.x, payload.y, 0);
+                    mouseEvent(target, "mouseover", payload.x, payload.y, index, 0);
+                    mouseEvent(target, "mouseenter", payload.x, payload.y, index, 0);
+                    pointerEvent(target, "pointerdown", payload.x, payload.y, 1 << button);
                     mouseEvent(target, "mousedown", payload.x, payload.y, index, 1 << button);
+                    pointerEvent(target, "pointerup", payload.x, payload.y, 0);
                     mouseEvent(target, "mouseup", payload.x, payload.y, index, 0);
                     if (button === 0) {
                         target.click();
@@ -202,24 +310,33 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
             }
 
             if (action === "scroll") {
-                const pointed = payload.originX != null && payload.originY != null
-                    ? document.elementFromPoint(payload.originX, payload.originY)
-                    : document.scrollingElement;
-                const target = scrollContainer(pointed);
-                const before = target.scrollTop;
                 const amount = Number(payload.amount ?? 0);
-                target.dispatchEvent(new WheelEvent("wheel", {
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true,
+                const hasOrigin = payload.originX != null && payload.originY != null;
+                if (hasOrigin) {
+                    const pointed = document.elementFromPoint(payload.originX, payload.originY);
+                    const target = scrollContainer(pointed);
+                    const before = target.scrollTop;
+                    target.dispatchEvent(new WheelEvent("wheel", {
+                        bubbles: true, cancelable: true, composed: true,
+                        deltaY: amount,
+                        clientX: payload.originX, clientY: payload.originY,
+                    }));
+                    target.scrollTop += amount;
+                    return {
+                        success: target.scrollTop !== before || amount === 0,
+                        message: "Scrolled from " + before + " to " + target.scrollTop,
+                    };
+                }
+                const before = window.scrollY;
+                window.dispatchEvent(new WheelEvent("wheel", {
+                    bubbles: true, cancelable: true, composed: true,
                     deltaY: amount,
-                    clientX: payload.originX ?? 0,
-                    clientY: payload.originY ?? 0,
+                    clientX: 0, clientY: 0,
                 }));
-                target.scrollTop += amount;
+                window.scrollBy(0, amount);
                 return {
-                    success: target.scrollTop !== before || amount === 0,
-                    message: "Scrolled from " + before + " to " + target.scrollTop,
+                    success: true,
+                    message: "Scrolled from " + before + " to " + window.scrollY,
                 };
             }
 
@@ -238,8 +355,31 @@ export function buildBrowserInteractionScript(action: BrowserInteractionAction, 
                 if (!(start instanceof HTMLElement) || !(end instanceof HTMLElement)) {
                     return { success: false, message: "Drag target not found" };
                 }
+                start.scrollIntoView({ block: "nearest", inline: "nearest" });
+                const startPoint = pointFor(start, payload.startx, payload.starty);
+                const endPoint = pointFor(end, payload.endx, payload.endy);
+                const dataTransfer = typeof DataTransfer === "function" ? new DataTransfer() : undefined;
+                pointerEvent(start, "pointerover", payload.startx, payload.starty, 0);
+                pointerEvent(start, "pointerenter", payload.startx, payload.starty, 0);
+                mouseEvent(start, "mouseover", payload.startx, payload.starty, 1, 0);
+                mouseEvent(start, "mouseenter", payload.startx, payload.starty, 1, 0);
+                pointerEvent(start, "pointerdown", payload.startx, payload.starty, 1 << button);
                 mouseEvent(start, "mousedown", payload.startx, payload.starty, 1, 1 << button);
-                mouseEvent(end, "mousemove", payload.endx, payload.endy, 1, 1 << button);
+                dragEvent(start, "dragstart", payload.startx, payload.starty, dataTransfer);
+                for (let step = 1; step <= 8; step++) {
+                    const ratio = step / 8;
+                    const x = startPoint.clientX + (endPoint.clientX - startPoint.clientX) * ratio;
+                    const y = startPoint.clientY + (endPoint.clientY - startPoint.clientY) * ratio;
+                    const current = document.elementFromPoint(x, y) || end;
+                    if (current instanceof HTMLElement) {
+                        pointerEvent(current, "pointermove", x, y, 1 << button);
+                        mouseEvent(current, "mousemove", x, y, 1, 1 << button);
+                        dragEvent(current, "dragover", x, y, dataTransfer);
+                    }
+                }
+                dragEvent(end, "drop", payload.endx, payload.endy, dataTransfer);
+                dragEvent(start, "dragend", payload.endx, payload.endy, dataTransfer);
+                pointerEvent(end, "pointerup", payload.endx, payload.endy, 0);
                 mouseEvent(end, "mouseup", payload.endx, payload.endy, 1, 0);
                 return { success: true, message: "Drag events dispatched" };
             }
@@ -270,6 +410,147 @@ export class TabClient extends WshClient {
             return { blockid: blockId, success: result.success, message: result.message };
         } catch (e) {
             return { blockid: blockId, success: false, message: `Browser interaction failed: ${e}` };
+        }
+    }
+
+    private async sandboxClick(
+        blockId: string,
+        x: number,
+        y: number,
+        button: string
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = {
+                action: "click_mouse",
+                button: button || "left",
+                clickCount: 1,
+                coordinates: { x, y },
+            };
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop click failed (${response.status}): ${text}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop click error: ${e}` };
+        }
+    }
+
+    private async sandboxKeyboardType(blockId: string, text: string): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = { action: "type_text", text };
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop type failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop type error: ${e}` };
+        }
+    }
+
+    private async sandboxKeyboardPress(blockId: string, keys: string[]): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxKeyboardPressPayload(keys);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop press failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop press error: ${e}` };
+        }
+    }
+
+    private async sandboxScroll(
+        blockId: string,
+        direction: string,
+        amount: number,
+        originX?: number,
+        originY?: number
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxScrollPayload(direction, amount, originX, originY);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop scroll failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop scroll error: ${e}` };
+        }
+    }
+
+    private async sandboxDrag(
+        blockId: string,
+        startX: number,
+        startY: number,
+        endX: number,
+        endY: number
+    ): Promise<WidgetMouseActionRtnData> {
+        try {
+            const payload = buildSandboxDragPayload(startX, startY, endX, endY);
+            const response = await fetch(await this.sandboxComputerUseUrl(blockId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    blockid: blockId,
+                    success: false,
+                    message: `Desktop drag failed (${response.status}): ${errText}`,
+                };
+            }
+            return { blockid: blockId, success: true, message: "" };
+        } catch (e) {
+            return { blockid: blockId, success: false, message: `Desktop drag error: ${e}` };
+        }
+    }
+
+    private async sandboxComputerUseUrl(blockId: string): Promise<string> {
+        try {
+            const status = await RpcApi.SandboxStatusCommand(this, { sessionId: blockId }, { timeout: 5000 });
+            return sandboxComputerUseUrlFromStatus(status);
+        } catch {
+            return DefaultKrontermDesktopComputerUseUrl;
         }
     }
 
@@ -320,11 +601,323 @@ export class TabClient extends WshClient {
         return await getApi().captureScreenshot(electronRect);
     }
 
-    async handle_waveaiaddcontext(rh: RpcResponseHelper, data: CommandWaveAIAddContextData): Promise<void> {
-        const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
-        if (!workspaceLayoutModel.getAIPanelVisible()) {
-            workspaceLayoutModel.setAIPanelVisible(true, { nofocus: true });
+    async handle_workspacesurfacesnapshot(): Promise<string> {
+        return JSON.stringify(this.makeWorkspaceSurfaceSnapshot(), null, 2);
+    }
+
+    async handle_workspacesurfacescreenshot(): Promise<string> {
+        const presentation = this.getWorkspacePresentation();
+        const layoutModel = getLayoutModelForStaticTab();
+        const container =
+            presentation === "canvas"
+                ? document.querySelector<HTMLElement>(".workspace-canvas")
+                : presentation === "tabs"
+                  ? document.querySelector<HTMLElement>(".widget-tabs-layout")
+                  : layoutModel?.displayContainerRef.current;
+        if (!container) {
+            throw new Error(`Workspace ${presentation} surface is not mounted`);
         }
+        const rect = container.getBoundingClientRect();
+        return getApi().captureScreenshot({
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.max(1, Math.round(rect.width)),
+            height: Math.max(1, Math.round(rect.height)),
+        });
+    }
+
+    async handle_workspacesurfacecontrol(
+        _rh: RpcResponseHelper,
+        data: CommandWorkspaceSurfaceControlData
+    ): Promise<string> {
+        const presentation = this.getWorkspacePresentation();
+        const tabId = globalStore.get(atoms.staticTabId);
+        const provider = getWorkspaceSurfaceModeProvider(tabId);
+        if (data.action === "set_presentation") {
+            if (!isWorkspacePresentation(data.presentation)) {
+                throw new Error(`Invalid workspace presentation: ${data.presentation}`);
+            }
+            window.localStorage.setItem("kronterm:layoutmode", data.presentation);
+            (window as any).__krontermLayoutMode = data.presentation;
+            window.dispatchEvent(
+                new CustomEvent("kronterm:layoutmode-changed", { detail: { mode: data.presentation } })
+            );
+            await RpcApi.SetConfigCommand(this, { "app:layoutmode": data.presentation });
+            return JSON.stringify({
+                success: true,
+                message: `Workspace presentation changed to ${data.presentation}.`,
+                presentation: data.presentation,
+            });
+        }
+        if (presentation === "canvas" && provider) {
+            const result = provider.control({
+                action: data.action as
+                    | "focus"
+                    | "move"
+                    | "resize"
+                    | "navigate"
+                    | "fit"
+                    | "arrange"
+                    | "add_note"
+                    | "update_object"
+                    | "delete_object"
+                    | "connect_objects",
+                blockid: data.blockid,
+                direction: data.direction as "up" | "right" | "down" | "left",
+                x: data.x,
+                y: data.y,
+                width: data.width,
+                height: data.height,
+                objectid: data.objectid,
+                fromobjectid: data.fromobjectid,
+                toobjectid: data.toobjectid,
+                text: data.text,
+                color: data.color,
+            });
+            if (!result.success) {
+                throw new Error(result.message);
+            }
+            return JSON.stringify({ ...result, snapshot: this.makeWorkspaceSurfaceSnapshot() }, null, 2);
+        }
+
+        const layoutModel = getLayoutModelForStaticTab();
+        if (!layoutModel) {
+            throw new Error("Layout model not found");
+        }
+        const node = data.blockid ? layoutModel.getNodeByBlockId(data.blockid) : undefined;
+        if (["focus", "move", "resize", "swap", "magnify", "navigate"].includes(data.action) && !node) {
+            throw new Error(`Block not found in active tab: ${data.blockid || "<missing>"}`);
+        }
+        if (data.action === "focus") {
+            layoutModel.focusNode(node.id);
+        } else if (data.action === "move") {
+            const target = layoutModel.getNodeByBlockId(data.targetblockid);
+            if (!target || target.id === node.id) {
+                throw new Error(`A different target block is required: ${data.targetblockid || "<missing>"}`);
+            }
+            const directionByValue = {
+                before: DropDirection.Left,
+                after: DropDirection.Right,
+                left: DropDirection.Left,
+                right: DropDirection.Right,
+                up: DropDirection.Top,
+                down: DropDirection.Bottom,
+            } as const;
+            const direction = directionByValue[(data.direction || data.position) as keyof typeof directionByValue];
+            if (direction == null) {
+                throw new Error("Move requires position before/after or direction up/right/down/left");
+            }
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.ComputeMove,
+                nodeId: target.id,
+                nodeToMoveId: node.id,
+                direction,
+            } as LayoutTreeComputeMoveNodeAction);
+            layoutModel.onDrop();
+            layoutModel.focusNode(node.id);
+        } else if (data.action === "swap") {
+            const target = layoutModel.getNodeByBlockId(data.targetblockid);
+            if (!target || target.id === node.id) {
+                throw new Error(`A different target block is required: ${data.targetblockid || "<missing>"}`);
+            }
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.Swap,
+                node1Id: node.id,
+                node2Id: target.id,
+            } as LayoutTreeSwapNodeAction);
+        } else if (data.action === "resize") {
+            if (presentation !== "widgets") {
+                throw new Error("Proportional resize is available only in widgets presentation");
+            }
+            if (data.size == null || !Number.isFinite(data.size)) {
+                throw new Error("Widgets resize requires size between 10 and 90");
+            }
+            const size = Math.min(90, Math.max(10, data.size));
+            const parent = this.findWorkspaceSurfaceParent(layoutModel.treeState.rootNode, node.id);
+            if (!parent || parent.children.length < 2) {
+                throw new Error("The widget is not in a resizable split");
+            }
+            const total = parent.children.reduce((sum, child) => sum + child.size, 0);
+            const targetSize = (total * size) / 100;
+            const otherTotal = total - node.size;
+            layoutModel.treeReducer({
+                type: LayoutTreeActionType.ResizeNode,
+                resizeOperations: parent.children.map((child) => ({
+                    nodeId: child.id,
+                    size:
+                        child.id === node.id
+                            ? targetSize
+                            : otherTotal > 0
+                              ? (child.size / otherTotal) * (total - targetSize)
+                              : (total - targetSize) / (parent.children.length - 1),
+                })),
+            } as LayoutTreeResizeNodeAction);
+        } else if (data.action === "magnify") {
+            if (presentation !== "widgets") {
+                throw new Error("Magnification is available only in widgets presentation");
+            }
+            layoutModel.magnifyNodeToggle(node.id);
+        } else if (data.action === "navigate") {
+            const direction = data.direction as "up" | "right" | "down" | "left";
+            if (!direction) {
+                throw new Error("Navigate requires a direction");
+            }
+            if (presentation === "tabs") {
+                const order = globalStore.get(layoutModel.leafOrder);
+                const index = order.findIndex((entry) => entry.nodeid === node.id);
+                const delta = direction === "left" || direction === "up" ? -1 : 1;
+                const next = order[(index + delta + order.length) % order.length];
+                layoutModel.focusNode(next.nodeid);
+            } else {
+                const directionMap = {
+                    up: NavigateDirection.Up,
+                    right: NavigateDirection.Right,
+                    down: NavigateDirection.Down,
+                    left: NavigateDirection.Left,
+                };
+                const result = layoutModel.switchNodeFocusInDirection(directionMap[direction], false);
+                if (!result.success) {
+                    throw new Error(`No widget exists ${direction} of ${data.blockid}`);
+                }
+            }
+        } else if (data.action === "fit" || data.action === "arrange") {
+            throw new Error(`${data.action} is available only in canvas presentation`);
+        } else {
+            throw new Error(`Unknown workspace surface action: ${data.action}`);
+        }
+        return JSON.stringify({ success: true, snapshot: this.makeWorkspaceSurfaceSnapshot() }, null, 2);
+    }
+
+    private getWorkspacePresentation(): WorkspacePresentation {
+        const current = (window as any).__krontermLayoutMode;
+        return isWorkspacePresentation(current) ? current : "widgets";
+    }
+
+    private findWorkspaceSurfaceParent(root: LayoutNode, nodeId: string): LayoutNode | undefined {
+        if (!root?.children?.length) {
+            return undefined;
+        }
+        if (root.children.some((child) => child.id === nodeId)) {
+            return root;
+        }
+        for (const child of root.children) {
+            const parent = this.findWorkspaceSurfaceParent(child, nodeId);
+            if (parent) {
+                return parent;
+            }
+        }
+        return undefined;
+    }
+
+    private makeWorkspaceSurfaceSnapshot(): Record<string, unknown> {
+        const presentation = this.getWorkspacePresentation();
+        const tabId = globalStore.get(atoms.staticTabId);
+        const tabAtom = WOS.getWaveObjectAtom<Tab>(WOS.makeORef("tab", tabId));
+        const tab = globalStore.get(tabAtom);
+        const layoutModel = getLayoutModelForStaticTab();
+        const modeState = getWorkspaceSurfaceModeProvider(tabId)?.snapshot();
+        const leafOrder = layoutModel ? globalStore.get(layoutModel.leafOrder) : [];
+        const orderedBlockIds =
+            presentation === "canvas" ? (tab?.blockids ?? []) : leafOrder.map((entry) => entry.blockid);
+        const focusedNode = layoutModel ? globalStore.get(layoutModel.focusedNode) : undefined;
+        const focusedBlockId = presentation === "canvas" ? modeState?.selectedblockid : focusedNode?.data?.blockId;
+        const containerRect = layoutModel?.displayContainerRef.current?.getBoundingClientRect();
+        const canvasRect = document.querySelector<HTMLElement>(".workspace-canvas")?.getBoundingClientRect();
+        const blocks = orderedBlockIds.map((blockId, index) => {
+            const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", blockId));
+            const block = globalStore.get(blockAtom);
+            const node = layoutModel?.getNodeByBlockId(blockId);
+            const localRect = node ? layoutModel.getNodeRect(node) : undefined;
+            const worldBounds = modeState?.rects?.[blockId];
+            const camera = modeState?.camera;
+            const bounds =
+                presentation === "canvas" && worldBounds && camera && canvasRect
+                    ? {
+                          x: canvasRect.x + camera.x + worldBounds.x * camera.zoom,
+                          y: canvasRect.y + camera.y + worldBounds.y * camera.zoom,
+                          width: worldBounds.width * camera.zoom,
+                          height: worldBounds.height * camera.zoom,
+                      }
+                    : localRect && containerRect
+                      ? {
+                            x: containerRect.x + localRect.left,
+                            y: containerRect.y + localRect.top,
+                            width: localRect.width,
+                            height: localRect.height,
+                        }
+                      : undefined;
+            const view = String(block?.meta?.view ?? "unknown");
+            const title = String(block?.meta?.["frame:title"] ?? "").trim() || view;
+            return {
+                order: index + 1,
+                blockid: blockId,
+                nodeid: node?.id,
+                view,
+                title,
+                focused: focusedBlockId === blockId,
+                visible: presentation !== "tabs" || focusedBlockId === blockId,
+                bounds,
+                worldbounds: worldBounds,
+                meta: block?.meta ?? {},
+            };
+        });
+        return {
+            version: 1,
+            timestamp: Date.now(),
+            tabid: tabId,
+            presentation,
+            focusedblockid: focusedBlockId,
+            magnifiedblockid: layoutModel?.magnifiedNodeId
+                ? globalStore.get(layoutModel.leafs).find((leaf) => leaf.id === layoutModel.magnifiedNodeId)?.data
+                      ?.blockId
+                : undefined,
+            viewport:
+                presentation === "canvas" && canvasRect
+                    ? { x: canvasRect.x, y: canvasRect.y, width: canvasRect.width, height: canvasRect.height }
+                    : containerRect
+                      ? {
+                            x: containerRect.x,
+                            y: containerRect.y,
+                            width: containerRect.width,
+                            height: containerRect.height,
+                        }
+                      : undefined,
+            camera: modeState?.camera,
+            canvasobjects: modeState?.objects ?? [],
+            selectedcanvasobjectid: modeState?.selectedobjectid,
+            canvascontextids: modeState?.contextids ?? [],
+            canvascontextmode: modeState?.contextmode,
+            layouttree: presentation === "widgets" ? layoutModel?.treeState.rootNode : undefined,
+            blocks,
+            capabilities: {
+                presentation: ["set_presentation"],
+                widgets: ["focus", "move", "swap", "resize", "magnify", "navigate", "screenshot"],
+                tabs: ["focus", "move", "swap", "navigate", "screenshot"],
+                canvas: [
+                    "focus",
+                    "move",
+                    "resize",
+                    "navigate",
+                    "fit",
+                    "arrange",
+                    "add_note",
+                    "update_object",
+                    "delete_object",
+                    "connect_objects",
+                    "screenshot",
+                ],
+            },
+            guidance:
+                presentation === "canvas"
+                    ? "Use worldbounds for widget geometry, canvasobjects for whiteboard object IDs and geometry, selectedcanvasobjectid and canvascontextids for the user's active spatial context, and bounds for on-screen interactions. Requested placements are moved to open space to prevent overlap."
+                    : presentation === "tabs"
+                      ? "Only the focused widget is visible; use focus or navigate before widget interaction."
+                      : "Use layouttree and bounds for split-aware move, resize, magnify, and directional navigation.",
+        };
+    }
+
+    async handle_waveaiaddcontext(rh: RpcResponseHelper, data: CommandWaveAIAddContextData): Promise<void> {
+        hermesSurfaceController.requestOpenPanel();
 
         const model = WaveAIModel.getInstance();
 
@@ -493,6 +1086,55 @@ export class TabClient extends WshClient {
                     visible: true,
                 });
             }
+        } else if (viewType === "sandbox") {
+            const sandboxMode = blockData?.meta?.["sandbox:mode"] ?? "desktop";
+            const sandboxUrl = blockData?.meta?.["sandbox:browserurl"] ?? "";
+            const sandboxBlockId = blockData?.meta?.["sandbox:browserblockid"] ?? "";
+
+            elements.push({
+                ref: "sandbox-desktop",
+                role: "desktop",
+                name: "Sandbox Desktop",
+                value: `mode: ${sandboxMode}, browser: ${sandboxUrl || "none"}, browserBlock: ${sandboxBlockId || "none"}`,
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+                focusable: false,
+                visible: true,
+            });
+
+            // For kronterm-desktop runtime, try to fetch a screenshot
+            try {
+                const controller = new AbortController();
+                const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+                const response = await fetch(await this.sandboxComputerUseUrl(data.blockid), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "screenshot" }),
+                    signal: controller.signal,
+                });
+                window.clearTimeout(timeoutId);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data?.image) {
+                        elements.push({
+                            ref: "screenshot",
+                            role: "image",
+                            name: "Desktop Screenshot",
+                            value: `data:image/png;base64,${data.image}`,
+                            x: 0,
+                            y: 0,
+                            width: 800,
+                            height: 600,
+                            focusable: false,
+                            visible: true,
+                        });
+                    }
+                }
+            } catch {
+                // Sandbox API not available — return basic info only
+            }
         }
 
         return {
@@ -558,6 +1200,15 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        // Route sandbox clicks to the kronterm-desktop API
+        if (viewType === "sandbox") {
+            return this.sandboxClick(data.blockid, data.x ?? 0, data.y ?? 0, data.button ?? "left");
+        }
+
         return this.executeBrowserInteraction(data.blockid, "click", {
             x: data.x,
             y: data.y,
@@ -580,6 +1231,15 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            const direction = (data.amount ?? 0) >= 0 ? "down" : "up";
+            return this.sandboxScroll(data.blockid, direction, data.amount ?? 0, data.originx, data.originy);
+        }
+
         return this.executeBrowserInteraction(data.blockid, "scroll", {
             amount: data.amount,
             originX: data.originx,
@@ -599,6 +1259,14 @@ export class TabClient extends WshClient {
         const node = layoutModel.getNodeByBlockId(data.blockid);
         if (!node) {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
+        }
+
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxDrag(data.blockid, data.startx ?? 0, data.starty ?? 0, data.endx ?? 0, data.endy ?? 0);
         }
 
         return this.executeBrowserInteraction(data.blockid, "drag", {
@@ -624,6 +1292,14 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
         }
 
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxKeyboardType(data.blockid, data.text);
+        }
+
         return this.executeBrowserInteraction(data.blockid, "type", { text: data.text, delayMs: data.delayms });
     }
 
@@ -639,6 +1315,14 @@ export class TabClient extends WshClient {
         const node = layoutModel.getNodeByBlockId(data.blockid);
         if (!node) {
             return { blockid: data.blockid, success: false, message: `Block not found: ${data.blockid}` };
+        }
+
+        const blockAtom = WOS.getWaveObjectAtom<Block>(WOS.makeORef("block", data.blockid));
+        const blockData = globalStore.get(blockAtom);
+        const viewType = blockData?.meta?.view ?? "";
+
+        if (viewType === "sandbox") {
+            return this.sandboxKeyboardPress(data.blockid, data.keys);
         }
 
         return this.executeBrowserInteraction(data.blockid, "press", { keys: data.keys });
@@ -784,7 +1468,12 @@ export class TabClient extends WshClient {
                     return result;
                 })()
             `);
-            return { blockid: data.blockid, elements: elements || [], count: (elements || []).length, timestamp: Date.now() };
+            return {
+                blockid: data.blockid,
+                elements: elements || [],
+                count: (elements || []).length,
+                timestamp: Date.now(),
+            };
         } catch (e) {
             return { blockid: data.blockid, elements: [], count: 0, timestamp: Date.now() };
         }
@@ -805,10 +1494,10 @@ export class TabClient extends WshClient {
         }
         try {
             const maxCount = data.maxcount || 10;
-            const roleFilter = data.role || '';
-            const nameFilter = data.name || '';
-            const valueFilter = data.value || '';
-            const textFilter = data.text || '';
+            const roleFilter = data.role || "";
+            const nameFilter = data.name || "";
+            const valueFilter = data.value || "";
+            const textFilter = data.text || "";
             const elements = await webview.executeJavaScript(`
                 (function() {
                     var maxCount = ${maxCount};
@@ -895,7 +1584,7 @@ export class TabClient extends WshClient {
             };
         }
         try {
-            const ref = data.elementref || '';
+            const ref = data.elementref || "";
             const result = await webview.executeJavaScript(`
                 (function() {
                     var ref = ${JSON.stringify(ref)};
@@ -1007,7 +1696,15 @@ export class TabClient extends WshClient {
             if (!result) {
                 return { blockid: data.blockid, x: data.x, y: data.y, found: false };
             }
-            return { blockid: data.blockid, x: data.x, y: data.y, found: true, elementref: result.ref, role: result.role, name: result.name };
+            return {
+                blockid: data.blockid,
+                x: data.x,
+                y: data.y,
+                found: true,
+                elementref: result.ref,
+                role: result.role,
+                name: result.name,
+            };
         } catch (e) {
             return { blockid: data.blockid, x: data.x, y: data.y, found: false };
         }
@@ -1143,7 +1840,7 @@ export class TabClient extends WshClient {
             return { blockid: data.blockid, elementref: data.elementref, value: "" };
         }
         try {
-            const ref = data.elementref || '';
+            const ref = data.elementref || "";
             const value = await webview.executeJavaScript(`
                 (function() {
                     var ref = ${JSON.stringify(ref)};
@@ -1157,7 +1854,7 @@ export class TabClient extends WshClient {
                     return el.textContent || '';
                 })()
             `);
-            return { blockid: data.blockid, elementref: data.elementref, value: value || '' };
+            return { blockid: data.blockid, elementref: data.elementref, value: value || "" };
         } catch (e) {
             return { blockid: data.blockid, elementref: data.elementref, value: "" };
         }
@@ -1197,7 +1894,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Value set' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to set value" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to set value",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to set value: ${e}` };
         }
@@ -1256,7 +1957,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Select executed' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to select" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to select",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to select: ${e}` };
         }
@@ -1291,7 +1996,11 @@ export class TabClient extends WshClient {
                     return { success: true, message: 'Toggle executed' };
                 })()
             `);
-            return { blockid: data.blockid, success: !!result?.success, message: result?.message ?? "Failed to toggle" };
+            return {
+                blockid: data.blockid,
+                success: !!result?.success,
+                message: result?.message ?? "Failed to toggle",
+            };
         } catch (e) {
             return { blockid: data.blockid, success: false, message: `Failed to toggle: ${e}` };
         }

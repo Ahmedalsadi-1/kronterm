@@ -20,7 +20,7 @@ const previewAcpAgents = [
     {
         backend: "kronoscode",
         name: "KronosCode",
-        cliPath: "/Users/albsheralsadi/kronosfinal/kronoscoder/packages/kronoscode/bin/kronoscode",
+        cliPath: "/Users/albsheralsadi/kronterm/kronoscoder/packages/kronoscode/bin/kronoscode",
         available: true,
         avatar: "K",
         description: "Local KronosCode ACP agent",
@@ -68,6 +68,54 @@ const previewRuntimes = new Map<
     string,
     { conversationId: string; backend: string; workspace?: string; status: string; sessionId: string }
 >();
+
+function getPreviewChatHubV2Data(url: string, ready: boolean) {
+    return {
+        url,
+        port: 3107,
+        serverPath: "",
+        distPath: "",
+        ready,
+    };
+}
+
+async function isPreviewChatHubV2Reachable(url: string) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 700);
+    try {
+        const response = await fetch(`${url}/health`, { mode: "no-cors", signal: controller.signal });
+        return response.ok || response.type === "opaque";
+    } catch (_err) {
+        return false;
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
+}
+
+async function getPreviewChatHubV2Status() {
+    const url = "http://127.0.0.1:3107";
+    if (await isPreviewChatHubV2Reachable(url)) {
+        return {
+            success: true,
+            data: getPreviewChatHubV2Data(url, true),
+        };
+    }
+    return { success: true, data: null };
+}
+
+async function startPreviewChatHubV2() {
+    const url = "http://127.0.0.1:3107";
+    if (await isPreviewChatHubV2Reachable(url)) {
+        return {
+            success: true,
+            data: getPreviewChatHubV2Data(url, true),
+        };
+    }
+    return {
+        success: false,
+        error: "ChatHub V2 can only be started by the Electron app. Open the ChatHub V2 widget in KronTerm to launch KronosChamber.",
+    };
+}
 
 const previewElectronApi: ElectronApi = {
     getAuthKey: () => "",
@@ -132,11 +180,14 @@ const previewElectronApi: ElectronApi = {
             "/Users/albsheralsadi/kronterm/frontend/app/aipanel/acp-chat-panel.tsx",
             "/Users/albsheralsadi/kronterm/frontend/app/aipanel/use-acp-session.ts",
         ]),
+    searchSystemItems: (_query: string) => Promise.resolve([]),
     acpApplyGitIdentity: (_opts: { workspace: string; userName: string; userEmail: string }) =>
         Promise.resolve({ success: true }),
     setIsActive: async () => {},
     setDesktopPetActivity: (_notification) => {},
     onDesktopPetChat: (_callback) => () => {},
+    onDesktopPetResume: (_callback) => () => {},
+    onDesktopPetSurfaceActivity: (_callback) => () => {},
     acpDetectAgents: () => Promise.resolve(previewAcpAgents),
     acpInitialize: (opts: {
         conversationId: string;
@@ -146,12 +197,22 @@ const previewElectronApi: ElectronApi = {
         customArgs?: string[];
         customEnv?: Record<string, string>;
         resumeSessionId?: string;
-        mcpServers?: Array<{
-            name: string;
-            command: string;
-            args: string[];
-            env: Array<{ name: string; value: string }>;
-        }>;
+        resumeSessionConversationId?: string;
+        mcpServers?: Array<
+            | {
+                  type?: "stdio";
+                  name: string;
+                  command: string;
+                  args: string[];
+                  env: Array<{ name: string; value: string }>;
+              }
+            | {
+                  type: "http" | "sse";
+                  name: string;
+                  url: string;
+                  headers?: Array<{ name: string; value: string }>;
+              }
+        >;
     }) => {
         previewRuntimes.set(opts.conversationId, {
             conversationId: opts.conversationId,
@@ -274,6 +335,51 @@ const previewElectronApi: ElectronApi = {
                 },
             },
         }),
+    lspStart: (_language: string) => Promise.reject(new Error("LSP is not available in preview")),
+    lspSend: (_sessionId: string, _content: string) => {},
+    lspStop: (_sessionId: string) => {},
+    onLspMessage: (_callback: (msg: { sessionId: string; content: string }) => void) => () => {},
+    krondesignStatus: () => Promise.resolve({ running: false, url: "", pid: null }),
+    krondesignStart: () => Promise.resolve({ success: false, error: "Krondesign is not available in preview" }),
+    // ── ChatHub V2 / KronosChamber ──────────────────────────
+    chathubv2Start: startPreviewChatHubV2,
+    chathubv2Status: getPreviewChatHubV2Status,
+    chathubv2Stop: () => Promise.resolve({ success: true }),
+    hermesGetConnection: (_context?: { tabId?: string; blockId?: string }) =>
+        Promise.reject(new Error("Hermes is only available in the Electron app")),
+    hermesApi: () => Promise.reject(new Error("Hermes is only available in the Electron app")),
+    onHermesConnection: () => () => {},
+    kronoscodeGetConnection: () =>
+        Promise.resolve({
+            mode: "managed" as const,
+            baseUrl: "http://127.0.0.1:4096",
+            backendVersion: "preview",
+            protocolVersion: "1.0",
+            serverInstanceId: "preview",
+            capabilities: { gateway: true, replay: true, asyncPrompt: true },
+            managed: true,
+        }),
+    kronoscodeRevalidateConnection: () => previewElectronApi.kronoscodeGetConnection(),
+    kronoscodeTouchBackend: () => Promise.resolve(true),
+    kronoscodeGetGatewayWsUrl: () => Promise.resolve("ws://127.0.0.1:4096/global/gateway?ticket=preview"),
+    kronoscodeApi: () => Promise.resolve({ status: 200, headers: {}, body: {} }),
+    kronoscodeApplyConnection: () => previewElectronApi.kronoscodeGetConnection(),
+    kronoscodeGetBootProgress: () =>
+        Promise.resolve({ phase: "ready" as const, message: "Preview KronosCode is ready.", progress: 100 }),
+    onKronosCodeBootProgress: () => () => {},
+    onKronosCodeExit: () => () => {},
+    onKronosCodePowerResume: () => () => {},
+    onKronosCodeConnectionApplied: () => () => {},
+    audioStart: () => Promise.resolve(false),
+    audioShutdown: () => {},
+    audioStartListening: () => {},
+    audioStopListening: () => {},
+    audioSpeak: (_text: string) => {},
+    audioSetWakeWord: (_enabled: boolean) => {},
+    onAudioStatusChange: (_callback: (status: string) => void) => () => {},
+    onAudioTranscript: (_callback: (text: string) => void) => () => {},
+    onAudioError: (_callback: (message: string) => void) => () => {},
+
     onAcpEvent: (
         callback: (event: {
             conversationId: string;

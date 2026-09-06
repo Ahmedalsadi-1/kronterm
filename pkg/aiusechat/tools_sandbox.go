@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -204,8 +205,8 @@ func GetDesktopScreenshotToolDefinition() uctypes.ToolDefinition {
 			if err != nil {
 				return nil, err
 			}
-			if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
-				return bytebotAction(session, map[string]any{"action": "screenshot"})
+			if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
+				return krontermDesktopAction(session, map[string]any{"action": "screenshot"})
 			}
 			if session.Config == nil {
 				return nil, fmt.Errorf("sandbox not running, start it first with sandbox_start")
@@ -250,8 +251,8 @@ func GetDesktopMouseMoveToolDefinition() uctypes.ToolDefinition {
 			if err != nil {
 				return nil, err
 			}
-			if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
-				return bytebotAction(session, map[string]any{
+			if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
+				return krontermDesktopAction(session, map[string]any{
 					"action": "move_mouse",
 					"coordinates": map[string]any{
 						"x": x,
@@ -303,8 +304,8 @@ func GetDesktopMouseClickToolDefinition() uctypes.ToolDefinition {
 			if err != nil {
 				return nil, err
 			}
-			if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
-				return bytebotClickMouse(session, inputMap)
+			if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
+				return krontermDesktopClickMouse(session, inputMap)
 			}
 			if session.Config == nil {
 				return nil, fmt.Errorf("sandbox not running")
@@ -344,8 +345,8 @@ func GetDesktopKeyboardTypeToolDefinition() uctypes.ToolDefinition {
 			if err != nil {
 				return nil, err
 			}
-			if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
-				return bytebotAction(session, map[string]any{
+			if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
+				return krontermDesktopAction(session, map[string]any{
 					"action": "type_text",
 					"text":   text,
 				})
@@ -388,8 +389,8 @@ func GetDesktopKeyboardPressToolDefinition() uctypes.ToolDefinition {
 			if err != nil {
 				return nil, err
 			}
-			if session.Runtime == sandboxmanager.SandboxRuntimeBytebot {
-				return bytebotAction(session, map[string]any{
+			if session.Runtime == sandboxmanager.SandboxRuntimeKrontermDesktop {
+				return krontermDesktopAction(session, map[string]any{
 					"action": "type_keys",
 					"keys":   strings.Split(key, "+"),
 				})
@@ -402,19 +403,19 @@ func GetDesktopKeyboardPressToolDefinition() uctypes.ToolDefinition {
 	}
 }
 
-func bytebotAction(session *sandboxmanager.Session, payload map[string]any) (any, error) {
-	baseURL := strings.TrimRight(session.DesktopURL, "/")
-	if baseURL == "" {
-		return nil, fmt.Errorf("bytebot runtime URL is not configured")
+func krontermDesktopAction(session *sandboxmanager.Session, payload map[string]any) (any, error) {
+	computerUseURL := krontermDesktopComputerUseURL(session)
+	if computerUseURL == "" {
+		return nil, fmt.Errorf("kronterm-desktop runtime URL is not configured")
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 	client := http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(baseURL+"/computer-use", "application/json", bytes.NewReader(body))
+	resp, err := client.Post(computerUseURL, "application/json", bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("bytebot action failed: %w", err)
+		return nil, fmt.Errorf("kronterm-desktop action failed: %w", err)
 	}
 	defer resp.Body.Close()
 	var result map[string]any
@@ -422,18 +423,39 @@ func bytebotAction(session *sandboxmanager.Session, payload map[string]any) (any
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("bytebot action returned HTTP %d: %v", resp.StatusCode, result)
+		return nil, fmt.Errorf("kronterm-desktop action returned HTTP %d: %v", resp.StatusCode, result)
 	}
 	if success, ok := result["success"].(bool); ok && !success {
-		return nil, fmt.Errorf("bytebot action failed: %v", result["error"])
+		return nil, fmt.Errorf("kronterm-desktop action failed: %v", result["error"])
 	}
 	return result, nil
 }
 
-func bytebotClickMouse(session *sandboxmanager.Session, args map[string]any) (any, error) {
+func krontermDesktopComputerUseURL(session *sandboxmanager.Session) string {
+	if session == nil {
+		return ""
+	}
+	if session.MCPURL != "" {
+		return strings.TrimRight(session.MCPURL, "/")
+	}
+	baseURL := strings.TrimRight(session.DesktopURL, "/")
+	if baseURL == "" {
+		return ""
+	}
+	if strings.HasSuffix(baseURL, "/computer-use") {
+		return baseURL
+	}
+	parsed, err := url.Parse(baseURL)
+	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/computer-use"}).String()
+	}
+	return baseURL + "/computer-use"
+}
+
+func krontermDesktopClickMouse(session *sandboxmanager.Session, args map[string]any) (any, error) {
 	payload := map[string]any{
 		"action":     "click_mouse",
-		"button":     bytebotButton(args),
+		"button":     krontermDesktopButton(args),
 		"clickCount": 1,
 	}
 	if x, ok := args["x"].(float64); ok {
@@ -444,10 +466,10 @@ func bytebotClickMouse(session *sandboxmanager.Session, args map[string]any) (an
 			}
 		}
 	}
-	return bytebotAction(session, payload)
+	return krontermDesktopAction(session, payload)
 }
 
-func bytebotButton(args map[string]any) string {
+func krontermDesktopButton(args map[string]any) string {
 	button, _ := args["button"].(string)
 	switch strings.ToLower(button) {
 	case "2", "middle":

@@ -14,7 +14,7 @@ import { getTabModelByTabId, TabModelContext } from "@/app/store/tab-model";
 import { WaveEnvContext } from "@/app/waveenv/waveenv";
 import { makeWaveEnvImpl } from "@/app/waveenv/waveenvimpl";
 import { Workspace } from "@/app/workspace/workspace";
-import { getLayoutModelForStaticTab } from "@/layout/index";
+import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { ContextMenuModel } from "@/store/contextmenu";
 import { atoms, createBlock, getSettingsPrefixAtom } from "@/store/global";
 import { appHandleKeyDown, keyboardMouseDownHandler } from "@/store/keymodel";
@@ -31,11 +31,14 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { AppBackground } from "./app-bg";
 import { CenteredDiv } from "./element/quickelems";
+import { MinimalUiController } from "./minimal-ui";
 
 import "./app.scss";
 
 // tailwindsetup.css should come *after* app.scss (don't remove the newline above otherwise prettier will reorder these imports)
 import "../tailwindsetup.css";
+// minimal-ui.css must come after theme/tailwind setup so its overrides win
+import "./minimal-ui.css";
 
 const dlog = debug("wave:app");
 const focusLog = debug("wave:focus");
@@ -50,6 +53,7 @@ const App = ({ onFirstRender }: { onFirstRender: () => void }) => {
         <Provider store={globalStore}>
             <WaveEnvContext.Provider value={waveEnvRef.current}>
                 <TabModelContext.Provider value={getTabModelByTabId(tabId)}>
+                    <MinimalUiController />
                     <AppInner />
                 </TabModelContext.Provider>
             </WaveEnvContext.Provider>

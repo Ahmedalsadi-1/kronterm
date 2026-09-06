@@ -2,20 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:; img-src 'self' data: blob: file: http: https:; media-src 'self' data: blob: file: http: https:; font-src 'self' data:; worker-src 'self' blob:"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KronosCode Pet</title>
     <script type="module" src="/frontend/pet/pet.ts"></script>
   </head>
   <body>
-    <main id="pet-root" class="context-idle">
+    <main id="pet-root" class="context-idle lifecycle-idle mode-docked">
       <div id="drag-handle" class="drag-handle pet-drag" title="Drag to move">
         <span class="drag-handle-dots"></span>
       </div>
 
       <div id="pet-cursor" class="pet-cursor" hidden>
-        <div id="pet-cursor-pointer" class="pet-cursor-pointer">
-          <span id="pet-cursor-icon" class="pet-cursor-icon">👆</span>
+        <div id="pet-cursor-ring" class="pet-cursor-ring">
+          <div class="pet-cursor-dot"></div>
+          <div class="pet-cursor-flash"></div>
         </div>
+        <span id="pet-cursor-label" class="pet-cursor-label"></span>
       </div>
 
       <div id="thought" class="thought" hidden></div>
@@ -42,23 +48,110 @@
         <span id="detail" class="detail">KronosCode ready</span>
       </div>
 
+      <!-- Modern Settings Panel -->
       <section id="pet-menu" class="pet-menu no-drag" hidden>
-        <label><input id="toggle-glow" type="checkbox" checked /> Activity glow</label>
-        <label><input id="toggle-thoughts" type="checkbox" checked /> Thought bubbles</label>
-        <label><input id="toggle-actions" type="checkbox" checked /> Action bubbles</label>
-        <label><input id="toggle-roam" type="checkbox" checked /> Roam while idle</label>
-        <label><input id="toggle-follow-cursor" type="checkbox" checked /> Follow user cursor while idle</label>
-        <button id="reasoning-toggle" class="reasoning-toggle" type="button">Reasoning log</button>
-        <button id="chat-toggle" class="chat-toggle" type="button">Mini chat</button>
+        <div class="pet-menu-title">
+          <span class="pet-menu-app-icon">K</span>
+          <div class="pet-menu-title-text">
+            <strong>KronosCode Pet</strong>
+            <small>Desktop assistant controls</small>
+          </div>
+        </div>
+
+        <div class="pet-menu-section">
+          <div class="pet-menu-section-title">PET MODE</div>
+          <div class="pet-menu-segmented-control" id="pet-mode-group">
+            <button type="button" class="pet-menu-segment" data-mode="off">Off</button>
+            <button type="button" class="pet-menu-segment" data-mode="status-only">Status</button>
+            <button type="button" class="pet-menu-segment" data-mode="docked">Docked</button>
+            <button type="button" class="pet-menu-segment" data-mode="expressive">Expressive</button>
+          </div>
+        </div>
+
+        <div class="pet-menu-separator"></div>
+
+        <div class="pet-menu-section">
+          <div class="pet-menu-section-title">BEHAVIOR OPTIONS</div>
+
+          <div class="pet-toggle-row" id="menu-toggle-glow" data-option="glow">
+            <span class="pet-toggle-label">Activity glow</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-thoughts" data-option="thoughts">
+            <span class="pet-toggle-label">Thought bubbles</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-actions" data-option="actions">
+            <span class="pet-toggle-label">Action bubbles</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-roam" data-option="roam">
+            <span class="pet-toggle-label">Dock near KronTerm</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-follow-cursor" data-option="followUserCursor">
+            <span class="pet-toggle-label">Follow cursor</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="pet-toggle-row" id="menu-toggle-clickthrough" data-option="clickthrough">
+            <span class="pet-toggle-label">Click-through mode</span>
+            <label class="pet-switch">
+              <input type="checkbox" disabled />
+              <span class="pet-switch-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pet-menu-separator"></div>
+
+        <!-- Action Panel -->
+        <div class="pet-menu-actions-row">
+          <button class="pet-menu-btn" id="reasoning-toggle" type="button">Reasoning Log</button>
+          <button class="pet-menu-btn" id="chat-toggle" type="button">Mini Chat</button>
+        </div>
       </section>
 
-      <figure id="capture-preview" class="capture-preview no-drag" hidden>
-        <figcaption>Computer use view</figcaption>
-        <img id="capture-preview-image" alt="Latest agent screenshot" />
-      </figure>
+      <button
+        id="capture-preview"
+        class="capture-preview no-drag"
+        type="button"
+        aria-expanded="false"
+        aria-label="Preview the KronTerm widget"
+        hidden
+      >
+        <span class="capture-preview-grip" aria-hidden="true"></span>
+        <span class="capture-preview-icon" aria-hidden="true">&#9635;</span>
+        <span id="capture-preview-caption" class="capture-preview-caption">Preview</span>
+        <img id="capture-preview-image" alt="Latest agent preview" />
+      </button>
 
       <form id="pet-chat" class="pet-chat no-drag" hidden>
-        <input id="pet-chat-input" aria-label="Message KronosCode" placeholder="Ask KronosCode..." autocomplete="off" />
+        <input
+          id="pet-chat-input"
+          aria-label="Message KronosCode"
+          placeholder="> message kronoscode"
+          autocomplete="off"
+        />
         <button type="submit">Send</button>
       </form>
 
